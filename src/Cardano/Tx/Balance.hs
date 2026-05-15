@@ -37,6 +37,7 @@ module Cardano.Tx.Balance (
 
     -- * Script helpers
     computeScriptIntegrity,
+    languagesUsedInTx,
     spendingIndex,
     placeholderExUnits,
     evalBudgetExUnits,
@@ -104,6 +105,7 @@ import Cardano.Tx.Ledger (ConwayTx)
 import Cardano.Tx.Scripts (
     computeScriptIntegrity,
     evalBudgetExUnits,
+    languagesUsedInTx,
     placeholderExUnits,
     refScriptsSize,
  )
