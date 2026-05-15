@@ -33,26 +33,26 @@ PR.
 **Purpose**: Add the cabal stanzas before any source is moved so each
 following slice can build incrementally.
 
-- [ ] T001 Add `library tx-generator-lib` stanza to
+- [X] T001 Add `library tx-generator-lib` stanza to
   `cardano-tx-tools.cabal` matching `specs/.../contracts/cabal.md`:
   `visibility: public`, `hs-source-dirs: lib-tx-generator`,
   empty `exposed-modules` for now, full `build-depends` list. The
   empty module list keeps the stanza buildable until Phase 2 lands
   the sources.
-- [ ] T002 [P] Add `executable cardano-tx-generator` stanza to
+- [X] T002 [P] Add `executable cardano-tx-generator` stanza to
   `cardano-tx-tools.cabal` with `main-is: Main.hs`,
   `hs-source-dirs: app/cardano-tx-generator`,
   `build-depends: { base, cardano-tx-tools:tx-generator-lib }`. Do
   NOT create `Main.hs` yet (Phase 3 brings it in).
-- [ ] T003 [P] Add `test-suite tx-generator-tests` stanza to
+- [X] T003 [P] Add `test-suite tx-generator-tests` stanza to
   `cardano-tx-tools.cabal` with `main-is: tx-generator-main.hs`,
   empty `other-modules`, the test build-depends from
   `contracts/cabal.md`.
-- [ ] T004 [P] Add `test-suite e2e-tests` stanza to
+- [X] T004 [P] Add `test-suite e2e-tests` stanza to
   `cardano-tx-tools.cabal` with `main-is: e2e-main.hs`,
   empty `other-modules`, the e2e build-depends including
   `cardano-node-clients:devnet`.
-- [ ] T005 Run `cabal-fmt -i cardano-tx-tools.cabal` and stage the
+- [X] T005 Run `cabal-fmt -i cardano-tx-tools.cabal` and stage the
   result. Commit (slice 1): `feat: cabal scaffolding for
   tx-generator-lib, exe, and two test-suites`.
 
@@ -69,19 +69,19 @@ the `tx-generator-lib` sublib compile in isolation.
 **⚠️ CRITICAL**: No user story work can begin until this phase is
 complete.
 
-- [ ] T006 Create directory tree
+- [X] T006 Create directory tree
   `lib-tx-generator/Cardano/Tx/Generator/`.
-- [ ] T007 Copy the nine source files from cardano-node-clients
+- [X] T007 Copy the nine source files from cardano-node-clients
   (`lib/Cardano/Node/Client/TxGenerator/*.hs`) into the new
   `lib-tx-generator/Cardano/Tx/Generator/` directory verbatim. Files:
   `Build.hs`, `Daemon.hs`, `Fanout.hs`, `Persist.hs`,
   `Population.hs`, `Selection.hs`, `Server.hs`, `Snapshot.hs`,
   `Types.hs`.
-- [ ] T008 In each copied file, rename the module declaration:
+- [X] T008 In each copied file, rename the module declaration:
   `module Cardano.Node.Client.TxGenerator.<X>` →
   `module Cardano.Tx.Generator.<X>`. Update the Haddock `Module      :
   Cardano.Node.Client.TxGenerator.<X>` line to match.
-- [ ] T009 In each copied file, rewrite intra-namespace imports:
+- [X] T009 In each copied file, rewrite intra-namespace imports:
   `Cardano.Node.Client.TxGenerator.<X>` →
   `Cardano.Tx.Generator.<X>`. Rewrite tx-tools imports:
   `Cardano.Node.Client.{TxBuild,Balance,Ledger}` →
@@ -89,16 +89,16 @@ complete.
   `Cardano.Node.Client.{Provider, Submitter, N2C.*, UTxOIndexer.*,
   E2E.Setup}` alone — those stay imported from the
   cardano-node-clients pin.
-- [ ] T010 Update `cardano-tx-tools.cabal`'s
+- [X] T010 Update `cardano-tx-tools.cabal`'s
   `library tx-generator-lib` `exposed-modules` to list the nine
   migrated modules.
-- [ ] T011 Run `cabal-fmt -i cardano-tx-tools.cabal` and
+- [X] T011 Run `cabal-fmt -i cardano-tx-tools.cabal` and
   `nix develop --quiet -c just format` to format the new sources.
-- [ ] T012 Verify the sublib builds:
+- [X] T012 Verify the sublib builds:
   `nix build .#checks.x86_64-linux.build --no-link`. If the build
   fails, the most likely cause is a missing build-depends in T001;
   add and rebuild.
-- [ ] T013 Commit (slice 2):
+- [X] T013 Commit (slice 2):
   `feat: migrate TxGenerator under Cardano.Tx.Generator.*`.
 
 **Checkpoint**: `cardano-tx-tools:tx-generator-lib` builds standalone.
@@ -118,23 +118,23 @@ the binary is buildable here.
 binary. `nix run .#cardano-tx-generator -- --help` prints usage text
 matching the pre-migration cardano-node-clients build byte-for-byte.
 
-- [ ] T014 [US1] Copy
+- [X] T014 [US1] Copy
   `app/cardano-tx-generator/Main.hs` verbatim from
   cardano-node-clients into `app/cardano-tx-generator/Main.hs`.
-- [ ] T015 [US1] Update Main.hs imports: legacy
+- [X] T015 [US1] Update Main.hs imports: legacy
   `Cardano.Node.Client.TxGenerator.<X>` references →
   `Cardano.Tx.Generator.<X>`.
-- [ ] T016 [US1] In `flake.nix`, add the `cardano-tx-generator`
+- [X] T016 [US1] In `flake.nix`, add the `cardano-tx-generator`
   executable to `packages.${system}` and to `apps.${system}` so
   `nix run .#cardano-tx-generator` works. Wrap as needed (the
   binary doesn't open TLS itself; no cacert wrapper required, but
   match the pattern used by tx-diff if the daemon uses HTTPS for
   Blockfrost — verify in Phase 2 source).
-- [ ] T017 [US1] Run `nix build .#cardano-tx-generator`. Capture
+- [X] T017 [US1] Run `nix build .#cardano-tx-generator`. Capture
   `--help` output and diff it against the cardano-node-clients-built
   binary at the migration source SHA (`ca86f11`); they MUST be
   byte-identical.
-- [ ] T018 [US1] Commit (slice 3):
+- [X] T018 [US1] Commit (slice 3):
   `feat: cardano-tx-generator exe builds from cardano-tx-tools`.
 
 **Checkpoint**: User Story 1 is met. The companion deletion PR is
@@ -152,39 +152,39 @@ the pre-migration baseline.
 runs the six migrated `*Spec` modules to completion with zero
 failures.
 
-- [ ] T019 [P] [US3] Copy
+- [X] T019 [P] [US3] Copy
   `test/Cardano/Node/Client/TxGenerator/FanoutSpec.hs` →
   `test/Cardano/Tx/Generator/FanoutSpec.hs` with namespace rename.
-- [ ] T020 [P] [US3] Copy
+- [X] T020 [P] [US3] Copy
   `test/Cardano/Node/Client/TxGenerator/PersistSpec.hs` →
   `test/Cardano/Tx/Generator/PersistSpec.hs` with namespace rename.
-- [ ] T021 [P] [US3] Copy
+- [X] T021 [P] [US3] Copy
   `test/Cardano/Node/Client/TxGenerator/PopulationSpec.hs` →
   `test/Cardano/Tx/Generator/PopulationSpec.hs` with namespace
   rename.
-- [ ] T022 [P] [US3] Copy
+- [X] T022 [P] [US3] Copy
   `test/Cardano/Node/Client/TxGenerator/SelectionSpec.hs` →
   `test/Cardano/Tx/Generator/SelectionSpec.hs` with namespace
   rename.
-- [ ] T023 [P] [US3] Copy
+- [X] T023 [P] [US3] Copy
   `test/Cardano/Node/Client/TxGenerator/ServerSpec.hs` →
   `test/Cardano/Tx/Generator/ServerSpec.hs` with namespace rename.
-- [ ] T024 [P] [US3] Copy
+- [X] T024 [P] [US3] Copy
   `test/Cardano/Node/Client/TxGenerator/SnapshotSpec.hs` →
   `test/Cardano/Tx/Generator/SnapshotSpec.hs` with namespace
   rename.
-- [ ] T025 [US3] Create `test/tx-generator-main.hs` listing the six
+- [X] T025 [US3] Create `test/tx-generator-main.hs` listing the six
   `Cardano.Tx.Generator.*Spec` modules.
-- [ ] T026 [US3] Update `cardano-tx-tools.cabal`'s
+- [X] T026 [US3] Update `cardano-tx-tools.cabal`'s
   `test-suite tx-generator-tests` `other-modules` to the six
   migrated spec modules.
-- [ ] T027 [US3] Add a `unit` check entry to `nix/checks.nix` (a
+- [X] T027 [US3] Add a `unit` check entry to `nix/checks.nix` (a
   sibling of the existing `unit` check, e.g. `tx-generator-unit`),
   invoking `tx-generator-tests` via the sandbox app pattern.
-- [ ] T028 [US3] Run
+- [X] T028 [US3] Run
   `nix build .#checks.x86_64-linux.tx-generator-unit --no-link` and
   confirm all six specs pass.
-- [ ] T029 [US3] Commit (slice 4):
+- [X] T029 [US3] Commit (slice 4):
   `feat: tx-generator unit tests under tx-generator-tests`.
 
 **Checkpoint**: Test parity verified for unit specs. E2E parity
