@@ -1,5 +1,6 @@
 dist-newstyle/
 .llm/
+llm/reviews/local-*/
 cabal.project.local
 result
 result-*
