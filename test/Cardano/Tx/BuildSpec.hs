@@ -19,19 +19,41 @@ module Cardano.Tx.BuildSpec (
 ) where
 
 import Data.Aeson qualified as Aeson
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Char8 qualified as BS8
+import Data.ByteString.Short qualified as SBS
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
-import Lens.Micro ((^.))
+import Lens.Micro ((&), (.~), (^.))
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Address (Addr (..))
+import Cardano.Ledger.Alonzo.Scripts (
+    fromPlutusScript,
+    mkPlutusScript,
+ )
 import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
 import Cardano.Ledger.Alonzo.TxWits (TxDats (..))
 import Cardano.Ledger.Api (PParams)
+import Cardano.Ledger.Api.Tx (mkBasicTx)
+import Cardano.Ledger.Api.Tx.Body (
+    mkBasicTxBody,
+    referenceInputsTxBodyL,
+ )
+import Cardano.Ledger.Api.Tx.Out (
+    TxOut,
+    mkBasicTxOut,
+    referenceScriptTxOutL,
+ )
 import Cardano.Ledger.Api.Tx.Wits (rdmrsTxWitsL)
-import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
+import Cardano.Ledger.BaseTypes (
+    Network (Testnet),
+    StrictMaybe (SJust),
+    TxIx (..),
+ )
 import Cardano.Ledger.Binary (
     Annotator,
     Decoder,
@@ -39,18 +61,34 @@ import Cardano.Ledger.Binary (
     decodeFullAnnotatorFromHexText,
     natVersion,
  )
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
-import Cardano.Ledger.Core (witsTxL)
+import Cardano.Ledger.Core (Script, witsTxL)
+import Cardano.Ledger.Credential (
+    Credential (KeyHashObj),
+    StakeReference (StakeRefNull),
+ )
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
-import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
+import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment))
+import Cardano.Ledger.Mary.Value (
+    MaryValue (..),
+    MultiAsset (..),
+ )
+import Cardano.Ledger.Plutus.Language (
+    Language (PlutusV2, PlutusV3),
+    Plutus (..),
+    PlutusBinary (..),
+ )
+import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
-import Cardano.Tx.Balance (computeScriptIntegrity)
+import Cardano.Tx.Balance (computeScriptIntegrity, languagesUsedInTx)
 import Cardano.Tx.Ledger (ConwayTx)
 
 -- | Test suite root.
 spec :: Spec
 spec = describe "Cardano.Tx.Build (issue #8 reproduction)" $ do
     swapCancelIntegrityHashSpec
+    languagesUsedInTxSpec
 
 {- | The mainnet @swap-cancel@ regression: the fixture
 body carries the @script_integrity_hash@ TxBuild
@@ -108,6 +146,107 @@ expectedIntegrityHash =
                 "41a7cd5798b8b6f081bfaee0f5f88dc02eea894b7ed888b2a8658b3784dcdcf9"
             )
         )
+
+{- | End-to-end check that 'languagesUsedInTx' picks up
+the Plutus language from a reference UTxO carrying a
+ref-script — i.e. the fix is wired correctly through
+TxBuild's data flow.
+
+Two synthetic reference UTxOs are constructed: one
+holding a 'PlutusV2' ref-script, the other a
+'PlutusV3' ref-script. A minimal tx body references
+both. The expected language set is @{V2, V3}@.
+
+This is independent of the mainnet fixture (no
+on-disk UTxO required); the swap-cancel reproduction
+is covered by the golden hash test above.
+-}
+languagesUsedInTxSpec :: Spec
+languagesUsedInTxSpec =
+    describe "languagesUsedInTx" $ do
+        it "picks up V2 and V3 from reference UTxOs" $ do
+            let txin2 = stubTxIn 2
+                txin3 = stubTxIn 3
+                refUtxos =
+                    [ (txin2, refTxOut alwaysTrueScriptV2)
+                    , (txin3, refTxOut alwaysTrueScriptV3)
+                    ]
+                body =
+                    mkBasicTxBody
+                        & referenceInputsTxBodyL
+                            .~ Set.fromList [txin2, txin3]
+                tx = mkBasicTx body
+            languagesUsedInTx tx refUtxos
+                `shouldBe` Set.fromList [PlutusV2, PlutusV3]
+
+stubTxIn :: Int -> TxIn
+stubTxIn n =
+    let hexStr =
+            replicate 60 '0'
+                ++ hexByte (n `div` 256)
+                ++ hexByte (n `mod` 256)
+        h = fromJust (hashFromStringAsHex hexStr)
+     in TxIn (TxId (unsafeMakeSafeHash h)) (TxIx 0)
+  where
+    hexByte x =
+        let s = "0123456789abcdef"
+         in [s !! (x `div` 16), s !! (x `mod` 16)]
+
+stubAddr :: Addr
+stubAddr =
+    let hexStr = replicate 56 '0'
+        h = fromJust (hashFromStringAsHex hexStr)
+     in Addr
+            Testnet
+            (KeyHashObj (KeyHash h :: KeyHash Payment))
+            StakeRefNull
+
+refTxOut :: Script ConwayEra -> TxOut ConwayEra
+refTxOut script =
+    mkBasicTxOut stubAddr zeroValue
+        & referenceScriptTxOutL .~ SJust script
+  where
+    zeroValue = MaryValue (Coin 0) (MultiAsset mempty)
+
+alwaysTrueScriptV2 :: Script ConwayEra
+alwaysTrueScriptV2 = mkAlwaysTrue PlutusV2
+
+alwaysTrueScriptV3 :: Script ConwayEra
+alwaysTrueScriptV3 = mkAlwaysTrue PlutusV3
+
+{- | Build an always-true Plutus script of the given
+language. The script bytes are reused from
+@ConwaySpec@'s fixture; they're a valid always-true
+script that 'mkPlutusScript' accepts under both V2
+and V3.
+-}
+mkAlwaysTrue :: Language -> Script ConwayEra
+mkAlwaysTrue lang =
+    let bytes =
+            either error id $
+                Base16.decode (BS8.filter (/= '\n') alwaysTrueHex)
+        binary = PlutusBinary (SBS.toShort bytes)
+     in case lang of
+            PlutusV2 ->
+                maybe (error "mkAlwaysTrue V2") fromPlutusScript $
+                    mkPlutusScript (Plutus @PlutusV2 binary)
+            PlutusV3 ->
+                maybe (error "mkAlwaysTrue V3") fromPlutusScript $
+                    mkPlutusScript (Plutus @PlutusV3 binary)
+            other ->
+                error ("mkAlwaysTrue: unsupported " <> show other)
+
+alwaysTrueHex :: BS8.ByteString
+alwaysTrueHex =
+    "58d501010029800aba2aba1aab9eaab9dab9a48888966002646465\
+    \300130053754003300700398038012444b30013370e9000001c4c\
+    \9289bae300a3009375400915980099b874800800e2646644944c0\
+    \2c004c02cc030004c024dd5002456600266e1d200400389925130\
+    \0a3009375400915980099b874801800e2646644944dd698058009\
+    \805980600098049baa0048acc004cdc3a40100071324a26014601\
+    \26ea80122646644944dd698058009805980600098049baa004401\
+    \c8039007200e401c3006300700130060013003375400d149a26ca\
+    \c8009"
 
 {- | Load a Conway-era @PParams@ snapshot from a
 @cardano-cli@-shaped JSON file.
