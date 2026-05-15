@@ -78,9 +78,11 @@ library
     , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-mary
+    , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
     , containers
+    , data-default
     , exceptions
     , http-client
     , http-client-tls
