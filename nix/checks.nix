@@ -44,7 +44,10 @@ let
       name = "build";
       text = ''
         test -e ${components.library}
+        test -e ${components.sublibs."n2c-resolver"}
+        test -e ${components.sublibs."tx-generator-lib"}
         test -e ${components.exes.tx-diff}
+        test -e ${components.exes."cardano-tx-generator"}
         echo "build outputs realized"
       '';
     };
@@ -54,6 +57,15 @@ let
       runtimeInputs = [ components.tests.unit-tests ];
       text = ''
         unit-tests
+      '';
+    };
+
+    tx-generator-unit = {
+      name = "tx-generator-unit";
+      runtimeInputs =
+        [ components.tests."tx-generator-tests" ];
+      text = ''
+        tx-generator-tests
       '';
     };
 
