@@ -2,9 +2,39 @@
 
 **Feature Branch**: `008-txbuild-integrity-hash`
 **Created**: 2026-05-15
-**Status**: Draft
+**Status**: Draft — scope split mid-implementation; see "Scope adjustment" below.
 **Input**: GitHub issue [lambdasistemi/cardano-tx-tools#8](https://github.com/lambdasistemi/cardano-tx-tools/issues/8)
 **Predecessor**: [lambdasistemi/cardano-node-clients#153](https://github.com/lambdasistemi/cardano-node-clients/issues/153) (closed as moved), [PR draft #154](https://github.com/lambdasistemi/cardano-node-clients/pull/154) (closed as superseded). The full spec was first drafted in that repo before `tx-build` was extracted to `cardano-tx-tools`; this document is the authoritative form.
+**Follow-up**: [lambdasistemi/cardano-tx-tools#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14) — Phase-1 self-validation endpoint for signed transactions.
+
+## Scope adjustment (2026-05-15)
+
+The original spec called for `Cardano.Tx.Build` to run ledger Phase-1
+validation (`applyTx`) on every body it returns. Implementation
+surfaced a fundamental impedance mismatch:
+`applyTx` runs the UTXOW STS rule, which folds **witness-completeness
+checks** in with the static structural checks we care about. The body
+`buildWith` returns is **unsigned** — no vkey witnesses attached — so
+`applyTx` on a fresh build output would always fail on
+`MissingVKeyWitnesses` regardless of whether the body has any
+structural problem.
+
+There is no public `cardano-ledger-api` entry point for a UTXO-only
+validation that skips UTXOW's witness checks. The honest split:
+
+- **In scope for #8 / this PR** — the integrity-hash bug: derive
+  the Plutus language set from the body + reference UTxOs (FR-001)
+  rather than hard-coding `PlutusV3`. Add the `PParamsBound`
+  newtype (FR-002) and the `Phase1Rejected (ApplyTxError ConwayEra)`
+  constructor on `LedgerCheck` (scaffolding for #14).
+- **Deferred to [#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14)** — the broader Phase-1
+  self-validation contract (FR-003, FR-004, FR-007). Lives as a
+  separate `validatePhase1` endpoint that callers invoke
+  post-signing. Open research item: does `applyTx` collect all
+  failures or short-circuit on the first one?
+
+The original FRs and success criteria below are kept verbatim;
+each is annotated with its destination.
 
 ## Background
 
@@ -70,15 +100,15 @@ The cross-referenced companion ticket on `amaru-treasury-tx` (post-build Phase-1
 
 ### Functional Requirements
 
-- **FR-001**: TxBuild MUST compute `script_integrity_hash` over the redeemers as they appear in the transaction's Conway witness set (map form, witness-set key `5`), using only the cost-model language views for Plutus versions actually referenced by a redeemer in the transaction.
-- **FR-002**: TxBuild MUST source the `PParams` value used for fee estimation, exec-units estimation, integrity-hash computation, and self-validation from a single `PParams` instance passed into the build call; the design MUST make a multi-instance bug structurally impossible (single argument threaded through, not re-fetched midway).
-- **FR-003**: Before returning a transaction body, TxBuild MUST run the ledger's Phase-1 validation (`applyTx` or the equivalent functional path from `cardano-ledger-api`) on that body against the same `PParams` instance from FR-002 and the UTxO it already has in scope.
-- **FR-004**: If Phase-1 validation rejects the body, TxBuild MUST return an error that surfaces the ledger's failure reason (the original `ApplyTxError` value or a faithful rendering thereof). TxBuild MUST NOT return the body in this case.
-- **FR-005**: TxBuild MUST omit the `script_integrity_hash` field (`SNothing`) from a body that carries no redeemers and no datums, and self-validation MUST accept such a body.
-- **FR-006**: The mainnet `swap-cancel` reproduction from cardano-tx-tools#8 (originally cardano-node-clients#153), replayed offline against the committed `test/fixtures/pparams.json` and a captured UTxO, MUST produce `script_integrity_hash` = `41a7cd5798b8b6f081bfaee0f5f88dc02eea894b7ed888b2a8658b3784dcdcf9` and self-validation MUST return `Right _`. This is enforced by a test in the project's test suite.
-- **FR-007**: At least one negative test MUST exercise FR-004: given a deliberately invalid plan (e.g. fee artificially zeroed, or a forced pparams mismatch), TxBuild returns an error naming the Phase-1 failure and does not return a body.
-- **FR-008**: The companion `amaru-treasury-tx` ticket (post-build Phase-1 validation gate in the consumer) is closed as superseded by this work. No consumer is expected to carry a duplicate Phase-1 gate.
-- **FR-009**: The fix MUST NOT regress any existing passing test in `nix flake check`.
+- **FR-001** *(in scope, done)*: TxBuild MUST compute `script_integrity_hash` over the redeemers as they appear in the transaction's Conway witness set (map form, witness-set key `5`), using only the cost-model language views for Plutus versions actually referenced by a redeemer in the transaction.
+- **FR-002** *(in scope, done)*: TxBuild MUST source the `PParams` value used for fee estimation, exec-units estimation, integrity-hash computation, and self-validation from a single `PParams` instance passed into the build call; the design MUST make a multi-instance bug structurally impossible (single argument threaded through, not re-fetched midway).
+- **FR-003** *(deferred to [#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14))*: Before returning a transaction body, TxBuild MUST run the ledger's Phase-1 validation (`applyTx` or the equivalent functional path from `cardano-ledger-api`) on that body against the same `PParams` instance from FR-002 and the UTxO it already has in scope.
+- **FR-004** *(deferred to [#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14))*: If Phase-1 validation rejects the body, TxBuild MUST return an error that surfaces the ledger's failure reason (the original `ApplyTxError` value or a faithful rendering thereof). TxBuild MUST NOT return the body in this case.
+- **FR-005** *(in scope, holds by construction)*: TxBuild MUST omit the `script_integrity_hash` field (`SNothing`) from a body that carries no redeemers and no datums, and self-validation MUST accept such a body.
+- **FR-006** *(in scope, done — partial)*: The mainnet `swap-cancel` reproduction from cardano-tx-tools#8 (originally cardano-node-clients#153), replayed offline against the committed `test/fixtures/pparams.json` and a captured UTxO, MUST produce `script_integrity_hash` = `41a7cd5798b8b6f081bfaee0f5f88dc02eea894b7ed888b2a8658b3784dcdcf9` and self-validation MUST return `Right _`. The hash assertion is covered by `swapCancelIntegrityHashSpec` in `test/Cardano/Tx/BuildSpec.hs`; the `Right _` self-validation half moves to [#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14).
+- **FR-007** *(deferred to [#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14))*: At least one negative test MUST exercise FR-004: given a deliberately invalid plan (e.g. fee artificially zeroed, or a forced pparams mismatch), TxBuild returns an error naming the Phase-1 failure and does not return a body.
+- **FR-008** *(in scope, pending Phase 4 of this PR)*: The companion `amaru-treasury-tx` ticket (post-build Phase-1 validation gate in the consumer) is closed as superseded by this work. No consumer is expected to carry a duplicate Phase-1 gate. (Re-evaluated in light of the scope split — the consumer-side gate proposal may still be relevant for post-signing validation; coordinate with #14.)
+- **FR-009** *(in scope, met)*: The fix MUST NOT regress any existing passing test in `nix flake check`.
 
 ### Key Entities
 

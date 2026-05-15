@@ -10,6 +10,35 @@ description: "Tasks for cardano-tx-tools#8 — TxBuild self-validates against le
 [contracts/txbuild-self-validation.md](./contracts/txbuild-self-validation.md),
 [quickstart.md](./quickstart.md)
 
+## Scope adjustment (2026-05-15)
+
+Phase 3 commits T008/T009 (full `applyTx` self-validation hook in
+`buildWith`) are **deferred to
+[#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14)**.
+Reason: `applyTx` runs UTXOW, which folds witness-completeness checks
+into the same pipeline as the structural checks; the unsigned body
+returned by `buildWith` always fails on `MissingVKeyWitnesses` and
+the impedance mismatch can't be cleanly bypassed without
+cardano-ledger internals. The post-signing endpoint is the right
+home for that validation; tracked in #14.
+
+What this PR ships:
+- Phase 1 (research closure)
+- Phase 2 (fixtures + loaders)
+- T006 (hash fix — body-derived language set)
+- T007 (`PParamsBound`, `Phase1Rejected` scaffolding for #14)
+- The `languagesUsedInTx` unit test
+
+What moves to #14:
+- T008 (the `applyTx` hook itself)
+- T009 (edge-case property tests against the hook)
+- The full `loadUtxo` test helper (parses cardano-cli JSON or
+  consumes a recaptured CBOR fixture)
+
+Phase 4 (companion `amaru-treasury-tx` ticket closure) is re-scoped
+to coordinate with #14: the consumer gate may still be desirable as
+a *signed-tx* check until #14 lands.
+
 **Constitutional discipline (Principle VII)**: each behavior
 change ships as ONE commit with RED test and GREEN
 implementation folded together. No "added tests" follow-up
