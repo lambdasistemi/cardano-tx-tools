@@ -20,6 +20,11 @@
     lintNixpkgs.url =
       "github:NixOS/nixpkgs/647e5c14cbd5067f44ac86b74f014962df460840";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    bundlers = {
+      url = "github:NixOS/bundlers";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    dev-assets.url = "github:paolino/dev-assets";
     iohkNix = {
       url =
         "github:input-output-hk/iohk-nix/f444d972c301ddd9f23eac4325ffcc8b5766eee9";
@@ -48,6 +53,7 @@
             ];
             inherit system;
           };
+          lib = pkgs.lib;
           lintPkgs = import lintNixpkgs { inherit system; };
           indexState = "2026-02-17T10:15:41Z";
           indexTool = { index-state = indexState; };
@@ -116,6 +122,88 @@
                   ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
             '';
           };
+          packageVersion =
+            let
+              versionLines =
+                builtins.filter (lib.hasPrefix "version:")
+                  (lib.splitString "\n"
+                    (builtins.readFile ./cardano-tx-tools.cabal));
+            in
+            builtins.elemAt
+              (builtins.match
+                "version:[[:space:]]*([^[:space:]]+)"
+                (builtins.head versionLines))
+              0;
+          sourceRevision =
+            self.shortRev or (self.dirtyShortRev or "dirty");
+          devArtifactVersion = "${packageVersion}-${sourceRevision}";
+          mkDarwinHomebrewBundle =
+            inputs.dev-assets.lib.mkDarwinHomebrewBundle { inherit pkgs; };
+          txDiffDarwinFormulaTest = ''
+            output = shell_output("#{bin}/tx-diff 2>&1", 1)
+            assert_match "Usage:", output
+          '';
+          mkTxDiffDarwinHomebrewBundle = args:
+            mkDarwinHomebrewBundle ({
+              pname = "tx-diff";
+              version = packageVersion;
+              owner = "lambdasistemi";
+              repo = "cardano-tx-tools";
+              desc =
+                "Compare Conway transactions with blueprint-aware data diffs";
+              formulaClass = "TxDiff";
+              executables = {
+                tx-diff = txDiff;
+              };
+              executableNames = [ "tx-diff" ];
+              formulaTest = txDiffDarwinFormulaTest;
+              smokeCommands = [
+                ''
+                  set +e
+                  tx-diff >/tmp/tx-diff.out 2>&1
+                  status="$?"
+                  set -e
+                  test "$status" -ne 0
+                  grep -F "Usage:" /tmp/tx-diff.out >/dev/null
+                  grep -F "[--blueprint FILE ...]" /tmp/tx-diff.out >/dev/null
+                ''
+              ];
+            } // args);
+          darwinReleasePackages = lib.optionalAttrs
+            pkgs.stdenv.isDarwin
+            {
+              darwin-release-artifacts =
+                mkTxDiffDarwinHomebrewBundle { };
+              darwin-dev-homebrew-artifacts =
+                mkTxDiffDarwinHomebrewBundle {
+                  artifactVersion = devArtifactVersion;
+                  releaseTag = "dev-homebrew";
+                  formulaName = "tx-diff-dev";
+                  formulaClass = "TxDiffDev";
+                  formulaVersion = devArtifactVersion;
+                };
+            };
+          linuxReleasePackages = lib.optionalAttrs
+            pkgs.stdenv.isLinux
+            {
+              linux-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  package = txDiff;
+                  bundlers = inputs.bundlers;
+                };
+              linux-dev-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  artifactVersion = devArtifactVersion;
+                  package = txDiff;
+                  bundlers = inputs.bundlers;
+                };
+              linux-artifact-smoke =
+                import ./nix/linux-artifact-smoke.nix {
+                  inherit pkgs system;
+                };
+            };
           checkSuite = import ./nix/checks.nix {
             inherit pkgs components lintPkgs;
             src = ./.;
@@ -128,12 +216,18 @@
           packages = {
             default = txDiff;
             tx-diff = txDiff;
-          };
+          } // darwinReleasePackages // linuxReleasePackages;
           checks = checkSuite.checks;
           apps = checkApps // {
             tx-diff = {
               type = "app";
               program = "${txDiff}/bin/tx-diff";
+            };
+          } // lib.optionalAttrs pkgs.stdenv.isLinux {
+            linux-artifact-smoke = {
+              type = "app";
+              program =
+                "${linuxReleasePackages.linux-artifact-smoke}/bin/linux-artifact-smoke";
             };
           };
           devShells.default = project.shell;
