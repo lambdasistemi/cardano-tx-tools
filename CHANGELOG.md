@@ -2,9 +2,18 @@
 
 ## Unreleased
 
+- Migrate `lib-tx-build`, `lib-plutus-blueprint`, the `TxDiff` stack,
+  `Evaluate`, and the `tx-diff` executable from
+  [lambdasistemi/cardano-node-clients](https://github.com/lambdasistemi/cardano-node-clients)
+  under the new `Cardano.Tx.*` namespace
+  (tracking issue
+  [#152](https://github.com/lambdasistemi/cardano-node-clients/issues/152)).
 - Bootstrap scaffold: flake.nix, justfile, CI, mkdocs, GitHub Pages.
-- Placeholder `Cardano.Tx` library module. Real modules
-  (`Cardano.Tx.Build`, `Cardano.Tx.Diff`, `Cardano.Tx.Blueprint`)
-  migrate from
-  [lambdasistemi/cardano-node-clients#152](https://github.com/lambdasistemi/cardano-node-clients/issues/152)
-  in subsequent PRs.
+- Port the upstream release pipeline (Linux AppImage / DEB / RPM
+  bundlers, Darwin Homebrew tap bundles, dev-channel artifacts,
+  release planner script, `Linux Release` / `Darwin Release` /
+  `Darwin Dev Homebrew` / `Release Planner` workflows).
+- `tx-diff` ships wrapped via `pkgs.makeWrapper` so `SSL_CERT_FILE`
+  defaults to the bundled cacert; AppImage / DEB / RPM bundlers
+  carry the wrapper's full nix closure (including `nss-cacert`), so
+  HTTPS verification works in released artifacts.
