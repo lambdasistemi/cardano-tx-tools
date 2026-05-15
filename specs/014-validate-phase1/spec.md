@@ -6,6 +6,8 @@
 **Input**: GitHub issue [lambdasistemi/cardano-tx-tools#14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14)
 **Predecessor**: [lambdasistemi/cardano-tx-tools#8](https://github.com/lambdasistemi/cardano-tx-tools/issues/8) / [PR #9](https://github.com/lambdasistemi/cardano-tx-tools/pull/9) — split off FR-003, FR-004, FR-007 from the original `Cardano.Tx.Build` self-validation spec. PR #9 already landed the scaffolding (`PParamsBound`, `Phase1Rejected (ApplyTxError ConwayEra)` on `LedgerCheck`); this spec covers the actual validator.
 
+**Reference implementation**: [`lambdasistemi/cardano-ledger-inspector`](https://github.com/lambdasistemi/cardano-ledger-inspector) already implements the same recipe in [`Conway.Inspector.Validation.runLedgerApplyTx`](https://github.com/lambdasistemi/cardano-ledger-inspector/blob/main/libs/cardano-ledger-inspector/src/Conway/Inspector/Validation.hs#L325-L363). We deliberately **do not** depend on it for now (see "Implementation strategy" below) — the kernel is small and self-contained, the cross-repo coupling cost outweighs the ~60 lines saved, and we're not yet sure that the rest of inspector's surface area is on tx-tools' roadmap. Upstream ticket [`cardano-ledger-inspector#73`](https://github.com/lambdasistemi/cardano-ledger-inspector/issues/73) is open as a hook for future consolidation if that picture changes.
+
 ## Background
 
 PR #9's spec called for `Cardano.Tx.Build` to run ledger Phase-1
@@ -352,8 +354,60 @@ noise).
   `Cardano.Tx.Ledger.Phase1`? extension of `Cardano.Tx.Ledger`?)
   is left to `/speckit.plan`.
 
+## Implementation strategy
+
+**The recipe is inlined in this repository, not pulled in from
+upstream.** The kernel for Phase-1 validation is ~60 lines of
+Haskell that wraps `Cardano.Ledger.Shelley.API.Mempool.applyTx`:
+
+1. Synthesise `Globals` for the supplied `NetworkId`
+   (~25 lines of hardcoded constants: epoch size 432000,
+   slot length 1s, k=2160, active-slots-coeff 1/20, etc.).
+2. Seed a `NewEpochState ConwayEra` from `(EpochNo, PParams,
+   UTxO)` via lens setters on `def` (~12 lines).
+3. Optionally seed `CertStateRewardEntry` rewards into the
+   `Accounts` map for withdraw-zero validation patterns
+   (~20 lines).
+4. Call `Mempool.mkMempoolEnv` + `mkMempoolState` + `applyTx`
+   (~3 lines).
+
+`cardano-ledger-inspector`'s
+[`Conway.Inspector.Validation`](https://github.com/lambdasistemi/cardano-ledger-inspector/blob/main/libs/cardano-ledger-inspector/src/Conway/Inspector/Validation.hs)
+is the canonical reference; the inline implementation in this repo
+MUST cite it from its module-header Haddock so future maintainers
+know where the recipe came from and where to look for upstream
+changes.
+
+**Why duplicate rather than depend**: the kernel is small enough
+that a cross-repo `source-repository-package` pin (we'd track an
+inspector commit, mirror the SRP comment in `cabal.project`, and
+re-bump on every inspector change) is more friction than the
+LoC saved. The decision is reviewable; if tx-tools ends up
+consuming more of inspector's operations (intent extraction,
+script-evaluation diagnostic, explanation rendering),
+[inspector#73](https://github.com/lambdasistemi/cardano-ledger-inspector/issues/73)
+is the upstream ticket that would swap this inline implementation
+for a dependency.
+
+**Risks of duplication, accepted**:
+
+- Recipe drift between the two repos if `cardano-ledger-conway`
+  changes the lens path through `NewEpochState` or the mempool
+  apply entry point. Mitigation: the upstream ticket is open,
+  both copies are owned by the same hands, the cross-link from
+  Haddock makes the relationship discoverable.
+- Hardcoded `Globals` constants going stale (e.g. a new network
+  with different `securityParameter`). Mitigation: the constants
+  are network-magic-parameterised; new networks are rare events
+  that would force a re-evaluation either way.
+
 ## Out of Scope
 
+- Depending on `cardano-ledger-inspector` for the validation
+  kernel. Re-evaluated when
+  [inspector#73](https://github.com/lambdasistemi/cardano-ledger-inspector/issues/73)
+  lands AND tx-tools has a second use case for inspector's
+  operations.
 - Wiring `validatePhase1` into `buildWith` / `build`. Kept as a
   standalone callable; callers invoke explicitly.
 - Filtering witness-completeness noise inside `validatePhase1`.
