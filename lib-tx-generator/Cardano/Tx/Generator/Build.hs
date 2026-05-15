@@ -40,6 +40,7 @@ import Cardano.Tx.Build (
     InterpretIO (..),
     TxBuild,
     build,
+    mkPParamsBound,
     payTo,
     spend,
  )
@@ -102,7 +103,7 @@ refillTx pp faucetUtxo freshAddr amount changeAddr = do
         evalNoScripts _ = pure Map.empty
     result <-
         build
-            pp
+            (mkPParamsBound pp)
             interpretNoQ
             evalNoScripts
             [faucetUtxo]
@@ -148,7 +149,7 @@ transactTx pp srcUtxo destinations changeAddr = do
         evalNoScripts _ = pure Map.empty
     result <-
         build
-            pp
+            (mkPParamsBound pp)
             interpretNoQ
             evalNoScripts
             [srcUtxo]

@@ -28,6 +28,11 @@ module Cardano.Tx.Build (
     Check (..),
     LedgerCheck (..),
 
+    -- * Protocol-parameter boundary
+    PParamsBound,
+    mkPParamsBound,
+    unPParamsBound,
+
     -- * Interpreters
     Interpret (..),
     InterpretIO (..),
@@ -210,7 +215,7 @@ import Cardano.Ledger.BaseTypes (
     strictMaybeToMaybe,
  )
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway (ApplyTxError, ConwayEra)
 import Cardano.Ledger.Conway.Governance (
     Anchor (..),
     GovAction (..),
@@ -302,13 +307,53 @@ data Check e
       CustomFail e
     deriving (Show, Eq)
 
--- | Closed set of library-provided validation failures.
+{- | Closed set of library-provided validation failures.
+
+The constructors are intentionally Conway-specific (per
+constitution III); 'Phase1Rejected' carries the ledger's
+@ApplyTxError ConwayEra@ verbatim — TxBuild does not
+re-classify it.
+-}
 data LedgerCheck
     = MinUtxoViolation Word32 Coin Coin
     | TxSizeExceeded Natural Natural
     | ValueNotConserved MaryValue MaryValue
     | CollateralInsufficient Coin Coin
+    | -- | Ledger Phase-1 validation rejected the body
+      -- TxBuild was about to return. The full
+      -- 'ApplyTxError' is exposed so callers can
+      -- pattern-match for their own UX.
+      Phase1Rejected (ApplyTxError ConwayEra)
     deriving (Show, Eq)
+
+{- | Protocol-parameter boundary token.
+
+A 'PParamsBound' may only be constructed via
+'mkPParamsBound' at the public 'build' / 'buildWith'
+entry point. Internal helpers continue to take raw
+@PParams ConwayEra@ values; the newtype's purpose is
+to make the single-instance contract from FR-002
+visible at the public surface so any future code that
+constructs a fresh @PParams@ mid-build is a typecheck
+error rather than a silent footgun.
+
+The single underlying @PParams ConwayEra@ value flows
+through fee estimation, exec-units estimation, the
+script-integrity hash computation, and (in T008)
+ledger Phase-1 self-validation.
+-}
+newtype PParamsBound = PParamsBound (PParams ConwayEra)
+    deriving (Show, Eq)
+
+-- | Wrap a raw 'PParams' for use by 'build' / 'buildWith'.
+mkPParamsBound :: PParams ConwayEra -> PParamsBound
+mkPParamsBound = PParamsBound
+
+{- | Unwrap. Used at the boundary between TxBuild and
+leaf ledger calls that still take raw 'PParams'.
+-}
+unPParamsBound :: PParamsBound -> PParams ConwayEra
+unPParamsBound (PParamsBound pp) = pp
 
 -- | How a spent input is witnessed.
 data SpendWitness
@@ -1217,7 +1262,11 @@ defaultBuildOptions =
         }
 
 build ::
-    PParams ConwayEra ->
+    -- | Protocol parameters, wrapped via 'mkPParamsBound'.
+    --     The same underlying 'PParams' value flows
+    --     through fee estimation, exec-units estimation,
+    --     and the script-integrity hash; FR-002.
+    PParamsBound ->
     InterpretIO q ->
     -- | Script evaluator
     ( ConwayTx ->
@@ -1248,7 +1297,7 @@ build = buildWith defaultBuildOptions
 -- | 'build' with explicit 'BuildOptions'.
 buildWith ::
     BuildOptions ->
-    PParams ConwayEra ->
+    PParamsBound ->
     InterpretIO q ->
     ( ConwayTx ->
       IO
@@ -1265,9 +1314,15 @@ buildWith ::
     Addr ->
     TxBuild q e a ->
     IO (Either (BuildError e) ConwayTx)
-buildWith opts pp interpret evaluateTx inputUtxos refUtxos changeAddr prog =
+buildWith opts ppBound interpret evaluateTx inputUtxos refUtxos changeAddr prog =
     step Set.empty (Coin 0) 0 (mkBasicTx mkBasicTxBody)
   where
+    -- Unwrap once at the boundary; internal helpers
+    -- continue to take raw 'PParams'. The 'PParamsBound'
+    -- newtype makes "single instance per build call"
+    -- visible at the public surface (FR-002).
+    pp = unPParamsBound ppBound
+
     -- Pre-compute the extra TxIns from inputUtxos
     -- so Peek-based index computation sees ALL
     -- inputs (including fee UTxO).

@@ -87,6 +87,7 @@ import Cardano.Tx.Build (
     Voter (..),
     build,
     certify,
+    mkPParamsBound,
     payTo,
     proposeTreasuryWithdrawal,
     registerAndVoteAbstain,
@@ -238,7 +239,7 @@ submitTreasuryWithdrawal (provider, submitter, pp, utxos) = do
             validTo (SlotNo 1_000_000)
 
     rewardBefore <- rewardBalance provider targetAccount
-    build pp interpret eval [seed] [] genesisAddr prog
+    build (mkPParamsBound pp) interpret eval [seed] [] genesisAddr prog
         >>= \case
             Left err ->
                 expectationFailure (show err)
@@ -321,7 +322,7 @@ submitVote
                     SNothing
                 validTo (SlotNo 1_000_000)
         build
-            pp
+            (mkPParamsBound pp)
             interpret
             eval
             [seed]
