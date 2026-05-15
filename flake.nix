@@ -20,6 +20,11 @@
     lintNixpkgs.url =
       "github:NixOS/nixpkgs/647e5c14cbd5067f44ac86b74f014962df460840";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    iohkNix = {
+      url =
+        "github:input-output-hk/iohk-nix/f444d972c301ddd9f23eac4325ffcc8b5766eee9";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     CHaP = {
       url =
         "github:intersectmbo/cardano-haskell-packages/887d73ce434831e3a67df48e070f4f979b3ac5a6";
@@ -29,18 +34,43 @@
   };
 
   outputs = inputs@{ self, nixpkgs, lintNixpkgs, flake-parts, haskellNix
-    , hackageNix, CHaP, mkdocs, ... }:
+    , hackageNix, iohkNix, CHaP, mkdocs, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-darwin" ];
       perSystem = { system, ... }:
         let
           pkgs = import nixpkgs {
-            overlays = [ haskellNix.overlay ];
+            overlays = [
+              iohkNix.overlays.crypto
+              haskellNix.overlay
+              iohkNix.overlays.haskell-nix-crypto
+              iohkNix.overlays.cardano-lib
+            ];
             inherit system;
           };
           lintPkgs = import lintNixpkgs { inherit system; };
           indexState = "2026-02-17T10:15:41Z";
           indexTool = { index-state = indexState; };
+          fix-libs = { lib, pkgs, ... }: {
+            packages.cardano-crypto-praos.components.library.pkgconfig =
+              lib.mkForce [ [ pkgs.libsodium-vrf ] ];
+            packages.cardano-crypto-class.components.library.pkgconfig =
+              lib.mkForce
+                [ [ pkgs.libsodium-vrf pkgs.secp256k1 pkgs.libblst ] ];
+            packages.cardano-lmdb.components.library.pkgconfig =
+              lib.mkForce [ [ pkgs.lmdb ] ];
+            packages.cardano-ledger-binary.components.library.doHaddock =
+              lib.mkForce false;
+            packages.plutus-core.components.library.doHaddock =
+              lib.mkForce false;
+            packages.plutus-ledger-api.components.library.doHaddock =
+              lib.mkForce false;
+            packages.plutus-tx.components.library.doHaddock =
+              lib.mkForce false;
+          } // lib.optionalAttrs (system == "x86_64-linux") {
+            packages.blockio-uring.components.library.pkgconfig =
+              lib.mkForce [ [ pkgs.liburing ] ];
+          };
           project = pkgs.haskell-nix.cabalProject' {
             name = "cardano-tx-tools";
             src = ./.;
@@ -57,12 +87,15 @@
                 pkgs.just
                 pkgs.curl
                 pkgs.cacert
+                pkgs.lmdb
+                pkgs.liburing
                 mkdocs.packages.${system}.from-nixpkgs
               ];
               shellHook = ''
                 export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
               '';
             };
+            modules = [ fix-libs ];
             inputMap = {
               "https://chap.intersectmbo.org/" = CHaP;
             };

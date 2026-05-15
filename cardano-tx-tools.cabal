@@ -44,5 +44,33 @@ library
   import:           warnings
   hs-source-dirs:   src
   default-language: GHC2021
-  exposed-modules:  Cardano.Tx
-  build-depends:    base <5
+  exposed-modules:
+    Cardano.Tx.Balance
+    Cardano.Tx.Build
+
+  other-modules:
+    Cardano.Tx.Credentials
+    Cardano.Tx.Deposits
+    Cardano.Tx.Inputs
+    Cardano.Tx.Scripts
+    Cardano.Tx.Witnesses
+
+  build-depends:
+    , base                           <5
+    , bytestring
+    , cardano-binary
+    , cardano-data
+    , cardano-ledger-allegra
+    , cardano-ledger-alonzo
+    , cardano-ledger-api
+    , cardano-ledger-conway
+    , cardano-ledger-core
+    , cardano-ledger-mary
+    , cardano-node-clients:tx-build
+    , cardano-slotting
+    , cardano-strict-containers
+    , containers
+    , microlens
+    , operational
+    , plutus-core
+    , plutus-tx
