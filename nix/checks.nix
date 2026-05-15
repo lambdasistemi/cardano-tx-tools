@@ -44,7 +44,16 @@ let
       name = "build";
       text = ''
         test -e ${components.library}
+        test -e ${components.exes.tx-diff}
         echo "build outputs realized"
+      '';
+    };
+
+    unit = {
+      name = "unit";
+      runtimeInputs = [ components.tests.unit-tests ];
+      text = ''
+        unit-tests
       '';
     };
 

@@ -101,6 +101,21 @@
             };
           };
           components = project.hsPkgs.cardano-tx-tools.components;
+          # tx-diff's web2 resolver uses http-client-tls and needs a CA
+          # bundle at runtime. Wrap the raw executable so SSL_CERT_FILE
+          # defaults to the bundled cacert; users can still override.
+          # AppImage / DEB / RPM bundlers carry the wrapper's full nix
+          # closure (including nss-cacert), so HTTPS works post-install.
+          txDiff = pkgs.symlinkJoin {
+            name = "tx-diff";
+            paths = [ components.exes.tx-diff ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              wrapProgram $out/bin/tx-diff \
+                --set-default SSL_CERT_FILE \
+                  ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+            '';
+          };
           checkSuite = import ./nix/checks.nix {
             inherit pkgs components lintPkgs;
             src = ./.;
@@ -111,10 +126,16 @@
           };
         in {
           packages = {
-            default = components.library;
+            default = txDiff;
+            tx-diff = txDiff;
           };
           checks = checkSuite.checks;
-          apps = checkApps;
+          apps = checkApps // {
+            tx-diff = {
+              type = "app";
+              program = "${txDiff}/bin/tx-diff";
+            };
+          };
           devShells.default = project.shell;
         };
     };
