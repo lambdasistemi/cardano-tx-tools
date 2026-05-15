@@ -26,6 +26,8 @@ jobs:
           nix build --quiet
           .#checks.x86_64-linux.build
           .#checks.x86_64-linux.unit
+          .#checks.x86_64-linux.tx-generator-unit
+          .#checks.x86_64-linux.e2e
           .#checks.x86_64-linux.lint
       - name: Release version contract
         run: scripts/release/check-version-consistency
@@ -53,6 +55,30 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Unit tests
         run: nix run --quiet .#unit
+
+  tx-generator-unit:
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: TxGenerator unit tests
+        run: nix run --quiet .#tx-generator-unit
+
+  e2e:
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: E2E tests
+        run: nix run --quiet .#e2e
 
   lint:
     needs: build-gate
