@@ -216,12 +216,20 @@
           packages = {
             default = txDiff;
             tx-diff = txDiff;
+            cardano-tx-generator =
+              components.exes.cardano-tx-generator;
           } // darwinReleasePackages // linuxReleasePackages;
           checks = checkSuite.checks;
           apps = checkApps // {
             tx-diff = {
               type = "app";
               program = "${txDiff}/bin/tx-diff";
+            };
+            cardano-tx-generator = {
+              type = "app";
+              program = "${
+                  components.exes.cardano-tx-generator
+                }/bin/cardano-tx-generator";
             };
           } // lib.optionalAttrs pkgs.stdenv.isLinux {
             linux-artifact-smoke = {
