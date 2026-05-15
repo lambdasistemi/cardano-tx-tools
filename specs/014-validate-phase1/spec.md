@@ -175,10 +175,15 @@ noise).
   the previous bullet. Documented, not a special case in code.
 - **Pre-Conway tx**: out of scope (constitution III). The signature
   is `ConwayTx`; the type system prevents the case.
-- **Mainnet vs preprod vs preview `Globals`**: `validatePhase1`
-  takes a `NetworkId` (or equivalent boundary value) so a
-  preview-tx is not validated against mainnet `Globals` and vice
-  versa.
+- **Mainnet vs testnet `Globals`**: `validatePhase1` takes a
+  `Cardano.Ledger.BaseTypes.Network` value (just
+  `Mainnet | Testnet`) so a testnet-tx is not validated against
+  mainnet `Globals` and vice versa. **Preview vs preprod cannot
+  be distinguished** at this layer — both map to `Testnet` —
+  and the helper inherits that limitation from the inspector
+  recipe. If a future caller needs per-magic distinction, that
+  becomes a `Globals` parameter (see
+  [research.md R3](./research.md#r3-globals-constants) caveat).
 - **`AccountState`**: `applyTx` reads from but does not require a
   realistic `AccountState`. We seed it empty (zero treasury, zero
   reserves) and document that any future feature that depends on
@@ -187,9 +192,13 @@ noise).
   too — `applyTx` doesn't care. On a fully-signed tx with no
   structural problems, the result IS `Right ()`. Story 2's
   debugger workflow exploits this; not the primary path.
-- **Stake / cert-only Conway tx**: validates without Plutus
-  witnesses, no redeemers. Must not falsely require Plutus
-  witnesses.
+- **Stake / cert-only Conway tx without withdrawals**: passes
+  through the validator with the same witness-completeness
+  noise as any other unsigned tx; must not falsely require
+  Plutus witnesses or redeemers. Withdrawal-bearing txs need
+  cert-state seeding, which is deferred to a follow-up
+  ticket (see
+  [research.md R5](./research.md#r5-cert-state-seeding--required-for-this-pr)).
 - **Default-offline (constitution VI)**: every test for the
   feature MUST run without network. UTxO is supplied as
   test-fixture data on disk (JSON from `cardano-cli query utxo`
@@ -210,7 +219,7 @@ noise).
 
     ```haskell
     validatePhase1 ::
-        NetworkId ->
+        Network ->
         PParamsBound ->
         [(TxIn, TxOut ConwayEra)] ->
         SlotNo ->
@@ -218,15 +227,19 @@ noise).
         Either (ApplyTxError ConwayEra) ()
     ```
 
-    where `PParamsBound` is the existing newtype from PR #9 and
-    `ConwayTx` is the existing type alias from
-    `Cardano.Tx.Ledger`. The exact module path for the new
-    function is a `/speckit.plan` decision; the signature is
-    fixed here.
+    where `Network` is `Cardano.Ledger.BaseTypes.Network`
+    (`Mainnet | Testnet`), `PParamsBound` is the existing
+    newtype from PR #9, and `ConwayTx` is the existing type
+    alias from `Cardano.Tx.Ledger`. The exact module path for
+    the new function is a `/speckit.plan` decision; the
+    signature is fixed here.
 
-- **FR-002**: `validatePhase1` MUST synthesise a `Globals` value
-  appropriate for the supplied `NetworkId` (mainnet vs preview vs
-  preprod magics), an empty `AccountState`, and a `MempoolState`
+- **FR-002**: `validatePhase1` MUST synthesise a `Globals`
+  value appropriate for the supplied `Network`
+  (mainnet vs testnet — preview and preprod both map to
+  `Testnet` and are not distinguished at this layer), a
+  default `AccountState` (via `def :: NewEpochState`'s
+  built-in empty account state), and a `MempoolState`
   seeded from the supplied UTxO list. The function MUST then
   invoke `Cardano.Ledger.Shelley.API.Mempool.applyTx` (or the
   closest public equivalent in `cardano-ledger-api` at the
@@ -300,8 +313,10 @@ noise).
   state = a fresh Conway state at the supplied slot; account
   state = empty.
 - **`Globals` (synthesised)**: ledger constants for the supplied
-  `NetworkId` (epoch info, network magic, security parameter,
-  active-slots coefficient, max KES evolutions, slot length).
+  `Network` (epoch info, security parameter, active-slots
+  coefficient, max KES evolutions, slot length). All
+  network-invariant except for the `networkId` field
+  (`Mainnet | Testnet`).
 
 ## Success Criteria *(mandatory)*
 
@@ -360,7 +375,7 @@ noise).
 upstream.** The kernel for Phase-1 validation is ~60 lines of
 Haskell that wraps `Cardano.Ledger.Shelley.API.Mempool.applyTx`:
 
-1. Synthesise `Globals` for the supplied `NetworkId`
+1. Synthesise `Globals` for the supplied `Network`
    (~25 lines of hardcoded constants: epoch size 432000,
    slot length 1s, k=2160, active-slots-coeff 1/20, etc.).
 2. Seed a `NewEpochState ConwayEra` from `(EpochNo, PParams,
