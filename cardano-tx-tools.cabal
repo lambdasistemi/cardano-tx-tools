@@ -208,6 +208,7 @@ test-suite unit-tests
   default-language: GHC2021
   other-modules:
     Cardano.Tx.BlueprintSpec
+    Cardano.Tx.BuildSpec
     Cardano.Tx.Diff.CliSpec
     Cardano.Tx.Diff.ConwaySpec
     Cardano.Tx.Diff.CoreSpec
