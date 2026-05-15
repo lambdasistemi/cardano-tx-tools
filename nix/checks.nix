@@ -1,4 +1,5 @@
-{ pkgs, src, components, lintPkgs ? pkgs }:
+{ pkgs, src, components, lintPkgs ? pkgs
+, cardanoNode ? null, cardanoNodeClientsSrc ? null }:
 let
   lib = pkgs.lib;
 
@@ -48,6 +49,9 @@ let
         test -e ${components.sublibs."tx-generator-lib"}
         test -e ${components.exes.tx-diff}
         test -e ${components.exes."cardano-tx-generator"}
+        test -e ${components.tests."unit-tests"}
+        test -e ${components.tests."tx-generator-tests"}
+        test -e ${components.tests."e2e-tests"}
         echo "build outputs realized"
       '';
     };
@@ -66,6 +70,18 @@ let
         [ components.tests."tx-generator-tests" ];
       text = ''
         tx-generator-tests
+      '';
+    };
+
+    e2e = {
+      name = "e2e";
+      runtimeInputs = [
+        cardanoNode
+        components.tests."e2e-tests"
+      ];
+      text = ''
+        export E2E_GENESIS_DIR=${cardanoNodeClientsSrc}/e2e-test/genesis
+        e2e-tests
       '';
     };
 
