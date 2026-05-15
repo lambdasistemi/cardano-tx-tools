@@ -46,7 +46,14 @@ library
   default-language: GHC2021
   exposed-modules:
     Cardano.Tx.Balance
+    Cardano.Tx.Blueprint
     Cardano.Tx.Build
+    Cardano.Tx.Diff
+    Cardano.Tx.Diff.Cli
+    Cardano.Tx.Diff.Resolver
+    Cardano.Tx.Diff.Resolver.N2C
+    Cardano.Tx.Diff.Resolver.Web2
+    Cardano.Tx.Evaluate
 
   other-modules:
     Cardano.Tx.Credentials
@@ -56,21 +63,99 @@ library
     Cardano.Tx.Witnesses
 
   build-depends:
+    , aeson
     , base                           <5
+    , base16-bytestring
     , bytestring
     , cardano-binary
+    , cardano-crypto-class
     , cardano-data
     , cardano-ledger-allegra
     , cardano-ledger-alonzo
     , cardano-ledger-api
+    , cardano-ledger-binary
     , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-mary
+    , cardano-node-clients
     , cardano-node-clients:tx-build
     , cardano-slotting
     , cardano-strict-containers
     , containers
+    , exceptions
+    , http-client
+    , http-client-tls
+    , http-types
     , microlens
     , operational
     , plutus-core
     , plutus-tx
+    , scientific
+    , serialise
+    , text
+    , time
+    , transformers
+    , tree-view
+    , yaml
+
+executable tx-diff
+  import:           warnings
+  hs-source-dirs:   app/tx-diff
+  main-is:          Main.hs
+  default-language: GHC2021
+  build-depends:
+    , async
+    , base
+    , base16-bytestring
+    , bytestring
+    , cardano-crypto-class
+    , cardano-ledger-api
+    , cardano-ledger-core
+    , cardano-node-clients
+    , cardano-tx-tools
+    , containers
+    , http-client
+    , http-client-tls
+    , microlens
+    , ouroboros-network:api
+    , text
+
+test-suite unit-tests
+  import:           warnings
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          unit-main.hs
+  default-language: GHC2021
+  other-modules:
+    Cardano.Tx.BlueprintSpec
+    Cardano.Tx.Diff.CliSpec
+    Cardano.Tx.Diff.ConwaySpec
+    Cardano.Tx.Diff.CoreSpec
+    Cardano.Tx.Diff.ResolverSpec
+    Cardano.Tx.Diff.Web2Spec
+    Cardano.Tx.DiffSpec
+
+  build-depends:
+    , aeson
+    , base
+    , base16-bytestring
+    , bytestring
+    , cardano-binary
+    , cardano-crypto-class
+    , cardano-ledger-allegra
+    , cardano-ledger-alonzo
+    , cardano-ledger-api
+    , cardano-ledger-binary
+    , cardano-ledger-conway
+    , cardano-ledger-core
+    , cardano-ledger-mary
+    , cardano-node-clients
+    , cardano-slotting
+    , cardano-strict-containers
+    , cardano-tx-tools
+    , containers
+    , hspec
+    , microlens
+    , plutus-core
+    , QuickCheck
+    , text

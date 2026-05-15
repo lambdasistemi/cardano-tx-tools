@@ -9,10 +9,23 @@ hlint:
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec hlint {} +
 
 build:
-    cabal build cardano-tx-tools -O0
+    cabal build all -O0
+
+unit match="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ '{{ match }}' == "" ]]; then
+        cabal test cardano-tx-tools:unit-tests -O0 --test-show-details=direct
+    else
+        cabal test cardano-tx-tools:unit-tests -O0 \
+            --test-show-details=direct \
+            --test-option=--match \
+            --test-option="{{ match }}"
+    fi
 
 ci:
     just build
+    just unit
     cabal-fmt -c cardano-tx-tools.cabal
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec fourmolu -m check {} +
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec hlint {} +
