@@ -241,6 +241,48 @@ test-suite unit-tests
     , QuickCheck
     , text
 
+test-suite e2e-tests
+  import:           warnings
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          e2e-main.hs
+  default-language: GHC2021
+  other-modules:
+    Cardano.Node.Client.E2E.BalanceSpec
+    Cardano.Node.Client.E2E.ChainPopulatorSpec
+    Cardano.Node.Client.E2E.GovernanceSmokeSpec
+    Cardano.Node.Client.E2E.MultiAssetChangeSpec
+    Cardano.Node.Client.E2E.TxBuildSpec
+    Cardano.Node.Client.E2E.UTxOIndexerSpec
+
+  build-depends:
+    , aeson
+    , async
+    , base
+    , base16-bytestring
+    , bytestring
+    , cardano-crypto-class
+    , cardano-ledger-allegra
+    , cardano-ledger-alonzo
+    , cardano-ledger-api
+    , cardano-ledger-conway
+    , cardano-ledger-core
+    , cardano-ledger-mary
+    , cardano-ledger-read
+    , cardano-node-clients
+    , cardano-node-clients:devnet
+    , cardano-slotting
+    , cardano-strict-containers
+    , cardano-tx-tools
+    , containers
+    , directory
+    , filepath
+    , hspec
+    , microlens
+    , network
+    , temporary
+    , text
+
 test-suite tx-generator-tests
   import:           warnings
   type:             exitcode-stdio-1.0

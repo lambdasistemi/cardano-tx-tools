@@ -36,10 +36,19 @@
       flake = false;
     };
     mkdocs.url = "github:paolino/dev-assets?dir=mkdocs";
+    cardano-node = {
+      url = "github:IntersectMBO/cardano-node/10.7.0";
+    };
+    cardano-node-clients = {
+      url =
+        "github:lambdasistemi/cardano-node-clients/ca86f11d27b34e37d3814e4d3c3d66e256400403";
+      flake = false;
+    };
   };
 
   outputs = inputs@{ self, nixpkgs, lintNixpkgs, flake-parts, haskellNix
-    , hackageNix, iohkNix, CHaP, mkdocs, ... }:
+    , hackageNix, iohkNix, CHaP, mkdocs, cardano-node, cardano-node-clients
+    , ... }:
     let
       imageTag =
         self.shortRev or (self.dirtyShortRev or "dirty");
@@ -235,6 +244,9 @@
           checkSuite = import ./nix/checks.nix {
             inherit pkgs components lintPkgs;
             src = ./.;
+            cardanoNode =
+              cardano-node.packages.${system}.cardano-node;
+            cardanoNodeClientsSrc = cardano-node-clients;
           };
           checkApps = import ./nix/apps.nix {
             inherit pkgs;
