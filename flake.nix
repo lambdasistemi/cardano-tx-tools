@@ -40,8 +40,15 @@
 
   outputs = inputs@{ self, nixpkgs, lintNixpkgs, flake-parts, haskellNix
     , hackageNix, iohkNix, CHaP, mkdocs, ... }:
+    let
+      imageTag =
+        self.shortRev or (self.dirtyShortRev or "dirty");
+    in
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-darwin" ];
+      flake = {
+        inherit imageTag;
+      };
       perSystem = { system, ... }:
         let
           pkgs = import nixpkgs {
@@ -189,6 +196,7 @@
               linux-release-artifacts =
                 import ./nix/linux-release.nix {
                   inherit pkgs system packageVersion;
+                  executableName = "tx-diff";
                   package = txDiff;
                   bundlers = inputs.bundlers;
                 };
@@ -196,13 +204,33 @@
                 import ./nix/linux-release.nix {
                   inherit pkgs system packageVersion;
                   artifactVersion = devArtifactVersion;
+                  executableName = "tx-diff";
                   package = txDiff;
+                  bundlers = inputs.bundlers;
+                };
+              cardano-tx-generator-linux-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  executableName = "cardano-tx-generator";
+                  package = components.exes.cardano-tx-generator;
+                  bundlers = inputs.bundlers;
+                };
+              cardano-tx-generator-linux-dev-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  artifactVersion = devArtifactVersion;
+                  executableName = "cardano-tx-generator";
+                  package = components.exes.cardano-tx-generator;
                   bundlers = inputs.bundlers;
                 };
               linux-artifact-smoke =
                 import ./nix/linux-artifact-smoke.nix {
                   inherit pkgs system;
                 };
+            };
+          cardanoTxGeneratorImage =
+            import ./nix/docker-image.nix {
+              inherit pkgs components imageTag;
             };
           checkSuite = import ./nix/checks.nix {
             inherit pkgs components lintPkgs;
@@ -218,7 +246,10 @@
             tx-diff = txDiff;
             cardano-tx-generator =
               components.exes.cardano-tx-generator;
-          } // darwinReleasePackages // linuxReleasePackages;
+          } // darwinReleasePackages // linuxReleasePackages
+            // lib.optionalAttrs pkgs.stdenv.isLinux {
+              cardano-tx-generator-image = cardanoTxGeneratorImage;
+            };
           checks = checkSuite.checks;
           apps = checkApps // {
             tx-diff = {
