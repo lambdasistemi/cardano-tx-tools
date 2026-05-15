@@ -8,18 +8,26 @@ used by builders and balancers.
 -}
 module Cardano.Tx.Scripts (
     computeScriptIntegrity,
+    languagesUsedInTx,
+    languagesUsedIn,
     evalBudgetExUnits,
     placeholderExUnits,
     refScriptsSize,
 ) where
 
 import Data.ByteString qualified as BS
+import Data.Map.Strict qualified as Map
+import Data.Set (Set)
 import Data.Set qualified as Set
 import Lens.Micro ((^.))
 
 import Cardano.Ledger.Alonzo.PParams (
     LangDepView,
     getLanguageView,
+ )
+import Cardano.Ledger.Alonzo.Scripts (
+    plutusScriptLanguage,
+    toPlutusScript,
  )
 import Cardano.Ledger.Alonzo.Tx (
     ScriptIntegrity (..),
@@ -30,6 +38,9 @@ import Cardano.Ledger.Alonzo.TxWits (
     Redeemers (..),
     TxDats (..),
  )
+import Cardano.Ledger.Api.Tx.Body (
+    referenceInputsTxBodyL,
+ )
 import Cardano.Ledger.Api.Tx.Out (
     TxOut,
     referenceScriptTxOutL,
@@ -38,11 +49,22 @@ import Cardano.Ledger.BaseTypes (
     StrictMaybe (SJust, SNothing),
  )
 import Cardano.Ledger.Conway (ConwayEra)
-import Cardano.Ledger.Core (PParams)
-import Cardano.Ledger.Hashes (originalBytes)
+import Cardano.Ledger.Core (
+    PParams,
+    Script,
+    bodyTxL,
+    scriptTxWitsL,
+    witsTxL,
+ )
+import Cardano.Ledger.Hashes (
+    ScriptHash,
+    originalBytes,
+ )
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.Plutus.Language (Language)
 import Cardano.Ledger.TxIn (TxIn)
+
+import Cardano.Tx.Ledger (ConwayTx)
 
 {- | Sum the byte lengths of any reference scripts
 attached to UTxOs whose 'TxIn' is in the body's
@@ -59,7 +81,7 @@ ledger; under-paying is rejected with
 @FeeTooSmallUTxO@.
 -}
 refScriptsSize ::
-    Set.Set TxIn ->
+    Set TxIn ->
     [(TxIn, TxOut ConwayEra)] ->
     Int
 refScriptsSize bodyRefIns =
@@ -73,33 +95,102 @@ refScriptsSize bodyRefIns =
         )
         0
 
-{- | Compute the 'ScriptIntegrityHash' from protocol
-parameters, a set of 'Redeemers', and the Plutus
-language used.
+{- | Derive the set of Plutus languages referenced by
+the given witness-set scripts and reference inputs.
 
-The hash covers the language cost model, redeemers,
-and an empty datum set (inline datums only, no datum
-map needed).
+Walks two sources, both required because either is
+sufficient on its own to introduce a language:
+
+* Witness-set scripts — any Plutus script the tx
+  carries directly.
+* Reference inputs that resolve to UTxOs carrying a
+  Plutus reference script.
+
+Native (timelock) scripts are filtered out — they do
+not contribute to the integrity hash.
+
+The supplied @refUtxos@ list must contain the
+resolved UTxOs for any reference input the tx
+references; entries for other TxIns are ignored
+(this matches the existing @refScriptsSize@ pattern).
+-}
+languagesUsedIn ::
+    Map.Map ScriptHash (Script ConwayEra) ->
+    Set TxIn ->
+    [(TxIn, TxOut ConwayEra)] ->
+    Set Language
+languagesUsedIn witScripts refIns refUtxos =
+    Set.union witLangs refLangs
+  where
+    witLangs =
+        Set.fromList
+            [ plutusScriptLanguage ps
+            | s <- Map.elems witScripts
+            , Just ps <- [toPlutusScript s]
+            ]
+
+    refLangs =
+        Set.fromList
+            [ plutusScriptLanguage ps
+            | (txin, txout) <- refUtxos
+            , Set.member txin refIns
+            , SJust s <- [txout ^. referenceScriptTxOutL]
+            , Just ps <- [toPlutusScript s]
+            ]
+
+{- | Convenience wrapper over 'languagesUsedIn' that
+sources both the witness-set scripts and the
+reference-input set from a fully-assembled tx.
+-}
+languagesUsedInTx ::
+    ConwayTx ->
+    [(TxIn, TxOut ConwayEra)] ->
+    Set Language
+languagesUsedInTx tx =
+    languagesUsedIn
+        (tx ^. witsTxL . scriptTxWitsL)
+        (tx ^. bodyTxL . referenceInputsTxBodyL)
+
+{- | Compute the 'ScriptIntegrityHash' from protocol
+parameters, a body-derived set of Plutus languages,
+the redeemers, and the witness-set datums.
+
+The hash covers the cost-model language views for
+exactly the languages referenced by the body, the
+redeemers in their witness-set form (Conway map form
+for Conway), and the witness-set datums map (which
+may be empty for inline-only datum txs).
+
+The language set is intentionally an input rather
+than derived inside this function: callers know the
+tx and the resolved reference-input UTxOs and can
+compute it via 'languagesUsedInTx'. Pulling that
+derivation up keeps this helper independent of
+@TxOut@ resolution.
+
+Returns 'SNothing' when there are no redeemers, no
+datums, and no language views — i.e. the tx carries
+nothing the hash would commit to.
 -}
 computeScriptIntegrity ::
-    Language ->
+    Set Language ->
     PParams ConwayEra ->
     Redeemers ConwayEra ->
+    TxDats ConwayEra ->
     StrictMaybe ScriptIntegrityHash
-computeScriptIntegrity lang pp rdmrs =
-    let langViews :: Set.Set LangDepView
-        langViews =
-            Set.singleton
-                (getLanguageView pp lang)
-        emptyDats :: TxDats ConwayEra
-        emptyDats = TxDats mempty
+computeScriptIntegrity langs pp rdmrs dats =
+    let langViews :: Set LangDepView
+        langViews = Set.map (getLanguageView pp) langs
         Redeemers redeemerMap = rdmrs
-     in if null redeemerMap && null langViews
+        TxDats datMap = dats
+     in if Map.null redeemerMap
+            && Map.null datMap
+            && Set.null langViews
             then SNothing
             else
                 SJust $
                     hashScriptIntegrity $
-                        ScriptIntegrity rdmrs emptyDats langViews
+                        ScriptIntegrity rdmrs dats langViews
 
 {- | Zero execution units, used as placeholder when
 building a transaction before script evaluation.

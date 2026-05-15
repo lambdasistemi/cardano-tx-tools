@@ -163,6 +163,7 @@ import Cardano.Ledger.Alonzo.TxBody (
  )
 import Cardano.Ledger.Alonzo.TxWits (
     Redeemers (..),
+    TxDats (..),
  )
 import Cardano.Ledger.Api.PParams (ppMaxTxSizeL)
 import Cardano.Ledger.Api.Scripts.Data (
@@ -200,6 +201,7 @@ import Cardano.Ledger.Api.Tx.Out (
     mkBasicTxOut,
  )
 import Cardano.Ledger.Api.Tx.Wits (
+    datsTxWitsL,
     rdmrsTxWitsL,
     scriptTxWitsL,
  )
@@ -253,9 +255,6 @@ import Cardano.Ledger.Mary.Value (
  )
 import Cardano.Ledger.Metadata (Metadatum)
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
-import Cardano.Ledger.Plutus.Language (
-    Language (PlutusV3),
- )
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Slotting.Slot (SlotNo)
 import Cardano.Tx.Balance (
@@ -269,6 +268,8 @@ import Cardano.Tx.Ledger (ConwayTx)
 import Cardano.Tx.Scripts (
     computeScriptIntegrity,
     evalBudgetExUnits,
+    languagesUsedIn,
+    languagesUsedInTx,
     refScriptsSize,
  )
 import Lens.Micro ((&), (.~), (^.))
@@ -962,15 +963,25 @@ interpretWithM runCtx currentTx = go emptyState True
 
 -- | Assemble a 'Tx' from interpreter state.
 assembleTx :: PParams ConwayEra -> TxState e -> ConwayTx
-assembleTx = assembleTxWith Set.empty
+assembleTx = assembleTxWith Set.empty []
 
-{- | Assemble with extra input TxIns (e.g. fee UTxO).
-These are included in the input set for correct
-spending index computation but don't get redeemers.
+{- | Assemble with extra input TxIns (e.g. fee UTxO)
+and resolved reference UTxOs.
+
+Extra inputs are included in the input set for
+correct spending index computation but don't get
+redeemers. Reference UTxOs are read only to derive
+the Plutus language set for the script-integrity
+hash; pass @[]@ when a draft body's integrity hash
+will be recomputed downstream (e.g. in @draftWith@).
 -}
 assembleTxWith ::
-    Set.Set TxIn -> PParams ConwayEra -> TxState e -> ConwayTx
-assembleTxWith extraIns pp st =
+    Set.Set TxIn ->
+    [(TxIn, TxOut ConwayEra)] ->
+    PParams ConwayEra ->
+    TxState e ->
+    ConwayTx
+assembleTxWith extraIns refUtxos pp st =
     let
         allSpendIns =
             Set.union extraIns $
@@ -1034,15 +1045,22 @@ assembleTxWith extraIns pp st =
                         mkBasicTxAuxData
                             & metadataTxAuxDataL
                                 .~ tsMetadata st
-        -- Integrity hash (skip if no scripts)
+        -- Integrity hash (skip if no scripts).
+        -- The language set is derived from the witness-set
+        -- scripts and any reference-script inputs resolved
+        -- via @refUtxos@; passing 'PlutusV3' as a fixed
+        -- caller value was the issue-#8 footgun.
+        -- Witness-set datums are 'mempty' because TxBuild
+        -- only emits inline datums (no witness-set datums).
         integrity =
             if null rdmrList
                 then SNothing
                 else
                     computeScriptIntegrity
-                        PlutusV3
+                        (languagesUsedIn (tsScripts st) refIns refUtxos)
                         pp
                         allRdmrs
+                        (TxDats mempty)
         body =
             mkBasicTxBody
                 & inputsTxBodyL .~ allSpendIns
@@ -1286,9 +1304,10 @@ buildWith opts pp interpret evaluateTx inputUtxos refUtxos changeAddr prog =
                     then SNothing
                     else
                         computeScriptIntegrity
-                            PlutusV3
+                            (languagesUsedInTx tx refUtxos)
                             pp
                             inflated
+                            (tx ^. witsTxL . datsTxWitsL)
          in tx
                 & witsTxL . rdmrsTxWitsL
                     .~ inflated
@@ -1326,7 +1345,7 @@ buildWith opts pp interpret evaluateTx inputUtxos refUtxos changeAddr prog =
                 (runInterpretIO interpret)
                 prevWithIns
                 prog
-        let tx = assembleTxWith extraIns pp st
+        let tx = assembleTxWith extraIns refUtxos pp st
             prevFee = prevTx ^. bodyTxL . feeTxBodyL
             txForEval =
                 tx & bodyTxL . feeTxBodyL .~ prevFee
@@ -1630,6 +1649,7 @@ buildWith opts pp interpret evaluateTx inputUtxos refUtxos changeAddr prog =
                     let tx' =
                             assembleTxWith
                                 extraIns
+                                refUtxos
                                 pp
                                 st'
                                 & bodyTxL . feeTxBodyL
@@ -1708,7 +1728,7 @@ buildWith opts pp interpret evaluateTx inputUtxos refUtxos changeAddr prog =
                 feeTxWithIns
                 prog
         let tx' =
-                assembleTxWith extraIns pp st'
+                assembleTxWith extraIns refUtxos pp st'
                     & bodyTxL . feeTxBodyL .~ fee
             patched =
                 patchExUnits tx' evalResult
@@ -1772,9 +1792,10 @@ buildWith opts pp interpret evaluateTx inputUtxos refUtxos changeAddr prog =
                     then SNothing
                     else
                         computeScriptIntegrity
-                            PlutusV3
+                            (languagesUsedInTx tx refUtxos)
                             pp
                             newRdmrs
+                            (tx ^. witsTxL . datsTxWitsL)
          in tx
                 & witsTxL . rdmrsTxWitsL
                     .~ newRdmrs

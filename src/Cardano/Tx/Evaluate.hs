@@ -20,8 +20,9 @@ transactions with Plutus scripts:
 3. Sign and submit
 
 @
-tx <- evaluateAndBalance PlutusV3 (evaluateTx prov) pp
-        [feeUtxo, scriptUtxo] changeAddr unbalancedTx
+tx <- evaluateAndBalance (evaluateTx prov) pp
+        [feeUtxo, scriptUtxo] [refScriptUtxo]
+        changeAddr unbalancedTx
 let signed = addKeyWitness sk tx
 submitTx submitter signed
 @
@@ -57,14 +58,16 @@ import Cardano.Ledger.Api.Tx.Body (
     inputsTxBodyL,
  )
 import Cardano.Ledger.Api.Tx.Out (TxOut)
-import Cardano.Ledger.Api.Tx.Wits (rdmrsTxWitsL)
+import Cardano.Ledger.Api.Tx.Wits (
+    datsTxWitsL,
+    rdmrsTxWitsL,
+ )
 import Cardano.Ledger.BaseTypes (
     StrictMaybe (SNothing),
  )
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Core (PParams)
 import Cardano.Ledger.Plutus (ExUnits)
-import Cardano.Ledger.Plutus.Language (Language)
 import Cardano.Ledger.TxIn (TxIn)
 
 import Cardano.Tx.Balance (
@@ -72,6 +75,7 @@ import Cardano.Tx.Balance (
     balanceTx,
     computeScriptIntegrity,
     evalBudgetExUnits,
+    languagesUsedInTx,
  )
 import Cardano.Tx.Ledger (ConwayTx)
 
@@ -108,7 +112,6 @@ Throws an error if script evaluation fails or
 balancing fails (insufficient funds).
 -}
 evaluateAndBalance ::
-    Language ->
     -- | Evaluator for one transaction, typically
     --     @'Cardano.Node.Client.Provider.evaluateTx' provider@. Passed
     --     in as a plain function so this module stays decoupled from
@@ -129,7 +132,7 @@ evaluateAndBalance ::
     -- | Unbalanced tx with 'placeholderExUnits'
     ConwayTx ->
     IO ConwayTx
-evaluateAndBalance lang evalTx pp inputUtxos refUtxos changeAddr tx =
+evaluateAndBalance evalTx pp inputUtxos refUtxos changeAddr tx =
     go (0 :: Int) txForEval
   where
     -- Pre-add all inputs so the evaluator sees
@@ -187,9 +190,10 @@ evaluateAndBalance lang evalTx pp inputUtxos refUtxos changeAddr tx =
                     then SNothing
                     else
                         computeScriptIntegrity
-                            lang
+                            (languagesUsedInTx candidate refUtxos)
                             pp
                             inflated
+                            (candidate ^. witsTxL . datsTxWitsL)
          in candidate
                 & witsTxL . rdmrsTxWitsL
                     .~ inflated
@@ -220,9 +224,10 @@ evaluateAndBalance lang evalTx pp inputUtxos refUtxos changeAddr tx =
             newRedeemers = Redeemers patched
             integrity =
                 computeScriptIntegrity
-                    lang
+                    (languagesUsedInTx tx refUtxos)
                     pp
                     newRedeemers
+                    (tx ^. witsTxL . datsTxWitsL)
             patched' =
                 tx
                     & witsTxL . rdmrsTxWitsL
