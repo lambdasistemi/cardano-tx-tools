@@ -85,6 +85,7 @@ import Cardano.Tx.Build (
     build,
     collateral,
     mint,
+    mkPParamsBound,
     payTo,
     spend,
  )
@@ -173,7 +174,7 @@ mintsNftIntoChange (provider, submitter, pp, utxos) = do
             _ <- payTo recipient (inject recipientCoin)
             pure ()
 
-    build pp interpret eval [seed] [] genesisAddr prog
+    build (mkPParamsBound pp) interpret eval [seed] [] genesisAddr prog
         >>= \case
             Left err -> expectationFailure (show err)
             Right tx -> do
