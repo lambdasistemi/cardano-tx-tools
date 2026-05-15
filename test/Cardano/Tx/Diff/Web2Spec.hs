@@ -37,13 +37,13 @@ import Cardano.Ledger.Core (bodyTxL)
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
-import Cardano.Node.Client.Ledger (ConwayTx)
 import Cardano.Tx.Diff.Resolver (Resolver (..), resolveChain)
 import Cardano.Tx.Diff.Resolver.Web2 (
     Web2Config (..),
     Web2FetchError (..),
     web2Resolver,
  )
+import Cardano.Tx.Ledger (ConwayTx)
 
 spec :: Spec
 spec =

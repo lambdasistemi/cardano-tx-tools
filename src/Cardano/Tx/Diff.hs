@@ -144,8 +144,8 @@ import Cardano.Ledger.Mary.Value (
  )
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
-import Cardano.Node.Client.Ledger (ConwayTx)
 import Cardano.Slotting.Slot (SlotNo (..))
+import Cardano.Tx.Ledger (ConwayTx)
 import PlutusCore.Data qualified as PLC
 
 newtype DiffPath = DiffPath [Text]

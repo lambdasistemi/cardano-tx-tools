@@ -64,8 +64,8 @@ import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Core (bodyTxL)
 import Cardano.Ledger.Hashes (extractHash)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
-import Cardano.Node.Client.Ledger (ConwayTx)
 import Cardano.Tx.Diff.Resolver (Resolver (..))
+import Cardano.Tx.Ledger (ConwayTx)
 
 -- | Why a single web2 fetch failed.
 data Web2FetchError

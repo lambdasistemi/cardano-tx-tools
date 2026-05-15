@@ -98,9 +98,9 @@ import Cardano.Ledger.Mary.Value (
     mapMaybeMultiAsset,
  )
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Node.Client.Ledger (ConwayTx)
 import Cardano.Tx.Deposits (bodyDepositDelta)
 import Cardano.Tx.Inputs (spendingIndex)
+import Cardano.Tx.Ledger (ConwayTx)
 import Cardano.Tx.Scripts (
     computeScriptIntegrity,
     evalBudgetExUnits,

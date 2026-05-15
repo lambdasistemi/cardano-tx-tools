@@ -14,25 +14,36 @@ This is the standard workflow for submitting
 transactions with Plutus scripts:
 
 1. Build a tx with 'placeholderExUnits'
-2. Call 'evaluateAndBalance'
+2. Call 'evaluateAndBalance', passing an evaluator
+   function (typically @evaluateTx provider@ from
+   cardano-node-clients's 'Provider')
 3. Sign and submit
 
 @
-tx <- evaluateAndBalance PlutusV3 prov pp
+tx <- evaluateAndBalance PlutusV3 (evaluateTx prov) pp
         [feeUtxo, scriptUtxo] changeAddr unbalancedTx
 let signed = addKeyWitness sk tx
 submitTx submitter signed
 @
+
+The evaluator function is passed in rather than the full 'Provider'
+record so this module has no node-client dependency.
 -}
 module Cardano.Tx.Evaluate (
+    EvaluateTxResult,
     evaluateAndBalance,
 ) where
 
+import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Lens.Micro ((&), (.~), (^.))
 
 import Cardano.Ledger.Address (Addr)
+import Cardano.Ledger.Alonzo.Plutus.Evaluate (
+    TransactionScriptFailure,
+ )
+import Cardano.Ledger.Alonzo.Scripts (AsIx, PlutusPurpose)
 import Cardano.Ledger.Alonzo.TxBody (
     scriptIntegrityHashTxBodyL,
  )
@@ -52,17 +63,26 @@ import Cardano.Ledger.BaseTypes (
  )
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Core (PParams)
+import Cardano.Ledger.Plutus (ExUnits)
 import Cardano.Ledger.Plutus.Language (Language)
 import Cardano.Ledger.TxIn (TxIn)
 
-import Cardano.Node.Client.Ledger (ConwayTx)
-import Cardano.Node.Client.Provider (Provider (..))
 import Cardano.Tx.Balance (
     BalanceResult (..),
     balanceTx,
     computeScriptIntegrity,
     evalBudgetExUnits,
  )
+import Cardano.Tx.Ledger (ConwayTx)
+
+{- | Per-script evaluation result, matching the shape returned by
+'Cardano.Node.Client.Provider.evaluateTx' (and any equivalent evaluator).
+Kept here so this module does not import from cardano-node-clients.
+-}
+type EvaluateTxResult era =
+    Map
+        (PlutusPurpose AsIx era)
+        (Either (TransactionScriptFailure era) ExUnits)
 
 {- | Evaluate Plutus scripts, patch execution units,
 recompute the script integrity hash, and balance the
@@ -89,7 +109,11 @@ balancing fails (insufficient funds).
 -}
 evaluateAndBalance ::
     Language ->
-    Provider IO ->
+    -- | Evaluator for one transaction, typically
+    --     @'Cardano.Node.Client.Provider.evaluateTx' provider@. Passed
+    --     in as a plain function so this module stays decoupled from
+    --     cardano-node-clients.
+    (ConwayTx -> IO (EvaluateTxResult ConwayEra)) ->
     PParams ConwayEra ->
     -- | All input UTxOs (fee-paying and script).
     --     Their 'TxIn's are unioned with the body's
@@ -105,7 +129,7 @@ evaluateAndBalance ::
     -- | Unbalanced tx with 'placeholderExUnits'
     ConwayTx ->
     IO ConwayTx
-evaluateAndBalance lang prov pp inputUtxos refUtxos changeAddr tx =
+evaluateAndBalance lang evalTx pp inputUtxos refUtxos changeAddr tx =
     go (0 :: Int) txForEval
   where
     -- Pre-add all inputs so the evaluator sees
@@ -131,9 +155,7 @@ evaluateAndBalance lang prov pp inputUtxos refUtxos changeAddr tx =
                 "evaluateAndBalance: ExUnits did not converge"
         | otherwise = do
             evalResult <-
-                evaluateTx
-                    prov
-                    (inflateRedeemerBudgets candidate)
+                evalTx (inflateRedeemerBudgets candidate)
             case evalFailures evalResult of
                 [] -> do
                     balanced <-

@@ -118,7 +118,6 @@ import Cardano.Ledger.Plutus.Language (
     PlutusBinary (..),
  )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
-import Cardano.Node.Client.Ledger (ConwayTx)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Cardano.Tx.Blueprint (
     Blueprint (..),
@@ -141,6 +140,7 @@ import Cardano.Tx.Diff (
     renderConwayTxInputDiff,
     renderDiffNodeHuman,
  )
+import Cardano.Tx.Ledger (ConwayTx)
 import PlutusCore.Data qualified as PLC
 
 spec :: Spec
