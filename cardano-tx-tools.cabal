@@ -1,0 +1,48 @@
+cabal-version:   3.4
+name:            cardano-tx-tools
+version:         0.0.0
+synopsis:        Cardano transaction tooling (builder, structural diff)
+description:
+  Library and executables for working with Cardano (Conway) transactions:
+  building, balancing, structural diffing, and Plutus blueprint decoding.
+  Uses cardano-node-clients for Provider / N2C access at runtime but is
+  not itself a node client.
+
+license:         Apache-2.0
+license-file:    LICENSE
+author:          Paolo Veronelli
+maintainer:      paolo.veronelli@gmail.com
+homepage:        https://lambdasistemi.github.io/cardano-tx-tools/
+bug-reports:     https://github.com/lambdasistemi/cardano-tx-tools/issues
+category:        Cardano
+build-type:      Simple
+extra-doc-files:
+  CHANGELOG.md
+  README.md
+
+common warnings
+  ghc-options:
+    -Wall -Werror -Wunused-imports -Wmissing-export-lists
+    -Wname-shadowing -Wredundant-constraints
+
+  default-extensions:
+    DataKinds
+    DerivingStrategies
+    DuplicateRecordFields
+    FlexibleContexts
+    GADTs
+    ImportQualifiedPost
+    OverloadedStrings
+    PatternSynonyms
+    ScopedTypeVariables
+    StrictData
+    TypeApplications
+    TypeOperators
+    ViewPatterns
+
+library
+  import:           warnings
+  hs-source-dirs:   src
+  default-language: GHC2021
+  exposed-modules:  Cardano.Tx
+  build-depends:    base <5
