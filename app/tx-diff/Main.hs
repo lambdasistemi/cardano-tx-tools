@@ -61,7 +61,7 @@ import Cardano.Ledger.Api.Tx.Body (
 import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Hashes (extractHash)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
-import Cardano.Node.Client.Ledger (ConwayTx)
+import Cardano.Tx.Ledger (ConwayTx)
 
 import Cardano.Crypto.Hash (hashToBytes)
 import Control.Concurrent.Async (withAsync)

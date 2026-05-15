@@ -5,8 +5,9 @@ synopsis:        Cardano transaction tooling (builder, structural diff)
 description:
   Library and executables for working with Cardano (Conway) transactions:
   building, balancing, structural diffing, and Plutus blueprint decoding.
-  Uses cardano-node-clients for Provider / N2C access at runtime but is
-  not itself a node client.
+  The main library has no node-client dependency; an opt-in
+  'n2c-resolver' sub-library bridges the resolver chain to
+  cardano-node-clients's 'Provider' for the tx-diff executable.
 
 license:         Apache-2.0
 license-file:    LICENSE
@@ -51,9 +52,9 @@ library
     Cardano.Tx.Diff
     Cardano.Tx.Diff.Cli
     Cardano.Tx.Diff.Resolver
-    Cardano.Tx.Diff.Resolver.N2C
     Cardano.Tx.Diff.Resolver.Web2
     Cardano.Tx.Evaluate
+    Cardano.Tx.Ledger
 
   other-modules:
     Cardano.Tx.Credentials
@@ -64,7 +65,7 @@ library
 
   build-depends:
     , aeson
-    , base                           <5
+    , base                       <5
     , base16-bytestring
     , bytestring
     , cardano-binary
@@ -77,8 +78,6 @@ library
     , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-mary
-    , cardano-node-clients
-    , cardano-node-clients:tx-build
     , cardano-slotting
     , cardano-strict-containers
     , containers
@@ -98,6 +97,17 @@ library
     , tree-view
     , yaml
 
+library n2c-resolver
+  import:           warnings
+  visibility:       public
+  hs-source-dirs:   lib-n2c-resolver
+  default-language: GHC2021
+  exposed-modules:  Cardano.Tx.Diff.Resolver.N2C
+  build-depends:
+    , base                  <5
+    , cardano-node-clients
+    , cardano-tx-tools
+
 executable tx-diff
   import:           warnings
   hs-source-dirs:   app/tx-diff
@@ -113,6 +123,7 @@ executable tx-diff
     , cardano-ledger-core
     , cardano-node-clients
     , cardano-tx-tools
+    , cardano-tx-tools:n2c-resolver
     , containers
     , http-client
     , http-client-tls
@@ -153,6 +164,7 @@ test-suite unit-tests
     , cardano-slotting
     , cardano-strict-containers
     , cardano-tx-tools
+    , cardano-tx-tools:n2c-resolver
     , containers
     , hspec
     , microlens

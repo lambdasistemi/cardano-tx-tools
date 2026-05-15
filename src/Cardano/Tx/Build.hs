@@ -257,7 +257,6 @@ import Cardano.Ledger.Plutus.Language (
     Language (PlutusV3),
  )
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Node.Client.Ledger (ConwayTx)
 import Cardano.Slotting.Slot (SlotNo)
 import Cardano.Tx.Balance (
     BalanceError,
@@ -266,6 +265,7 @@ import Cardano.Tx.Balance (
     balanceTxWith,
  )
 import Cardano.Tx.Inputs (spendingIndex)
+import Cardano.Tx.Ledger (ConwayTx)
 import Cardano.Tx.Scripts (
     computeScriptIntegrity,
     evalBudgetExUnits,
