@@ -189,8 +189,15 @@ solely for `def :: NewEpochState ConwayEra`.
 - `test/Cardano/Tx/ValidateSpec.hs` — hspec test cases from spec.md
   Stories 1 & 2 (4 + 1 acceptance scenarios) plus the mempool
   short-circuit defensive negative case.
-- `test/Cardano/Tx/Validate/LoadUtxo.hs` — test-only helper, parses
-  `cardano-cli query utxo --output-json` shape. Not exported from the
-  library (FR-009; constitution II).
-- `test/fixtures/mainnet-txbuild/{pre-fix,post-fix}-tx.cbor.hex` — pre-fix and post-fix unsigned bodies for the issue-#8 reproduction.
-- `test/fixtures/mainnet-txbuild/utxo.json` — `cardano-cli` capture of the four TxIns referenced by the issue-#8 reproduction.
+- `test/Cardano/Tx/Validate/LoadUtxo.hs` — test-only helper, reads a
+  directory of producer-tx CBOR-hex files (one per producer `TxId`)
+  and resolves `[(TxIn, TxOut ConwayEra)]` for a list of requested
+  `TxIn`s. Not exported from the library (FR-009; constitution II).
+  See [research.md R4](../research.md#r4-utxo-evidence-shape-producer-tx-cbors-revised-mid-implementation)
+  for the evidence-shape rationale.
+- `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/body.cbor.hex` —
+  the post-fix unsigned body from PR #9.
+- `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/producer-txs/<txid>.cbor.hex` —
+  producer-tx CBORs for the two `TxId`s the body references
+  (`59e10ca5…` and `f5f1bdfa…`). Fetched once via Blockfrost,
+  committed for offline replay.

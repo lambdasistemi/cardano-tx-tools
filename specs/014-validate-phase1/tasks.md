@@ -19,7 +19,7 @@ implementation makes it pass.
 
 - `test/fixtures/pparams.json` — mainnet pparams snapshot, already used by `Cardano.Tx.BuildSpec`.
 - `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/body.cbor.hex` — the post-fix unsigned body PR #9 emits.
-- `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/utxo.json` — the captured `cardano-cli query utxo` snapshot for the fixture's inputs (the post-fix `loadUtxo` consumer).
+- `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/producer-txs/<txid>.cbor.hex` — two producer-tx CBORs (`59e10ca5…` produces inputs #0+#2, `f5f1bdfa…` produces reference input #0), fetched via Blockfrost and committed for offline replay. The companion `utxo.json` stays in the tree as human documentation but the tests no longer read it.
 - `loadPParams`, `loadBody` helpers in `test/Cardano/Tx/BuildSpec.hs` — see [test/Cardano/Tx/BuildSpec.hs:120-135](https://github.com/lambdasistemi/cardano-tx-tools/blob/014-validate-phase1/test/Cardano/Tx/BuildSpec.hs#L120-L135). `loadUtxo` is the new helper this PR adds; reuse the existing two as-is.
 - hspec `unit-tests` test-suite, already wired.
 
@@ -43,7 +43,7 @@ together.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 Implement `loadUtxo :: FilePath -> IO [(TxIn, TxOut ConwayEra)]` in `test/Cardano/Tx/Validate/LoadUtxo.hs`. Parser MUST consume the cardano-cli JSON shape per [research.md R4 table](./research.md#r4-utxo-json-shape-from-cardano-cli-query-utxo-output-json) and produce typed ledger values. Wire a single hspec sanity test at `test/Cardano/Tx/Validate/LoadUtxoSpec.hs` that loads `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/utxo.json` and asserts the returned list has the expected number of entries and that one expected input is parseable into a known `TxIn`. Register `LoadUtxoSpec` in the `unit-tests` `other-modules` and main hspec entry. Commit: `feat(014): loadUtxo test helper parses cardano-cli JSON UTxO`.
+- [ ] T002 Implement `loadUtxo :: FilePath -> [TxIn] -> IO [(TxIn, TxOut ConwayEra)]` in `test/Cardano/Tx/Validate/LoadUtxo.hs`. The helper reads a directory of producer-tx CBOR-hex files (one per producer `TxId`), decodes each with the ledger's canonical decoder (`decodeFullAnnotator` over `ConwayTx`), and indexes into each producer tx's outputs by `TxIx` to resolve the requested inputs. See [research.md R4](./research.md#r4-utxo-evidence-shape-producer-tx-cbors-revised-mid-implementation). Producer-tx CBORs already on disk under `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/producer-txs/`. Wire a single hspec sanity test at `test/Cardano/Tx/Validate/LoadUtxoSpec.hs` that resolves the three TxIns referenced by the issue-#8 body and asserts the returned list has three entries with the expected lovelace values. Register both modules in the `unit-tests` `other-modules` and `LoadUtxoSpec` in `unit-main.hs`. Commit: `feat(014): loadUtxo test helper resolves UTxO from producer-tx CBORs`.
 
 **Checkpoint**: `loadUtxo` is callable from any subsequent test task.
 

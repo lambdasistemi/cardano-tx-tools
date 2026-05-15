@@ -205,10 +205,10 @@ noise).
   or CBOR-hex re-capture); `PParams` lives in
   `test/fixtures/pparams.json`; the tx body is a fixture; no
   signing keys are needed at test time.
-- **Test helper `loadUtxo`**: the test suite needs to parse
-  cardano-cli's JSON UTxO format (and/or a CBOR-hex re-capture
-  path). The helper lives in the test directory; it is NOT
-  exposed as a library API.
+- **Test helper `loadUtxo`**: the test suite resolves UTxO from
+  committed producer-tx CBOR files (one per producer `TxId`,
+  decoded as `ConwayTx`, indexed by `TxIx`). Helper lives in
+  the test directory; not exposed as a library API.
 
 ## Requirements *(mandatory)*
 
@@ -274,11 +274,18 @@ noise).
   Fixtures (`pparams.json`, UTxO, tx body) live on disk and are
   committed.
 
-- **FR-009**: A `loadUtxo` test helper MUST parse cardano-cli's
-  JSON UTxO format. It is implemented in the test directory
-  only; it is not part of the public library surface (per
-  constitution II — `Cardano.Tx.*` only exposes runtime
-  functionality, not test scaffolding).
+- **FR-009**: A `loadUtxo` test helper MUST resolve the
+  `[(TxIn, TxOut ConwayEra)]` set for a fixture by reading
+  committed **producer-tx CBOR** files (one file per producer
+  `TxId`, hex-encoded canonical ledger CBOR) and indexing into
+  each producer tx by `TxIx`. CBOR is the ledger-canonical
+  evidence form; we do NOT invent a JSON UTxO format.
+  This mirrors
+  [`cardano-ledger-inspector`'s `ProducerContext`](https://github.com/lambdasistemi/cardano-ledger-inspector/blob/main/libs/cardano-ledger-inspector/src/Conway/Inspector/Context.hs#L52-L60)
+  as the canonical evidence shape. The helper is implemented
+  in the test directory only; it is not part of the public
+  library surface (per constitution II — `Cardano.Tx.*` only
+  exposes runtime functionality, not test scaffolding).
 
 - **FR-010**: The Haddock for `validatePhase1` MUST document the
   central trade-off: on unsigned input the result is almost

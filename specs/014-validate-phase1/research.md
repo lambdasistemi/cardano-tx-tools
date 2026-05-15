@@ -91,55 +91,76 @@ upstream ticket
 [inspector#73](https://github.com/lambdasistemi/cardano-ledger-inspector/issues/73)
 in case the typed kernel grows a `Globals` parameter.
 
-## R4. UTxO JSON shape from `cardano-cli query utxo --output-json`
+## R4. UTxO evidence shape: producer-tx CBORs (revised mid-implementation)
 
-**Decision**: parse the cardano-cli native JSON shape. Schema (per
-`cardano-cli` Conway-era output):
+**Decision**: resolve fixture UTxO by reading committed **producer-tx
+CBOR-hex files**, decoding each with the ledger's canonical decoder,
+and indexing into the producer tx's outputs by `TxIx`. No JSON
+parser.
 
-```json
-{
-  "0123…txhash#0": {
-    "address": "addr1q…",
-    "value": { "lovelace": 1000000, "policyHex.assetNameHex": 42 },
-    "datumhash": "abcd…" | null,
-    "inlineDatum": { ... } | null,
-    "referenceScript": { ... } | null
-  },
-  "0123…txhash#1": { ... }
-}
-```
+**Rationale (revised 2026-05-15)**: the first draft of this research
+item picked "parse `cardano-cli query utxo --output-json`" as the
+helper's input format. That was wrong, on three counts:
 
-**Rationale**: callers test this with real captured UTxOs from
-`cardano-cli query utxo --whole-utxo --output-json | jq` (or the
-filtered variant). Inventing a custom shape forces every caller to
-re-encode; parsing the cardano-cli shape directly is zero-cost for
-test fixtures and matches the muscle memory of every Cardano
-developer.
+1. **There is no `cardano-cli` UTxO JSON *format*** — it's a
+   tool-output artifact, not a stable contract. Cardano-cli's
+   renderer can and does change across versions (datum-hash vs
+   inline-datum-raw vs inline-datum object representation has
+   shifted between releases).
+2. **CBOR is the ledger's canonical encoding.** Producer-tx CBOR
+   round-trips losslessly through the same decoder the node uses;
+   it cannot drift. A JSON shape forces re-encoding by every
+   caller, which is exactly the kind of fragility we don't want
+   in test infrastructure.
+3. **Inspector's
+   [`Conway.Inspector.Context.ProducerContext`](https://github.com/lambdasistemi/cardano-ledger-inspector/blob/main/libs/cardano-ledger-inspector/src/Conway/Inspector/Context.hs#L52-L60)
+   already uses this evidence shape**. Adopting it here is the
+   path-of-least-surprise; we wrap it in typed Haskell rather
+   than JSON, but the underlying evidence is the same.
 
 **Implementation**: live in `test/Cardano/Tx/Validate/LoadUtxo.hs`.
-Use `aeson` (already a tx-tools dep). Decode to
-`[(TxIn, TxOut ConwayEra)]` directly. Field-by-field translation:
 
-| JSON key | Haskell target |
-|---|---|
-| `"txhash#index"` (map key) | `TxIn` via `txInFromKey :: Text -> Maybe TxIn` |
-| `address` | `Addr` via Bech32 decode |
-| `value.lovelace` + asset entries | `MaryValue` |
-| `datumhash` | `Datum` `SJust dh` if present, else `SNothing` |
-| `inlineDatum` | inline `Datum` if present, overriding `datumhash` |
-| `referenceScript` | `ReferenceScript` if present |
+```haskell
+loadUtxo
+    :: FilePath              -- directory of producer-tx CBOR-hex files
+    -> [TxIn]                -- TxIns the body references (inputs + reference inputs)
+    -> IO [(TxIn, TxOut ConwayEra)]
+```
 
-Wrapped into `TxOut ConwayEra`. Decoder is local; no need to expose.
+Algorithm:
+
+1. For each unique `TxId` in the input list, open
+   `<dir>/<txIdHex>.cbor.hex`, hex-decode, run the ledger's
+   `decodeFullAnnotator @ConwayTx` (via `cardano-ledger-binary`).
+2. Build `Map TxId ConwayTx` keyed by `txid` of each producer
+   tx (sanity-checked against the filename).
+3. For each requested `TxIn (TxId, TxIx)`, look up the producer tx
+   and index into its `outputsTxBodyL` at `TxIx`.
+4. Return the resolved `[(TxIn, TxOut ConwayEra)]`.
+
+No address parsing, no value parsing, no datum parsing, no script
+parsing — all of that is the producer tx's CBOR contract, handled
+by the upstream decoder.
+
+**Fixtures**: producer-tx CBORs land under
+`test/fixtures/mainnet-txbuild/swap-cancel-issue-8/producer-txs/<txid>.cbor.hex`.
+Fetched once via Blockfrost (`GET /txs/{hash}/cbor`); committed to
+the repo so the test runs offline (constitution VI).
 
 **Alternatives considered**:
 
-- CBOR-hex re-capture path (one row per UTxO entry, just CBOR hex of
-  the `TxOut`). Pros: faithful, no field-by-field re-encoding bugs.
-  Cons: caller has to first decode their cardano-cli output and then
-  re-encode to this shape. Rejected for the first version; add later
-  if a fixture demands it.
-- Blockfrost-style JSON. Out of scope (constitution VI — no
-  provider-specific test inputs).
+- **`cardano-cli` JSON parsing** (the rejected first draft) —
+  required Bech32 address decoding (new test-suite dep), inline
+  Plutus Data CBOR handling, language-tagged reference-script CBOR
+  handling. ~150 lines of brittle parsing tied to a tool's output,
+  not a ledger contract. Rejected on three grounds above.
+- **Hand-coding TxOuts as Haskell constants in the test** — ~30
+  lines, but lossy (we'd have to construct `BinaryData`, `Script`,
+  `MultiAsset` values by hand from CBOR bytes; the round-trip is
+  exactly what producer-tx CBORs already give us). Rejected; the
+  CBOR path is cheaper *and* more faithful.
+- **Blockfrost-style JSON evidence per input** — provider-specific,
+  out of scope per constitution VI.
 
 ## R5. Cert-state seeding — required for this PR?
 
