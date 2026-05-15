@@ -103,6 +103,18 @@ ConwayApplyTxError
 `isWitnessCompletenessFailure` returns `True` for the only entry,
 so the filtered structural list is empty. Sign the tx.
 
+## Test fixture evidence shape
+
+Tests in this PR feed `validatePhase1` from **producer-tx CBOR**
+files (one per producer `TxId`, hex-encoded canonical ledger CBOR)
+via the test helper `Cardano.Tx.Validate.LoadUtxo.loadUtxo`. The
+producer-tx CBOR is the ledger-canonical evidence form — same shape
+[`cardano-ledger-inspector`'s `ProducerContext`](https://github.com/lambdasistemi/cardano-ledger-inspector/blob/main/libs/cardano-ledger-inspector/src/Conway/Inspector/Context.hs#L52-L60)
+consumes. Production callers of `validatePhase1` are NOT required
+to use this shape — they pass the resolved `[(TxIn, TxOut ConwayEra)]`
+from wherever they resolve UTxO (Provider, Blockfrost, in-memory
+snapshot, etc.).
+
 A pre-flight failure on the pre-fix issue-#8 reproduction (wrong
 `script_integrity_hash`) looks like:
 
