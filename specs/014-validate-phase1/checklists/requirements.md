@@ -33,4 +33,5 @@
 ## Notes
 
 - The signature in FR-001 is contractual (taken from the issue verbatim, refined to add `NetworkId`). The plan/tasks phase decides on the module path, the synthesis helpers, and the test-fixture layout.
+- **Pre-flight shape (vs the original post-signing framing)**: helper runs against the UNSIGNED `ConwayTx` that `buildWith` returns. `applyTx` always raises `MissingVKeyWitnesses` / native-script-signature failures on unsigned input — these are documented as expected noise; FR-010 forces the docstring to enumerate them so caller filters are greppable. This was a course correction after the first draft framed the helper as post-signing — the user chose pre-flight (unsigned, no filtering inside the helper).
 - Open question for `/speckit.plan`: whether `validatePhase1` lives in `Cardano.Tx.Ledger` (extending the existing module) or in a new `Cardano.Tx.Validate` module. Defer.
