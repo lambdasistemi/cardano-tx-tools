@@ -60,6 +60,7 @@ import Data.Set (Set)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
+import Data.Version (Version, showVersion)
 import Data.Word (Word32)
 import Lens.Micro ((^.))
 import Options.Applicative qualified as O
@@ -119,18 +120,30 @@ mainnetMagic = 764824073
 {- | Parse the raw @argv@ tail into 'TxValidateCliOptions'. Returns
 the parsed options on success or hands off to @optparse-applicative@'s
 default failure-rendering path on user error (missing flag, bad
-value, @--help@).
+value, @--help@, @--version@).
+
+The caller supplies the executable's 'Version' (typically
+@Paths_cardano_tx_tools.version@) so the @--version@ flag prints
+the package-level version baked into this build.
 -}
-parseArgs :: [String] -> IO TxValidateCliOptions
-parseArgs argv =
+parseArgs :: Version -> [String] -> IO TxValidateCliOptions
+parseArgs ver argv =
     O.handleParseResult $
         O.execParserPure
             O.defaultPrefs
             ( O.info
-                (optionsParser O.<**> O.helper)
+                (optionsParser O.<**> O.helper O.<**> versionOption ver)
                 (O.fullDesc <> O.progDesc usage)
             )
             argv
+
+versionOption :: Version -> O.Parser (a -> a)
+versionOption ver =
+    O.infoOption
+        ("tx-validate " <> showVersion ver)
+        ( O.long "version"
+            <> O.help "Show the tx-validate version and exit"
+        )
 
 -- | Short usage description shown by @--help@.
 usage :: String

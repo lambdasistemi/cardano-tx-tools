@@ -79,7 +79,7 @@ main = do
     cfg <- updateCheckConfig
     withUpdateCheck cfg $ do
         argv <- getArgs
-        options <- parseArgs argv
+        options <- parseArgs version argv
         txBytes <- readInput (txValidateCliInput options)
         tx <- decodeOrDie txBytes
         withSession options $ \session ->
