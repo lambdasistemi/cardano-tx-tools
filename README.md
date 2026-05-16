@@ -29,6 +29,11 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 - `Cardano.Tx.Generator.*` and the `cardano-tx-generator` daemon —
   generates a configurable mix of Conway transactions against a
   running node for soak / fuzz testing.
+- `Cardano.Tx.Sign.*` and the `tx-sign` CLI — age-encrypted
+  signing-key vault (`tx-sign vault create`) plus detached Conway
+  vkey witness creation (`tx-sign witness`). The cleartext signing
+  key is never written to disk and the passphrase is read from an
+  inherited file descriptor or a no-echo TTY prompt, never argv.
 
 ## Develop
 
