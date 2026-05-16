@@ -1,6 +1,15 @@
-# Migration plan
+# Migration plan (historical)
 
-The transaction-tooling surface is moving out of
+> **Status: complete.** Phase 1 landed in PRs
+> [#3](https://github.com/lambdasistemi/cardano-tx-tools/pull/3),
+> [#4](https://github.com/lambdasistemi/cardano-tx-tools/pull/4),
+> [#5](https://github.com/lambdasistemi/cardano-tx-tools/pull/5).
+> The Phase 2 `cardano-tx-generator` move landed in
+> [PR #10](https://github.com/lambdasistemi/cardano-tx-tools/pull/10).
+> The page is retained for historical context and to document the
+> `source-repository-package` staging pin still in `cabal.project`.
+
+The transaction-tooling surface was moved out of
 [`lambdasistemi/cardano-node-clients`](https://github.com/lambdasistemi/cardano-node-clients)
 under tracking issue
 [#152](https://github.com/lambdasistemi/cardano-node-clients/issues/152).
