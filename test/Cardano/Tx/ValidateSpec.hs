@@ -24,6 +24,7 @@ module Cardano.Tx.ValidateSpec (
 
 import Data.Foldable (toList)
 import Data.Maybe (fromJust)
+import Data.Text qualified as Text
 import Lens.Micro ((&), (.~), (^.))
 import Test.Hspec (Spec, describe, it, shouldSatisfy)
 
@@ -33,13 +34,14 @@ import Cardano.Ledger.Alonzo.TxBody (
     ScriptIntegrityHash,
     scriptIntegrityHashTxBodyL,
  )
-import Cardano.Ledger.Api.Tx.Body (vldtTxBodyL)
+import Cardano.Ledger.Api.Tx.Body (feeTxBodyL, vldtTxBodyL)
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet),
     SlotNo (..),
     StrictMaybe (..),
     TxIx (..),
  )
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ApplyTxError (..), ConwayEra)
 import Cardano.Ledger.Conway.Rules (
     ConwayLedgerPredFailure (..),
@@ -101,6 +103,27 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                 Left err ->
                     failures err
                         `shouldSatisfy` any isIntegrityHashMismatch
+
+    it
+        ( "zero-fee mutation surfaces a fee-related failure "
+            <> "(FR-007 negative test)"
+        )
+        $ do
+            pp <- loadPParams ppPath
+            buggy <- loadBody bodyPath
+            utxo <- loadUtxo producerTxDir issue8TxIns
+            let tx = zeroFee (postFix buggy)
+                result =
+                    validatePhase1
+                        Mainnet
+                        (mkPParamsBound pp)
+                        utxo
+                        (inRangeSlot tx)
+                        tx
+            case result of
+                Right () -> error "expected Left on zero-fee tx"
+                Left err ->
+                    failures err `shouldSatisfy` any isFeeFailure
 
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
@@ -202,3 +225,26 @@ isIntegrityHashMismatch (ConwayUtxowFailure failure) = case failure of
     ScriptIntegrityHashMismatch _ _ -> True
     _ -> False
 isIntegrityHashMismatch _ = False
+
+{- | Overwrite the body's fee to zero. The minimum-fee check
+fires through @UtxoFailure@ — a fee-related failure means
+@ConwayUtxowFailure (UtxoFailure ...)@ carrying a
+@FeeTooSmallUTxO@-shaped sub-failure in the pinned ledger
+version.
+-}
+zeroFee :: ConwayTx -> ConwayTx
+zeroFee tx =
+    tx & bodyTxL . feeTxBodyL .~ Coin 0
+
+{- | Recognise any failure that carries a fee-related sub-failure.
+We check the rendered @show@ output rather than pattern-matching
+on the @UtxoFailure@ sub-constructor name, because the
+@AlonzoUtxoPredFailure@ shape has reshuffled across ledger
+releases (some versions split fee-too-small from
+fee-not-balanced). Pattern matching on the rendered shape keeps
+the assertion resilient.
+-}
+isFeeFailure ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isFeeFailure failure =
+    "Fee" `Text.isInfixOf` Text.pack (show failure)
