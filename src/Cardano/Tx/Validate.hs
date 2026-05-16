@@ -35,6 +35,7 @@ kernel ships upstream.
 -}
 module Cardano.Tx.Validate (
     validatePhase1,
+    isWitnessCompletenessFailure,
 ) where
 
 import Data.Default (def)
@@ -57,6 +58,10 @@ import Cardano.Ledger.BaseTypes (
     mkActiveSlotCoeff,
  )
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.Rules (
+    ConwayLedgerPredFailure (..),
+    ConwayUtxowPredFailure (..),
+ )
 import Cardano.Ledger.Shelley.API.Mempool (
     ApplyTxError,
     applyTx,
@@ -175,3 +180,60 @@ defaultActiveSlotCoeff :: ActiveSlotCoeff
 defaultActiveSlotCoeff =
     mkActiveSlotCoeff
         (fromMaybe maxBound (boundRational (1 % 20)))
+
+{- | Recognise the failure constructor that any unsigned candidate
+transaction trips via @applyTx@'s UTXOW rule. This is not a
+structural bug; it reflects the fact that 'validatePhase1' is a
+pre-flight run BEFORE signing.
+
+Typical caller workflow — drop these from the carried
+@NonEmpty ConwayLedgerPredFailure@ and inspect what remains:
+
+@
+case 'validatePhase1' net pp utxo slot tx of
+    Right () -> ...
+    Left ('Cardano.Ledger.Conway.ConwayApplyTxError' errs) ->
+        let structural =
+                filter (not . 'isWitnessCompletenessFailure')
+                    (Data.Foldable.toList errs)
+        in if null structural
+            then -- only noise; safe to sign
+            else -- real Phase-1 bug; halt the pipeline
+@
+
+Constructor recognised as noise (locked by spec SC-004):
+
+* @'ConwayUtxowFailure' ('MissingVKeyWitnessesUTXOW' _)@ —
+  required vkey signers without witnesses.
+
+Constructors deliberately NOT recognised as noise — they fire on
+both signed and unsigned input, so they're genuine structural
+issues either way:
+
+* @'MissingScriptWitnessesUTXOW'@ — native or Plutus scripts that
+  the body references but the build did NOT attach to the witness
+  set (or expose via reference inputs). That is a build-time
+  oversight, not a signing-step concern.
+* metadata-hash mismatches (@MissingTxBodyMetadataHash@,
+  @ConflictingMetadataHash@)
+* script-integrity-hash mismatches
+  (@ScriptIntegrityHashMismatch@, @PPViewHashesDontMatch@)
+* fee, min-utxo, collateral, validity-interval failures
+* @ScriptWitnessNotValidatingUTXOW@ (Plutus-eval failure is
+  Phase-2 but exposed through the same rule)
+* ref-script bytes / language-view consistency
+
+If a future pinned ledger version adds a new
+witness-completeness constructor — i.e., a failure that fires
+specifically because vkey signatures are absent — bump
+cardano-haskell-packages, extend this function, and update the
+locked-list test in @Cardano.Tx.ValidateSpec@ in the same
+commit. The compiler enforces exhaustiveness at the pattern
+match level; reviewer checks the new constructor doc.
+-}
+isWitnessCompletenessFailure ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isWitnessCompletenessFailure (ConwayUtxowFailure failure) = case failure of
+    MissingVKeyWitnessesUTXOW _ -> True
+    _ -> False
+isWitnessCompletenessFailure _ = False
