@@ -12,6 +12,7 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
+import Data.Version (Version, makeVersion)
 import Lens.Micro ((&), (.~), (^.))
 import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
@@ -89,6 +90,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
         it "accepts the happy-path argv" $ do
             options <-
                 parseArgs
+                    fakeVersion
                     [ "--input"
                     , "tx.cbor.hex"
                     , "--n2c-socket"
@@ -106,6 +108,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
         it "accepts --input - for stdin" $ do
             options <-
                 parseArgs
+                    fakeVersion
                     [ "--input"
                     , "-"
                     , "--n2c-socket"
@@ -307,6 +310,12 @@ txId59e10 =
 txIdF5f1b :: String
 txIdF5f1b =
     "f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2"
+
+{- | A test-only 'Version' the @--version@ flag would print; the
+value is irrelevant to the parser's logic.
+-}
+fakeVersion :: Version
+fakeVersion = makeVersion [0, 0, 0]
 
 txIdFromHex :: String -> TxId
 txIdFromHex hex =
