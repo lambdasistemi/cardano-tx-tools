@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+* **014:** add `Cardano.Tx.Validate.validatePhase1` — Phase-1 pre-flight gate that runs the ledger's UTXOW + LEDGER rule against an unsigned Conway transaction without submitting it, returning the full `ApplyTxError` verbatim. Companion helper `isWitnessCompletenessFailure` recognises the noise constructors any unsigned tx trips so callers can filter them before deciding whether to sign. See [PR #16](https://github.com/lambdasistemi/cardano-tx-tools/pull/16) and [issue #14](https://github.com/lambdasistemi/cardano-tx-tools/issues/14).
+
 ## [0.1.2.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.1.0...v0.1.2.0) (2026-05-15)
 
 ### Features
