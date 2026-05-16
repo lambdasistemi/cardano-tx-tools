@@ -1,6 +1,6 @@
 cabal-version:   3.4
 name:            cardano-tx-tools
-version:         0.1.3.0
+version:         0.1.4.0
 synopsis:        Cardano transaction tooling (builder, structural diff)
 description:
   Library and executables for working with Cardano (Conway) transactions:
