@@ -1,6 +1,6 @@
 # cardano-tx-tools
 
-Tooling for Conway-era Cardano transactions. Three command-line
+Tooling for Conway-era Cardano transactions. Four command-line
 executables plus the Haskell library that backs them.
 
 ## Executables
@@ -11,6 +11,11 @@ executables plus the Haskell library that backs them.
 - [**tx-sign**](tx-sign.md) — age-encrypted signing-key vault and
   detached vkey witness creation. The cleartext signing key never
   touches disk and the passphrase is never read from `argv`.
+- [**tx-validate**](tx-validate.md) — Conway Phase-1 pre-flight for
+  unsigned transactions, driven via Node-to-Client against a local
+  `cardano-node`. Returns the ledger's verdict as a human or JSON
+  envelope; exit code is the contract (0 clean, 1 structural, ≥2
+  config/resolver error).
 - [**cardano-tx-generator**](cardano-tx-generator.md) — long-running
   daemon that drives a configurable mix of Conway transactions
   against a node for soak / fuzz testing.
