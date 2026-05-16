@@ -56,4 +56,6 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Migration: migration.md
+  - tx-diff: tx-diff.md
+  - tx-sign: tx-sign.md
+  - cardano-tx-generator: cardano-tx-generator.md

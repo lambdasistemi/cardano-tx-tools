@@ -1,43 +1,45 @@
 # cardano-tx-tools
 
-Cardano transaction tooling: Conway transaction builder, structural
-diff, Plutus blueprint decoding, Phase-1 pre-flight validation, and
-a transaction generator daemon.
+Tooling for Conway-era Cardano transactions. Three command-line
+executables plus the Haskell library that backs them.
 
-This repository was extracted from
-[`lambdasistemi/cardano-node-clients`](https://github.com/lambdasistemi/cardano-node-clients)
-under tracking issue
-[#152](https://github.com/lambdasistemi/cardano-node-clients/issues/152);
-the extraction is complete and the package ships under its own
-release cadence. See [Migration](migration.md) for the historical
-plan.
+## Executables
 
-## What lives here
+- [**tx-diff**](tx-diff.md) — structural diff between two Conway
+  transactions, with Plutus blueprint-aware decoding and opt-in
+  input resolution via N2C or Blockfrost-style HTTP.
+- [**tx-sign**](tx-sign.md) — age-encrypted signing-key vault and
+  detached vkey witness creation. The cleartext signing key never
+  touches disk and the passphrase is never read from `argv`.
+- [**cardano-tx-generator**](cardano-tx-generator.md) — long-running
+  daemon that drives a configurable mix of Conway transactions
+  against a node for soak / fuzz testing.
 
-- **`Cardano.Tx.Build`** — pure, monadic DSL for assembling Conway
-  transactions: fee balancing, collateral selection, reference
-  scripts, integrity-hash recomputation.
-- **`Cardano.Tx.Validate.validatePhase1`** — ledger Phase-1
-  pre-flight against `Mempool.applyTx` for unsigned Conway
-  transactions, returning the full `ApplyTxError` verbatim.
-  Companion `isWitnessCompletenessFailure` recognises the
-  signing-step noise so callers can strip it and inspect what's
-  structurally left.
-- **`Cardano.Tx.Diff`** and the **`tx-diff`** CLI — structural
-  comparison of two Conway transactions. Supports Plutus blueprint
-  decoding, named collapse views, and opt-in input resolution via
-  N2C and Blockfrost-style HTTP endpoints.
-- **`Cardano.Tx.Blueprint`** — schema-aware decoding of Plutus
-  datums and redeemers into open trees the diff and any future
-  tools can address by name.
-- **`Cardano.Tx.Generator.*`** and the **`cardano-tx-generator`**
-  daemon — generates a configurable mix of Conway transactions
-  against a running node for soak / fuzz testing.
+## Library
 
-## What does **not** live here
+The same logic is exposed under `Cardano.Tx.*`. Notable entry
+points:
 
-- N2C mini-protocol implementation, `Provider` and `Submitter`
-  abstractions, UTxO chain-sync indexer — those stay in
-  [`cardano-node-clients`](https://github.com/lambdasistemi/cardano-node-clients).
-  The boundary is one-way: this repository depends on
-  `cardano-node-clients` for node access; the reverse never holds.
+| Module                                 | What                                                       |
+|----------------------------------------|------------------------------------------------------------|
+| `Cardano.Tx.Build`                     | Monadic DSL for assembling Conway transactions             |
+| `Cardano.Tx.Balance`                   | Fee balancing + collateral selection                       |
+| `Cardano.Tx.Evaluate`                  | Redeemer re-evaluation against the final body              |
+| `Cardano.Tx.Validate.validatePhase1`   | Ledger Phase-1 pre-flight (`Mempool.applyTx`)              |
+| `Cardano.Tx.Diff`                      | Structural diff used by `tx-diff`                          |
+| `Cardano.Tx.Blueprint`                 | Schema-aware Plutus datum/redeemer decoding                |
+| `Cardano.Tx.Sign.*`                    | Vault + witness primitives used by `tx-sign`               |
+| `Cardano.Tx.Generator.*`               | Generator engine used by `cardano-tx-generator`            |
+
+Generated API reference: `cabal haddock cardano-tx-tools`.
+
+## Install / develop
+
+```bash
+nix develop --quiet -c just build
+nix develop --quiet -c just ci
+```
+
+Linux release artifacts (AppImage, DEB, RPM) for each executable
+are attached to every
+[GitHub Release](https://github.com/lambdasistemi/cardano-tx-tools/releases).
