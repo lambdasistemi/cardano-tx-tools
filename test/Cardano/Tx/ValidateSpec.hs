@@ -41,10 +41,7 @@ import Cardano.Ledger.BaseTypes (
     TxIx (..),
  )
 import Cardano.Ledger.Conway (ApplyTxError (..), ConwayEra)
-import Cardano.Ledger.Conway.Rules (
-    ConwayLedgerPredFailure (..),
-    ConwayUtxowPredFailure (..),
- )
+import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure)
 import Cardano.Ledger.Core (bodyTxL)
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
@@ -52,7 +49,7 @@ import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Tx.Build (mkPParamsBound)
 import Cardano.Tx.BuildSpec (loadBody, loadPParams)
 import Cardano.Tx.Ledger (ConwayTx)
-import Cardano.Tx.Validate (validatePhase1)
+import Cardano.Tx.Validate (isWitnessCompletenessFailure, validatePhase1)
 import Cardano.Tx.Validate.LoadUtxo (loadUtxo)
 
 spec :: Spec
@@ -79,7 +76,7 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                 Right () -> error "expected Left on unsigned tx"
                 Left err ->
                     failures err
-                        `shouldSatisfy` all isWitnessNoise
+                        `shouldSatisfy` all isWitnessCompletenessFailure
 
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
@@ -153,18 +150,6 @@ expectedIntegrityHash =
                 "41a7cd5798b8b6f081bfaee0f5f88dc02eea894b7ed888b2a8658b3784dcdcf9"
             )
         )
-
-{- | Recognise the failure constructors that any unsigned
-candidate transaction trips via @applyTx@'s UTXOW rule.
-Locally scoped for this slice; T004 lifts the helper out of
-the test module onto the public surface.
--}
-isWitnessNoise :: ConwayLedgerPredFailure ConwayEra -> Bool
-isWitnessNoise (ConwayUtxowFailure failure) = case failure of
-    MissingVKeyWitnessesUTXOW _ -> True
-    MissingScriptWitnessesUTXOW _ -> True
-    _ -> False
-isWitnessNoise _ = False
 
 failures ::
     ApplyTxError ConwayEra ->
