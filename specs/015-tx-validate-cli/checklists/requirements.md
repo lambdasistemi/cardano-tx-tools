@@ -33,6 +33,5 @@
 ## Notes
 
 - **Resolver reuse**: the spec re-uses `Cardano.Tx.Diff.Resolver*` as-is. The "rename to `Cardano.Tx.Resolver.*`" path is explicitly out of scope; recorded in Assumptions.
-- **Session-data primary source**: the spec locks "first source on the command line wins for `PParams` + slot." This is a UX call; documented in `--help` per FR-010.
-- **Network access**: opt-in via flags, never via env-only fallback (env vars only carry secrets; they don't enable a network path that flags didn't enable).
-- Open question for `/speckit.plan`: whether the Blockfrost-side `PParams`/slot fetch belongs in the existing `Cardano.Tx.Diff.Resolver.Web2` module (which currently only fetches tx CBOR by hash) or in a new helper. Defer; both work, the plan picks.
+- **Network access**: opt-in via flags, never via env-only fallback.
+- **Scope reduction (2026-05-16)**: the Blockfrost-side resolver session (originally User Stories 2 + 3) is deferred to [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21). Reason: Blockfrost's `/epochs/latest/parameters` JSON shape is incompatible with `cardano-ledger-conway`'s `FromJSON (PParams ConwayEra)` instance; bridging it requires a custom ~50-field decoder that doesn't fit this PR's scope. v1 is N2C-only.
