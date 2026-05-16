@@ -138,6 +138,20 @@
                   ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
             '';
           };
+          # tx-validate is N2C-only in v1 but the CA-bundle wrapper is
+          # kept for forward-compat with the future Blockfrost path
+          # (lambdasistemi/cardano-tx-tools#21). HTTPS works
+          # out-of-the-box if a future invocation needs it.
+          txValidate = pkgs.symlinkJoin {
+            name = "tx-validate";
+            paths = [ components.exes.tx-validate ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              wrapProgram $out/bin/tx-validate \
+                --set-default SSL_CERT_FILE \
+                  ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+            '';
+          };
           packageVersion =
             let
               versionLines =
@@ -185,6 +199,35 @@
                 ''
               ];
             } // args);
+          txValidateDarwinFormulaTest = ''
+            output = shell_output("#{bin}/tx-validate 2>&1", 2)
+            assert_match "tx-validate", output
+          '';
+          mkTxValidateDarwinHomebrewBundle = args:
+            mkDarwinHomebrewBundle ({
+              pname = "tx-validate";
+              version = packageVersion;
+              owner = "lambdasistemi";
+              repo = "cardano-tx-tools";
+              desc =
+                "Conway Phase-1 pre-flight against a local cardano-node";
+              formulaClass = "TxValidate";
+              executables = {
+                tx-validate = txValidate;
+              };
+              executableNames = [ "tx-validate" ];
+              formulaTest = txValidateDarwinFormulaTest;
+              smokeCommands = [
+                ''
+                  set +e
+                  tx-validate >/tmp/tx-validate.out 2>&1
+                  status="$?"
+                  set -e
+                  test "$status" -eq 2
+                  grep -F "tx-validate" /tmp/tx-validate.out >/dev/null
+                ''
+              ];
+            } // args);
           darwinReleasePackages = lib.optionalAttrs
             pkgs.stdenv.isDarwin
             {
@@ -196,6 +239,16 @@
                   releaseTag = "dev-homebrew";
                   formulaName = "tx-diff-dev";
                   formulaClass = "TxDiffDev";
+                  formulaVersion = devArtifactVersion;
+                };
+              tx-validate-darwin-release-artifacts =
+                mkTxValidateDarwinHomebrewBundle { };
+              tx-validate-darwin-dev-homebrew-artifacts =
+                mkTxValidateDarwinHomebrewBundle {
+                  artifactVersion = devArtifactVersion;
+                  releaseTag = "dev-homebrew";
+                  formulaName = "tx-validate-dev";
+                  formulaClass = "TxValidateDev";
                   formulaVersion = devArtifactVersion;
                 };
             };
@@ -247,6 +300,21 @@
                   package = components.exes.tx-sign;
                   bundlers = inputs.bundlers;
                 };
+              tx-validate-linux-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  executableName = "tx-validate";
+                  package = txValidate;
+                  bundlers = inputs.bundlers;
+                };
+              tx-validate-linux-dev-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  artifactVersion = devArtifactVersion;
+                  executableName = "tx-validate";
+                  package = txValidate;
+                  bundlers = inputs.bundlers;
+                };
               linux-artifact-smoke =
                 import ./nix/linux-artifact-smoke.nix {
                   inherit pkgs system;
@@ -254,6 +322,10 @@
             };
           cardanoTxGeneratorImage =
             import ./nix/docker-image.nix {
+              inherit pkgs components imageTag;
+            };
+          txValidateImage =
+            import ./nix/tx-validate-docker-image.nix {
               inherit pkgs components imageTag;
             };
           checkSuite = import ./nix/checks.nix {
@@ -272,11 +344,13 @@
             default = txDiff;
             tx-diff = txDiff;
             tx-sign = components.exes.tx-sign;
+            tx-validate = txValidate;
             cardano-tx-generator =
               components.exes.cardano-tx-generator;
           } // darwinReleasePackages // linuxReleasePackages
             // lib.optionalAttrs pkgs.stdenv.isLinux {
               cardano-tx-generator-image = cardanoTxGeneratorImage;
+              tx-validate-image = txValidateImage;
             };
           checks = checkSuite.checks;
           apps = checkApps // {
@@ -287,6 +361,10 @@
             tx-sign = {
               type = "app";
               program = "${components.exes.tx-sign}/bin/tx-sign";
+            };
+            tx-validate = {
+              type = "app";
+              program = "${txValidate}/bin/tx-validate";
             };
             cardano-tx-generator = {
               type = "app";
