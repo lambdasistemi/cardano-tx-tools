@@ -16,6 +16,7 @@
   [`amaru-treasury-tx`](https://github.com/lambdasistemi/amaru-treasury-tx)
   spec
   [`118-vault-witness`](https://github.com/lambdasistemi/amaru-treasury-tx/blob/main/specs/118-vault-witness/spec.md).
+* **015:** add `tx-validate` executable — Conway Phase-1 pre-flight against a local cardano-node via Node-to-Client, with human or JSON output. Driver wraps `Cardano.Tx.Validate.validatePhase1` from PR #16. See [PR #20](https://github.com/lambdasistemi/cardano-tx-tools/pull/20) and [issue #19](https://github.com/lambdasistemi/cardano-tx-tools/issues/19). Blockfrost-side session deferred to [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
 
 ## [0.1.3.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.2.0...v0.1.3.0) (2026-05-16)
 

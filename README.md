@@ -20,6 +20,12 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
   `isWitnessCompletenessFailure` so callers can strip the
   signing-step noise before deciding whether the tx is
   structurally sound.
+- `tx-validate` CLI (and `Cardano.Tx.Validate.Cli`) — thin wrapper
+  that opens a Node-to-Client session against a local cardano-node,
+  resolves the tx's UTxO + protocol parameters + tip slot, calls
+  `validatePhase1`, and prints either a human verdict or a JSON
+  envelope. Exit codes: `0` clean / `1` structural / `≥2` config-
+  or-resolver error.
 - `Cardano.Tx.Diff` and the `tx-diff` CLI — structural comparison
   of two Conway transactions with Plutus-blueprint-aware decoding,
   named collapse views, and opt-in input resolution via N2C and
