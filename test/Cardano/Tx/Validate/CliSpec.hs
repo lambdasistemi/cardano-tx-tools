@@ -57,8 +57,13 @@ import Cardano.Tx.Validate.Cli (
     mkSession,
     parseArgs,
     renderHuman,
+    renderJson,
  )
+
 import Cardano.Tx.Validate.LoadUtxo (loadUtxo)
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Key qualified as Aeson
+import Data.Aeson.KeyMap qualified as Aeson.KeyMap
 
 spec :: Spec
 spec = describe "Cardano.Tx.Validate.Cli" $ do
@@ -160,12 +165,103 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
                                         `Text.isInfixOf`
                                     )
 
+    describe "renderJson" $ do
+        it "emits the structurally-clean envelope per contract" $ do
+            pp <- loadPParams ppPath
+            buggy <- loadBody bodyPath
+            utxos <- loadUtxo producerTxDir issue8TxIns
+            let tx = postFix buggy
+                provider = stubProvider utxos
+                session =
+                    mkSession
+                        Mainnet
+                        pp
+                        (inRangeSlot tx)
+                        [n2cResolver provider]
+            verdict <- driveVerdict session tx
+            let envelope = renderJson verdict
+            jsonString envelope ["status"]
+                `shouldBe` Just "structurally_clean"
+            jsonInt envelope ["exit_code"] `shouldBe` Just 0
+            jsonString envelope ["pparams_source"] `shouldBe` Just "n2c"
+            jsonString envelope ["slot_source"] `shouldBe` Just "n2c"
+            envelope `shouldSatisfy` hasStructuralFailuresEmpty
+
+        it "emits the structural-failure envelope for the pre-fix body" $ do
+            pp <- loadPParams ppPath
+            tx <- loadBody bodyPath
+            utxos <- loadUtxo producerTxDir issue8TxIns
+            let provider = stubProvider utxos
+                session =
+                    mkSession
+                        Mainnet
+                        pp
+                        (inRangeSlot tx)
+                        [n2cResolver provider]
+            verdict <- driveVerdict session tx
+            let envelope = renderJson verdict
+            jsonString envelope ["status"]
+                `shouldBe` Just "structural_failure"
+            jsonInt envelope ["exit_code"] `shouldBe` Just 1
+            envelope `shouldSatisfy` hasIntegrityHashFailure
+
 isIntegrityHashMismatch ::
     ConwayLedgerPredFailure ConwayEra -> Bool
 isIntegrityHashMismatch failure =
     let s = Text.pack (show failure)
      in "PPViewHashesDontMatch" `Text.isInfixOf` s
             || "ScriptIntegrityHashMismatch" `Text.isInfixOf` s
+
+hasStructuralFailuresEmpty :: Aeson.Value -> Bool
+hasStructuralFailuresEmpty (Aeson.Object o) =
+    case Aeson.KeyMap.lookup "structural_failures" o of
+        Just (Aeson.Array xs) -> null xs
+        _ -> False
+hasStructuralFailuresEmpty _ = False
+
+{- | The envelope's @structural_failures@ array contains an entry
+whose @constructor@ or @detail@ text mentions the integrity-hash
+mismatch. We accept either field per
+@contracts/json-output.md@'s stability note (constructor + rule
+are stable; detail is best-effort).
+-}
+hasIntegrityHashFailure :: Aeson.Value -> Bool
+hasIntegrityHashFailure (Aeson.Object o) = case Aeson.KeyMap.lookup "structural_failures" o of
+    Just (Aeson.Array xs) -> any failureMatches xs
+    _ -> False
+hasIntegrityHashFailure _ = False
+
+failureMatches :: Aeson.Value -> Bool
+failureMatches (Aeson.Object o) =
+    let c = case Aeson.KeyMap.lookup "constructor" o of
+            Just (Aeson.String t) -> t
+            _ -> ""
+        d = case Aeson.KeyMap.lookup "detail" o of
+            Just (Aeson.String t) -> t
+            _ -> ""
+     in mentionsIntegrity (c <> " " <> d)
+failureMatches _ = False
+
+mentionsIntegrity :: Text.Text -> Bool
+mentionsIntegrity t =
+    "PPViewHashesDontMatch" `Text.isInfixOf` t
+        || "ScriptIntegrityHashMismatch" `Text.isInfixOf` t
+
+jsonString :: Aeson.Value -> [Text.Text] -> Maybe Text.Text
+jsonString val path = case (val, path) of
+    (Aeson.String t, []) -> Just t
+    (Aeson.Object o, k : rest) -> case Aeson.KeyMap.lookup (Aeson.fromText k) o of
+        Just v -> jsonString v rest
+        Nothing -> Nothing
+    _ -> Nothing
+
+jsonInt :: Aeson.Value -> [Text.Text] -> Maybe Int
+jsonInt val path = case (val, path) of
+    (Aeson.Number n, []) -> Just (round n)
+    (Aeson.Object o, k : rest) -> case Aeson.KeyMap.lookup (Aeson.fromText k) o of
+        Just v -> jsonInt v rest
+        Nothing -> Nothing
+    _ -> Nothing
 
 {- | Drive the end-to-end validation pipeline as Main.hs does
 but with the already-acquired session.
