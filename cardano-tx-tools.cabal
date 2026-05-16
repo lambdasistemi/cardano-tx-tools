@@ -68,6 +68,7 @@ library
     Cardano.Tx.Sign.Vault.Age
     Cardano.Tx.Sign.Witness
     Cardano.Tx.Validate
+    Cardano.Tx.Validate.Cli
 
   other-modules:
     Cardano.Tx.Credentials
@@ -235,6 +236,15 @@ executable tx-sign
     , base
     , cardano-tx-tools
 
+executable tx-validate
+  import:           warnings
+  hs-source-dirs:   app/tx-validate
+  main-is:          Main.hs
+  default-language: GHC2021
+  build-depends:
+    , base
+    , cardano-tx-tools
+
 test-suite unit-tests
   import:           warnings
   type:             exitcode-stdio-1.0
@@ -370,3 +380,40 @@ test-suite tx-generator-tests
     , temporary
     , text
     , time
+
+test-suite tx-validate-tests
+  import:           warnings
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          tx-validate-main.hs
+  default-language: GHC2021
+  other-modules:
+    Cardano.Tx.BuildSpec
+    Cardano.Tx.Validate.CliSpec
+    Cardano.Tx.Validate.LoadUtxo
+
+  build-depends:
+    , aeson
+    , base
+    , base16-bytestring
+    , bytestring
+    , cardano-binary
+    , cardano-crypto-class
+    , cardano-ledger-allegra
+    , cardano-ledger-alonzo
+    , cardano-ledger-api
+    , cardano-ledger-binary
+    , cardano-ledger-conway
+    , cardano-ledger-core
+    , cardano-ledger-mary
+    , cardano-node-clients
+    , cardano-slotting
+    , cardano-strict-containers
+    , cardano-tx-tools
+    , cardano-tx-tools:n2c-resolver
+    , containers
+    , filepath
+    , hspec
+    , microlens
+    , plutus-core
+    , text
