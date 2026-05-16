@@ -241,6 +241,8 @@ executable tx-validate
   hs-source-dirs:   app/tx-validate
   main-is:          Main.hs
   default-language: GHC2021
+  autogen-modules:  Paths_cardano_tx_tools
+  other-modules:    Paths_cardano_tx_tools
   build-depends:
     , aeson
     , aeson-pretty
@@ -254,6 +256,7 @@ executable tx-validate
     , cardano-tx-tools
     , cardano-tx-tools:n2c-resolver
     , containers
+    , github-release-check
     , ouroboros-network:api
     , text
 

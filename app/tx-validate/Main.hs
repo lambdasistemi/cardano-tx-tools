@@ -19,10 +19,18 @@ import Data.Aeson.Encode.Pretty qualified as Aeson.Pretty
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict qualified as Map
+import Data.Maybe (isJust)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as TextIO
-import System.Environment (getArgs)
+import GitHub.Release.Check (
+    Config (..),
+    RepoSlug (..),
+    defaultConfig,
+    withUpdateCheck,
+ )
+import Paths_cardano_tx_tools (version)
+import System.Environment (getArgs, lookupEnv)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hPutStrLn, stderr, stdin, stdout)
 
@@ -68,12 +76,28 @@ import Cardano.Tx.Validate.Cli (
 
 main :: IO ()
 main = do
-    argv <- getArgs
-    options <- parseArgs argv
-    txBytes <- readInput (txValidateCliInput options)
-    tx <- decodeOrDie txBytes
-    withSession options $ \session ->
-        runValidation session tx options
+    cfg <- updateCheckConfig
+    withUpdateCheck cfg $ do
+        argv <- getArgs
+        options <- parseArgs argv
+        txBytes <- readInput (txValidateCliInput options)
+        tx <- decodeOrDie txBytes
+        withSession options $ \session ->
+            runValidation session tx options
+
+{- | Build the 'GitHub.Release.Check' config. The opt-out env var is
+@TX_VALIDATE_NO_UPDATE_CHECK@; set it to any value to silence the
+banner.
+-}
+updateCheckConfig :: IO Config
+updateCheckConfig = do
+    disabled <- isJust <$> lookupEnv "TX_VALIDATE_NO_UPDATE_CHECK"
+    base <-
+        defaultConfig
+            (RepoSlug "lambdasistemi" "cardano-tx-tools")
+            "tx-validate"
+            version
+    pure base{cfgDisabled = disabled}
 
 runValidation :: Session -> ConwayTx -> TxValidateCliOptions -> IO ()
 runValidation session tx options = do

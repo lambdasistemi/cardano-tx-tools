@@ -32,6 +32,17 @@ source-repository-package
   --sha256: 01ic1620d3qs1y224qgvx21k1i4jzf5z6ygprwajsnrgjzacni5y
 
 -- ----------------------------------------------------------------------
+-- github-release-check: prints an update banner to stderr when the
+-- running CLI is behind its latest GitHub release. Wired into
+-- tx-validate's app/Main.hs; the other executables follow in #23.
+-- ----------------------------------------------------------------------
+source-repository-package
+  type: git
+  location: https://github.com/lambdasistemi/github-release-check
+  tag: fd6e0a083756596d30396efa98e7c88dad151871
+  --sha256: 1swmmwfg0q0kl1a74yzd4ibf5hn6k63s1rfggzqma6yn0llq4cgz
+
+-- ----------------------------------------------------------------------
 -- Transitive git deps of cardano-node-clients. Mirrored verbatim so
 -- cabal can resolve a build plan without pulling these from elsewhere.
 -- ----------------------------------------------------------------------
