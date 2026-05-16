@@ -150,6 +150,33 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                     errs `shouldSatisfy` any isFeeFailure
                     errs `shouldSatisfy` any isIntegrityHashMismatch
 
+    -- Edge case from spec.md: 'If the supplied UTxO contains zero
+    -- entries for any of the tx's inputs, the mempool
+    -- short-circuits via the whenFailureFreeDefault duplicate-
+    -- detection gate and the only failure reported is that one.'
+    -- The defensive negative test locks the documented behaviour
+    -- so a caller who passes an empty UTxO gets a recognisable
+    -- mempool failure rather than silent confusion.
+    it
+        ( "empty UTxO short-circuits via the mempool "
+            <> "duplicate-detection gate"
+        )
+        $ do
+            pp <- loadPParams ppPath
+            tx <- loadBody bodyPath
+            let result =
+                    validatePhase1
+                        Mainnet
+                        (mkPParamsBound pp)
+                        []
+                        (inRangeSlot tx)
+                        tx
+            case result of
+                Right () -> error "expected Left on empty UTxO"
+                Left err ->
+                    failures err
+                        `shouldSatisfy` any isMempoolFailure
+
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
 
@@ -273,3 +300,13 @@ isFeeFailure ::
     ConwayLedgerPredFailure ConwayEra -> Bool
 isFeeFailure failure =
     "Fee" `Text.isInfixOf` Text.pack (show failure)
+
+{- | Recognise the @ConwayMempoolFailure@ that surfaces when
+the LEDGER subrule short-circuits via
+@whenFailureFreeDefault@'s duplicate-detection gate (i.e., none
+of the tx's inputs were in the supplied UTxO).
+-}
+isMempoolFailure ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isMempoolFailure (ConwayMempoolFailure _) = True
+isMempoolFailure _ = False
