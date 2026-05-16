@@ -242,6 +242,8 @@ executable tx-validate
   main-is:          Main.hs
   default-language: GHC2021
   build-depends:
+    , aeson
+    , aeson-pretty
     , async
     , base
     , bytestring

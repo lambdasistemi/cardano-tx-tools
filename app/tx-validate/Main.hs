@@ -15,14 +15,16 @@ module Main (main) where
 
 import Control.Concurrent.Async (withAsync)
 import Control.Monad (void)
+import Data.Aeson.Encode.Pretty qualified as Aeson.Pretty
 import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as TextIO
 import System.Environment (getArgs)
 import System.Exit (ExitCode (..), exitWith)
-import System.IO (hPutStrLn, stderr, stdin)
+import System.IO (hPutStrLn, stderr, stdin, stdout)
 
 import Cardano.Ledger.BaseTypes (Network (..))
 import Cardano.Ledger.Binary (
@@ -61,6 +63,7 @@ import Cardano.Tx.Validate.Cli (
     mkSession,
     parseArgs,
     renderHuman,
+    renderJson,
  )
 
 main :: IO ()
@@ -91,8 +94,11 @@ runValidation session tx options = do
                 tx
         verdict = buildVerdict session utxoSources result
     case txValidateCliOutput options of
-        Human -> TextIO.putStr (renderHuman verdict)
-        Json -> hPutStrLn stderr "JSON output is wired in T004"
+        Human ->
+            TextIO.putStr (renderHuman verdict)
+        Json ->
+            LBS.hPutStr stdout (Aeson.Pretty.encodePretty (renderJson verdict))
+                >> putStrLn ""
     exitWith (exitCodeOf verdict)
 
 withSession :: TxValidateCliOptions -> (Session -> IO a) -> IO a

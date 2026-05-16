@@ -44,8 +44,13 @@ module Cardano.Tx.Validate.Cli (
     collectInputs,
     exitCodeOf,
     renderHuman,
+    renderJson,
 ) where
 
+import Data.Aeson ((.=))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Key qualified as Aeson.Key
+import Data.ByteString.Base16 qualified as Base16
 import Data.Foldable (toList)
 import Data.List (partition)
 import Data.Map.Strict (Map)
@@ -54,24 +59,25 @@ import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Data.Word (Word32)
 import Lens.Micro ((^.))
 import Options.Applicative qualified as O
 import System.Exit (ExitCode (..))
 
+import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.Api (PParams)
 import Cardano.Ledger.Api.Tx.Body (
     collateralInputsTxBodyL,
     inputsTxBodyL,
     referenceInputsTxBodyL,
  )
-import Cardano.Ledger.BaseTypes (Network, SlotNo)
+import Cardano.Ledger.BaseTypes (Network, SlotNo, TxIx (..))
 import Cardano.Ledger.Conway (ApplyTxError (..), ConwayEra)
-import Cardano.Ledger.Conway.Rules (
-    ConwayLedgerPredFailure (..),
- )
+import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure (..))
 import Cardano.Ledger.Core (bodyTxL)
-import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Hashes (extractHash)
+import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
 import Cardano.Tx.Diff.Resolver (Resolver)
 import Cardano.Tx.Ledger (ConwayTx)
@@ -373,3 +379,47 @@ renderDetail failure =
 
 tshow :: (Show a) => a -> Text
 tshow = Text.pack . show
+
+{- | Render the verdict as the JSON envelope locked in
+@contracts/json-output.md@.
+-}
+renderJson :: Verdict -> Aeson.Value
+renderJson v =
+    Aeson.object
+        [ "status" .= statusText (verdictStatus v)
+        , "exit_code" .= exitCodeInt (exitCodeOf v)
+        , "structural_failures"
+            .= map renderFailureJson (verdictStructuralFailures v)
+        , "witness_completeness_count"
+            .= verdictWitnessNoiseCount v
+        , "pparams_source" .= verdictPParamsSource v
+        , "slot_source" .= verdictSlotSource v
+        , "utxo_sources"
+            .= Aeson.object
+                [ Aeson.Key.fromText (renderTxIn txIn) .= src
+                | (txIn, src) <- Map.toAscList (verdictUtxoSources v)
+                ]
+        ]
+
+statusText :: VerdictStatus -> Text
+statusText StructurallyClean = "structurally_clean"
+statusText StructuralFailure = "structural_failure"
+statusText MempoolShortCircuit = "mempool_short_circuit"
+
+exitCodeInt :: ExitCode -> Int
+exitCodeInt ExitSuccess = 0
+exitCodeInt (ExitFailure n) = n
+
+renderFailureJson :: ConwayLedgerPredFailure ConwayEra -> Aeson.Value
+renderFailureJson failure =
+    Aeson.object
+        [ "rule" .= ruleName failure
+        , "constructor" .= constructorName failure
+        , "detail" .= renderDetail failure
+        ]
+
+renderTxIn :: TxIn -> Text
+renderTxIn (TxIn (TxId safeHash) (TxIx ix)) =
+    Text.decodeUtf8 (Base16.encode (hashToBytes (extractHash safeHash)))
+        <> "#"
+        <> tshow ix
