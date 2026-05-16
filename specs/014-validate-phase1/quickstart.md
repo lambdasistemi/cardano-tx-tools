@@ -135,7 +135,16 @@ Live tests for this contract live in
 `test/Cardano/Tx/ValidateSpec.hs`. To replay them locally:
 
 ```bash
-nix develop -c just unit-tests
+nix develop -c just unit "Cardano.Tx.Validate"
 ```
 
-The relevant hspec describe is `"Cardano.Tx.Validate.validatePhase1"`.
+Five cases under the `Cardano.Tx.Validate.validatePhase1`
+hspec describe, plus one under
+`Cardano.Tx.Validate.LoadUtxo.loadUtxo`, exercising:
+
+- the post-fix happy path (only witness-completeness noise)
+- the pre-fix integrity-hash mismatch (SC-002)
+- a zero-fee mutation (FR-007)
+- a two-failure accumulating case (SC-003)
+- the empty-UTxO mempool short-circuit edge case
+- producer-tx CBOR → `[(TxIn, TxOut)]` resolution sanity
