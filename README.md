@@ -1,17 +1,34 @@
 # cardano-tx-tools
 
-Cardano transaction tooling: builder, structural diff, blueprint
-decoding. Uses [`cardano-node-clients`][cnc] for Provider/N2C access but
-is not a node client. Dependency direction is one-way:
+Cardano transaction tooling: Conway transaction builder, structural
+diff, Plutus blueprint decoding, Phase-1 pre-flight validation, and
+a transaction generator daemon. Uses [`cardano-node-clients`][cnc]
+for `Provider` / N2C access but is not itself a node client. The
+dependency direction is one-way:
 `cardano-tx-tools → cardano-node-clients`.
 
 Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 
-## Status
+## What's here
 
-Bootstrap. Modules migrate from
-[lambdasistemi/cardano-node-clients#152][issue] in subsequent PRs; see
-[`docs/migration.md`](docs/migration.md) for the plan.
+- `Cardano.Tx.Build` — pure, monadic DSL for assembling Conway
+  transactions: fee balancing, collateral selection, reference
+  scripts, integrity-hash recomputation.
+- `Cardano.Tx.Validate.validatePhase1` — ledger Phase-1 pre-flight
+  (`Mempool.applyTx`) for unsigned Conway transactions, returning
+  the full `ApplyTxError` verbatim. Companion
+  `isWitnessCompletenessFailure` so callers can strip the
+  signing-step noise before deciding whether the tx is
+  structurally sound.
+- `Cardano.Tx.Diff` and the `tx-diff` CLI — structural comparison
+  of two Conway transactions with Plutus-blueprint-aware decoding,
+  named collapse views, and opt-in input resolution via N2C and
+  Blockfrost-style HTTP endpoints.
+- `Cardano.Tx.Blueprint` — schema-aware decoding of Plutus datums
+  and redeemers into open trees.
+- `Cardano.Tx.Generator.*` and the `cardano-tx-generator` daemon —
+  generates a configurable mix of Conway transactions against a
+  running node for soak / fuzz testing.
 
 ## Develop
 
@@ -20,7 +37,7 @@ nix develop --quiet -c just build
 nix develop --quiet -c just ci
 ```
 
-The local gate (`nix flake check --no-eval-cache`) mirrors the CI:
+The local gate (`nix flake check --no-eval-cache`) mirrors CI:
 
 ```bash
 nix flake check --no-eval-cache
@@ -31,4 +48,3 @@ nix flake check --no-eval-cache
 [Apache 2.0](LICENSE).
 
 [cnc]: https://github.com/lambdasistemi/cardano-node-clients
-[issue]: https://github.com/lambdasistemi/cardano-node-clients/issues/152
