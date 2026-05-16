@@ -242,8 +242,18 @@ executable tx-validate
   main-is:          Main.hs
   default-language: GHC2021
   build-depends:
+    , async
     , base
+    , bytestring
+    , cardano-ledger-binary
+    , cardano-ledger-conway
+    , cardano-ledger-core
+    , cardano-node-clients
     , cardano-tx-tools
+    , cardano-tx-tools:n2c-resolver
+    , containers
+    , ouroboros-network:api
+    , text
 
 test-suite unit-tests
   import:           warnings
