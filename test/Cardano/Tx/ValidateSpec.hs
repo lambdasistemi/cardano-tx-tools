@@ -125,6 +125,31 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                 Left err ->
                     failures err `shouldSatisfy` any isFeeFailure
 
+    it
+        ( "fee + integrity-hash mutation surfaces both failures "
+            <> "in one call (SC-003 accumulating)"
+        )
+        $ do
+            pp <- loadPParams ppPath
+            buggy <- loadBody bodyPath
+            utxo <- loadUtxo producerTxDir issue8TxIns
+            -- pre-fix body already has the bad integrity hash;
+            -- zero the fee on top so both mutations are present.
+            let tx = zeroFee buggy
+                result =
+                    validatePhase1
+                        Mainnet
+                        (mkPParamsBound pp)
+                        utxo
+                        (inRangeSlot tx)
+                        tx
+            case result of
+                Right () -> error "expected Left on doubly-mutated tx"
+                Left err -> do
+                    let errs = failures err
+                    errs `shouldSatisfy` any isFeeFailure
+                    errs `shouldSatisfy` any isIntegrityHashMismatch
+
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
 
