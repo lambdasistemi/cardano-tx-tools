@@ -3,6 +3,7 @@
 **Feature**: 015-tx-validate-cli
 **Triggered by**: `--output json`
 **Stability**: top-level keys are stable across minor versions; the per-failure `detail` field is best-effort and may shift with ledger updates.
+**Scope note**: v1 ships N2C-only; `pparams_source` / `slot_source` / `utxo_sources` values will all be `"n2c"`. The vocabulary preserves `"blockfrost"` / `"unresolved"` for forward-compat with [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
 
 ## Top-level shape
 

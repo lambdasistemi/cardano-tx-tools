@@ -3,38 +3,34 @@
 **Feature**: 015-tx-validate-cli
 **Executable**: `tx-validate`
 **Stability**: same as the rest of `Cardano.Tx.*` — follows the repo's semver discipline (constitution IV).
+**Scope note**: v1 ships N2C-only. Blockfrost flags (`--blockfrost-base`, `--blockfrost-key`) are deferred to [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
 
 ## Usage
 
 ```
 tx-validate
     --input PATH | -
-    [--n2c-socket PATH --network-magic WORD32]
-    [--blockfrost-base URL [--blockfrost-key STRING]]
+    --n2c-socket PATH
+    [--network-magic WORD32]
     [--output human|json]
     [--help]
 ```
-
-At least one of `--n2c-socket` or `--blockfrost-base` MUST be supplied.
 
 ## Flags
 
 | Flag | Required | Default | Notes |
 |---|---|---|---|
 | `--input PATH` or `--input -` | yes | — | Conway tx CBOR hex file path, or `-` for stdin. |
-| `--n2c-socket PATH` | conditionally (at least one resolver flag must be set) | — | Local cardano-node N2C socket. Triggers the N2C resolver and, if first on the command line, the N2C primary session. |
-| `--network-magic WORD32` | with `--n2c-socket` | `764824073` (mainnet) | Network magic for the socket. |
-| `--blockfrost-base URL` | conditionally (at least one resolver flag must be set) | — | Blockfrost-style HTTP endpoint base. Triggers the Web2 resolver and, if first on the command line, the Blockfrost primary session. |
-| `--blockfrost-key STRING` | when `--blockfrost-base` is set and `BLOCKFROST_PROJECT_ID` is unset | from `BLOCKFROST_PROJECT_ID` env var | Blockfrost API key (`project_id`). |
+| `--n2c-socket PATH` | yes (v1) | — | Local cardano-node N2C socket. |
+| `--network-magic WORD32` | no | `764824073` (mainnet) | Network magic for the socket. |
 | `--output human` | no | `human` | One-line verdict on stdout + zero or more structural-failure lines. |
 | `--output json` | no | — | One JSON object on stdout. See [json-output.md](./json-output.md). |
 | `--help` | no | — | Print usage and exit `0`. |
 
-## Resolver-session contract
+## N2C session contract
 
-- **UTxO chain**: the executable resolves the tx's `inputs ∪ referenceInputs ∪ collateralInputs` via `resolveChain [n2cResolver?, web2Resolver?]`. N2C is tried first if both are supplied.
-- **Primary session (PParams + tip slot)**: the **first** resolver source on the command line is the primary session. If `--n2c-socket` precedes `--blockfrost-base`, N2C supplies `PParams` + slot. If `--blockfrost-base` precedes `--n2c-socket`, Blockfrost does. If only one is supplied, that one is primary.
-- **No mixing**: `PParams` and slot are sourced from the same primary session — they are never mixed across resolvers. The UTxO chain MAY mix sources (this is the resolver-chain's design).
+- The CLI opens an LSQ + LTxS mux against the supplied socket, queries `PParams` + tip slot, builds an `n2cResolver`, resolves the tx's `inputs ∪ referenceInputs ∪ collateralInputs`, then closes the mux.
+- The resolver chain has exactly one resolver in v1 (`n2cResolver provider`); `resolveChain` is preserved for forward-compat with [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
 
 ## Exit-code convention
 
@@ -42,10 +38,10 @@ At least one of `--n2c-socket` or `--blockfrost-base` MUST be supplied.
 |---|---|
 | `0` | The tx is structurally clean: every `ConwayLedgerPredFailure` in the carried `ApplyTxError` was recognised as witness-completeness noise by `isWitnessCompletenessFailure`. Pipelines may proceed to sign. |
 | `1` | At least one structural failure remained after filtering noise. Pipelines must NOT sign. The output lists the failures. Also covers `MempoolShortCircuit` (none of the tx's inputs are in the supplied UTxO — the operator's snapshot is stale; treat as a real bug). |
-| `2` | Configuration error: missing required flag, conflicting flags, missing API key, missing input file. |
+| `2` | Configuration error: missing required flag, missing input file. |
 | `3` | Decode error: input CBOR did not decode. |
-| `4` | Resolver error: the chain could not resolve one or more inputs (the verdict line is NOT printed). |
-| `5` | Primary-session error: N2C connection or Blockfrost HTTP failed before producing `PParams` + slot. |
+| `4` | Resolver error: the N2C resolver could not resolve one or more inputs (the verdict line is NOT printed). |
+| `5` | N2C session error: handshake failed, or `queryProtocolParams` / `queryLedgerSnapshot` errored before producing `PParams` + slot. |
 | `≥6` | Reserved for future surfaces. Callers MAY treat anything ≥ 2 as "not a verdict". |
 
 ## Standard output (human format)
@@ -77,8 +73,7 @@ The two-space indent locks the contract: scripts can grep `^  ` to recognise fai
 
 Diagnostic only; not part of the contract. Examples:
 
-- Per-input resolver trace (`txid#ix → n2c` / `txid#ix → unresolved [n2c, web2]`).
-- HTTP errors (with `project_id` query parameter redacted).
+- Per-input resolver trace (`txid#ix → n2c` / `txid#ix → unresolved [n2c]`).
 - N2C handshake errors.
 
 ## Stdin / file input
@@ -86,15 +81,9 @@ Diagnostic only; not part of the contract. Examples:
 - `--input -`: read CBOR hex from stdin until EOF.
 - `--input PATH`: read CBOR hex from the file. Trailing whitespace ignored.
 
-## Environment variables
-
-| Variable | Purpose |
-|---|---|
-| `BLOCKFROST_PROJECT_ID` | Default `--blockfrost-key`. Per FR-002 the executable does NOT auto-enable the Blockfrost resolver from this var alone — the user must also pass `--blockfrost-base`. |
-
 ## What is NOT in the contract
 
 - The exact `<one-line summary>` text in structural-failure lines (it's the ledger's `show` output; subject to upstream change).
 - The order of structural-failure lines.
 - The exact stderr text (diagnostic only).
-- The number of HTTP requests issued during the session (caching is internal).
+- The number of N2C queries issued during the session.

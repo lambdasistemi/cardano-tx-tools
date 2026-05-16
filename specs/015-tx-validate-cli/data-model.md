@@ -5,21 +5,17 @@
 
 ## New typed surface
 
-All new types live in `Cardano.Tx.Validate.Cli` (the public-library module) or in `Cardano.Tx.Validate.Cli.Blockfrost` (the Blockfrost HTTP record-of-functions).
+All new types live in `Cardano.Tx.Validate.Cli`. The Blockfrost types (originally planned in `Cardano.Tx.Validate.Cli.Blockfrost`) are deferred to [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
 
-| Name | Module | Role |
-|---|---|---|
-| `TxValidateCliOptions` | `Cardano.Tx.Validate.Cli` | The option record the parser produces. |
-| `InputSource` | `Cardano.Tx.Validate.Cli` | `InputFile FilePath \| InputStdin`. |
-| `OutputFormat` | `Cardano.Tx.Validate.Cli` | `Human \| Json`. |
-| `PrimarySession` | `Cardano.Tx.Validate.Cli` | `PrimaryN2c \| PrimaryWeb2`. |
-| `N2cConfig` | `Cardano.Tx.Validate.Cli` | `{ n2cSocket :: FilePath, n2cMagic :: NetworkMagic }`. |
-| `Web2Config` | `Cardano.Tx.Validate.Cli` | `{ web2Base :: Text, web2ApiKey :: Maybe Text }`. |
-| `Session` | `Cardano.Tx.Validate.Cli` | The acquired primary-session bundle. |
-| `Verdict` | `Cardano.Tx.Validate.Cli` | The typed verdict before render. |
-| `VerdictStatus` | `Cardano.Tx.Validate.Cli` | `StructurallyClean \| StructuralFailure \| MempoolShortCircuit`. |
-| `BlockfrostClient` | `Cardano.Tx.Validate.Cli.Blockfrost` | Record-of-functions for the two new endpoints. |
-| `BlockfrostError` | `Cardano.Tx.Validate.Cli.Blockfrost` | HTTP / decode failure surface for the Blockfrost path. |
+| Name | Role |
+|---|---|
+| `TxValidateCliOptions` | The option record the parser produces. |
+| `InputSource` | `InputFile FilePath \| InputStdin`. |
+| `OutputFormat` | `Human \| Json`. |
+| `N2cConfig` | `{ n2cSocket :: FilePath, n2cMagic :: NetworkMagic }`. |
+| `Session` | The acquired N2C session bundle. |
+| `Verdict` | The typed verdict before render. |
+| `VerdictStatus` | `StructurallyClean \| StructuralFailure \| MempoolShortCircuit`. |
 
 ## `Session`
 
@@ -30,13 +26,11 @@ data Session = Session
     { sessionNetwork       :: Network
     , sessionPParams       :: PParams ConwayEra
     , sessionSlot          :: SlotNo
-    , sessionPrimary       :: PrimarySession
-    , sessionUtxoResolvers :: [Resolver]
-      -- ^ Already filtered for the supplied flags; N2C-first if both.
+    , sessionUtxoResolvers :: [Resolver]     -- [n2cResolver provider] in v1
     }
 ```
 
-Lifecycle: `withSession` brackets the primary connection (N2C mux or HTTP Manager). On exit, both connections are torn down. The action is run with the immutable `Session` in scope.
+Lifecycle: `withSession` brackets the N2C mux. On exit, the mux is torn down. The action runs with the immutable `Session` in scope.
 
 ## `Verdict`
 
@@ -47,16 +41,16 @@ The verdict is built by:
 
 ```haskell
 data Verdict = Verdict
-    { verdictStatus               :: VerdictStatus
-    , verdictStructuralFailures   :: [ConwayLedgerPredFailure ConwayEra]
-    , verdictWitnessNoiseCount    :: Int
-    , verdictPParamsSource        :: PrimarySession
-    , verdictSlotSource           :: PrimarySession
-    , verdictUtxoSources          :: Map TxIn ResolverName
+    { verdictStatus              :: VerdictStatus
+    , verdictStructuralFailures  :: [ConwayLedgerPredFailure ConwayEra]
+    , verdictWitnessNoiseCount   :: Int
+    , verdictUtxoSources         :: Map TxIn ResolverName
     }
 ```
 
-`ResolverName` is `Text` (the existing field on `Resolver`).
+`ResolverName` is `Text` (the existing field on `Resolver`). In v1 every value will be `"n2c"`; we keep the field for forward-compat with [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
+
+The JSON envelope's `pparams_source` / `slot_source` are derived from `Session`'s sole source (always `"n2c"` in v1).
 
 ## Output renderers
 
@@ -75,9 +69,9 @@ A pure function `exitCodeOf :: Verdict -> ExitCode`:
 |---|---|
 | `StructurallyClean` | `0` |
 | `StructuralFailure` | `1` |
-| `MempoolShortCircuit` | `1` (treated as structural — the tx's inputs aren't in the supplied UTxO, so the operator's UTxO snapshot is stale) |
+| `MempoolShortCircuit` | `1` (treated as structural — the supplied UTxO is stale) |
 
-Configuration / resolver / decode failures don't produce a `Verdict`; they short-circuit before validation runs and exit with `≥2` per FR-007.
+Configuration / resolver / decode failures don't produce a `Verdict`; they short-circuit before validation and exit with `≥2` per FR-007.
 
 ## State transitions
 
@@ -85,4 +79,4 @@ Configuration / resolver / decode failures don't produce a `Verdict`; they short
 
 ## Deferred entities
 
-None. The full surface lands in this PR.
+`BlockfrostClient` / `BlockfrostError` — deferred to [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).

@@ -31,9 +31,7 @@ Or run from source:
 nix run github:lambdasistemi/cardano-tx-tools#tx-validate -- --help
 ```
 
-## Three invocation patterns
-
-### 1. Local cardano-node (N2C)
+## Invocation (v1 — local cardano-node via N2C)
 
 ```bash
 tx-validate \
@@ -44,27 +42,9 @@ tx-validate \
 
 Exit `0` if structurally clean, `1` if a structural failure was found. The verdict + failure lines go to stdout.
 
-### 2. Blockfrost (no local node required)
-
-```bash
-export BLOCKFROST_PROJECT_ID="mainnet…"
-tx-validate \
-    --input tx.cbor.hex \
-    --blockfrost-base https://cardano-mainnet.blockfrost.io/api/v0
-```
-
-Same exit-code contract. `PParams` and tip slot come from `GET /epochs/latest/parameters` and `GET /blocks/latest`; UTxO comes from `GET /txs/{hash}/cbor`.
-
-### 3. Chained (N2C-first, Blockfrost-fallback)
-
-```bash
-tx-validate \
-    --input tx.cbor.hex \
-    --n2c-socket "$CARDANO_NODE_SOCKET_PATH" \
-    --blockfrost-base https://cardano-mainnet.blockfrost.io/api/v0
-```
-
-The first flag on the command line wins for `PParams` + slot. The UTxO chain tries the local node first; anything the node can't resolve is fetched from Blockfrost. Per-input source decisions are emitted on stderr.
+> **Blockfrost-side invocation** (no local node required) is deferred to
+> [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21). Until
+> that ships, you need access to a local cardano-node socket.
 
 ## Reading the output
 
@@ -89,7 +69,7 @@ $ echo $?
 
 ```
 $ tx-validate --input ok.cbor.hex \
-    --blockfrost-base https://cardano-mainnet.blockfrost.io/api/v0 \
+    --n2c-socket "$CARDANO_NODE_SOCKET_PATH" \
     --output json
 ```
 
@@ -99,12 +79,12 @@ $ tx-validate --input ok.cbor.hex \
   "exit_code": 0,
   "structural_failures": [],
   "witness_completeness_count": 2,
-  "pparams_source": "blockfrost",
-  "slot_source": "blockfrost",
+  "pparams_source": "n2c",
+  "slot_source": "n2c",
   "utxo_sources": {
-    "59e10ca5…#0": "blockfrost",
-    "59e10ca5…#2": "blockfrost",
-    "f5f1bdfa…#0": "blockfrost"
+    "59e10ca5…#0": "n2c",
+    "59e10ca5…#2": "n2c",
+    "f5f1bdfa…#0": "n2c"
   }
 }
 ```
@@ -120,9 +100,9 @@ Use the exit code; do not parse stdout. Examples:
 tx-validate --input tx.cbor.hex --n2c-socket "$CARDANO_NODE_SOCKET_PATH" \
     || exit 1
 
-# CI: validate before signing in a treasury workflow.
+# CI gate: validate before signing in a treasury workflow.
 tx-validate --input "$tx_path" \
-    --blockfrost-base "$BLOCKFROST_BASE" \
+    --n2c-socket "$CARDANO_NODE_SOCKET_PATH" \
     --output json > tx-validate.json
 case $? in
     0) echo "clean; signing"; sign_and_submit "$tx_path" ;;
@@ -133,7 +113,7 @@ esac
 
 ## Common gotchas
 
-- **Missing API key**: `BLOCKFROST_PROJECT_ID` is the env-var default. Setting only the env var does NOT enable the Blockfrost resolver — you still need `--blockfrost-base`.
-- **Stale UTxO snapshot**: if your local node has already consumed the inputs the tx references (e.g. it saw a competing tx) you'll get `mempool_short_circuit`. Resolve by rebuilding or by passing a Blockfrost endpoint as a fallback.
+- **No local node?** v1 requires `--n2c-socket`. Blockfrost path tracked in [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
+- **Stale UTxO snapshot**: if your local node has already consumed the inputs the tx references (e.g. it saw a competing tx) you'll get `mempool_short_circuit`. Resolve by rebuilding the tx against a fresher UTxO set.
 - **Preview vs preprod**: the library does not distinguish them per spec 014's R3 caveat. Use `--network-magic` for the right testnet magic; everything else is mainnet-shaped.
-- **Stdin**: `--input -` reads CBOR hex from stdin until EOF. Useful for `cardano-cli transaction view --tx-body-file ... | tx-validate --input - ...`.
+- **Stdin**: `--input -` reads CBOR hex from stdin until EOF.
