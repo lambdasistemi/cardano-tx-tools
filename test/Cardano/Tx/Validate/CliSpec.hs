@@ -30,6 +30,7 @@ import Cardano.Ledger.BaseTypes (
     TxIx (..),
  )
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure)
 import Cardano.Ledger.Core (bodyTxL)
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
@@ -131,6 +132,40 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
                 exitCodeOf verdict `shouldBe` ExitSuccess
                 renderHuman verdict
                     `shouldSatisfy` ("structurally clean" `Text.isInfixOf`)
+
+        it
+            ( "pre-fix issue-#8 body surfaces the integrity-hash "
+                <> "structural failure (SC-003)"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                tx <- loadBody bodyPath -- pre-fix as committed
+                utxos <- loadUtxo producerTxDir issue8TxIns
+                let provider = stubProvider utxos
+                    session =
+                        mkSession
+                            Mainnet
+                            pp
+                            (inRangeSlot tx)
+                            [n2cResolver provider]
+                verdict <- driveVerdict session tx
+                verdictStatus verdict `shouldBe` StructuralFailure
+                exitCodeOf verdict `shouldBe` ExitFailure 1
+                verdictStructuralFailures verdict
+                    `shouldSatisfy` any isIntegrityHashMismatch
+                let rendered = renderHuman verdict
+                rendered `shouldSatisfy` ("structural failure" `Text.isInfixOf`)
+                rendered
+                    `shouldSatisfy` ( "PPViewHashesDontMatch"
+                                        `Text.isInfixOf`
+                                    )
+
+isIntegrityHashMismatch ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isIntegrityHashMismatch failure =
+    let s = Text.pack (show failure)
+     in "PPViewHashesDontMatch" `Text.isInfixOf` s
+            || "ScriptIntegrityHashMismatch" `Text.isInfixOf` s
 
 {- | Drive the end-to-end validation pipeline as Main.hs does
 but with the already-acquired session.
