@@ -31,6 +31,7 @@ points:
 | `Cardano.Tx.Balance`                   | Fee balancing + collateral selection                       |
 | `Cardano.Tx.Evaluate`                  | Redeemer re-evaluation against the final body              |
 | `Cardano.Tx.Validate.validatePhase1`   | Ledger Phase-1 pre-flight (`Mempool.applyTx`)              |
+| `Cardano.Tx.Validate.Cli`              | Verdict types + renderers used by `tx-validate`            |
 | `Cardano.Tx.Diff`                      | Structural diff used by `tx-diff`                          |
 | `Cardano.Tx.Blueprint`                 | Schema-aware Plutus datum/redeemer decoding                |
 | `Cardano.Tx.Sign.*`                    | Vault + witness primitives used by `tx-sign`               |

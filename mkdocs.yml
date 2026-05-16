@@ -58,4 +58,5 @@ nav:
   - Home: index.md
   - tx-diff: tx-diff.md
   - tx-sign: tx-sign.md
+  - tx-validate: tx-validate.md
   - cardano-tx-generator: cardano-tx-generator.md
