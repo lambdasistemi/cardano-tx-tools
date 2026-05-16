@@ -55,6 +55,7 @@ library
     Cardano.Tx.Diff.Resolver.Web2
     Cardano.Tx.Evaluate
     Cardano.Tx.Ledger
+    Cardano.Tx.Validate
 
   other-modules:
     Cardano.Tx.Credentials
@@ -219,6 +220,7 @@ test-suite unit-tests
     Cardano.Tx.DiffSpec
     Cardano.Tx.Validate.LoadUtxo
     Cardano.Tx.Validate.LoadUtxoSpec
+    Cardano.Tx.ValidateSpec
 
   build-depends:
     , aeson
@@ -234,6 +236,7 @@ test-suite unit-tests
     , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-mary
+    , cardano-ledger-shelley
     , cardano-node-clients
     , cardano-slotting
     , cardano-strict-containers
