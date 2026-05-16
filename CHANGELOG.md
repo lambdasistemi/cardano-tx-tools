@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Features
+
+* **022:** add `tx-sign` executable with `vault create` and `witness`
+  subcommands. The vault is an age-scrypt encrypted file that stores
+  one Cardano payment signing key (cardano-cli `.skey` JSON, raw
+  32-byte hex, or `addr_xsk` extended-key bech32). The `witness`
+  command unlocks the vault in memory and emits one detached
+  Conway vkey witness for an unsigned transaction CBOR hex, without
+  the cleartext key ever touching disk. Linux release artifacts are
+  produced alongside `tx-diff` and `cardano-tx-generator`. Ported
+  verbatim from
+  [`amaru-treasury-tx`](https://github.com/lambdasistemi/amaru-treasury-tx)
+  spec
+  [`118-vault-witness`](https://github.com/lambdasistemi/amaru-treasury-tx/blob/main/specs/118-vault-witness/spec.md).
+
 ## [0.1.3.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.2.0...v0.1.3.0) (2026-05-16)
 
 ### Features

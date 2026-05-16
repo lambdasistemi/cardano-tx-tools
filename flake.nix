@@ -232,6 +232,21 @@
                   package = components.exes.cardano-tx-generator;
                   bundlers = inputs.bundlers;
                 };
+              tx-sign-linux-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  executableName = "tx-sign";
+                  package = components.exes.tx-sign;
+                  bundlers = inputs.bundlers;
+                };
+              tx-sign-linux-dev-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  artifactVersion = devArtifactVersion;
+                  executableName = "tx-sign";
+                  package = components.exes.tx-sign;
+                  bundlers = inputs.bundlers;
+                };
               linux-artifact-smoke =
                 import ./nix/linux-artifact-smoke.nix {
                   inherit pkgs system;
@@ -256,6 +271,7 @@
           packages = {
             default = txDiff;
             tx-diff = txDiff;
+            tx-sign = components.exes.tx-sign;
             cardano-tx-generator =
               components.exes.cardano-tx-generator;
           } // darwinReleasePackages // linuxReleasePackages
@@ -267,6 +283,10 @@
             tx-diff = {
               type = "app";
               program = "${txDiff}/bin/tx-diff";
+            };
+            tx-sign = {
+              type = "app";
+              program = "${components.exes.tx-sign}/bin/tx-sign";
             };
             cardano-tx-generator = {
               type = "app";

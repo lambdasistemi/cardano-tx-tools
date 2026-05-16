@@ -23,9 +23,16 @@ unit match="":
             --test-option="{{ match }}"
     fi
 
+smoke-sign:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cabal build exe:tx-sign -O0 >/dev/null
+    TX_SIGN_EXE="$(cabal list-bin exe:tx-sign -O0)" scripts/smoke/tx-sign
+
 ci:
     just build
     just unit
+    just smoke-sign
     cabal-fmt -c cardano-tx-tools.cabal
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec fourmolu -m check {} +
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec hlint {} +

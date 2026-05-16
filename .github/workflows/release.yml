@@ -62,6 +62,11 @@ jobs:
             dev-output: cardano-tx-generator-linux-dev-release-artifacts
             usage-grep: "--relay-socket PATH"
             dev-tag: dev-linux-cardano-tx-generator
+          - name: tx-sign
+            release-output: tx-sign-linux-release-artifacts
+            dev-output: tx-sign-linux-dev-release-artifacts
+            usage-grep: "Create or use an encrypted Cardano"
+            dev-tag: dev-linux-tx-sign
     env:
       EXE: ${{ matrix.executable.name }}
       USAGE_GREP: ${{ matrix.executable.usage-grep }}

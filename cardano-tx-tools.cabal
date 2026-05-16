@@ -33,6 +33,7 @@ common warnings
     FlexibleContexts
     GADTs
     ImportQualifiedPost
+    LambdaCase
     OverloadedStrings
     PatternSynonyms
     ScopedTypeVariables
@@ -55,6 +56,17 @@ library
     Cardano.Tx.Diff.Resolver.Web2
     Cardano.Tx.Evaluate
     Cardano.Tx.Ledger
+    Cardano.Tx.Sign.AttachWitness
+    Cardano.Tx.Sign.Cli
+    Cardano.Tx.Sign.Cli.Common
+    Cardano.Tx.Sign.Cli.Passphrase
+    Cardano.Tx.Sign.Cli.Vault
+    Cardano.Tx.Sign.Cli.Witness
+    Cardano.Tx.Sign.Envelope
+    Cardano.Tx.Sign.Hex
+    Cardano.Tx.Sign.Vault
+    Cardano.Tx.Sign.Vault.Age
+    Cardano.Tx.Sign.Witness
     Cardano.Tx.Validate
 
   other-modules:
@@ -66,10 +78,14 @@ library
 
   build-depends:
     , aeson
+    , aeson-pretty
+    , age
     , base                       <5
     , base16-bytestring
+    , bech32
     , bytestring
     , cardano-binary
+    , cardano-crypto
     , cardano-crypto-class
     , cardano-data
     , cardano-ledger-allegra
@@ -83,13 +99,19 @@ library
     , cardano-slotting
     , cardano-strict-containers
     , containers
+    , crypton
     , data-default
+    , directory
     , exceptions
+    , filepath
+    , haskeline
     , http-client
     , http-client-tls
     , http-types
+    , memory
     , microlens
     , operational
+    , optparse-applicative
     , plutus-core
     , plutus-tx
     , scientific
@@ -98,6 +120,7 @@ library
     , time
     , transformers
     , tree-view
+    , unix
     , yaml
 
 library n2c-resolver
@@ -202,6 +225,15 @@ executable tx-diff
     , microlens
     , ouroboros-network:api
     , text
+
+executable tx-sign
+  import:           warnings
+  hs-source-dirs:   app/tx-sign
+  main-is:          Main.hs
+  default-language: GHC2021
+  build-depends:
+    , base
+    , cardano-tx-tools
 
 test-suite unit-tests
   import:           warnings
