@@ -41,7 +41,10 @@ import Cardano.Ledger.BaseTypes (
     TxIx (..),
  )
 import Cardano.Ledger.Conway (ApplyTxError (..), ConwayEra)
-import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure)
+import Cardano.Ledger.Conway.Rules (
+    ConwayLedgerPredFailure (..),
+    ConwayUtxowPredFailure (..),
+ )
 import Cardano.Ledger.Core (bodyTxL)
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
@@ -77,6 +80,27 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                 Left err ->
                     failures err
                         `shouldSatisfy` all isWitnessCompletenessFailure
+
+    it
+        ( "pre-fix issue-#8 swap-cancel body surfaces the "
+            <> "integrity-hash mismatch (SC-002)"
+        )
+        $ do
+            pp <- loadPParams ppPath
+            tx <- loadBody bodyPath
+            utxo <- loadUtxo producerTxDir issue8TxIns
+            let result =
+                    validatePhase1
+                        Mainnet
+                        (mkPParamsBound pp)
+                        utxo
+                        (inRangeSlot tx)
+                        tx
+            case result of
+                Right () -> error "expected Left on pre-fix body"
+                Left err ->
+                    failures err
+                        `shouldSatisfy` any isIntegrityHashMismatch
 
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
@@ -159,3 +183,22 @@ failures (ConwayApplyTxError errs) = toList errs
 isLeft :: Either a b -> Bool
 isLeft (Left _) = True
 isLeft _ = False
+
+{- | Recognise the script-integrity-hash-mismatch constructors
+the Conway UTXOW rule surfaces when the body's
+@script_integrity_hash@ field does not match what the ledger
+recomputes from witness-set redeemers, datums, and cost-model
+language views.
+
+The pinned ledger version uses 'PPViewHashesDontMatch' for this
+case (older variant); 'ScriptIntegrityHashMismatch' is the newer
+explicit constructor. Recognising both keeps the assertion
+robust across CHaP bumps.
+-}
+isIntegrityHashMismatch ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isIntegrityHashMismatch (ConwayUtxowFailure failure) = case failure of
+    PPViewHashesDontMatch _ -> True
+    ScriptIntegrityHashMismatch _ _ -> True
+    _ -> False
+isIntegrityHashMismatch _ = False
