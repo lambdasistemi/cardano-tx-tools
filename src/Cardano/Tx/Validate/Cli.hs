@@ -1,3 +1,6 @@
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 {- |
 Module      : Cardano.Tx.Validate.Cli
 Description : CLI surface for the tx-validate executable.
@@ -27,19 +30,52 @@ module Cardano.Tx.Validate.Cli (
     InputSource (..),
     OutputFormat (..),
     N2cConfig (..),
+    parseArgs,
+    usage,
 
     -- * Session
     Session (..),
     mkSession,
+
+    -- * Verdict
+    Verdict (..),
+    VerdictStatus (..),
+    buildVerdict,
+    collectInputs,
+    exitCodeOf,
+    renderHuman,
 ) where
 
+import Data.Foldable (toList)
+import Data.List (partition)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
+import Data.Maybe (fromMaybe)
+import Data.Set (Set)
+import Data.Text (Text)
+import Data.Text qualified as Text
 import Data.Word (Word32)
+import Lens.Micro ((^.))
+import Options.Applicative qualified as O
+import System.Exit (ExitCode (..))
 
 import Cardano.Ledger.Api (PParams)
+import Cardano.Ledger.Api.Tx.Body (
+    collateralInputsTxBodyL,
+    inputsTxBodyL,
+    referenceInputsTxBodyL,
+ )
 import Cardano.Ledger.BaseTypes (Network, SlotNo)
-import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway (ApplyTxError (..), ConwayEra)
+import Cardano.Ledger.Conway.Rules (
+    ConwayLedgerPredFailure (..),
+ )
+import Cardano.Ledger.Core (bodyTxL)
+import Cardano.Ledger.TxIn (TxIn)
 
 import Cardano.Tx.Diff.Resolver (Resolver)
+import Cardano.Tx.Ledger (ConwayTx)
+import Cardano.Tx.Validate (isWitnessCompletenessFailure)
 
 -- * Option ADT
 
@@ -70,6 +106,89 @@ data N2cConfig = N2cConfig
     }
     deriving stock (Eq, Show)
 
+-- | Mainnet network magic. Default for @--network-magic@.
+mainnetMagic :: Word32
+mainnetMagic = 764824073
+
+{- | Parse the raw @argv@ tail into 'TxValidateCliOptions'. Returns
+the parsed options on success or hands off to @optparse-applicative@'s
+default failure-rendering path on user error (missing flag, bad
+value, @--help@).
+-}
+parseArgs :: [String] -> IO TxValidateCliOptions
+parseArgs argv =
+    O.handleParseResult $
+        O.execParserPure
+            O.defaultPrefs
+            ( O.info
+                (optionsParser O.<**> O.helper)
+                (O.fullDesc <> O.progDesc usage)
+            )
+            argv
+
+-- | Short usage description shown by @--help@.
+usage :: String
+usage =
+    "tx-validate: Conway Phase-1 pre-flight against a local cardano-node "
+        <> "(see <https://github.com/lambdasistemi/cardano-tx-tools>)"
+
+optionsParser :: O.Parser TxValidateCliOptions
+optionsParser =
+    TxValidateCliOptions
+        <$> inputParser
+        <*> n2cParser
+        <*> outputParser
+
+inputParser :: O.Parser InputSource
+inputParser =
+    O.option
+        readInput
+        ( O.long "input"
+            <> O.metavar "PATH | -"
+            <> O.help "Conway tx CBOR hex file, or '-' for stdin"
+        )
+  where
+    readInput =
+        O.eitherReader $ \case
+            "-" -> Right InputStdin
+            path -> Right (InputFile path)
+
+n2cParser :: O.Parser N2cConfig
+n2cParser =
+    N2cConfig
+        <$> O.strOption
+            ( O.long "n2c-socket"
+                <> O.metavar "PATH"
+                <> O.help "Local cardano-node Node-to-Client socket"
+            )
+        <*> O.option
+            O.auto
+            ( O.long "network-magic"
+                <> O.metavar "WORD32"
+                <> O.value mainnetMagic
+                <> O.showDefault
+                <> O.help "Network magic for the supplied socket"
+            )
+
+outputParser :: O.Parser OutputFormat
+outputParser =
+    O.option
+        readOutput
+        ( O.long "output"
+            <> O.metavar "human|json"
+            <> O.value Human
+            <> O.showDefaultWith showOutput
+            <> O.help "Verdict format"
+        )
+  where
+    readOutput =
+        O.eitherReader $ \case
+            "human" -> Right Human
+            "json" -> Right Json
+            other -> Left ("unknown --output value: " <> other)
+    showOutput Human = "human"
+    showOutput Json = "json"
+
 -- * Session
 
 {- | Resolved session state for one tx-validate invocation. The
@@ -78,12 +197,6 @@ from a live @cardano-node@ and pairs them with the
 'n2cResolver'-wrapped UTxO chain to build this record. Pure
 consumers (and unit tests) construct a 'Session' directly via
 'mkSession'.
-
-The resolver chain has exactly one entry in v1 (the N2C
-resolver); the JSON output schema preserves the @"n2c"@ /
-@"blockfrost"@ vocabulary so a future second resolver lands
-additively
-(<https://github.com/lambdasistemi/cardano-tx-tools/issues/21>).
 -}
 data Session = Session
     { sessionNetwork :: Network
@@ -108,3 +221,155 @@ mkSession network pp slot resolvers =
         , sessionSlot = slot
         , sessionUtxoResolvers = resolvers
         }
+
+-- * Verdict
+
+{- | Coarse verdict status, mapped to a process exit code by
+'exitCodeOf'.
+-}
+data VerdictStatus
+    = StructurallyClean
+    | StructuralFailure
+    | MempoolShortCircuit
+    deriving stock (Eq, Show)
+
+{- | The typed verdict the executable builds before rendering.
+'renderHuman' and (in T004) 'renderJson' consume the same value.
+-}
+data Verdict = Verdict
+    { verdictStatus :: VerdictStatus
+    , verdictStructuralFailures :: [ConwayLedgerPredFailure ConwayEra]
+    , verdictWitnessNoiseCount :: Int
+    , verdictPParamsSource :: Text
+    , verdictSlotSource :: Text
+    , verdictUtxoSources :: Map TxIn Text
+    }
+
+{- | Collect every 'TxIn' the body references: spending inputs,
+reference inputs, collateral inputs.
+-}
+collectInputs :: ConwayTx -> Set TxIn
+collectInputs tx =
+    let body = tx ^. bodyTxL
+     in (body ^. inputsTxBodyL)
+            <> (body ^. referenceInputsTxBodyL)
+            <> (body ^. collateralInputsTxBodyL)
+
+{- | Build a 'Verdict' from the typed session data + the
+ledger's response. Pure. The caller is responsible for:
+
+* running 'validatePhase1' on @session@'s pparams + utxo + slot
+  + the supplied tx, and
+* tagging each resolved 'TxIn' with the name of the resolver
+  that produced it (the @utxoSources@ argument).
+
+Witness-completeness failures are filtered out via
+'isWitnessCompletenessFailure'; what remains is the
+@verdictStructuralFailures@ list.
+-}
+buildVerdict ::
+    Session ->
+    Map TxIn Text ->
+    Either (ApplyTxError ConwayEra) () ->
+    Verdict
+buildVerdict _session utxoSources result =
+    let allFailures = case result of
+            Right () -> []
+            Left (ConwayApplyTxError errs) -> toList errs
+        (noise, structural) =
+            partition isWitnessCompletenessFailure allFailures
+        status
+            | any isMempoolFailure structural = MempoolShortCircuit
+            | null structural = StructurallyClean
+            | otherwise = StructuralFailure
+     in Verdict
+            { verdictStatus = status
+            , verdictStructuralFailures = structural
+            , verdictWitnessNoiseCount = length noise
+            , verdictPParamsSource = "n2c"
+            , verdictSlotSource = "n2c"
+            , verdictUtxoSources = utxoSources
+            }
+  where
+    -- We surface the mempool short-circuit as its own status so
+    -- the human / JSON renderers can flag a stale UTxO snapshot
+    -- distinctly from genuine structural failures. The exit code
+    -- is the same as a structural failure (per contract).
+    isMempoolFailure (ConwayMempoolFailure _) = True
+    isMempoolFailure _ = False
+
+{- | Map 'Verdict' onto the process exit code per
+@contracts/cli.md@.
+-}
+exitCodeOf :: Verdict -> ExitCode
+exitCodeOf v = case verdictStatus v of
+    StructurallyClean -> ExitSuccess
+    StructuralFailure -> ExitFailure 1
+    MempoolShortCircuit -> ExitFailure 1
+
+{- | Render the verdict in the human format locked by
+@contracts/cli.md "Standard output"@.
+-}
+renderHuman :: Verdict -> Text
+renderHuman v =
+    Text.unlines (verdictLine : failureLines)
+  where
+    verdictLine = case verdictStatus v of
+        StructurallyClean ->
+            "structurally clean: "
+                <> tshow (verdictWitnessNoiseCount v)
+                <> " witness-completeness failures filtered"
+        StructuralFailure ->
+            "structural failure: "
+                <> tshow (length (verdictStructuralFailures v))
+                <> " structural; "
+                <> tshow (verdictWitnessNoiseCount v)
+                <> " witness-completeness filtered"
+        MempoolShortCircuit ->
+            "mempool short-circuit: 0 of "
+                <> tshow (Map.size (verdictUtxoSources v))
+                <> " inputs resolved; treat as structural"
+    failureLines =
+        map renderFailure (verdictStructuralFailures v)
+
+renderFailure :: ConwayLedgerPredFailure ConwayEra -> Text
+renderFailure failure =
+    "  "
+        <> ruleName failure
+        <> "."
+        <> constructorName failure
+        <> ": "
+        <> renderDetail failure
+
+ruleName :: ConwayLedgerPredFailure ConwayEra -> Text
+ruleName = \case
+    ConwayUtxowFailure _ -> "UTXOW"
+    ConwayCertsFailure _ -> "CERTS"
+    ConwayGovFailure _ -> "GOV"
+    ConwayWdrlNotDelegatedToDRep _ -> "LEDGER.withdrawals"
+    ConwayTreasuryValueMismatch _ -> "LEDGER.treasury"
+    ConwayTxRefScriptsSizeTooBig _ -> "LEDGER.reference_scripts"
+    ConwayMempoolFailure _ -> "MEMPOOL"
+    ConwayWithdrawalsMissingAccounts _ -> "LEDGER.withdrawals"
+    ConwayIncompleteWithdrawals _ -> "LEDGER.withdrawals"
+
+constructorName :: ConwayLedgerPredFailure ConwayEra -> Text
+constructorName failure =
+    let s = Text.pack (show failure)
+     in case Text.takeWhile (/= ' ') (dropPrefixes s) of
+            "" -> "Failure"
+            n -> n
+  where
+    dropPrefixes t =
+        fromMaybe t (Text.stripPrefix "Conway" t)
+
+{- | First line of the failure's @show@ output, used as a
+one-line summary in human and JSON renderers. Subject to
+ledger-version drift; not part of the contract.
+-}
+renderDetail :: ConwayLedgerPredFailure ConwayEra -> Text
+renderDetail failure =
+    Text.takeWhile (/= '\n') (Text.pack (show failure))
+
+tshow :: (Show a) => a -> Text
+tshow = Text.pack . show
