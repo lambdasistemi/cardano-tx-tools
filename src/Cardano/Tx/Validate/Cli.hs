@@ -60,11 +60,13 @@ import Data.Set (Set)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
-import Data.Version (Version, showVersion)
 import Data.Word (Word32)
 import Lens.Micro ((^.))
 import Options.Applicative qualified as O
 import System.Exit (ExitCode (..))
+
+import GitHub.Release.Check (CliBanner)
+import GitHub.Release.Check.OptParse (versionOption)
 
 import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.Api (PParams)
@@ -122,28 +124,22 @@ the parsed options on success or hands off to @optparse-applicative@'s
 default failure-rendering path on user error (missing flag, bad
 value, @--help@, @--version@).
 
-The caller supplies the executable's 'Version' (typically
-@Paths_cardano_tx_tools.version@) so the @--version@ flag prints
-the package-level version baked into this build.
+The caller supplies a 'CliBanner' (typically the same value the
+executable's @Main@ passes to 'GitHub.Release.Check.withCli'); the
+@--version@ flag is rendered by
+@github-release-check:optparse@'s 'versionOption', which prints
+@"\<cliExe\> \<showVersion cliVersion\>"@.
 -}
-parseArgs :: Version -> [String] -> IO TxValidateCliOptions
-parseArgs ver argv =
+parseArgs :: CliBanner -> [String] -> IO TxValidateCliOptions
+parseArgs banner argv =
     O.handleParseResult $
         O.execParserPure
             O.defaultPrefs
             ( O.info
-                (optionsParser O.<**> O.helper O.<**> versionOption ver)
+                (optionsParser O.<**> O.helper O.<**> versionOption banner)
                 (O.fullDesc <> O.progDesc usage)
             )
             argv
-
-versionOption :: Version -> O.Parser (a -> a)
-versionOption ver =
-    O.infoOption
-        ("tx-validate " <> showVersion ver)
-        ( O.long "version"
-            <> O.help "Show the tx-validate version and exit"
-        )
 
 -- | Short usage description shown by @--help@.
 usage :: String

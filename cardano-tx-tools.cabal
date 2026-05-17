@@ -81,7 +81,7 @@ library
     , aeson
     , aeson-pretty
     , age
-    , base                       <5
+    , base                           <5
     , base16-bytestring
     , bech32
     , bytestring
@@ -105,6 +105,8 @@ library
     , directory
     , exceptions
     , filepath
+    , github-release-check
+    , github-release-check:optparse
     , haskeline
     , http-client
     , http-client-tls
@@ -428,6 +430,7 @@ test-suite tx-validate-tests
     , cardano-tx-tools:n2c-resolver
     , containers
     , filepath
+    , github-release-check
     , hspec
     , microlens
     , plutus-core

@@ -19,18 +19,16 @@ import Data.Aeson.Encode.Pretty qualified as Aeson.Pretty
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict qualified as Map
-import Data.Maybe (isJust)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as TextIO
 import GitHub.Release.Check (
-    Config (..),
+    CliBanner (..),
     RepoSlug (..),
-    defaultConfig,
-    withUpdateCheck,
+    withCli,
  )
 import Paths_cardano_tx_tools (version)
-import System.Environment (getArgs, lookupEnv)
+import System.Environment (getArgs)
 import System.Exit (ExitCode (..), exitWith)
 import System.IO (hPutStrLn, stderr, stdin, stdout)
 
@@ -75,29 +73,28 @@ import Cardano.Tx.Validate.Cli (
  )
 
 main :: IO ()
-main = do
-    cfg <- updateCheckConfig
-    withUpdateCheck cfg $ do
-        argv <- getArgs
-        options <- parseArgs version argv
-        txBytes <- readInput (txValidateCliInput options)
-        tx <- decodeOrDie txBytes
-        withSession options $ \session ->
-            runValidation session tx options
+main = withCli banner id $ do
+    argv <- getArgs
+    options <- parseArgs banner argv
+    txBytes <- readInput (txValidateCliInput options)
+    tx <- decodeOrDie txBytes
+    withSession options $ \session ->
+        runValidation session tx options
 
-{- | Build the 'GitHub.Release.Check' config. The opt-out env var is
+{- | Update-check banner bundle handed to
+'GitHub.Release.Check.withCli' and to
+'Cardano.Tx.Validate.Cli.parseArgs'. The opt-out env var is
 @TX_VALIDATE_NO_UPDATE_CHECK@; set it to any value to silence the
 banner.
 -}
-updateCheckConfig :: IO Config
-updateCheckConfig = do
-    disabled <- isJust <$> lookupEnv "TX_VALIDATE_NO_UPDATE_CHECK"
-    base <-
-        defaultConfig
-            (RepoSlug "lambdasistemi" "cardano-tx-tools")
-            "tx-validate"
-            version
-    pure base{cfgDisabled = disabled}
+banner :: CliBanner
+banner =
+    CliBanner
+        { cliRepo = RepoSlug "lambdasistemi" "cardano-tx-tools"
+        , cliExe = "tx-validate"
+        , cliVersion = version
+        , cliOptOutEnvVar = "TX_VALIDATE_NO_UPDATE_CHECK"
+        }
 
 runValidation :: Session -> ConwayTx -> TxValidateCliOptions -> IO ()
 runValidation session tx options = do
