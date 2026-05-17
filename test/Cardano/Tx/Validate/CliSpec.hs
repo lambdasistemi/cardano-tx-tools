@@ -12,7 +12,8 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
-import Data.Version (Version, makeVersion)
+import Data.Version (makeVersion)
+import GitHub.Release.Check (CliBanner (..), RepoSlug (..))
 import Lens.Micro ((&), (.~), (^.))
 import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
@@ -90,7 +91,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
         it "accepts the happy-path argv" $ do
             options <-
                 parseArgs
-                    fakeVersion
+                    fakeBanner
                     [ "--input"
                     , "tx.cbor.hex"
                     , "--n2c-socket"
@@ -108,7 +109,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
         it "accepts --input - for stdin" $ do
             options <-
                 parseArgs
-                    fakeVersion
+                    fakeBanner
                     [ "--input"
                     , "-"
                     , "--n2c-socket"
@@ -311,11 +312,19 @@ txIdF5f1b :: String
 txIdF5f1b =
     "f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2"
 
-{- | A test-only 'Version' the @--version@ flag would print; the
-value is irrelevant to the parser's logic.
+{- | A test-only 'CliBanner' the @--version@ flag would print
+from; the values are irrelevant to the parser's logic, which only
+needs the banner to plumb through the
+@github-release-check:optparse@ helper.
 -}
-fakeVersion :: Version
-fakeVersion = makeVersion [0, 0, 0]
+fakeBanner :: CliBanner
+fakeBanner =
+    CliBanner
+        { cliRepo = RepoSlug "lambdasistemi" "cardano-tx-tools"
+        , cliExe = "tx-validate"
+        , cliVersion = makeVersion [0, 0, 0]
+        , cliOptOutEnvVar = "TX_VALIDATE_NO_UPDATE_CHECK"
+        }
 
 txIdFromHex :: String -> TxId
 txIdFromHex hex =
