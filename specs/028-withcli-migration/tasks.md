@@ -682,8 +682,8 @@ Report back: same six fields.
 
 ### Tasks
 
-- [ ] T015 ORCHESTRATOR-OWNED, finalization audit — Run the `finalization_audit 29` helper from the `gate-script` skill. Verify every prior commit passes `commit_gate`; every behaviour-changing commit carries `Tasks:`; every closed task in `tasks.md` carries `[X] T### (commit: <sha>)`; `./gate.sh` green at HEAD; README/repo metadata aligned with delivered behaviour; PR body current.
-- [ ] T016 ORCHESTRATOR-OWNED, chore only — `git rm gate.sh && git commit -S -m "chore: drop gate.sh (ready for review)"`. Push. Wait for CI green. `gh pr ready 29`.
+- [X] T015 (commit: 0dc64d7) ORCHESTRATOR-OWNED, finalization audit — Run the `finalization_audit 29` helper from the `gate-script` skill. Verify every prior commit passes `commit_gate`; every behaviour-changing commit carries `Tasks:`; every closed task in `tasks.md` carries `[X] T### (commit: <sha>)`; `./gate.sh` green at HEAD; README/repo metadata aligned with delivered behaviour; PR body current.
+- [X] T016 (commit: 0dc64d7) ORCHESTRATOR-OWNED, chore only — `git rm gate.sh && git commit -S -m "chore: drop gate.sh (ready for review)"`. Push. Wait for CI green. `gh pr ready 29`.
 
 **Checkpoint**: After S5, PR #29 is ready for external review (the user). On merge, run post-merge cleanup per the `worktrees` skill ("Post-Merge Cleanup"): remove worktree `/code/cardano-tx-tools-28`, delete local + remote `28-withcli-migration` branch, prune.
 
