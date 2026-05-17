@@ -401,9 +401,9 @@ Do NOT push, do NOT mark PR ready, do NOT touch out-of-scope files.
 
 ### Tasks
 
-- [ ] T009 [US1] [US2] RED — Extend `gate.sh` with the cardano-tx-generator `--version` smoke. Run `./gate.sh`; the smoke FAILS because pre-rewrite cardano-tx-generator does not handle `--version` (its hand-rolled `parseConfig` rejects unknown flags).
-- [ ] T010 [US1] [US2] GREEN — Add `, github-release-check` to the cardano-tx-generator executable section's `build-depends` in `cardano-tx-tools.cabal` (no sublibrary — this exe doesn't use the sublibrary's versionOption). Rewrite `app/cardano-tx-generator/Main.hs`: add a short-circuit `case argv of ["--version"] -> putStrLn (showVersion banner) >> exitSuccess; _ -> normal` at the very top of `main` (BEFORE the existing `parseConfig` call); wrap the rest of main's body in `withCli banner id`; define `banner :: CliBanner` (`cliExe = "cardano-tx-generator"`, `cliOptOutEnvVar = "CARDANO_TX_GENERATOR_NO_UPDATE_CHECK"`). The existing `parseConfig`, `runDaemon`, and ancillary helpers stay untouched. Run `./gate.sh`; must exit 0.
-- [ ] T011 [US1] [US2] FOLD — T009 + T010 MUST land as ONE bisect-safe commit.
+- [X] T009 (commit: a0f881c) [US1] [US2] RED — Extend `gate.sh` with the cardano-tx-generator `--version` smoke. Run `./gate.sh`; the smoke FAILS because pre-rewrite cardano-tx-generator does not handle `--version` (its hand-rolled `parseConfig` rejects unknown flags).
+- [X] T010 (commit: a0f881c) [US1] [US2] GREEN — Add `, github-release-check` to the cardano-tx-generator executable section's `build-depends` in `cardano-tx-tools.cabal` (no sublibrary — this exe doesn't use the sublibrary's versionOption). Rewrite `app/cardano-tx-generator/Main.hs`: add a short-circuit `case argv of ["--version"] -> putStrLn (showVersion banner) >> exitSuccess; _ -> normal` at the very top of `main` (BEFORE the existing `parseConfig` call); wrap the rest of main's body in `withCli banner id`; define `banner :: CliBanner` (`cliExe = "cardano-tx-generator"`, `cliOptOutEnvVar = "CARDANO_TX_GENERATOR_NO_UPDATE_CHECK"`). The existing `parseConfig`, `runDaemon`, and ancillary helpers stay untouched. Run `./gate.sh`; must exit 0.
+- [X] T011 (commit: a0f881c) [US1] [US2] FOLD — T009 + T010 MUST land as ONE bisect-safe commit.
 
 ### Subagent brief — S3
 

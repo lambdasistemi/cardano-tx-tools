@@ -22,9 +22,16 @@ import Cardano.Tx.Generator.Daemon (
     runDaemon,
  )
 import Data.Maybe (fromMaybe)
+import Data.Version (showVersion)
 import Data.Word (Word64)
+import GitHub.Release.Check (
+    CliBanner (..),
+    RepoSlug (..),
+    withCli,
+ )
+import Paths_cardano_tx_tools (version)
 import System.Environment (getArgs, getProgName)
-import System.Exit (exitFailure)
+import System.Exit (exitFailure, exitSuccess)
 import System.IO (hPutStrLn, stderr)
 import Text.Read (readMaybe)
 
@@ -181,9 +188,40 @@ dieUsage msg = do
     hPutStrLn stderr "  [--node-ready-timeout-ms INT]"
     exitFailure
 
+{- | Static identity bundle threaded through 'withCli' so the shared
+github-release-check release banner names this executable, repo, and
+opt-out env-var consistently with the rest of the @cardano-tx-tools@
+family.
+-}
+banner :: CliBanner
+banner =
+    CliBanner
+        { cliRepo = RepoSlug "lambdasistemi" "cardano-tx-tools"
+        , cliExe = "cardano-tx-generator"
+        , cliVersion = version
+        , cliOptOutEnvVar = "CARDANO_TX_GENERATOR_NO_UPDATE_CHECK"
+        }
+
+{- | Daemon entry point.
+
+The @case argv of ["--version"] -> ...@ guard at the top short-circuits
+the hand-rolled 'parseConfig' (which would reject @--version@ as an
+unknown flag) so we expose the same @<exe> <semver>@ first line every
+sibling CLI prints via @github-release-check:optparse@'s @versionOption@.
+Mixed argument vectors like @["--relay-socket", "/x", "--version"]@
+intentionally fall through to 'parseConfig' (per spec.md edge case).
+
+Everything else runs inside 'withCli' so the upstream-release banner is
+emitted on exit just like @tx-validate@, @tx-diff@ and @tx-sign@.
+-}
 main :: IO ()
 main = do
     args <- getArgs
-    cfg <- parseConfig args
-    hPutStrLn stderr $ "cardano-tx-generator: " <> show cfg
-    runDaemon cfg
+    case args of
+        ["--version"] -> do
+            putStrLn $ "cardano-tx-generator " <> showVersion version
+            exitSuccess
+        _ -> withCli banner id $ do
+            cfg <- parseConfig args
+            hPutStrLn stderr $ "cardano-tx-generator: " <> show cfg
+            runDaemon cfg
