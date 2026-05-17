@@ -548,9 +548,9 @@ Report back: same six fields as prior slices.
 
 ### Tasks
 
-- [ ] T012 [US1] [US2] RED — Extend `gate.sh` with the tx-sign `--version` smoke. Run `./gate.sh`; the smoke FAILS because pre-rewrite tx-sign has no `--version` flag.
-- [ ] T013 [US1] [US2] GREEN — Add `, github-release-check` and `, github-release-check:optparse` to the tx-sign executable section's `build-depends` in `cardano-tx-tools.cabal` (only if not already present). Rewrite `app/tx-sign/Main.hs` to define `banner :: CliBanner` (`cliExe = "tx-sign"`, `cliOptOutEnvVar = "TX_SIGN_NO_UPDATE_CHECK"`), import `withCli`, and call `withCli banner id (runTxSign banner)` (or, if `runTxSign` doesn't currently take a banner, change its signature to do so). Rewrite `src/Cardano/Tx/Sign/Cli.hs::runTxSign` to take a `CliBanner` argument and pass it to its `parseArgs` invocation; change `parseArgs` (or whatever the local function is called) to take `CliBanner`, import the sublibrary's `versionOption`, plumb it via `<**>`, delete any hand-rolled versionOption. Run `./gate.sh`; must exit 0.
-- [ ] T014 [US1] [US2] FOLD — T012 + T013 MUST land as ONE bisect-safe commit.
+- [X] T012 (commit: 60925d4) [US1] [US2] RED — Extend `gate.sh` with the tx-sign `--version` smoke. Run `./gate.sh`; the smoke FAILS because pre-rewrite tx-sign has no `--version` flag.
+- [X] T013 (commit: 60925d4) [US1] [US2] GREEN — Add `, github-release-check` and `, github-release-check:optparse` to the tx-sign executable section's `build-depends` in `cardano-tx-tools.cabal` (only if not already present). Rewrite `app/tx-sign/Main.hs` to define `banner :: CliBanner` (`cliExe = "tx-sign"`, `cliOptOutEnvVar = "TX_SIGN_NO_UPDATE_CHECK"`), import `withCli`, and call `withCli banner id (runTxSign banner)` (or, if `runTxSign` doesn't currently take a banner, change its signature to do so). Rewrite `src/Cardano/Tx/Sign/Cli.hs::runTxSign` to take a `CliBanner` argument and pass it to its `parseArgs` invocation; change `parseArgs` (or whatever the local function is called) to take `CliBanner`, import the sublibrary's `versionOption`, plumb it via `<**>`, delete any hand-rolled versionOption. Run `./gate.sh`; must exit 0.
+- [X] T014 (commit: 60925d4) [US1] [US2] FOLD — T012 + T013 MUST land as ONE bisect-safe commit.
 
 ### Subagent brief — S4
 

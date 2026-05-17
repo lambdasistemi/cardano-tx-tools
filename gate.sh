@@ -33,3 +33,10 @@ ctxg_first_line="$(printf '%s\n' "$ctxg_version" | head -1)"
 printf '%s\n' "$ctxg_first_line" \
     | grep -qE '^cardano-tx-generator [0-9]+(\.[0-9]+)*$' \
     || { echo "cardano-tx-generator --version smoke: first line mismatch: $ctxg_first_line"; exit 1; }
+
+# tx-sign live-boundary smoke (slice S4)
+tx_sign_version="$(nix develop --quiet -c cabal run -v0 -O0 tx-sign -- --version)"
+tx_sign_first_line="$(printf '%s\n' "$tx_sign_version" | head -1)"
+printf '%s\n' "$tx_sign_first_line" \
+    | grep -qE '^tx-sign [0-9]+(\.[0-9]+)*$' \
+    || { echo "tx-sign --version smoke: first line mismatch: $tx_sign_first_line"; exit 1; }
