@@ -9,6 +9,13 @@ License     : Apache-2.0
 Composes the @vault@ and @witness@ subcommands. The single
 @--network@ option is required and decides which network the vault
 identity is bound to.
+
+The 'runTxSign' entry point takes a 'CliBanner' so the parser can
+plumb @github-release-check:optparse@'s 'versionOption' via
+@\<**\>@ — that renders @--version@ as
+@\"\<cliExe\> \<showVersion cliVersion\>\"@. The banner is
+typically the same value the executable's @Main@ passes to
+'GitHub.Release.Check.withCli'.
 -}
 module Cardano.Tx.Sign.Cli (
     TxSignCommand (..),
@@ -34,6 +41,9 @@ import Options.Applicative (
     (<**>),
  )
 
+import GitHub.Release.Check (CliBanner)
+import GitHub.Release.Check.OptParse (versionOption)
+
 import Cardano.Tx.Sign.Cli.Common (
     GlobalOpts (..),
     globalOptsP,
@@ -56,12 +66,17 @@ data TxSignCommand
     | TxSignWitness WitnessOpts
     deriving stock (Eq, Show)
 
--- | Parser for the full tx-sign CLI.
-txSignParser :: ParserInfo (GlobalOpts, TxSignCommand)
-txSignParser =
+{- | Parser for the full tx-sign CLI. The caller supplies a
+'CliBanner' so @--version@ is rendered by the sublibrary's
+'versionOption' helper (kept consistent with the other
+@tx-*@ executables in this repo).
+-}
+txSignParser :: CliBanner -> ParserInfo (GlobalOpts, TxSignCommand)
+txSignParser banner =
     info
         ( ((,) <$> globalOptsP <*> commandP)
             <**> helper
+            <**> versionOption banner
         )
         ( fullDesc
             <> progDesc
@@ -87,10 +102,14 @@ commandP =
                 )
         )
 
--- | Run the tx-sign CLI parser and dispatch the chosen subcommand.
-runTxSign :: IO ()
-runTxSign = do
-    (g, cmd) <- execParser txSignParser
+{- | Run the tx-sign CLI parser and dispatch the chosen
+subcommand. The 'CliBanner' is threaded into the parser so the
+@--version@ flag prints @\"tx-sign \<semver\>\"@ via
+@github-release-check:optparse@'s 'versionOption'.
+-}
+runTxSign :: CliBanner -> IO ()
+runTxSign banner = do
+    (g, cmd) <- execParser (txSignParser banner)
     case cmd of
         TxSignVault vault -> runVaultCommand g vault
         TxSignWitness opts -> runWitness g opts

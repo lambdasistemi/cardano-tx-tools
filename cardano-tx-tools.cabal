@@ -241,9 +241,13 @@ executable tx-sign
   hs-source-dirs:   app/tx-sign
   main-is:          Main.hs
   default-language: GHC2021
+  autogen-modules:  Paths_cardano_tx_tools
+  other-modules:    Paths_cardano_tx_tools
   build-depends:
     , base
     , cardano-tx-tools
+    , github-release-check
+    , github-release-check:optparse
 
 executable tx-validate
   import:           warnings
