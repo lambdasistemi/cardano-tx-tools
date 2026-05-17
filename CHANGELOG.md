@@ -2,21 +2,22 @@
 
 ## Unreleased
 
+## [0.1.4.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.3.0...v0.1.4.0) (2026-05-17)
+
 ### Features
 
-* **022:** add `tx-sign` executable with `vault create` and `witness`
-  subcommands. The vault is an age-scrypt encrypted file that stores
-  one Cardano payment signing key (cardano-cli `.skey` JSON, raw
-  32-byte hex, or `addr_xsk` extended-key bech32). The `witness`
-  command unlocks the vault in memory and emits one detached
-  Conway vkey witness for an unsigned transaction CBOR hex, without
-  the cleartext key ever touching disk. Linux release artifacts are
-  produced alongside `tx-diff` and `cardano-tx-generator`. Ported
-  verbatim from
-  [`amaru-treasury-tx`](https://github.com/lambdasistemi/amaru-treasury-tx)
-  spec
-  [`118-vault-witness`](https://github.com/lambdasistemi/amaru-treasury-tx/blob/main/specs/118-vault-witness/spec.md).
-* **015:** add `tx-validate` executable — Conway Phase-1 pre-flight against a local cardano-node via Node-to-Client, with human or JSON output. Driver wraps `Cardano.Tx.Validate.validatePhase1` from PR #16. See [PR #20](https://github.com/lambdasistemi/cardano-tx-tools/pull/20) and [issue #19](https://github.com/lambdasistemi/cardano-tx-tools/issues/19). Blockfrost-side session deferred to [#21](https://github.com/lambdasistemi/cardano-tx-tools/issues/21).
+* **022:** port tx-sign vault + witness from amaru-treasury-tx ([1203f29](https://github.com/lambdasistemi/cardano-tx-tools/commit/1203f298e24335630a6e3029dfbf73b3b5ee847c))
+* **015:** cabal wiring + Cardano.Tx.Validate.Cli scaffold + Session ([015cd55](https://github.com/lambdasistemi/cardano-tx-tools/commit/015cd554518270a0c97daba6f2cc6edc27912626))
+* **015:** parser + verdict + human renderer + Main + US1 happy path ([7f10cb9](https://github.com/lambdasistemi/cardano-tx-tools/commit/7f10cb9549a9aef3a82241b49bbbaa4cb5a10764))
+* **015:** pre-fix body surfaces structural failure (SC-003) ([f99f711](https://github.com/lambdasistemi/cardano-tx-tools/commit/f99f711b7c2b949f5baff71278e63852ee300bc6))
+* **015:** JSON envelope renderer + --output json wiring ([4af0c22](https://github.com/lambdasistemi/cardano-tx-tools/commit/4af0c225a0da8c7faa33ba75331e853f6468b2d4))
+* **015:** release plumbing for tx-validate (AppImage / DEB / RPM / Darwin / Docker) ([741b8ab](https://github.com/lambdasistemi/cardano-tx-tools/commit/741b8ab934feebbd5afce56a5e372874d3d68620))
+* **015:** wire github-release-check into tx-validate ([9b5c1b4](https://github.com/lambdasistemi/cardano-tx-tools/commit/9b5c1b4a5488609ac202b7739d1d2ed09dfb4d88))
+* **015:** add --version flag to tx-validate ([5633c68](https://github.com/lambdasistemi/cardano-tx-tools/commit/5633c683dd6fb6568f3184d47c3992bf85ff8f43))
+* **tx-validate:** adopt withCli + versionOption from github-release-check sublibrary ([b6d97f7](https://github.com/lambdasistemi/cardano-tx-tools/commit/b6d97f7724f7d16f578b51c82b3e19d19325d8a4))
+* **tx-diff:** adopt withCli + versionOption from github-release-check sublibrary ([a8813a0](https://github.com/lambdasistemi/cardano-tx-tools/commit/a8813a06957f4cf04298bc3a45111f239dd54a1d))
+* **cardano-tx-generator:** adopt withCli; inline --version short-circuit ([c638564](https://github.com/lambdasistemi/cardano-tx-tools/commit/c6385649c0b79fb01588252becb76a63641bf6d8))
+* **tx-sign:** adopt withCli + versionOption from github-release-check sublibrary ([4dee555](https://github.com/lambdasistemi/cardano-tx-tools/commit/4dee555d9a5194bb99927d4060d86370dd34cc07))
 
 ## [0.1.3.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.2.0...v0.1.3.0) (2026-05-16)
 
