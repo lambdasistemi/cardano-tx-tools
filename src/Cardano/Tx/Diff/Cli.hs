@@ -6,12 +6,21 @@ License     : Apache-2.0
 Pure parser for the `tx-diff` executable. Keeping parsing separate from file
 IO guarantees invalid render flags fail before transaction inputs or
 blueprints are read.
+
+The argv-tail parser ('parseTxDiffCliArgs') is a hand-rolled @Either@
+parser preserved verbatim so the existing unit tests in
+@test/Cardano/Tx/Diff/CliSpec.hs@ keep their pattern-match exhaustively.
+The IO-shell entry 'parseArgs' wraps it and layers the
+@github-release-check:optparse@ 'versionOption' on top so
+@tx-diff --version@ short-circuits with the canonical
+@\<exe\> \<semver\>@ output @withCli@ + the smoke test rely on.
 -}
 module Cardano.Tx.Diff.Cli (
     TxDiffCliError (..),
     TxDiffCliOptions (..),
     TxDiffCliN2cConfig (..),
     TxDiffCliWeb2Config (..),
+    parseArgs,
     parseTxDiffCliArgs,
     txDiffCliUsage,
 ) where
@@ -19,7 +28,14 @@ module Cardano.Tx.Diff.Cli (
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Word (Word32)
+import Options.Applicative qualified as O
+import System.Environment (getProgName)
+import System.Exit (exitFailure)
+import System.IO (hPutStrLn, stderr)
 import Text.Read (readMaybe)
+
+import GitHub.Release.Check (CliBanner)
+import GitHub.Release.Check.OptParse (versionOption)
 
 import Cardano.Tx.Diff (
     HumanRenderOptions (..),
@@ -58,6 +74,42 @@ data TxDiffCliOptions = TxDiffCliOptions
 
 newtype TxDiffCliError = TxDiffCliUsageError String
     deriving stock (Eq, Show)
+
+{- | IO-shell argv parser for the @tx-diff@ executable. Layers
+@github-release-check:optparse@'s 'versionOption' on top of the
+existing hand-rolled positional parser so @--version@ short-circuits
+with the canonical @\<cliExe banner\> \<showVersion (cliVersion banner)\>@
+line; otherwise delegates to 'parseTxDiffCliArgs' and renders the
+usage error on stderr.
+
+The 'CliBanner' is the same value the executable's @Main@ passes to
+'GitHub.Release.Check.withCli', mirroring the slice-S1 wiring of
+@tx-validate@.
+-}
+parseArgs :: CliBanner -> [String] -> IO TxDiffCliOptions
+parseArgs banner argv
+    | "--version" `elem` argv = do
+        () <-
+            O.handleParseResult $
+                O.execParserPure
+                    O.defaultPrefs
+                    ( O.info
+                        (pure () O.<**> versionOption banner)
+                        (O.fullDesc <> O.progDesc (txDiffCliUsage "tx-diff"))
+                    )
+                    ["--version"]
+        -- 'versionOption' short-circuits with ExitSuccess; the
+        -- success branch is unreachable, but we must satisfy the
+        -- return type.
+        exitFailure
+    | otherwise =
+        case parseTxDiffCliArgs argv of
+            Right opts -> pure opts
+            Left (TxDiffCliUsageError err) -> do
+                prog <- getProgName
+                hPutStrLn stderr ("tx-diff: " <> err)
+                hPutStrLn stderr (txDiffCliUsage prog)
+                exitFailure
 
 parseTxDiffCliArgs :: [String] -> Either TxDiffCliError TxDiffCliOptions
 parseTxDiffCliArgs args =
