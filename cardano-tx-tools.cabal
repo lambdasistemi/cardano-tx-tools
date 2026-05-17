@@ -211,6 +211,8 @@ executable tx-diff
   hs-source-dirs:   app/tx-diff
   main-is:          Main.hs
   default-language: GHC2021
+  autogen-modules:  Paths_cardano_tx_tools
+  other-modules:    Paths_cardano_tx_tools
   build-depends:
     , async
     , base
@@ -223,6 +225,8 @@ executable tx-diff
     , cardano-tx-tools
     , cardano-tx-tools:n2c-resolver
     , containers
+    , github-release-check
+    , github-release-check:optparse
     , http-client
     , http-client-tls
     , microlens

@@ -19,3 +19,10 @@ tx_validate_first_line="$(printf '%s\n' "$tx_validate_version" | head -1)"
 printf '%s\n' "$tx_validate_first_line" \
     | grep -qE '^tx-validate [0-9]+(\.[0-9]+)*$' \
     || { echo "tx-validate --version smoke: first line mismatch: $tx_validate_first_line"; exit 1; }
+
+# tx-diff live-boundary smoke (slice S2)
+tx_diff_version="$(nix develop --quiet -c cabal run -v0 -O0 tx-diff -- --version)"
+tx_diff_first_line="$(printf '%s\n' "$tx_diff_version" | head -1)"
+printf '%s\n' "$tx_diff_first_line" \
+    | grep -qE '^tx-diff [0-9]+(\.[0-9]+)*$' \
+    || { echo "tx-diff --version smoke: first line mismatch: $tx_diff_first_line"; exit 1; }

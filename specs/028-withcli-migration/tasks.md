@@ -259,9 +259,9 @@ Do not run `git push`. Do not run `gh pr ready`. Do not edit anything outside th
 
 ### Tasks
 
-- [ ] T006 [US1] [US2] RED — Extend `gate.sh` with the tx-diff `--version` smoke (same shape as S1's tx-validate smoke). Run `./gate.sh`; the smoke FAILS because the pre-rewrite tx-diff has no `--version` flag. Capture the RED output.
-- [ ] T007 [US1] [US2] GREEN — Add `, github-release-check` and `, github-release-check:optparse` to the tx-diff executable section's `build-depends` in `cardano-tx-tools.cabal` (only if not already present — check first). Rewrite `app/tx-diff/Main.hs` to define `banner :: CliBanner` (`cliExe = "tx-diff"`, `cliOptOutEnvVar = "TX_DIFF_NO_UPDATE_CHECK"`, other fields shared) and wrap `main`'s body in `withCli banner id`. Pass `banner` to whatever tx-diff's `parseArgs` (in `src/Cardano/Tx/Diff/Cli.hs`) is called as. Rewrite `src/Cardano/Tx/Diff/Cli.hs`'s `parseArgs` to take `CliBanner` instead of `Version` (mirroring tx-validate's S1 shape), import `versionOption` from the sublibrary, plumb it into the parser via `<**>`. Run `./gate.sh`; must exit 0.
-- [ ] T008 [US1] [US2] FOLD — T006 + T007 MUST land as ONE bisect-safe commit.
+- [X] T006 (commit: 77da184) [US1] [US2] RED — Extend `gate.sh` with the tx-diff `--version` smoke (same shape as S1's tx-validate smoke). Run `./gate.sh`; the smoke FAILS because the pre-rewrite tx-diff has no `--version` flag. Capture the RED output.
+- [X] T007 (commit: 77da184) [US1] [US2] GREEN — Add `, github-release-check` and `, github-release-check:optparse` to the tx-diff executable section's `build-depends` in `cardano-tx-tools.cabal` (only if not already present — check first). Rewrite `app/tx-diff/Main.hs` to define `banner :: CliBanner` (`cliExe = "tx-diff"`, `cliOptOutEnvVar = "TX_DIFF_NO_UPDATE_CHECK"`, other fields shared) and wrap `main`'s body in `withCli banner id`. Pass `banner` to whatever tx-diff's `parseArgs` (in `src/Cardano/Tx/Diff/Cli.hs`) is called as. Rewrite `src/Cardano/Tx/Diff/Cli.hs`'s `parseArgs` to take `CliBanner` instead of `Version` (mirroring tx-validate's S1 shape), import `versionOption` from the sublibrary, plumb it into the parser via `<**>`. Run `./gate.sh`; must exit 0.
+- [X] T008 (commit: 77da184) [US1] [US2] FOLD — T006 + T007 MUST land as ONE bisect-safe commit.
 
 ### Subagent brief — S2
 

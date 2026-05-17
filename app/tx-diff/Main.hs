@@ -8,6 +8,12 @@ Conway transaction inputs, optionally resolves their referenced UTxOs via
 local N2C or a Blockfrost-compatible web2 endpoint, prints the human
 renderer output, and exits with a non-zero status when differences are
 present.
+
+@main@ is wrapped in 'GitHub.Release.Check.withCli' so every run prints
+the latest-release banner to stderr on exit (suppressed by the
+@TX_DIFF_NO_UPDATE_CHECK@ env var); @--version@ short-circuits via
+@github-release-check:optparse@'s 'versionOption', plumbed through
+'Cardano.Tx.Diff.Cli.parseArgs'.
 -}
 module Main (main) where
 
@@ -34,12 +40,10 @@ import Cardano.Tx.Diff (
     renderDiffNodeHumanWith,
  )
 import Cardano.Tx.Diff.Cli (
-    TxDiffCliError (..),
     TxDiffCliN2cConfig (..),
     TxDiffCliOptions (..),
     TxDiffCliWeb2Config (..),
-    parseTxDiffCliArgs,
-    txDiffCliUsage,
+    parseArgs,
  )
 import Cardano.Tx.Diff.Resolver (
     Resolver,
@@ -51,6 +55,12 @@ import Cardano.Tx.Diff.Resolver.Web2 (
     httpFetchTx,
     web2Resolver,
  )
+import GitHub.Release.Check (
+    CliBanner (..),
+    RepoSlug (..),
+    withCli,
+ )
+import Paths_cardano_tx_tools (version)
 
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
@@ -80,14 +90,30 @@ import Lens.Micro ((^.))
 import Network.HTTP.Client (newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Ouroboros.Network.Magic (NetworkMagic (..))
-import System.Environment (getArgs, getProgName, lookupEnv)
+import System.Environment (getArgs, lookupEnv)
 import System.Exit (exitFailure, exitSuccess)
 import System.IO (hPutStrLn, stderr)
 
 main :: IO ()
-main = do
-    args <- getArgs
-    either dieUsage runDiff (parseTxDiffCliArgs args)
+main = withCli banner id $ do
+    argv <- getArgs
+    cliOptions <- parseArgs banner argv
+    runDiff cliOptions
+
+{- | Update-check banner bundle handed to
+'GitHub.Release.Check.withCli' and to
+'Cardano.Tx.Diff.Cli.parseArgs'. The opt-out env var is
+@TX_DIFF_NO_UPDATE_CHECK@; set it to any value to silence the
+banner.
+-}
+banner :: CliBanner
+banner =
+    CliBanner
+        { cliRepo = RepoSlug "lambdasistemi" "cardano-tx-tools"
+        , cliExe = "tx-diff"
+        , cliVersion = version
+        , cliOptOutEnvVar = "TX_DIFF_NO_UPDATE_CHECK"
+        }
 
 runDiff :: TxDiffCliOptions -> IO ()
 runDiff cliOptions = do
@@ -264,10 +290,3 @@ loadCollapseRules collapseRulesPath = do
             exitFailure
         Right rules ->
             pure rules
-
-dieUsage :: TxDiffCliError -> IO a
-dieUsage (TxDiffCliUsageError err) = do
-    prog <- getProgName
-    hPutStrLn stderr ("tx-diff: " <> err)
-    hPutStrLn stderr (txDiffCliUsage prog)
-    exitFailure
