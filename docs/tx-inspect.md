@@ -139,6 +139,24 @@ TX_INSPECT_NO_UPDATE_CHECK=1 tx-inspect ...    # suppress upgrade banner
 These match the per-exe pattern shipped by the four pre-existing
 CLIs.
 
+## Render hygiene — empty `TxOut` fields are suppressed
+
+`tx-inspect` always renders with `humanHideEmpty = True`. For each
+transaction output (resolved or not), fields that would otherwise
+emit noise are dropped before the tree is printed:
+
+- `datum: cbor: (0 bytes)` — emitted when the output has `NoDatum`
+  (pure ADA wallet UTxO). Suppressed.
+- `referenceScript: null` — emitted when the output has no
+  reference script attached. Suppressed.
+
+Outputs / inputs that DO have a datum or a reference script render
+their content normally. The diff renderer (`tx-diff`) keeps the
+opposite default (`humanHideEmpty = False`) so diff outputs continue
+to show "datum changed from null to X" cases — both renderers share
+the same projection and primitives, but each picks the empty-leaf
+policy that matches its use case.
+
 ## Exit codes
 
 | Code | Meaning |
