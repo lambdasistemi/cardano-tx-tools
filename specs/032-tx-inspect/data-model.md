@@ -104,19 +104,27 @@ The legacy `parseCollapseRulesYaml :: BS.ByteString -> Either String CollapseRul
 
 ### `applyRewriteRules`
 
+Per the planning-phase correction (see [research.md R1](./research.md#r1-renderer-extraction-a-new-top-level-entry-sharing-the-projection--render-primitives)), the top-level type the renderer consumes is `ConwayTx` (via `renderConwayTxHuman`), not `OpenValue`. The rename layer's site list (payment addresses + script hashes) lives in `ConwayDiffValue` leaves, not `OpenValue` leaves. The `applyRewriteRules` signature is therefore deferred to **S3 planning**, where rename application lands. S1 only ships the types and the parser.
+
+The current best-guess shape (subject to S3 refinement) is one of:
+
 ```haskell
-applyRewriteRules ::
-    RewriteRules ->
-    HumanRenderOptions ->
-    OpenValue ->
-    (HumanRenderOptions, OpenValue)
+-- S3 will pick one of these (or a small variant):
+
+-- (a) Apply collapse + rename to a ConwayDiffValue tree before rendering.
+applyRewriteRulesConwayTx ::
+    RewriteRules -> HumanRenderOptions -> ConwayDiffValue -> (HumanRenderOptions, ConwayDiffValue)
+
+-- (b) Hand RewriteRules to renderConwayTxHuman and have it apply both stages inline.
+renderConwayTxHumanWithRewrite ::
+    HumanRenderOptions -> TxDiffOptions -> RewriteRules -> ConwayTx -> Text
 ```
 
-Behavior:
-- **Stage 1 (collapse)**: returns `HumanRenderOptions` with `humanCollapseRules = Just (rewriteCollapse rr)`. The existing render path consumes `humanCollapseRules` exactly as it does today — no change to the collapse application code path.
-- **Stage 2 (rename)**: walks the `OpenValue` tree, rewriting payment-bearing and script-hash-bearing leaves per `rewriteRename rr`. The rewritten `OpenValue` is what the renderer walks.
+Behavior is unchanged from the original sketch:
+- **Stage 1 (collapse)**: collapse rules apply to the projection tree (`ConwayDiffValue` or its child branches as `humanCollapseRules` already handles in the diff renderer).
+- **Stage 2 (rename)**: walks the `ConwayDiffValue` tree, rewriting payment-address and script-hash leaves per `rewriteRename rr`.
 
-Stage order is hard-wired in this function — collapse rules first, rename second. The function does not consult any "order" hint from YAML.
+Stage order is hard-wired (collapse first, rename second), independent of YAML key order.
 
 ---
 

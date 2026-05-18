@@ -66,17 +66,25 @@ specs/032-tx-inspect/
 src/Cardano/Tx/
   Rewrite.hs                        # NEW — RewriteRules, RenameRule(s), parseRewriteRulesYaml,
                                     #       applyRewriteRules (collapse → rename), Haddock
-  Diff.hs                           # EDITED — minimal additive changes only:
+  Diff.hs                           # EDITED — minimal additive changes only (CORRECTED 2026-05-18 per R1):
                                     #   * `parseCollapseRulesYaml` reused unchanged (no edit)
-                                    #   * a new exported `renderOpenValueHuman[With]` carved
-                                    #     out of `renderDiffNodeHuman[With]`; the diff renderer
-                                    #     now delegates per-side to the new function. tx-diff
-                                    #     output is byte-identical before and after (golden in S1).
+                                    #   * NEW `renderConwayTxHuman :: HumanRenderOptions ->
+                                    #     TxDiffOptions -> ConwayTx -> Text` — the top-level
+                                    #     entry tx-inspect's Main calls. Walks `conwayDiffProjection`
+                                    #     into a `RenderTrie` reusing the existing render
+                                    #     primitives. The diff renderer is NOT touched
+                                    #     (tx-diff goldens trivially byte-identical).
+                                    #   * NEW `renderOpenValueHuman[With] :: HumanRenderOptions
+                                    #     -> OpenValue -> Text` — a primitive that renders an
+                                    #     OpenValue subtree directly. Reuses the same render
+                                    #     primitives. The rename layer in S3 uses it for
+                                    #     datum subtrees.
                                     #   * `HumanRenderOptions` gains `humanRenameRules ::
                                     #     Maybe RenameRules` field (additive; defaults to
                                     #     Nothing in `defaultHumanRenderOptions`). Pre-existing
                                     #     consumers compile unchanged because the field has a
-                                    #     default in record-update syntax.
+                                    #     default in record-update syntax. No application
+                                    #     code in S1 — S3 wires the rename layer into render.
 app/tx-inspect/Main.hs              # NEW — withCli + versionOption, --rules loader,
                                     #       resolver chain, renderOpenValueHuman, exit 0
 test/Cardano/Tx/
