@@ -1,0 +1,256 @@
+body
++- collateralInputs
+|  `- 0
+|     `- {"index":3,"txId":"b63aa2dd78c2a63b71aeba687cf45d445a98653a81f48774aa30236e47f30b86"}
++- fee
+|  `- 0.452865 ADA (452865 lovelace)
++- inputs
+|  +- 0
+|  |  `- {"index":2,"txId":"b63aa2dd78c2a63b71aeba687cf45d445a98653a81f48774aa30236e47f30b86"}
+|  `- 1
+|     `- {"index":3,"txId":"b63aa2dd78c2a63b71aeba687cf45d445a98653a81f48774aa30236e47f30b86"}
++- outputs
+|  +- SwapOrder
+|  |  +- coin
+|  |  |  +- 0
+|  |  |  |  `- 39306.821250 ADA (39306821250 lovelace)
+|  |  |  `- 1
+|  |  |     `- 39306.821249 ADA (39306821249 lovelace)
+|  |  `- datum
+|  |     `- constructor
+|  |        `- 0..1
+|  |           `- 0
+|  +- 0
+|  |  +- address
+|  |  |  `- "amaru.swap-order"
+|  |  +- datum
+|  |  |  `- fields
+|  |  |     +- 0
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 0
+|  |  |     |  `- fields
+|  |  |     |     `- 0
+|  |  |     |        `- {"bytes":"64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef"}
+|  |  |     +- 1
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 1
+|  |  |     |  `- fields
+|  |  |     |     `- 0
+|  |  |     |        +- 0
+|  |  |     |        |  +- constructor
+|  |  |     |        |  |  `- 0
+|  |  |     |        |  `- fields
+|  |  |     |        |     `- 0
+|  |  |     |        |        `- {"bytes":"7095faf3d48d582fbae8b3f2e726670d7a35e2400c783d992bbdeffb"}
+|  |  |     |        +- 1
+|  |  |     |        |  +- constructor
+|  |  |     |        |  |  `- 0
+|  |  |     |        |  `- fields
+|  |  |     |        |     `- 0
+|  |  |     |        |        `- {"bytes":"f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e"}
+|  |  |     |        +- 2
+|  |  |     |        |  +- constructor
+|  |  |     |        |  |  `- 0
+|  |  |     |        |  `- fields
+|  |  |     |        |     `- 0
+|  |  |     |        |        `- {"bytes":"8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1"}
+|  |  |     |        `- 3
+|  |  |     |           +- constructor
+|  |  |     |           |  `- 0
+|  |  |     |           `- fields
+|  |  |     |              `- 0
+|  |  |     |                 `- {"bytes":"97e0f6d6c86dbebf15cc8fdf0981f939b2f2b70928a46511edd49df2"}
+|  |  |     +- 2
+|  |  |     |  `- 1280000
+|  |  |     +- 3
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 0
+|  |  |     |  `- fields
+|  |  |     |     +- 0
+|  |  |     |     |  +- constructor
+|  |  |     |     |  |  `- 0
+|  |  |     |     |  `- fields
+|  |  |     |     |     +- 0
+|  |  |     |     |     |  +- constructor
+|  |  |     |     |     |  |  `- 1
+|  |  |     |     |     |  `- fields
+|  |  |     |     |     |     `- 0
+|  |  |     |     |     |        `- {"bytes":"32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  |     |     |     `- 1
+|  |  |     |     |        +- constructor
+|  |  |     |     |        |  `- 0
+|  |  |     |     |        `- fields
+|  |  |     |     |           `- 0
+|  |  |     |     |              +- constructor
+|  |  |     |     |              |  `- 0
+|  |  |     |     |              `- fields
+|  |  |     |     |                 `- 0
+|  |  |     |     |                    +- constructor
+|  |  |     |     |                    |  `- 1
+|  |  |     |     |                    `- fields
+|  |  |     |     |                       `- 0
+|  |  |     |     |                          `- {"bytes":"32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  |     |     `- 1
+|  |  |     |        `- constructor
+|  |  |     |           `- 0
+|  |  |     +- 4
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 1
+|  |  |     |  `- fields
+|  |  |     |     +- 0
+|  |  |     |     |  +- 0
+|  |  |     |     |  |  `- {"bytes":""}
+|  |  |     |     |  +- 1
+|  |  |     |     |  |  `- {"bytes":""}
+|  |  |     |     |  `- 2
+|  |  |     |     |     `- 39303541250
+|  |  |     |     `- 1
+|  |  |     |        +- 0
+|  |  |     |        |  `- {"bytes":"c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"}
+|  |  |     |        +- 1
+|  |  |     |        |  `- {"bytes":"0014df105553444d"}
+|  |  |     |        `- 2
+|  |  |     |           `- 10000000001
+|  |  |     `- 5
+|  |  |        `- constructor
+|  |  |           `- 0
+|  |  `- referenceScript
+|  |     `- null
+|  +- 1
+|  |  +- address
+|  |  |  `- "amaru.swap-order"
+|  |  +- datum
+|  |  |  `- fields
+|  |  |     +- 0
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 0
+|  |  |     |  `- fields
+|  |  |     |     `- 0
+|  |  |     |        `- {"bytes":"64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef"}
+|  |  |     +- 1
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 1
+|  |  |     |  `- fields
+|  |  |     |     `- 0
+|  |  |     |        +- 0
+|  |  |     |        |  +- constructor
+|  |  |     |        |  |  `- 0
+|  |  |     |        |  `- fields
+|  |  |     |        |     `- 0
+|  |  |     |        |        `- {"bytes":"7095faf3d48d582fbae8b3f2e726670d7a35e2400c783d992bbdeffb"}
+|  |  |     |        +- 1
+|  |  |     |        |  +- constructor
+|  |  |     |        |  |  `- 0
+|  |  |     |        |  `- fields
+|  |  |     |        |     `- 0
+|  |  |     |        |        `- {"bytes":"f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e"}
+|  |  |     |        +- 2
+|  |  |     |        |  +- constructor
+|  |  |     |        |  |  `- 0
+|  |  |     |        |  `- fields
+|  |  |     |        |     `- 0
+|  |  |     |        |        `- {"bytes":"8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1"}
+|  |  |     |        `- 3
+|  |  |     |           +- constructor
+|  |  |     |           |  `- 0
+|  |  |     |           `- fields
+|  |  |     |              `- 0
+|  |  |     |                 `- {"bytes":"97e0f6d6c86dbebf15cc8fdf0981f939b2f2b70928a46511edd49df2"}
+|  |  |     +- 2
+|  |  |     |  `- 1280000
+|  |  |     +- 3
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 0
+|  |  |     |  `- fields
+|  |  |     |     +- 0
+|  |  |     |     |  +- constructor
+|  |  |     |     |  |  `- 0
+|  |  |     |     |  `- fields
+|  |  |     |     |     +- 0
+|  |  |     |     |     |  +- constructor
+|  |  |     |     |     |  |  `- 1
+|  |  |     |     |     |  `- fields
+|  |  |     |     |     |     `- 0
+|  |  |     |     |     |        `- {"bytes":"32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  |     |     |     `- 1
+|  |  |     |     |        +- constructor
+|  |  |     |     |        |  `- 0
+|  |  |     |     |        `- fields
+|  |  |     |     |           `- 0
+|  |  |     |     |              +- constructor
+|  |  |     |     |              |  `- 0
+|  |  |     |     |              `- fields
+|  |  |     |     |                 `- 0
+|  |  |     |     |                    +- constructor
+|  |  |     |     |                    |  `- 1
+|  |  |     |     |                    `- fields
+|  |  |     |     |                       `- 0
+|  |  |     |     |                          `- {"bytes":"32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  |     |     `- 1
+|  |  |     |        `- constructor
+|  |  |     |           `- 0
+|  |  |     +- 4
+|  |  |     |  +- constructor
+|  |  |     |  |  `- 1
+|  |  |     |  `- fields
+|  |  |     |     +- 0
+|  |  |     |     |  +- 0
+|  |  |     |     |  |  `- {"bytes":""}
+|  |  |     |     |  +- 1
+|  |  |     |     |  |  `- {"bytes":""}
+|  |  |     |     |  `- 2
+|  |  |     |     |     `- 39303541249
+|  |  |     |     `- 1
+|  |  |     |        +- 0
+|  |  |     |        |  `- {"bytes":"c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"}
+|  |  |     |        +- 1
+|  |  |     |        |  `- {"bytes":"0014df105553444d"}
+|  |  |     |        `- 2
+|  |  |     |           `- 10000000000
+|  |  |     `- 5
+|  |  |        `- constructor
+|  |  |           `- 0
+|  |  `- referenceScript
+|  |     `- null
+|  +- 2
+|  |  +- address
+|  |  |  `- "amaru-treasury.network_compliance.account"
+|  |  +- coin
+|  |  |  `- 1058398.969432 ADA (1058398969432 lovelace)
+|  |  +- datum
+|  |  |  `- cbor: (0 bytes)
+|  |  `- referenceScript
+|  |     `- null
+|  `- 3
+|     +- address
+|     |  `- "user.recipient"
+|     +- coin
+|     |  `- 96.372937 ADA (96372937 lovelace)
+|     +- datum
+|     |  `- cbor: (0 bytes)
+|     `- referenceScript
+|        `- null
++- referenceInputs
+|  +- 0
+|  |  `- {"index":0,"txId":"11ace24a7b0caad4a68a38ef2fff18185dc9ea604e84425dab487cae94e4cf54"}
+|  +- 1
+|  |  `- {"index":2,"txId":"25ba96f5deb14bb5c56e7542d6a9ba8450f52cc698ebd74574e1a0525d861095"}
+|  +- 2
+|  |  `- {"index":0,"txId":"810bfcbde85ae72f27d7e8cd154c03c802de15d3fa0dd83a32a4b0fdba330b3c"}
+|  `- 3
+|     `- {"index":2,"txId":"e7b395a93d49a17994d66df0e4778a01dee05e7711e6612f28d97b63e4e6311c"}
++- requiredSigners
+|  +- 0
+|  |  `- "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1"
+|  `- 1
+|     `- "f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e"
++- totalCollateral
+|  `- 0.679298 ADA (679298 lovelace)
++- validityInterval
+|  +- invalidBefore
+|  |  `- null
+|  `- invalidHereafter
+|     `- 187660799
+`- withdrawals
+   `- 581df1a64d1b9e1aeffe54056034d84977061b45a92691efc282fbee3fc094
+      `- 0.000000 ADA (0 lovelace)
