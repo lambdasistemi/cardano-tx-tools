@@ -236,6 +236,22 @@ collapse:
   - [#36](https://github.com/lambdasistemi/cardano-tx-tools/issues/36) — `kind: drep` (DRep IDs)
   - [#37](https://github.com/lambdasistemi/cardano-tx-tools/issues/37) — `kind: asset-policy` (policy IDs)
   - [#38](https://github.com/lambdasistemi/cardano-tx-tools/issues/38) — `kind: asset-name` (asset names within a policy)
+- **Datum-embedded identifier rename** — tracked separately as
+  [#39](https://github.com/lambdasistemi/cardano-tx-tools/issues/39),
+  which proposes reusing the address/script rename index for
+  28-byte `OpenBytes` leaves inside `OpenValue` datum subtrees
+  (security motivation: a malicious tx hiding identifiers in
+  datums can defeat review unless the renderer matches the same
+  index everywhere).
+- **Collapse-engine ergonomics** —
+  [#40](https://github.com/lambdasistemi/cardano-tx-tools/issues/40)
+  proposes (a) nested collapse rules (`nested:` on a `CollapseRule`,
+  child paths relative to each matched item) so recurring nested
+  patterns like the per-output committee list can be collapsed
+  without writing one rule per parent index, and (b) a `raw: omit`
+  view mode that suppresses the per-item rendering when the bucket
+  is the entire desired view. Today, `raw: hide` only prunes the
+  leaves the rule covered; per-item subtrees still render.
 
 Each follow-up is additive: the grammar's `kind:` discriminator
 gains a new value, the loader gains one parser case, and the
@@ -300,6 +316,12 @@ rename:
     key: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
     match: payment
     name: user.recipient
+  # The Amaru network wallet — the publicly-known operator wallet
+  # used for fuel + collateral in the swap-wizard's tx-build path.
+  - kind: address
+    key: addr1q802wxt6cg6aw0nl0vdzfxavu65rxu3yzhvgayw7chfxymduzkt66uw9t5kspx5jwjecx80dz4g33htknafhdhkvzd5st4f9xu
+    match: payment
+    name: amaru.network-wallet
 ```
 
 Annotations:
