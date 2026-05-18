@@ -81,6 +81,7 @@ import Cardano.Ledger.Api.Tx.Body (
 
 import Cardano.Tx.BuildSpec (loadBody)
 import Cardano.Tx.Diff (
+    HumanRenderOptions (..),
     TxDiffOptions (..),
     decodeConwayTxInput,
     defaultHumanRenderOptions,
@@ -140,7 +141,9 @@ collapseOnlySpec =
     describe "Cardano.Tx.Diff.renderConwayTxHuman (slice S2 collapse-only)" $ do
         it
             "applies collapse rules loaded from collapse-only.yaml to the\
-            \ swap-cancel-issue-8 body and matches the checked-in golden"
+            \ swap-cancel-issue-8 body and matches the checked-in golden\
+            \ (humanHideEmpty=True — golden is shared with the\
+            \ smoke-inspect Assertion 5 path which runs through tx-inspect)"
             $ do
                 tx <- loadBody (fixtureDir <> "/body.cbor.hex")
                 rulesBytes <- BS.readFile (fixtureDir <> "/collapse-only.yaml")
@@ -150,7 +153,10 @@ collapseOnlySpec =
                 let humanOptions =
                         applyCollapseFromRewriteRules
                             rules
-                            defaultHumanRenderOptions
+                            ( defaultHumanRenderOptions
+                                { humanHideEmpty = True
+                                }
+                            )
                     actual =
                         renderConwayTxHuman
                             humanOptions
@@ -239,36 +245,69 @@ selfDiffSharedSubstrateSpec =
 
 Drives 'renderConwayTxHuman' against the on-chain Amaru treasury swap
 @swap-1@ fixture under the unified rewriting-rules file
-@rules\/amaru-treasury.yaml@. The render is run __unresolved__ — no
-producer-tx fixtures are loaded — so the captured golden matches the
-output of the production command path
-@tx-inspect --rules rules\/amaru-treasury.yaml \
-test\/fixtures\/amaru-treasury-swap\/swap-1.cbor.hex@ verbatim. The
-@gate.sh smoke-inspect@ extension covers the same path end-to-end via
-@diff -q@.
+@rules\/amaru-treasury.yaml@. The render mirrors what the production
+@tx-inspect@ command path produces when both a rules file and a
+resolver are supplied:
+
+* Inputs are resolved via the test-only 'StaticResolver.staticResolver'
+  over the producer-tx fixtures under
+  @swap-1.producer-txs/@ (the same pattern the
+  @swap-cancel-issue-8@ baseline + rename-only InspectSpec cases use
+  at lines ~120 and ~195).
+* Empty datum / referenceScript leaves are suppressed via
+  'humanHideEmpty' — the same flag @tx-inspect@'s @Main@ sets on
+  every CLI invocation.
+
+The resolved-render golden lives at
+@golden\/swap-1.both.resolved.txt@. The pre-existing
+@golden\/swap-1.both.txt@ continues to hold the unresolved render
+the @gate.sh smoke-inspect@ extension compares against (its
+@tx-inspect@ invocation has no @--n2c-socket-path@ / @--web2-url@
+and therefore renders inputs as bare @txIn@ atomics; both goldens
+share the hide-empty filter so the smoke also reflects the slice
+S8 + T054 changes).
 -}
 amaruBothStagesSpec :: Spec
 amaruBothStagesSpec =
     describe "Cardano.Tx.Diff.renderConwayTxHuman (slice S4 Amaru both)" $ do
         it
             "renders amaru-treasury-swap/swap-1 under \
-            \rules/amaru-treasury.yaml to the captured golden"
+            \rules/amaru-treasury.yaml with StaticResolver-resolved \
+            \inputs and humanHideEmpty=True to the captured golden"
             $ do
                 tx <- loadBody (amaruFixtureDir <> "/swap-1.cbor.hex")
+                let body = tx ^. bodyTxL
+                    inputs =
+                        (body ^. inputsTxBodyL)
+                            <> (body ^. referenceInputsTxBodyL)
+                            <> (body ^. collateralInputsTxBodyL)
+                let resolver =
+                        staticResolver
+                            (amaruFixtureDir <> "/swap-1.producer-txs")
+                resolved <- resolveInputs resolver inputs
                 rulesBytes <- BS.readFile amaruRulesPath
                 rules <- case parseRewriteRulesYaml rulesBytes of
                     Right r -> pure r
                     Left err -> expectationFailure' err
                 let humanOptions =
-                        applyRewriteRules rules defaultHumanRenderOptions
+                        applyRewriteRules
+                            rules
+                            ( defaultHumanRenderOptions
+                                { humanHideEmpty = True
+                                }
+                            )
+                    diffOptions =
+                        defaultTxDiffOptions
+                            { txDiffResolvedInputs = Just resolved
+                            }
                     actual =
                         renderConwayTxHuman
                             humanOptions
-                            defaultTxDiffOptions
+                            diffOptions
                             tx
-                expected <-
-                    TextIO.readFile
-                        (amaruFixtureDir <> "/golden/swap-1.both.txt")
+                    goldenPath =
+                        amaruFixtureDir <> "/golden/swap-1.both.resolved.txt"
+                expected <- readOrCaptureGolden goldenPath actual
                 actual `shouldBe` expected
 
 {- | __Slice S4 — shared-substrate cross-check (User Story 4, FR-014).__

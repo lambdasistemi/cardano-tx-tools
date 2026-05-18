@@ -278,7 +278,13 @@ emptyAccumulator :: Accumulator
 emptyAccumulator =
     Accumulator
         { accRulesPath = Nothing
-        , accRenderOptions = defaultHumanRenderOptions
+        , accRenderOptions =
+            -- Single-tx render: suppress empty datum / referenceScript
+            -- leaves so the tree is not visually swamped by
+            -- @cbor: (0 bytes)@ and @null@ markers. The diff renderer
+            -- keeps the default (False) so a diff can still surface
+            -- "datum disappeared".
+            defaultHumanRenderOptions{humanHideEmpty = True}
         , accN2cSocket = Nothing
         , accNetworkMagic = Nothing
         , accWeb2Url = Nothing

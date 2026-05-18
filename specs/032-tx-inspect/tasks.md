@@ -282,13 +282,13 @@ No new production code in S4 — the production code is complete after S3. The s
 
 ### RED
 
-- [ ] T050 [US1] Modify `test/Cardano/Tx/InspectSpec.hs` `amaruBothStagesSpec` to build a `Resolver` chain via `staticResolver (amaruFixtureDir <> "/swap-1.producer-txs")`, pass it through `TxDiffOptions` (via `txDiffResolvedInputs`) into `renderConwayTxHuman`. The golden assertion must FAIL — the existing `swap-1.both.txt` matches the unresolved render, and the new code path produces a resolved render.
-- [ ] T051 [US1] Refresh the golden file `test/fixtures/amaru-treasury-swap/golden/swap-1.both.txt` from the new resolved-render output.
-- [ ] T052 [US1] [US4] Confirm `amaruDiffSharedSubstrateSpec` (the tx-diff cross-check) still passes — it does not depend on the resolved render but may exercise output bytes that change. Recapture its assertions if needed.
+- [X] T050 (commit: dab33f1) [US1] Modify `test/Cardano/Tx/InspectSpec.hs` `amaruBothStagesSpec` to build a `Resolver` chain via `staticResolver (amaruFixtureDir <> "/swap-1.producer-txs")`, pass it through `TxDiffOptions` (via `txDiffResolvedInputs`) into `renderConwayTxHuman`. The golden assertion must FAIL — the existing `swap-1.both.txt` matches the unresolved render, and the new code path produces a resolved render.
+- [X] T051 (commit: dab33f1) [US1] Refresh the golden file `test/fixtures/amaru-treasury-swap/golden/swap-1.both.txt` from the new resolved-render output.
+- [X] T052 (commit: dab33f1) [US1] [US4] Confirm `amaruDiffSharedSubstrateSpec` (the tx-diff cross-check) still passes — it does not depend on the resolved render but may exercise output bytes that change. Recapture its assertions if needed.
 
 ### GREEN
 
-- [ ] T053 [US1] `./gate.sh` green end-to-end. Single commit subject `feat(032): resolve Amaru InspectSpec inputs via StaticResolver` carrying `Tasks: T050, T051, T052`. The smoke at `scripts/smoke/tx-inspect` (which runs the production CLI *without* a resolver flag) continues to assert against the existing `inspect.verbatim.unresolved.txt` and the existing Amaru smoke goldens — operators using `tx-inspect` without `--n2c-socket-path` still get unresolved output, which is the documented behaviour. Only the InspectSpec golden flips to resolved.
+- [X] T053 (commit: dab33f1) [US1] `./gate.sh` green end-to-end. Single commit subject `feat(032): resolve Amaru InspectSpec inputs via StaticResolver` carrying `Tasks: T050, T051, T052`. The smoke at `scripts/smoke/tx-inspect` (which runs the production CLI *without* a resolver flag) continues to assert against the existing `inspect.verbatim.unresolved.txt` and the existing Amaru smoke goldens — operators using `tx-inspect` without `--n2c-socket-path` still get unresolved output, which is the documented behaviour. Only the InspectSpec golden flips to resolved.
 
 ### Finalization (re-attempted after S8)
 
