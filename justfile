@@ -29,10 +29,17 @@ smoke-sign:
     cabal build exe:tx-sign -O0 >/dev/null
     TX_SIGN_EXE="$(cabal list-bin exe:tx-sign -O0)" scripts/smoke/tx-sign
 
+smoke-inspect:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cabal build exe:tx-inspect -O0 >/dev/null
+    TX_INSPECT_EXE="$(cabal list-bin exe:tx-inspect -O0)" scripts/smoke/tx-inspect
+
 ci:
     just build
     just unit
     just smoke-sign
+    just smoke-inspect
     cabal-fmt -c cardano-tx-tools.cabal
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec fourmolu -m check {} +
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec hlint {} +

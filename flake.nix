@@ -348,6 +348,7 @@
           packages = {
             default = txDiff;
             tx-diff = txDiff;
+            tx-inspect = components.exes.tx-inspect;
             tx-sign = components.exes.tx-sign;
             tx-validate = txValidate;
             cardano-tx-generator =
@@ -370,6 +371,10 @@
             tx-validate = {
               type = "app";
               program = "${txValidate}/bin/tx-validate";
+            };
+            tx-inspect = {
+              type = "app";
+              program = "${components.exes.tx-inspect}/bin/tx-inspect";
             };
             cardano-tx-generator = {
               type = "app";

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Live-boundary smoke for the tx-inspect executable (cardano-tx-tools
+# issue #32 — S1 baseline). Proves the command-line surface FR-016 /
+# SC-005 require: --version prints `tx-inspect <semver>` and exits 0,
+# --help exits 0, TX_INSPECT_NO_UPDATE_CHECK=1 suppresses the
+# upgrade-banner stderr write, and the render-with-empty-rules path
+# (no resolver flag — body inputs render unresolved) round-trips
+# against the captured baseline golden
+# inspect.verbatim.unresolved.txt under
+# test/fixtures/mainnet-txbuild/swap-cancel-issue-8.
+#
+# A separate InspectSpec golden inspect.verbatim.txt drives the
+# resolved render through StaticResolver (test-only). The smoke
+# exercises the production CLI exactly, with no test-only flag added.
+
+if [[ -n "${TX_INSPECT_EXE:-}" ]]; then
+  exe="$TX_INSPECT_EXE"
+else
+  cabal build exe:tx-inspect -O0 >/dev/null
+  exe="$(
+    cabal list-bin exe:tx-inspect -O0
+  )"
+fi
+
+fixture="test/fixtures/mainnet-txbuild/swap-cancel-issue-8"
+body="$fixture/body.cbor.hex"
+golden="$fixture/inspect.verbatim.unresolved.txt"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+fail() {
+  printf 'tx-inspect smoke: %s\n' "$*" >&2
+  exit 1
+}
+
+# Assertion 1: --version exits 0 and first stdout line equals
+# `tx-inspect <semver>`.
+version_out="$("$exe" --version)"
+first_line="$(printf '%s\n' "$version_out" | head -n1)"
+case "$first_line" in
+  "tx-inspect "*) ;;
+  *) fail "--version first line not 'tx-inspect <semver>': $first_line" ;;
+esac
+
+# Assertion 2: --help exits 0.
+"$exe" --help >/dev/null
+
+# Assertion 3: TX_INSPECT_NO_UPDATE_CHECK=1 suppresses the banner.
+TX_INSPECT_NO_UPDATE_CHECK=1 "$exe" --version >"$tmp/banner.out" 2>"$tmp/banner.err"
+[[ ! -s "$tmp/banner.err" ]] \
+  || fail "banner not suppressed under TX_INSPECT_NO_UPDATE_CHECK=1: $(cat "$tmp/banner.err")"
+
+# Assertion 4: render with empty rules and no resolver matches the
+# baseline unresolved-render golden.
+empty_rules="$tmp/empty.yaml"
+printf '{}\n' >"$empty_rules"
+
+[[ -e "$body" ]] || fail "missing fixture body: $body"
+
+"$exe" --rules "$empty_rules" "$body" >"$tmp/inspect.out"
+
+[[ -e "$golden" ]] \
+  || fail "golden $golden missing; capture via 'cp $tmp/inspect.out $golden'"
+
+diff -u "$golden" "$tmp/inspect.out" \
+  || fail "render output diverged from $golden"
+
+printf 'tx-inspect smoke: OK\n'
