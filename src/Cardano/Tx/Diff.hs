@@ -14,6 +14,7 @@ module Cardano.Tx.Diff (
     CollapseRawView (..),
     CollapseRule (..),
     CollapseRules (..),
+    ConwayDiffValue (..),
     DiffChange (..),
     DiffNode (..),
     DiffPlan (..),
@@ -45,6 +46,7 @@ module Cardano.Tx.Diff (
     emptyRenameRules,
     parseCollapseRulesYaml,
     parseRewriteRulesYaml,
+    renderConwayDiffValueHuman,
     renderConwayTxHuman,
     renderConwayTxInputDiff,
     renderDiffNodeHuman,
@@ -54,6 +56,7 @@ module Cardano.Tx.Diff (
 ) where
 
 import Codec.Binary.Bech32 qualified as Bech32
+import Control.Applicative ((<|>))
 import Control.Monad (when)
 import Data.Aeson (FromJSON (..), (.:), (.:?), (.=))
 import Data.Aeson qualified as Aeson
@@ -141,7 +144,7 @@ import Cardano.Ledger.Binary (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
-import Cardano.Ledger.Core (Script, eraProtVerLow)
+import Cardano.Ledger.Core (Script, eraProtVerLow, hashScript)
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes (DataHash, ScriptHash (..), extractHash)
 import Cardano.Ledger.Keys (
@@ -948,22 +951,36 @@ under @\<path\>\/raw@ (when @views.raw == show@) or pruned of covered
 leaves (when @views.raw == hide@). For 'RenderPaths' the collapse
 field is ignored; the path-shape output is a flat verbatim listing.
 
-The 'humanRenameRules' field is read but not yet applied; slice S3 of
-@specs\/032-tx-inspect@ adds the rename layer.
+The 'humanRenameRules' field, when 'Just', substitutes every
+payment-address ('ConwayAddressValue') and script leaf
+('ConwayScriptValue', 'ConwayReferenceScriptValue') in the projection
+that matches a rule under the rule's @name:@ string. Substitution is
+best-effort: an unknown identifier renders verbatim. The site list is
+defined by FR-009 of @specs\/032-tx-inspect@: payment addresses in
+body inputs (after resolution), body outputs, and the leaves of the
+witness / reference-script projections. Rename does NOT descend into
+datum subtrees ('ConwayDatumValue' / 'ConwayDataValue' /
+'ConwayOpenValue') in this slice — those follow-ups are tracked in
+follow-up tickets per the spec's site-list note.
 
-The 'TxDiffOptions' argument is the same record 'diffConwayTxWith'
-accepts: in particular 'txDiffResolvedInputs' enables the @resolved@
-sub-tree under each input. 'txDiffIncludeWitnesses' selects whether
-the @witnesses@ branch is emitted alongside @body@. 'txDiffDecodeData'
-controls blueprint-aware datum decoding.
-
-For the 'RenderPaths' shape the output is a 'Text.unlines' of one-line
-path summaries (mirroring 'renderDiffNodeLines'); 'RenderTree' (the
-default) emits the ASCII or Unicode tree art selected by
-'humanTreeArt'.
+For the 'RenderPaths' shape collapse and rename are both ignored; the
+path-shape output is a flat verbatim listing.
 -}
 renderConwayTxHuman :: HumanRenderOptions -> TxDiffOptions -> ConwayTx -> Text
 renderConwayTxHuman options diffOptions tx =
+    renderConwayDiffValueHuman options diffOptions (ConwayTxValue tx)
+
+{- | Render any 'ConwayDiffValue' subtree using the same shared trie
+walker 'renderConwayTxHuman' uses. The 'humanCollapseRules' and
+'humanRenameRules' fields are both consulted; both can be 'Nothing'
+for a verbatim render. Useful for downstream consumers that hold a
+projection-level value (e.g., a single body output) and want the
+exact bytes a top-level render would emit for that subtree, with no
+@body@ / @witnesses@ wrapping.
+-}
+renderConwayDiffValueHuman ::
+    HumanRenderOptions -> TxDiffOptions -> ConwayDiffValue -> Text
+renderConwayDiffValueHuman options diffOptions root =
     case humanRenderShape options of
         RenderPaths ->
             Text.unlines (renderValueLines (collectValueLines diffOptions (DiffPath []) root))
@@ -973,11 +990,10 @@ renderConwayTxHuman options diffOptions tx =
                     collectValueTrie
                         diffOptions
                         (humanCollapseRules options)
+                        (humanRenameRules options)
                         (DiffPath [])
                         emptyRenderTrie
                         root
-  where
-    root = ConwayTxValue tx
 
 {- | Render an 'OpenValue' subtree as a human-readable structural tree
 using the default 'HumanRenderOptions'. Convenience wrapper over
@@ -1023,36 +1039,115 @@ semantics mirror 'collectDiffArray' so a one-side rendering of an
 collectValueTrie ::
     TxDiffOptions ->
     Maybe CollapseRules ->
+    Maybe RenameRules ->
     DiffPath ->
     RenderTrie ->
     ConwayDiffValue ->
     RenderTrie
-collectValueTrie options collapseConfig path trie value =
-    case conwayDiffProjection options value of
-        DiffAtomic atomic ->
+collectValueTrie options collapseConfig renameConfig path trie value =
+    case renameValue renameConfig value of
+        Just renamed ->
             insertPath
                 (renderValuePathSegments path)
-                [Tree.Node (renderJsonValue atomic) []]
+                [Tree.Node (renderJsonValue (renameLeafValue renamed)) []]
                 trie
-        DiffObjectChildren children ->
-            foldl'
-                ( \acc (key, child) ->
-                    collectValueTrie
+        Nothing ->
+            case conwayDiffProjection options value of
+                DiffAtomic atomic ->
+                    insertPath
+                        (renderValuePathSegments path)
+                        [Tree.Node (renderJsonValue atomic) []]
+                        trie
+                DiffObjectChildren children ->
+                    foldl'
+                        ( \acc (key, child) ->
+                            collectValueTrie
+                                options
+                                collapseConfig
+                                renameConfig
+                                (path </> key)
+                                acc
+                                child
+                        )
+                        trie
+                        (Map.toAscList children)
+                DiffArrayChildren children ->
+                    collectValueArray
                         options
                         collapseConfig
-                        (path </> key)
-                        acc
-                        child
-                )
-                trie
-                (Map.toAscList children)
-        DiffArrayChildren children ->
-            collectValueArray
-                options
-                collapseConfig
-                path
-                trie
-                (zip [0 :: Int ..] children)
+                        renameConfig
+                        path
+                        trie
+                        (zip [0 :: Int ..] children)
+
+{- | Intercept a 'ConwayDiffValue' that carries a rename-target leaf
+(payment address, script, reference script). Returns 'Just' the rename
+name to render in place of the raw bytes; returns 'Nothing' when the
+value is not a rename site OR no rule matches. Rename is best-effort:
+the absence of a matching rule is a non-event, not a failure.
+-}
+renameValue :: Maybe RenameRules -> ConwayDiffValue -> Maybe Text
+renameValue Nothing _ = Nothing
+renameValue (Just rules) value =
+    case value of
+        ConwayAddressValue addr ->
+            lookupAddressRename rules addr
+        ConwayScriptValue script ->
+            lookupScriptRename rules (hashScript script)
+        ConwayReferenceScriptValue (SJust script) ->
+            lookupScriptRename rules (hashScript script)
+        _ -> Nothing
+
+{- | Look up an 'Addr' against the rename rule list. Address rules with
+'MatchFull' compare the entire 'Addr' byte-for-byte; rules with
+'MatchPayment' compare the payment credential only (one rule covers
+every stake variant of the same payment script — the dominant
+treasury-work case). Script rules are skipped. First match wins.
+-}
+lookupAddressRename :: RenameRules -> Addr -> Maybe Text
+lookupAddressRename (RenameRules entries) addr =
+    let paymentCred = paymentCredentialFromAddr addr
+        matchRule (RenameScript _ _) = Nothing
+        matchRule
+            RenameAddress
+                { renameAddressMatch = MatchFull
+                , renameAddressTarget = TargetFullAddress target
+                , renameName = name
+                }
+                | target == addr = Just name
+                | otherwise = Nothing
+        matchRule
+            RenameAddress
+                { renameAddressMatch = MatchPayment
+                , renameAddressTarget = TargetPaymentCredential target
+                , renameName = name
+                } =
+                case paymentCred of
+                    Just pc | pc == target -> Just name
+                    _ -> Nothing
+        matchRule _ = Nothing
+     in firstJust (map matchRule entries)
+
+{- | Look up a 'ScriptHash' against the rename rule list. Address rules
+are skipped. First match wins.
+-}
+lookupScriptRename :: RenameRules -> ScriptHash -> Maybe Text
+lookupScriptRename (RenameRules entries) hash =
+    let matchRule (RenameAddress{}) = Nothing
+        matchRule (RenameScript ruleHash name)
+            | ruleHash == hash = Just name
+            | otherwise = Nothing
+     in firstJust (map matchRule entries)
+
+firstJust :: [Maybe a] -> Maybe a
+firstJust = List.foldl' (<|>) Nothing
+
+{- | Render a renamed leaf as a JSON string so the existing
+'renderJsonValue' / 'collapseRawView' / leaf-rendering primitives can
+emit it without a new branch.
+-}
+renameLeafValue :: Text -> Aeson.Value
+renameLeafValue = Aeson.String
 
 {- | Apply collapse rules (if any) at an array site, mirroring the
 diff-renderer's 'collectDiffArray'. The decision tree is:
@@ -1069,11 +1164,12 @@ diff-renderer's 'collectDiffArray'. The decision tree is:
 collectValueArray ::
     TxDiffOptions ->
     Maybe CollapseRules ->
+    Maybe RenameRules ->
     DiffPath ->
     RenderTrie ->
     [(Int, ConwayDiffValue)] ->
     RenderTrie
-collectValueArray options collapseConfig path trie indexedChildren =
+collectValueArray options collapseConfig renameConfig path trie indexedChildren =
     let matchingRules =
             collapseRulesAt collapseConfig path
         (withViews, hasView) =
@@ -1089,6 +1185,7 @@ collectValueArray options collapseConfig path trie indexedChildren =
                     collectValueTrie
                         options
                         collapseConfig
+                        renameConfig
                         (basePath </> Text.pack (show idx))
                         innerAcc
                         child
@@ -1103,6 +1200,7 @@ collectValueArray options collapseConfig path trie indexedChildren =
                      in collectValueTriePruned
                             options
                             collapseConfig
+                            renameConfig
                             covered
                             (DiffPath [])
                             (basePath </> Text.pack (show idx))
@@ -1271,6 +1369,7 @@ to mirror the diff renderer's 'pruneCoveredLeaves'.
 collectValueTriePruned ::
     TxDiffOptions ->
     Maybe CollapseRules ->
+    Maybe RenameRules ->
     Set.Set DiffPath ->
     -- | relative path inside the current item (initially empty)
     DiffPath ->
@@ -1279,42 +1378,52 @@ collectValueTriePruned ::
     RenderTrie ->
     ConwayDiffValue ->
     RenderTrie
-collectValueTriePruned options collapseConfig covered relPath absPath trie value
+collectValueTriePruned options collapseConfig renameConfig covered relPath absPath trie value
     | relPath `Set.member` covered =
         trie
     | otherwise =
-        case conwayDiffProjection options value of
-            DiffAtomic atomic ->
+        case renameValue renameConfig value of
+            Just renamed ->
                 insertPath
                     (renderValuePathSegments absPath)
-                    [Tree.Node (renderJsonValue atomic) []]
+                    [Tree.Node (renderJsonValue (renameLeafValue renamed)) []]
                     trie
-            DiffObjectChildren children ->
-                foldl'
-                    ( \acc (key, child) ->
-                        collectValueTriePruned
+            Nothing ->
+                case conwayDiffProjection options value of
+                    DiffAtomic atomic ->
+                        insertPath
+                            (renderValuePathSegments absPath)
+                            [Tree.Node (renderJsonValue atomic) []]
+                            trie
+                    DiffObjectChildren children ->
+                        foldl'
+                            ( \acc (key, child) ->
+                                collectValueTriePruned
+                                    options
+                                    collapseConfig
+                                    renameConfig
+                                    covered
+                                    (relPath </> key)
+                                    (absPath </> key)
+                                    acc
+                                    child
+                            )
+                            trie
+                            (Map.toAscList children)
+                    DiffArrayChildren children ->
+                        -- Nested arrays inside the item are walked
+                        -- verbatim with the surrounding collapse /
+                        -- rename config still active; the @covered@
+                        -- set is described in terms of leaf paths from
+                        -- the item root, so it never matches a nested
+                        -- array prefix.
+                        collectValueArray
                             options
                             collapseConfig
-                            covered
-                            (relPath </> key)
-                            (absPath </> key)
-                            acc
-                            child
-                    )
-                    trie
-                    (Map.toAscList children)
-            DiffArrayChildren children ->
-                -- Nested arrays inside the item are walked verbatim
-                -- with the surrounding collapse config still active;
-                -- the @covered@ set is described in terms of leaf
-                -- paths from the item root, so it never matches a
-                -- nested array prefix.
-                collectValueArray
-                    options
-                    collapseConfig
-                    absPath
-                    trie
-                    (zip [0 :: Int ..] children)
+                            renameConfig
+                            absPath
+                            trie
+                            (zip [0 :: Int ..] children)
 
 {- | Walk an 'OpenValue' projection into a 'RenderTrie'. Mirrors
 'collectValueTrie' but for the user-data substrate; the rename layer

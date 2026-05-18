@@ -1,0 +1,14 @@
+version: 1
+rename:
+  - kind: address
+    key: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+    name: user
+  - kind: address
+    key: addr1q94mzj4pg3ea2wvwwszhljlwxeh42vt8jwxkwzaej089xs3uvkn3hus9cz5ls37v48adr4tql76s2pggphsgqeq90s6s8mehcd
+    name: reference-script-host
+  - kind: address
+    key: addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n
+    name: swap-script-addr
+  - kind: script
+    key: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077
+    name: swap.v2

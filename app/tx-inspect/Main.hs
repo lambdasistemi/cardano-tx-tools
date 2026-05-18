@@ -10,12 +10,14 @@ transaction. The renderer reuses the shared substrate
 walks on one side of a diff), so any future @tx-diff@ rule that lands
 in 'Cardano.Tx.Rewrite' is automatically available here too.
 
-Slice S1 of @specs\/032-tx-inspect@ ships only the bare render path:
-the @--rules@ file is loaded if supplied, the collapse rules from it
-are plumbed into 'humanCollapseRules', but no application code runs
-yet (S2 wires collapse, S3 wires rename). A @{}@ rules file is the
-fast path tested by the live-boundary smoke
-('scripts\/smoke\/tx-inspect').
+Slice S3 of @specs\/032-tx-inspect@ ships the full two-stage path: the
+@--rules@ file is loaded if supplied; both the collapse rules
+('rewriteCollapse') and the rename rules ('rewriteRename') are plumbed
+into 'HumanRenderOptions' via 'Cardano.Tx.Rewrite.applyRewriteRules',
+which stamps both fields in one pass. The render-time stage order
+(collapse first; rename second) is hard-wired by the shared render
+core in 'Cardano.Tx.Diff'. A @{}@ rules file is the fast path tested by
+the live-boundary smoke ('scripts\/smoke\/tx-inspect').
 
 @main@ is wrapped in 'GitHub.Release.Check.withCli' so every run prints
 the latest-release banner to stderr on exit (suppressed by the
@@ -53,7 +55,7 @@ import Cardano.Tx.Diff.Resolver.Web2 (
     web2Resolver,
  )
 import Cardano.Tx.Rewrite (
-    applyCollapseFromRewriteRules,
+    applyRewriteRules,
     parseRewriteRulesYaml,
  )
 import GitHub.Release.Check (
@@ -313,7 +315,7 @@ runInspect cliOptions = do
     txBytes <- BS.readFile (inspectCliTxPath cliOptions)
     tx <- decodeOrDie txBytes
     let baseHumanOptions =
-            applyCollapseFromRewriteRules
+            applyRewriteRules
                 rewriteRules
                 (inspectCliRenderOptions cliOptions)
         inputs = collectInputs tx
