@@ -6,18 +6,40 @@ Phase 0 of `/speckit.plan`. Resolves the technical decisions the plan
 depends on; alternatives considered are documented so future readers
 understand the trade-off space.
 
-## R1. Renderer extraction: per-side render carved out of the diff renderer
+## R1. Renderer extraction: a new top-level entry sharing the projection + render primitives
 
-**Decision**: Extract a new exported `renderOpenValueHuman[With] :: HumanRenderOptions -> OpenValue -> String` from the body of `renderDiffNodeHuman[With]` in `src/Cardano/Tx/Diff.hs`. The diff renderer continues to render its left and right `OpenValue` trees, but delegates each side to the new function. tx-inspect's `Main.hs` calls `renderOpenValueHuman[With]` directly.
+**Decision (corrected 2026-05-18 during S1 dispatch)**: Add two new exported functions in `src/Cardano/Tx/Diff.hs`:
 
-**Rationale**: FR-008 requires the renderer used by `tx-inspect` to be the *same code path* as one side of `tx-diff`'s human renderer. Extraction is the simplest way to make "same code path" true and audit-able by `git blame`. The alternative — rendering a one-side tx in tx-inspect by feeding it as `diffOpenValue tx tx` and stripping the no-change framing — would muddy the data flow (we would be computing a self-diff just to throw away the equality structure) and would couple tx-inspect's correctness to the diff core's handling of equal inputs.
+1. `renderConwayTxHuman :: HumanRenderOptions -> TxDiffOptions -> ConwayTx -> Text` — the top-level entry `tx-inspect`'s `Main.hs` calls. Walks `conwayDiffProjection` (the same projection the diff walker uses) into a `RenderTrie` reusing the existing `RenderTrie` / `renderForest` / `renderJsonValue` primitives. No comparison step.
+2. `renderOpenValueHuman[With] :: HumanRenderOptions -> OpenValue -> Text` — a primitive that renders an `OpenValue` subtree directly. Reuses the same render primitives. The rename layer in S3 needs it to render datum subtrees (the `OpenValue`-shaped sub-structure carried inside `ConwayOpenValue`).
 
-**Alternatives considered**:
-- *Self-diff trick* (`renderDiffNodeHumanWith opts (diffOpenValue tx tx)`): rejected — wasteful compute and surprising failure modes when tx-diff later optimizes equal-tree handling.
-- *Brand-new copy of the renderer in `Cardano.Tx.Rewrite`*: rejected — would create the forked walker FR-008 explicitly forbids.
-- *Move the entire renderer to `Cardano.Tx.Rewrite`* and have tx-diff import it: rejected — wider blast radius (touches every existing tx-diff golden test) than the minimal extract. Defer this restructuring until a third consumer needs it.
+The diff renderer `renderDiffNodeHumanWith` is **NOT touched**. tx-diff output is trivially byte-identical before and after.
 
-**Byte-stability acceptance**: every existing tx-diff golden test must produce byte-identical output before and after S1's extraction. This is the implicit RED on the existing tx-diff goldens during S1.
+**Rationale (post-code-inspection)**:
+
+The plan's original framing assumed the diff renderer had a "per-side `OpenValue` render path" to extract. Reading `Cardano.Tx.Diff.hs` showed this is incorrect:
+
+- The diff walker uses `ConwayDiffValue`, NOT `OpenValue`. `OpenValue` is one of `ConwayDiffValue`'s constructors (`ConwayOpenValue OpenValue`), representing user-data subtrees (datums / redeemers / blueprint-decoded plutus data). The full Conway tx is never projected to `OpenValue`.
+- `renderDiffNodeHumanWith`'s `DiffSame` branch emits a single summary line via `renderSameLine`. A self-diff `diffConwayTxWith opts tx tx` collapses to one `= <root>` line — wrong granularity for tx-inspect.
+- No `ConwayTx → OpenValue` converter exists today.
+
+Two options were considered:
+
+- **Option A — add `conwayTxOpenValue :: TxDiffOptions -> ConwayTx -> OpenValue`** and have tx-inspect render through `renderOpenValueHuman`. **Rejected** because the conversion is lossy: `OpenValue` has five constructors (`OpenObject`, `OpenArray`, `OpenInteger`, `OpenText`, `OpenBytes`) but the existing `Aeson.Value` leaves carry `Aeson.Null`, `Aeson.Bool`, and non-integer `Aeson.Number`. Encoding `Null` / `Bool` / fractional numbers into `OpenValue` is a load-bearing render decision the spec does not pin and that would diverge from tx-diff's existing per-leaf render semantics.
+- **Option B — add `renderConwayTxHuman`** walking `conwayDiffProjection` directly and reusing `renderJsonValue` on `Aeson.Value` leaves. **Chosen.** Lossless (no Aeson → OpenValue round-trip), smaller diff to `Diff.hs`, matches the per-leaf render semantics tx-diff goldens already exercise. FR-008's "no forked walker, no copy-pasted render functions" is satisfied: both the new function and the diff renderer call the same internal `RenderTrie` / `renderForest` / `renderJsonValue` primitives.
+
+`renderOpenValueHuman` is still introduced — the rename layer in S3 needs an `OpenValue`-shaped entry when it walks datums (the `ConwayOpenValue OpenValue` subtrees).
+
+**Rejected alternatives** (recorded for future reference):
+
+- *Self-diff trick* (`renderDiffNodeHumanWith opts (diffConwayTxWith opts tx tx)`): rejected — `DiffSame` collapses to a one-line summary, not a full structural render.
+- *Add a "render-structural-on-DiffSame" mode to `HumanRenderOptions`*: rejected — non-additive shape change to the diff renderer; cascades into the diff core's handling of equal trees.
+- *Brand-new copy of the renderer in `Cardano.Tx.Rewrite`*: rejected — forked walker FR-008 forbids.
+- *Move the entire renderer to `Cardano.Tx.Rewrite`* and have tx-diff import it: rejected — wider blast radius than the minimal additive shim. Defer until a third consumer needs it.
+
+**Byte-stability acceptance**: every existing tx-diff golden test must produce byte-identical output before and after S1. Since the diff renderer is not touched, this is satisfied trivially.
+
+**Site-list note for the rename layer (S3)**: per FR-009, rename targets payment addresses + script hashes. Those live in body/witness/reference-script leaves, which are `ConwayDiffValue` leaves — NOT `OpenValue` leaves. So the rename application path walks `ConwayDiffValue`, not `OpenValue`. The `renderOpenValueHuman` primitive is still useful for rendering the datum subtrees, which is where a follow-up ticket could extend rename into plutus-data leaves (out of scope for this PR).
 
 ---
 
