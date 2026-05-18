@@ -9,6 +9,8 @@ diff feature. The central rule is equality first: paired values are compared
 before any child projection is requested.
 -}
 module Cardano.Tx.Diff (
+    AddressMatch (..),
+    AddressTarget (..),
     CollapseRawView (..),
     CollapseRule (..),
     CollapseRules (..),
@@ -19,7 +21,10 @@ module Cardano.Tx.Diff (
     DiffProjection (..),
     HumanRenderOptions (..),
     OpenValue (..),
+    RenameRule (..),
+    RenameRules (..),
     RenderShape (..),
+    RewriteRules (..),
     TxDiffDataDecoder,
     TxDiffDataKind (..),
     TxDiffDataSelector (..),
@@ -27,6 +32,7 @@ module Cardano.Tx.Diff (
     TxInputDecodeError (..),
     TreeArt (..),
     defaultHumanRenderOptions,
+    defaultRewriteRules,
     defaultTxDiffOptions,
     decodeConwayTxInput,
     diffConwayTxInput,
@@ -36,18 +42,24 @@ module Cardano.Tx.Diff (
     diffNodeHasChanges,
     diffOpenValue,
     diffWith,
+    emptyRenameRules,
     parseCollapseRulesYaml,
+    parseRewriteRulesYaml,
+    renderConwayTxHuman,
     renderConwayTxInputDiff,
     renderDiffNodeHuman,
     renderDiffNodeHumanWith,
+    renderOpenValueHuman,
+    renderOpenValueHumanWith,
 ) where
 
+import Codec.Binary.Bech32 qualified as Bech32
 import Control.Monad (when)
 import Data.Aeson (FromJSON (..), (.:), (.:?), (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Types ((.!=))
+import Data.Aeson.Types (Parser, parseEither, (.!=))
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
@@ -69,11 +81,12 @@ import Data.Yaml qualified as Yaml
 import Lens.Micro ((^.))
 import Text.Read (readMaybe)
 
-import Cardano.Crypto.Hash (hashToBytes)
+import Cardano.Crypto.Hash (hashFromBytes, hashToBytes)
 import Cardano.Ledger.Address (
     AccountAddress,
-    Addr,
+    Addr (..),
     Withdrawals (..),
+    decodeAddrEither,
     serialiseAddr,
  )
 import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
@@ -129,10 +142,11 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
 import Cardano.Ledger.Core (Script, eraProtVerLow)
+import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes (DataHash, ScriptHash (..), extractHash)
 import Cardano.Ledger.Keys (
     KeyHash (..),
-    KeyRole (Guard, Witness),
+    KeyRole (..),
     WitVKey,
     hashKey,
  )
@@ -254,6 +268,12 @@ data HumanRenderOptions = HumanRenderOptions
     { humanRenderShape :: RenderShape
     , humanTreeArt :: TreeArt
     , humanCollapseRules :: Maybe CollapseRules
+    , humanRenameRules :: Maybe RenameRules
+    -- ^ Stage 2 rename rules to apply to leaf identifiers (payment
+    -- addresses, script hashes) before rendering. 'Nothing' (the
+    -- default) leaves every leaf verbatim. Wired by S3 of
+    -- @specs\/032-tx-inspect@; the S1 renderer reads the field but
+    -- does not apply it.
     }
     deriving stock (Eq, Show)
 
@@ -264,6 +284,7 @@ defaultHumanRenderOptions =
         { humanRenderShape = RenderTree
         , humanTreeArt = TreeArtAscii
         , humanCollapseRules = Nothing
+        , humanRenameRules = Nothing
         }
 
 data CollapseRawView
@@ -288,6 +309,97 @@ newtype CollapseRuleMatch = CollapseRuleMatch [DiffPath]
 
 newtype CollapseViews = CollapseViews CollapseRawView
 
+{- | Top-level rewriting wrapper carrying both stages of the
+@tx-inspect@ pipeline.
+
+The on-disk YAML grammar that maps to this type is documented in
+@specs\/032-tx-inspect\/contracts\/rules-yaml-grammar.md@; the parser
+('Cardano.Tx.Rewrite.parseRewriteRulesYaml') and the FromJSON
+instances for the rename half live in 'Cardano.Tx.Rewrite' to keep the
+new module addressable independently of the diff core. The types live
+here so 'HumanRenderOptions' can refer to them without an import cycle.
+
+Stage order is engine-enforced (collapse first, rename second) and is
+independent of the document's key order.
+-}
+data RewriteRules = RewriteRules
+    { rewriteCollapse :: CollapseRules
+    -- ^ Stage 1 rules — reuses 'CollapseRules' unchanged.
+    , rewriteRename :: RenameRules
+    -- ^ Stage 2 rules — payment-address and script-hash substitutions.
+    }
+    deriving stock (Eq, Show)
+
+{- | Defaults: empty collapse with the canonical raw-view setting, and
+empty rename. This is what a @{}@ document parses to.
+-}
+defaultRewriteRules :: RewriteRules
+defaultRewriteRules =
+    RewriteRules
+        { rewriteCollapse =
+            CollapseRules
+                { collapseRawView = CollapseRawShow
+                , collapseRules = []
+                }
+        , rewriteRename = emptyRenameRules
+        }
+
+-- | Ordered collection of 'RenameRule' values.
+newtype RenameRules = RenameRules
+    { renameEntries :: [RenameRule]
+    }
+    deriving stock (Eq, Show)
+
+{- | Empty list of rename rules — the parse result when the YAML
+document has no @rename:@ key.
+-}
+emptyRenameRules :: RenameRules
+emptyRenameRules = RenameRules []
+
+{- | One rename rule. 'RenameAddress' targets payment-address sites in
+body inputs (after resolution), body outputs, withdrawals, and
+certificates. 'RenameScript' targets script-hash sites in body, witness
+set, and reference scripts.
+-}
+data RenameRule
+    = RenameAddress
+        { renameAddressKey :: Text
+        -- ^ The bech32 string as it appeared in the YAML, preserved
+        -- verbatim for round-trip + error messages.
+        , renameAddressMatch :: AddressMatch
+        , renameAddressTarget :: AddressTarget
+        -- ^ Pre-computed lookup key set by the YAML loader so the apply
+        -- path is a constant-time lookup per site.
+        , renameName :: Text
+        }
+    | RenameScript
+        { renameScriptHash :: ScriptHash
+        , renameName :: Text
+        }
+    deriving stock (Eq, Show)
+
+{- | YAML @match:@ field for address rules.
+
+* 'MatchFull' matches the entire 'Addr' byte-for-byte.
+* 'MatchPayment' (the default) matches the payment credential only and
+  so covers every stake variant of the same payment script.
+
+For 'RenameScript' rules @match:@ is parsed (and validated) but
+discarded — script hashes have no sub-structure to vary over.
+-}
+data AddressMatch
+    = MatchFull
+    | MatchPayment
+    deriving stock (Eq, Show)
+
+-- | Pre-computed lookup key for an address rename rule.
+data AddressTarget
+    = -- | Built from the bech32 when @match: full@ is requested.
+      TargetFullAddress Addr
+    | -- | Extracted from the bech32 when @match: payment@ is requested.
+      TargetPaymentCredential (Credential Payment)
+    deriving stock (Eq, Show)
+
 parseCollapseRulesYaml :: BS.ByteString -> Either String CollapseRules
 parseCollapseRulesYaml input =
     case Yaml.decodeEither' input of
@@ -295,6 +407,207 @@ parseCollapseRulesYaml input =
             Left (Yaml.prettyPrintParseException err)
         Right rules ->
             Right rules
+
+{- | Parse a unified rewriting-rules YAML document.
+
+The accepted grammar is documented in
+@specs\/032-tx-inspect\/contracts\/rules-yaml-grammar.md@. Briefly:
+
+@
+version: 1                          # optional, defaults to 1
+views:                              # optional
+  raw: show | hide                  # optional, defaults to show
+collapse:                           # optional, defaults to []
+  - \<CollapseRule\>
+rename:                             # optional, defaults to []
+  - \<RenameRule\>
+@
+
+Backwards-compatible: every YAML document that 'parseCollapseRulesYaml'
+accepts today parses to a 'RewriteRules' whose 'rewriteCollapse' equals
+the legacy parser's result and whose 'rewriteRename' is
+'emptyRenameRules'. The user-facing API for this parser is
+'Cardano.Tx.Rewrite.parseRewriteRulesYaml', which re-exports this
+binding; defining it here keeps the rewriting-rules 'FromJSON'
+instances co-located with their types and avoids the orphan-instance
+warning.
+
+Returns @Left@ on YAML decode failure, an unsupported @version:@, a
+malformed rename entry (unknown @kind:@, invalid @match:@, invalid
+bech32 in a @kind: address@ rule, non-28-byte hex in a @kind: script@
+rule, or an empty @name:@), or any other constraint failure.
+-}
+parseRewriteRulesYaml :: BS.ByteString -> Either String RewriteRules
+parseRewriteRulesYaml input =
+    case Yaml.decodeEither' input :: Either Yaml.ParseException Aeson.Value of
+        Left err ->
+            Left (Yaml.prettyPrintParseException err)
+        Right value -> do
+            collapse <- parseCollapseRulesYaml input
+            rename <- parseEither parseRenameSection value
+            pure
+                RewriteRules
+                    { rewriteCollapse = collapse
+                    , rewriteRename = rename
+                    }
+  where
+    parseRenameSection =
+        Aeson.withObject "RewriteRules" $ \obj -> do
+            version <- obj .:? "version" .!= (1 :: Int)
+            when (version /= 1) $
+                fail ("unsupported rewriting rules version: " <> show version)
+            obj .:? "rename" .!= emptyRenameRules
+
+instance FromJSON RenameRules where
+    parseJSON value = do
+        entries <- parseJSON value
+        pure (RenameRules entries)
+
+instance FromJSON RenameRule where
+    parseJSON =
+        Aeson.withObject "RenameRule" $ \obj -> do
+            kind <- obj .: "kind" :: Parser Text
+            name <- obj .: "name"
+            when (Text.null name) $
+                fail "rename rule name must not be empty"
+            case kind of
+                "address" -> do
+                    keyText <- obj .: "key"
+                    match <- obj .:? "match" .!= MatchPayment
+                    target <- parseAddressTarget keyText match
+                    pure
+                        RenameAddress
+                            { renameAddressKey = keyText
+                            , renameAddressMatch = match
+                            , renameAddressTarget = target
+                            , renameName = name
+                            }
+                "script" -> do
+                    -- `match:` on a script rule is accepted and ignored
+                    -- (validated for predictable error messages but never
+                    -- consulted).
+                    _ <- obj .:? "match" :: Parser (Maybe AddressMatch)
+                    keyText <- obj .: "key"
+                    hash <- parseScriptHash keyText
+                    pure
+                        RenameScript
+                            { renameScriptHash = hash
+                            , renameName = name
+                            }
+                other ->
+                    fail $
+                        "unsupported rename rule kind: "
+                            <> Text.unpack other
+                            <> " (expected: address | script)"
+
+instance FromJSON AddressMatch where
+    parseJSON =
+        Aeson.withText "AddressMatch" $ \case
+            "full" -> pure MatchFull
+            "payment" -> pure MatchPayment
+            other ->
+                fail $
+                    "unsupported address match: "
+                        <> Text.unpack other
+                        <> " (expected: full | payment)"
+
+{- | Decode a bech32 address into the lookup target the apply path
+needs. The bech32 itself is validated (data-part bytes are decoded
+and run through the ledger decoder); a failure at any step surfaces
+as a parser error so the rule never reaches the apply path in an
+ambiguous state.
+-}
+parseAddressTarget :: Text -> AddressMatch -> Parser AddressTarget
+parseAddressTarget keyText match =
+    case decodeBech32Address keyText of
+        Left err ->
+            fail $
+                "invalid bech32 address in rename rule: "
+                    <> Text.unpack keyText
+                    <> " ("
+                    <> err
+                    <> ")"
+        Right addr ->
+            case match of
+                MatchFull ->
+                    pure (TargetFullAddress addr)
+                MatchPayment ->
+                    case paymentCredentialFromAddr addr of
+                        Just credential ->
+                            pure (TargetPaymentCredential credential)
+                        Nothing ->
+                            fail $
+                                "rename rule with match: payment requires a"
+                                    <> " base or enterprise address; got a"
+                                    <> " Byron bootstrap address: "
+                                    <> Text.unpack keyText
+
+{- | Decode a bech32-encoded Cardano address to its ledger 'Addr'.
+
+Returns @Left@ on any bech32 framing error, an unrecoverable
+data-part, or a ledger decode failure. Mainnet (@addr1@) and testnet
+(@addr_test1@) prefixes are both accepted; the loader does not pin
+a network.
+-}
+decodeBech32Address :: Text -> Either String Addr
+decodeBech32Address keyText =
+    case Bech32.decodeLenient keyText of
+        Left err ->
+            Left ("bech32 decode failed: " <> show err)
+        Right (_hrp, dataPart) ->
+            case Bech32.dataPartToBytes dataPart of
+                Nothing ->
+                    Left "bech32 data-part not byte-aligned"
+                Just bytes ->
+                    case decodeAddrEither bytes of
+                        Left err ->
+                            Left ("ledger address decode failed: " <> err)
+                        Right addr ->
+                            Right addr
+
+{- | Extract the payment credential from a Shelley-era 'Addr'. Byron
+bootstrap addresses have no separable payment credential, so they
+yield 'Nothing' (the parser then rejects @match: payment@ on them).
+-}
+paymentCredentialFromAddr :: Addr -> Maybe (Credential Payment)
+paymentCredentialFromAddr (Addr _network payment _stake) =
+    Just payment
+paymentCredentialFromAddr (AddrBootstrap _) =
+    Nothing
+
+{- | Parse a 28-byte (56 hex-character) script hash. Case is
+canonicalised to lowercase before decoding.
+-}
+parseScriptHash :: Text -> Parser ScriptHash
+parseScriptHash keyText = do
+    let lowered = Text.toLower keyText
+    when (Text.length lowered /= 56) $
+        fail $
+            "invalid script hash in rename rule: expected 56 hex"
+                <> " characters, got "
+                <> show (Text.length lowered)
+                <> ": "
+                <> Text.unpack keyText
+    bytes <- case Base16.decode (TextEncoding.encodeUtf8 lowered) of
+        Left err ->
+            fail $
+                "invalid hex in script hash: "
+                    <> Text.unpack keyText
+                    <> " ("
+                    <> err
+                    <> ")"
+        Right bs -> pure bs
+    when (BS.length bytes /= 28) $
+        fail $
+            "invalid script hash byte length: expected 28, got "
+                <> show (BS.length bytes)
+    case hashFromBytes bytes of
+        Nothing ->
+            fail $
+                "invalid script hash bytes: "
+                    <> Text.unpack keyText
+        Just hash ->
+            pure (ScriptHash hash)
 
 instance FromJSON CollapseRules where
     parseJSON =
@@ -612,6 +925,194 @@ renderDiffNodeHumanWith options diff =
             Text.unlines (renderDiffNodeLines diff)
         RenderTree ->
             renderDiffNodeTree options diff
+
+{- | Render a single Conway transaction as a human-readable structural
+tree. This is the @tx-inspect@ entry point: it walks the same
+'conwayDiffProjection' the diff renderer walks and feeds the resulting
+leaves through the same 'renderJsonValue' / 'renderForest' primitives,
+so a single transaction renders identically here and on one side of
+'renderDiffNodeHumanWith' against itself.
+
+The 'TxDiffOptions' argument is the same record 'diffConwayTxWith'
+accepts: in particular 'txDiffResolvedInputs' enables the @resolved@
+sub-tree under each input. 'txDiffIncludeWitnesses' selects whether
+the @witnesses@ branch is emitted alongside @body@. 'txDiffDecodeData'
+controls blueprint-aware datum decoding.
+
+The 'humanCollapseRules' and 'humanRenameRules' fields on
+'HumanRenderOptions' are read and held by the renderer but NOT applied
+in slice S1 of @specs\/032-tx-inspect@; S2 wires collapse application
+and S3 wires rename application. 'renderConwayTxHuman' therefore
+renders a verbatim structural tree of the transaction; the option
+fields exist so consumers can pass non-default values without
+recompiling once S2/S3 land.
+
+For the 'RenderPaths' shape the output is a 'Text.unlines' of one-line
+path summaries (mirroring 'renderDiffNodeLines'); 'RenderTree' (the
+default) emits the ASCII or Unicode tree art selected by
+'humanTreeArt'.
+-}
+renderConwayTxHuman :: HumanRenderOptions -> TxDiffOptions -> ConwayTx -> Text
+renderConwayTxHuman options diffOptions tx =
+    case humanRenderShape options of
+        RenderPaths ->
+            Text.unlines (renderValueLines (collectValueLines diffOptions (DiffPath []) root))
+        RenderTree ->
+            renderForest (humanTreeArt options) $
+                renderTrieForest $
+                    collectValueTrie
+                        diffOptions
+                        (DiffPath [])
+                        emptyRenderTrie
+                        root
+  where
+    root = ConwayTxValue tx
+
+{- | Render an 'OpenValue' subtree as a human-readable structural tree
+using the default 'HumanRenderOptions'. Convenience wrapper over
+'renderOpenValueHumanWith'.
+-}
+renderOpenValueHuman :: OpenValue -> Text
+renderOpenValueHuman =
+    renderOpenValueHumanWith defaultHumanRenderOptions
+
+{- | Render an 'OpenValue' subtree directly, sharing the same render
+primitives the rest of the human renderer uses. 'humanCollapseRules'
+and 'humanRenameRules' are read but NOT applied in slice S1 (S3 wires
+the rename layer against datum / redeemer subtrees).
+-}
+renderOpenValueHumanWith :: HumanRenderOptions -> OpenValue -> Text
+renderOpenValueHumanWith options value =
+    case humanRenderShape options of
+        RenderPaths ->
+            Text.unlines $
+                renderValueLines $
+                    collectOpenValueLines (DiffPath []) value
+        RenderTree ->
+            renderForest (humanTreeArt options) $
+                renderTrieForest $
+                    collectOpenValueTrie
+                        (DiffPath [])
+                        emptyRenderTrie
+                        value
+
+{- | Walk a 'ConwayDiffValue' projection into a 'RenderTrie', sharing
+the same trie primitives the diff renderer uses. The /atomic/ branch
+emits the leaf via 'renderJsonValue' so the per-leaf bytes match the
+diff path exactly.
+-}
+collectValueTrie ::
+    TxDiffOptions ->
+    DiffPath ->
+    RenderTrie ->
+    ConwayDiffValue ->
+    RenderTrie
+collectValueTrie options path trie value =
+    case conwayDiffProjection options value of
+        DiffAtomic atomic ->
+            insertPath
+                (renderValuePathSegments path)
+                [Tree.Node (renderJsonValue atomic) []]
+                trie
+        DiffObjectChildren children ->
+            foldl'
+                ( \acc (key, child) ->
+                    collectValueTrie options (path </> key) acc child
+                )
+                trie
+                (Map.toAscList children)
+        DiffArrayChildren children ->
+            foldl'
+                ( \acc (idx, child) ->
+                    collectValueTrie options (path </> Text.pack (show idx)) acc child
+                )
+                trie
+                (zip [0 :: Int ..] children)
+
+{- | Walk an 'OpenValue' projection into a 'RenderTrie'. Mirrors
+'collectValueTrie' but for the user-data substrate; the rename layer
+(S3) will use this when descending into datum subtrees.
+-}
+collectOpenValueTrie ::
+    DiffPath -> RenderTrie -> OpenValue -> RenderTrie
+collectOpenValueTrie path trie value =
+    case openValueProjection value of
+        DiffAtomic atomic ->
+            insertPath
+                (renderValuePathSegments path)
+                [Tree.Node (renderJsonValue atomic) []]
+                trie
+        DiffObjectChildren children ->
+            foldl'
+                ( \acc (key, child) ->
+                    collectOpenValueTrie (path </> key) acc child
+                )
+                trie
+                (Map.toAscList children)
+        DiffArrayChildren children ->
+            foldl'
+                ( \acc (idx, child) ->
+                    collectOpenValueTrie (path </> Text.pack (show idx)) acc child
+                )
+                trie
+                (zip [0 :: Int ..] children)
+
+{- | One value-rendering line: a path and the JSON-leaf rendering. The
+'RenderPaths' shape emits one of these per leaf, formatted as
+@<path>: <value>@.
+-}
+data ValueLine = ValueLine DiffPath Text
+
+{- | Walk a 'ConwayDiffValue' into the flat ValueLine list 'RenderPaths'
+consumes.
+-}
+collectValueLines ::
+    TxDiffOptions -> DiffPath -> ConwayDiffValue -> [ValueLine]
+collectValueLines options path value =
+    case conwayDiffProjection options value of
+        DiffAtomic atomic ->
+            [ValueLine path (renderJsonValue atomic)]
+        DiffObjectChildren children ->
+            concatMap
+                (\(key, child) -> collectValueLines options (path </> key) child)
+                (Map.toAscList children)
+        DiffArrayChildren children ->
+            concat
+                [ collectValueLines options (path </> Text.pack (show idx)) child
+                | (idx, child) <- zip [0 :: Int ..] children
+                ]
+
+{- | Walk an 'OpenValue' into the flat 'ValueLine' list 'RenderPaths'
+consumes.
+-}
+collectOpenValueLines :: DiffPath -> OpenValue -> [ValueLine]
+collectOpenValueLines path value =
+    case openValueProjection value of
+        DiffAtomic atomic ->
+            [ValueLine path (renderJsonValue atomic)]
+        DiffObjectChildren children ->
+            concatMap
+                (\(key, child) -> collectOpenValueLines (path </> key) child)
+                (Map.toAscList children)
+        DiffArrayChildren children ->
+            concat
+                [ collectOpenValueLines (path </> Text.pack (show idx)) child
+                | (idx, child) <- zip [0 :: Int ..] children
+                ]
+
+renderValueLines :: [ValueLine] -> [Text]
+renderValueLines =
+    map (\(ValueLine path value) -> renderPath path <> ": " <> value)
+
+{- | Render-trie path segments for a value-walk leaf. Mirrors the
+'renderedPathSegments' helper used by the diff renderer so empty
+paths render under the canonical @<root>@ key.
+-}
+renderValuePathSegments :: DiffPath -> [Text]
+renderValuePathSegments (DiffPath []) =
+    ["<root>"]
+renderValuePathSegments (DiffPath segments) =
+    segments
 
 data RenderTrie = RenderTrie
     { renderTrieLeaves :: [Tree.Tree Text]

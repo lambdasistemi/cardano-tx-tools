@@ -10,9 +10,8 @@ git diff --check
 
 nix develop --quiet -c just build
 nix develop --quiet -c just unit
-# Per-slice smoke is appended by each implementation slice that ships
-# new behavior — see specs/032-tx-inspect/plan.md § gate.sh evolution
-# once the plan lands.
+# S1: tx-inspect baseline live-boundary smoke.
+nix develop --quiet -c just smoke-inspect
 
 nix develop --quiet -c cabal-fmt -c cardano-tx-tools.cabal
 nix develop --quiet -c bash -c "find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec fourmolu -m check {} +"
