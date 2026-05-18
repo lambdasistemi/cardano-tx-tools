@@ -346,6 +346,7 @@ test-suite unit-tests
     , cardano-tx-tools
     , cardano-tx-tools:n2c-resolver
     , containers
+    , directory
     , filepath
     , hspec
     , microlens

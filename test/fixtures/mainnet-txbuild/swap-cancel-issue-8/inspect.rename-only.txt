@@ -1,0 +1,178 @@
+body
++- collateralInputs
+|  `- 0
+|     +- resolved
+|     |  +- address
+|     |  |  `- "user"
+|     |  +- coin
+|     |  |  `- 92.557701 ADA (92557701 lovelace)
+|     |  +- datum
+|     |  |  `- cbor: (0 bytes)
+|     |  `- referenceScript
+|     |     `- null
+|     `- txIn
+|        `- {"index":2,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
++- fee
+|  `- 0.257593 ADA (257593 lovelace)
++- inputs
+|  +- 0
+|  |  +- resolved
+|  |  |  +- address
+|  |  |  |  `- "swap-script-addr"
+|  |  |  +- coin
+|  |  |  |  `- 52819.860941 ADA (52819860941 lovelace)
+|  |  |  +- datum
+|  |  |  |  +- constructor
+|  |  |  |  |  `- 0
+|  |  |  |  `- fields
+|  |  |  |     +- 0
+|  |  |  |     |  +- constructor
+|  |  |  |     |  |  `- 0
+|  |  |  |     |  `- fields
+|  |  |  |     |     `- 0
+|  |  |  |     |        `- {"bytes":"64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef"}
+|  |  |  |     +- 1
+|  |  |  |     |  +- constructor
+|  |  |  |     |  |  `- 3
+|  |  |  |     |  `- fields
+|  |  |  |     |     +- 0
+|  |  |  |     |     |  `- 2
+|  |  |  |     |     `- 1
+|  |  |  |     |        +- 0
+|  |  |  |     |        |  +- constructor
+|  |  |  |     |        |  |  `- 0
+|  |  |  |     |        |  `- fields
+|  |  |  |     |        |     `- 0
+|  |  |  |     |        |        `- {"bytes":"7095faf3d48d582fbae8b3f2e726670d7a35e2400c783d992bbdeffb"}
+|  |  |  |     |        +- 1
+|  |  |  |     |        |  +- constructor
+|  |  |  |     |        |  |  `- 0
+|  |  |  |     |        |  `- fields
+|  |  |  |     |        |     `- 0
+|  |  |  |     |        |        `- {"bytes":"f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e"}
+|  |  |  |     |        +- 2
+|  |  |  |     |        |  +- constructor
+|  |  |  |     |        |  |  `- 0
+|  |  |  |     |        |  `- fields
+|  |  |  |     |        |     `- 0
+|  |  |  |     |        |        `- {"bytes":"8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1"}
+|  |  |  |     |        `- 3
+|  |  |  |     |           +- constructor
+|  |  |  |     |           |  `- 0
+|  |  |  |     |           `- fields
+|  |  |  |     |              `- 0
+|  |  |  |     |                 `- {"bytes":"97e0f6d6c86dbebf15cc8fdf0981f939b2f2b70928a46511edd49df2"}
+|  |  |  |     +- 2
+|  |  |  |     |  `- 1280000
+|  |  |  |     +- 3
+|  |  |  |     |  +- constructor
+|  |  |  |     |  |  `- 0
+|  |  |  |     |  `- fields
+|  |  |  |     |     +- 0
+|  |  |  |     |     |  +- constructor
+|  |  |  |     |     |  |  `- 0
+|  |  |  |     |     |  `- fields
+|  |  |  |     |     |     +- 0
+|  |  |  |     |     |     |  +- constructor
+|  |  |  |     |     |     |  |  `- 1
+|  |  |  |     |     |     |  `- fields
+|  |  |  |     |     |     |     `- 0
+|  |  |  |     |     |     |        `- {"bytes":"32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  |  |     |     |     `- 1
+|  |  |  |     |     |        +- constructor
+|  |  |  |     |     |        |  `- 0
+|  |  |  |     |     |        `- fields
+|  |  |  |     |     |           `- 0
+|  |  |  |     |     |              +- constructor
+|  |  |  |     |     |              |  `- 0
+|  |  |  |     |     |              `- fields
+|  |  |  |     |     |                 `- 0
+|  |  |  |     |     |                    +- constructor
+|  |  |  |     |     |                    |  `- 1
+|  |  |  |     |     |                    `- fields
+|  |  |  |     |     |                       `- 0
+|  |  |  |     |     |                          `- {"bytes":"32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  |  |     |     `- 1
+|  |  |  |     |        `- constructor
+|  |  |  |     |           `- 0
+|  |  |  |     +- 4
+|  |  |  |     |  +- constructor
+|  |  |  |     |  |  `- 1
+|  |  |  |     |  `- fields
+|  |  |  |     |     +- 0
+|  |  |  |     |     |  +- 0
+|  |  |  |     |     |  |  `- {"bytes":""}
+|  |  |  |     |     |  +- 1
+|  |  |  |     |     |  |  `- {"bytes":""}
+|  |  |  |     |     |  `- 2
+|  |  |  |     |     |     `- 52816580941
+|  |  |  |     |     `- 1
+|  |  |  |     |        +- 0
+|  |  |  |     |        |  `- {"bytes":"c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"}
+|  |  |  |     |        +- 1
+|  |  |  |     |        |  `- {"bytes":"0014df105553444d"}
+|  |  |  |     |        `- 2
+|  |  |  |     |           `- 13732311045
+|  |  |  |     `- 5
+|  |  |  |        `- constructor
+|  |  |  |           `- 0
+|  |  |  `- referenceScript
+|  |  |     `- null
+|  |  `- txIn
+|  |     `- {"index":0,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
+|  `- 1
+|     +- resolved
+|     |  +- address
+|     |  |  `- "user"
+|     |  +- coin
+|     |  |  `- 92.557701 ADA (92557701 lovelace)
+|     |  +- datum
+|     |  |  `- cbor: (0 bytes)
+|     |  `- referenceScript
+|     |     `- null
+|     `- txIn
+|        `- {"index":2,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
++- outputs
+|  +- 0
+|  |  +- address
+|  |  |  `- {"bytes":"3132201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  +- coin
+|  |  |  `- 52819.860941 ADA (52819860941 lovelace)
+|  |  +- datum
+|  |  |  `- cbor: (0 bytes)
+|  |  `- referenceScript
+|  |     `- null
+|  `- 1
+|     +- address
+|     |  `- "user"
+|     +- coin
+|     |  `- 92.300108 ADA (92300108 lovelace)
+|     +- datum
+|     |  `- cbor: (0 bytes)
+|     `- referenceScript
+|        `- null
++- referenceInputs
+|  `- 0
+|     +- resolved
+|     |  +- address
+|     |  |  `- "reference-script-host"
+|     |  +- coin
+|     |  |  `- 11.667170 ADA (11667170 lovelace)
+|     |  +- datum
+|     |  |  `- cbor: (0 bytes)
+|     |  `- referenceScript
+|     |     `- "swap.v2"
+|     `- txIn
+|        `- {"index":0,"txId":"f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2"}
++- requiredSigners
+|  +- 0
+|  |  `- "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1"
+|  `- 1
+|     `- "f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e"
++- totalCollateral
+|  `- 0.386390 ADA (386390 lovelace)
+`- validityInterval
+   +- invalidBefore
+   |  `- null
+   `- invalidHereafter
+      `- 187660799

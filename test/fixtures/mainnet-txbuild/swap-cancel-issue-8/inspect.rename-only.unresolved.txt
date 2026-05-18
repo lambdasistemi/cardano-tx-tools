@@ -1,0 +1,45 @@
+body
++- collateralInputs
+|  `- 0
+|     `- {"index":2,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
++- fee
+|  `- 0.257593 ADA (257593 lovelace)
++- inputs
+|  +- 0
+|  |  `- {"index":0,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
+|  `- 1
+|     `- {"index":2,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
++- outputs
+|  +- 0
+|  |  +- address
+|  |  |  `- {"bytes":"3132201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  +- coin
+|  |  |  `- 52819.860941 ADA (52819860941 lovelace)
+|  |  +- datum
+|  |  |  `- cbor: (0 bytes)
+|  |  `- referenceScript
+|  |     `- null
+|  `- 1
+|     +- address
+|     |  `- "user"
+|     +- coin
+|     |  `- 92.300108 ADA (92300108 lovelace)
+|     +- datum
+|     |  `- cbor: (0 bytes)
+|     `- referenceScript
+|        `- null
++- referenceInputs
+|  `- 0
+|     `- {"index":0,"txId":"f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2"}
++- requiredSigners
+|  +- 0
+|  |  `- "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1"
+|  `- 1
+|     `- "f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e"
++- totalCollateral
+|  `- 0.386390 ADA (386390 lovelace)
+`- validityInterval
+   +- invalidBefore
+   |  `- null
+   `- invalidHereafter
+      `- 187660799

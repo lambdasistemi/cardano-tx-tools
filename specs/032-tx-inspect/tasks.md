@@ -120,28 +120,28 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 
 ### RED
 
-- [ ] T021 [P] [US3] Create `/code/cardano-tx-tools-issue-32/test/fixtures/mainnet-txbuild/swap-cancel-issue-8/rename-only.yaml` covering the known identifiers (addresses + script hashes) in the swap-cancel fixture.
-- [ ] T022 [US3] Add Golden #2 case to `InspectSpec.hs` (rename-only). First-run capture pattern as for S1/S2.
-- [ ] T023 [US3] Extend `Rewrite.ApplySpec.hs` with the **load-bearing edge cases** from [spec.md Edge Cases](./spec.md):
+- [X] T021 (commit: c85876d) [P] [US3] Create `/code/cardano-tx-tools-issue-32/test/fixtures/mainnet-txbuild/swap-cancel-issue-8/rename-only.yaml` covering the known identifiers (addresses + script hashes) in the swap-cancel fixture.
+- [X] T022 (commit: c85876d) [US3] Add Golden #2 case to `InspectSpec.hs` (rename-only). First-run capture pattern as for S1/S2.
+- [X] T023 (commit: c85876d) [US3] Extend `Rewrite.ApplySpec.hs` with the **load-bearing edge cases** from [spec.md Edge Cases](./spec.md):
     - address with `match: payment` against a base address whose stake credential differs → matches;
     - unknown identifier → leaf renders verbatim;
     - same address with `match: full` against a different stake credential → does NOT match;
     - an `OpenValue` carrying an unresolved input (no `.resolved.address`) plus a rename rule that *would* match the resolved address → render emits the structural unresolved marker; no crash.
-- [ ] T023a [US3] Extend `Rewrite.ApplySpec.hs` with the **render-level stage-order invariance test (SC-004)**: given a `RewriteRules` and a hand-crafted `OpenValue`, the output of `applyRewriteRules` is independent of the order in which `rewriteCollapse` / `rewriteRename` are constructed (collapse always runs first, rename second). Pair with the parsing-level invariance test T002(c).
+- [X] T023a (commit: c85876d) [US3] Extend `Rewrite.ApplySpec.hs` with the **render-level stage-order invariance test (SC-004)**: given a `RewriteRules` and a hand-crafted `OpenValue`, the output of `applyRewriteRules` is independent of the order in which `rewriteCollapse` / `rewriteRename` are constructed (collapse always runs first, rename second). Pair with the parsing-level invariance test T002(c).
 
 ### GREEN
 
-- [ ] T024 [US3] Extend `/code/cardano-tx-tools-issue-32/src/Cardano/Tx/Rewrite.hs`:
+- [X] T024 (commit: c85876d) [US3] Extend `/code/cardano-tx-tools-issue-32/src/Cardano/Tx/Rewrite.hs`:
     - Complete the `RenameRule` `FromJSON` instance per [contracts/rules-yaml-grammar.md](./contracts/rules-yaml-grammar.md). Extract the payment credential at parse time for `match: payment`.
     - Add `applyRename :: RenameRules -> OpenValue -> OpenValue` walking the `OpenValue` tree, substituting matching leaves. Site list per FR-009.
     - Add `applyRewriteRules :: RewriteRules -> HumanRenderOptions -> OpenValue -> (HumanRenderOptions, OpenValue)` per [data-model.md](./data-model.md) (stage 1 then stage 2; collapse via `applyCollapseFromRewriteRules`, rename via `applyRename`).
-- [ ] T025 [US3] Edit `/code/cardano-tx-tools-issue-32/src/Cardano/Tx/Diff.hs` — `renderOpenValueHuman` checks `humanRenameRules` and runs `applyRename` on its input `OpenValue` before walking it (so both `tx-inspect` and `tx-diff` apply rename uniformly).
-- [ ] T026 [US3] Edit `/code/cardano-tx-tools-issue-32/app/tx-inspect/Main.hs` — replace the two-step `applyCollapseFromRewriteRules` + `renderOpenValueHuman` call with the single `applyRewriteRules` + render path.
-- [ ] T027 [US3] Extend `/code/cardano-tx-tools-issue-32/gate.sh` with the rename-only smoke (`diff -q` against `inspect.rename-only.txt`).
+- [X] T025 (commit: c85876d) [US3] Edit `/code/cardano-tx-tools-issue-32/src/Cardano/Tx/Diff.hs` — `renderOpenValueHuman` checks `humanRenameRules` and runs `applyRename` on its input `OpenValue` before walking it (so both `tx-inspect` and `tx-diff` apply rename uniformly).
+- [X] T026 (commit: c85876d) [US3] Edit `/code/cardano-tx-tools-issue-32/app/tx-inspect/Main.hs` — replace the two-step `applyCollapseFromRewriteRules` + `renderOpenValueHuman` call with the single `applyRewriteRules` + render path.
+- [X] T027 (commit: c85876d) [US3] Extend `/code/cardano-tx-tools-issue-32/gate.sh` with the rename-only smoke (`diff -q` against `inspect.rename-only.txt`).
 
 ### Acceptance for slice S3
 
-- [ ] T028 [US3] `./gate.sh` green. **Single commit** `feat(032): apply rename rules to payment addresses and script hashes in tx-inspect` carrying `Tasks: T021, T022, T023, T023a, T024, T025, T026, T027`.
+- [X] T028 (commit: c85876d) [US3] `./gate.sh` green. **Single commit** `feat(032): apply rename rules to payment addresses and script hashes in tx-inspect` carrying `Tasks: T021, T022, T023, T023a, T024, T025, T026, T027`.
 
 ---
 

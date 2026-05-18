@@ -29,6 +29,8 @@ body="$fixture/body.cbor.hex"
 golden="$fixture/inspect.verbatim.unresolved.txt"
 collapse_rules="$fixture/collapse-only.yaml"
 collapse_golden="$fixture/inspect.collapse-only.txt"
+rename_rules="$fixture/rename-only.yaml"
+rename_golden="$fixture/inspect.rename-only.unresolved.txt"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -82,5 +84,19 @@ diff -u "$golden" "$tmp/inspect.out" \
 
 diff -u "$collapse_golden" "$tmp/inspect.collapse.out" \
   || fail "collapse render output diverged from $collapse_golden"
+
+# Assertion 6: render with rename-only rules applied to the same body
+# matches the slice-S3 rename-only golden. Covers
+# specs/032-tx-inspect tasks T021, T022 and T027 (gate.sh smoke
+# assertion).
+[[ -e "$rename_rules" ]] || fail "missing rename-only rules: $rename_rules"
+
+"$exe" --rules "$rename_rules" "$body" >"$tmp/inspect.rename.out"
+
+[[ -e "$rename_golden" ]] \
+  || fail "golden $rename_golden missing; capture via 'cp $tmp/inspect.rename.out $rename_golden'"
+
+diff -u "$rename_golden" "$tmp/inspect.rename.out" \
+  || fail "rename render output diverged from $rename_golden"
 
 printf 'tx-inspect smoke: OK\n'
