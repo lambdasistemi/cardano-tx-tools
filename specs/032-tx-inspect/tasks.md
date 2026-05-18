@@ -269,3 +269,29 @@ No new production code in S4 — the production code is complete after S3. The s
 - [x] Each slice's RED/GREEN section is named explicitly and folded into one bisect-safe commit.
 - [x] Every behavior-changing slice's commit body trailer (`Tasks: T###[, T###]`) is named in its Acceptance task.
 - [x] Docs and chore commits are exempt from the Tasks: trailer per the commit message gate.
+
+---
+
+## Phase 9: Fix slice — S8 (Amaru InspectSpec resolved render)
+
+**Goal**: The Amaru `swap-1.both.txt` golden was captured **without** input resolution — bare `{"index":N,"txId":"..."}` references instead of `.resolved.address` / `.resolved.coin`. As a result, rename rules targeting input addresses never fire in the test, and the P1 user story ("treasury reviewer renders the swap with both stages and observes named output") is only partially exercised. The `StaticResolver` + the producer-tx CBORs to feed it are already shipped (S4 committed `swap-{1,2}.producer-txs/`); the gap is purely InspectSpec wiring.
+
+**Independent test**: `nix develop --quiet -c just unit` on the Amaru case shows resolved input addresses rendered with rules from `rules/amaru-treasury.yaml`.
+
+**Subagent brief**: see PR body update + dispatch comment.
+
+### RED
+
+- [ ] T050 [US1] Modify `test/Cardano/Tx/InspectSpec.hs` `amaruBothStagesSpec` to build a `Resolver` chain via `staticResolver (amaruFixtureDir <> "/swap-1.producer-txs")`, pass it through `TxDiffOptions` (via `txDiffResolvedInputs`) into `renderConwayTxHuman`. The golden assertion must FAIL — the existing `swap-1.both.txt` matches the unresolved render, and the new code path produces a resolved render.
+- [ ] T051 [US1] Refresh the golden file `test/fixtures/amaru-treasury-swap/golden/swap-1.both.txt` from the new resolved-render output.
+- [ ] T052 [US1] [US4] Confirm `amaruDiffSharedSubstrateSpec` (the tx-diff cross-check) still passes — it does not depend on the resolved render but may exercise output bytes that change. Recapture its assertions if needed.
+
+### GREEN
+
+- [ ] T053 [US1] `./gate.sh` green end-to-end. Single commit subject `feat(032): resolve Amaru InspectSpec inputs via StaticResolver` carrying `Tasks: T050, T051, T052`. The smoke at `scripts/smoke/tx-inspect` (which runs the production CLI *without* a resolver flag) continues to assert against the existing `inspect.verbatim.unresolved.txt` and the existing Amaru smoke goldens — operators using `tx-inspect` without `--n2c-socket-path` still get unresolved output, which is the documented behaviour. Only the InspectSpec golden flips to resolved.
+
+### Finalization (re-attempted after S8)
+
+- [ ] T047 (re-attempt) Orchestrator runs the finalization audit.
+- [ ] T048 (re-attempt) Orchestrator drops `gate.sh` again.
+- [ ] T049 (re-attempt) Orchestrator updates PR body and marks ready.
