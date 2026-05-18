@@ -1,0 +1,10 @@
+version: 1
+views:
+  raw: hide
+collapse:
+  - name: "Output"
+    at: body.outputs
+    match:
+      required:
+        - address
+        - coin

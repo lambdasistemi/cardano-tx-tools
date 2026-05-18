@@ -27,6 +27,8 @@ fi
 fixture="test/fixtures/mainnet-txbuild/swap-cancel-issue-8"
 body="$fixture/body.cbor.hex"
 golden="$fixture/inspect.verbatim.unresolved.txt"
+collapse_rules="$fixture/collapse-only.yaml"
+collapse_golden="$fixture/inspect.collapse-only.txt"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -66,5 +68,19 @@ printf '{}\n' >"$empty_rules"
 
 diff -u "$golden" "$tmp/inspect.out" \
   || fail "render output diverged from $golden"
+
+# Assertion 5: render with collapse-only rules applied to the same body
+# matches the slice-S2 collapse-only golden. Covers
+# specs/032-tx-inspect tasks T013, T014 and T019 (gate.sh smoke
+# assertion).
+[[ -e "$collapse_rules" ]] || fail "missing collapse-only rules: $collapse_rules"
+
+"$exe" --rules "$collapse_rules" "$body" >"$tmp/inspect.collapse.out"
+
+[[ -e "$collapse_golden" ]] \
+  || fail "golden $collapse_golden missing; capture via 'cp $tmp/inspect.collapse.out $collapse_golden'"
+
+diff -u "$collapse_golden" "$tmp/inspect.collapse.out" \
+  || fail "collapse render output diverged from $collapse_golden"
 
 printf 'tx-inspect smoke: OK\n'

@@ -92,21 +92,21 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 
 ### RED
 
-- [ ] T013 [P] [US2] Create `/code/cardano-tx-tools-issue-32/test/fixtures/mainnet-txbuild/swap-cancel-issue-8/collapse-only.yaml` (a `{ version: 1, collapse: [<rule for swap-cancel order output>] }` document).
-- [ ] T014 [US2] Add Golden #1 case to `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/InspectSpec.hs` asserting render with `--rules collapse-only.yaml` matches `inspect.collapse-only.txt`. First run: capture+commit golden; second: assert match.
-- [ ] T015 [US2] Add `Rewrite.ApplySpec` to `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/Rewrite/ApplySpec.hs` — pure-function: `applyCollapseFromRewriteRules` on a hand-crafted `RewriteRules` sets `humanCollapseRules` as expected; empty rules leave it unchanged from default.
-- [ ] T015a [US2] Extend `InspectSpec.hs` with a **shared-substrate cross-check at the collapse-only level** (covers spec.md US2 Acceptance #2): render `swap-cancel-issue-8/body.cbor.hex` via `tx-inspect ... --rules collapse-only.yaml` AND via `tx-diff body.cbor.hex body.cbor.hex --rules collapse-only.yaml` (self-diff), extract one side from the diff output, assert byte-equal. If tx-diff's self-diff mode does not emit a per-side render (the implementing subagent confirms by inspecting tx-diff's output format on the existing fixtures), then skip this assertion, note the reason in `WIP.md`, and tag T033 (S4's Amaru cross-check using `rules/amaru-treasury.yaml`) as the sole explicit shared-substrate evidence — US2 Ac#2 remains satisfied by-construction via S1's render-core extraction (T004) plus S2's collapse application.
+- [X] T013 (commit: ac2dac5) [P] [US2] Create `/code/cardano-tx-tools-issue-32/test/fixtures/mainnet-txbuild/swap-cancel-issue-8/collapse-only.yaml` (a `{ version: 1, collapse: [<rule for swap-cancel order output>] }` document).
+- [X] T014 (commit: ac2dac5) [US2] Add Golden #1 case to `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/InspectSpec.hs` asserting render with `--rules collapse-only.yaml` matches `inspect.collapse-only.txt`. First run: capture+commit golden; second: assert match.
+- [X] T015 (commit: ac2dac5) [US2] Add `Rewrite.ApplySpec` to `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/Rewrite/ApplySpec.hs` — pure-function: `applyCollapseFromRewriteRules` on a hand-crafted `RewriteRules` sets `humanCollapseRules` as expected; empty rules leave it unchanged from default.
+- [X] T015a (commit: ac2dac5) [US2] Extend `InspectSpec.hs` with a **shared-substrate cross-check at the collapse-only level** (covers spec.md US2 Acceptance #2): render `swap-cancel-issue-8/body.cbor.hex` via `tx-inspect ... --rules collapse-only.yaml` AND via `tx-diff body.cbor.hex body.cbor.hex --rules collapse-only.yaml` (self-diff), extract one side from the diff output, assert byte-equal. If tx-diff's self-diff mode does not emit a per-side render (the implementing subagent confirms by inspecting tx-diff's output format on the existing fixtures), then skip this assertion, note the reason in `WIP.md`, and tag T033 (S4's Amaru cross-check using `rules/amaru-treasury.yaml`) as the sole explicit shared-substrate evidence — US2 Ac#2 remains satisfied by-construction via S1's render-core extraction (T004) plus S2's collapse application.
 
 ### GREEN
 
-- [ ] T016 [US2] Add `applyCollapseFromRewriteRules :: RewriteRules -> HumanRenderOptions -> HumanRenderOptions` to `/code/cardano-tx-tools-issue-32/src/Cardano/Tx/Rewrite.hs`. Body: `\rr opts -> opts { humanCollapseRules = Just (rewriteCollapse rr) }`.
-- [ ] T017 [US2] Edit `/code/cardano-tx-tools-issue-32/app/tx-inspect/Main.hs` — after loading `RewriteRules`, call `applyCollapseFromRewriteRules` before `renderOpenValueHuman`.
-- [ ] T018 [P] [US2] Edit `/code/cardano-tx-tools-issue-32/cardano-tx-tools.cabal` — unit-tests `other-modules += Cardano.Tx.Rewrite.ApplySpec`.
-- [ ] T019 [US2] Extend `/code/cardano-tx-tools-issue-32/gate.sh` with `cabal run -v0 -O0 tx-inspect -- --rules test/fixtures/mainnet-txbuild/swap-cancel-issue-8/collapse-only.yaml test/fixtures/mainnet-txbuild/swap-cancel-issue-8/body.cbor.hex | diff -q - test/fixtures/mainnet-txbuild/swap-cancel-issue-8/inspect.collapse-only.txt`.
+- [X] T016 (commit: ac2dac5) [US2] Add `applyCollapseFromRewriteRules :: RewriteRules -> HumanRenderOptions -> HumanRenderOptions` to `/code/cardano-tx-tools-issue-32/src/Cardano/Tx/Rewrite.hs`. Body: `\rr opts -> opts { humanCollapseRules = Just (rewriteCollapse rr) }`.
+- [X] T017 (commit: ac2dac5) [US2] Edit `/code/cardano-tx-tools-issue-32/app/tx-inspect/Main.hs` — after loading `RewriteRules`, call `applyCollapseFromRewriteRules` before `renderOpenValueHuman`.
+- [X] T018 (commit: ac2dac5) [P] [US2] Edit `/code/cardano-tx-tools-issue-32/cardano-tx-tools.cabal` — unit-tests `other-modules += Cardano.Tx.Rewrite.ApplySpec`.
+- [X] T019 (commit: ac2dac5) [US2] Extend `/code/cardano-tx-tools-issue-32/gate.sh` with `cabal run -v0 -O0 tx-inspect -- --rules test/fixtures/mainnet-txbuild/swap-cancel-issue-8/collapse-only.yaml test/fixtures/mainnet-txbuild/swap-cancel-issue-8/body.cbor.hex | diff -q - test/fixtures/mainnet-txbuild/swap-cancel-issue-8/inspect.collapse-only.txt`.
 
 ### Acceptance for slice S2
 
-- [ ] T020 [US2] `./gate.sh` green. **Single commit** `feat(032): apply collapse rules from RewriteRules in tx-inspect` carrying `Tasks: T013, T014, T015, T015a, T016, T017, T018, T019`.
+- [X] T020 (commit: ac2dac5) [US2] `./gate.sh` green. **Single commit** `feat(032): apply collapse rules from RewriteRules in tx-inspect` carrying `Tasks: T013, T014, T015, T015a, T016, T017, T018, T019`.
 
 ---
 

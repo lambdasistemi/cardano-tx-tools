@@ -939,13 +939,23 @@ sub-tree under each input. 'txDiffIncludeWitnesses' selects whether
 the @witnesses@ branch is emitted alongside @body@. 'txDiffDecodeData'
 controls blueprint-aware datum decoding.
 
-The 'humanCollapseRules' and 'humanRenameRules' fields on
-'HumanRenderOptions' are read and held by the renderer but NOT applied
-in slice S1 of @specs\/032-tx-inspect@; S2 wires collapse application
-and S3 wires rename application. 'renderConwayTxHuman' therefore
-renders a verbatim structural tree of the transaction; the option
-fields exist so consumers can pass non-default values without
-recompiling once S2/S3 land.
+The 'humanCollapseRules' field is consulted by the 'RenderTree' walker
+exactly as it is by the diff renderer: at every array site whose
+'DiffPath' matches a rule's @at:@, the matching rule emits one or more
+named-shape view entries grouping array indices that share the same
+required-leaf values, and the surrounding raw subtree is rendered
+under @\<path\>\/raw@ (when @views.raw == show@) or pruned of covered
+leaves (when @views.raw == hide@). For 'RenderPaths' the collapse
+field is ignored; the path-shape output is a flat verbatim listing.
+
+The 'humanRenameRules' field is read but not yet applied; slice S3 of
+@specs\/032-tx-inspect@ adds the rename layer.
+
+The 'TxDiffOptions' argument is the same record 'diffConwayTxWith'
+accepts: in particular 'txDiffResolvedInputs' enables the @resolved@
+sub-tree under each input. 'txDiffIncludeWitnesses' selects whether
+the @witnesses@ branch is emitted alongside @body@. 'txDiffDecodeData'
+controls blueprint-aware datum decoding.
 
 For the 'RenderPaths' shape the output is a 'Text.unlines' of one-line
 path summaries (mirroring 'renderDiffNodeLines'); 'RenderTree' (the
@@ -962,6 +972,7 @@ renderConwayTxHuman options diffOptions tx =
                 renderTrieForest $
                     collectValueTrie
                         diffOptions
+                        (humanCollapseRules options)
                         (DiffPath [])
                         emptyRenderTrie
                         root
@@ -1000,14 +1011,23 @@ renderOpenValueHumanWith options value =
 the same trie primitives the diff renderer uses. The /atomic/ branch
 emits the leaf via 'renderJsonValue' so the per-leaf bytes match the
 diff path exactly.
+
+When 'humanCollapseRules' is 'Just', every array site whose 'DiffPath'
+matches a 'CollapseRule''s @at:@ field is rewritten in the same shape
+the diff renderer emits: one named-shape view per matching rule,
+grouping the array indices that share the same required-leaf
+'Aeson.Value', plus the raw subtree gated by 'collapseRawView'. The
+semantics mirror 'collectDiffArray' so a one-side rendering of an
+\"unchanged\" diff equals 'renderConwayTxHuman' on the same input.
 -}
 collectValueTrie ::
     TxDiffOptions ->
+    Maybe CollapseRules ->
     DiffPath ->
     RenderTrie ->
     ConwayDiffValue ->
     RenderTrie
-collectValueTrie options path trie value =
+collectValueTrie options collapseConfig path trie value =
     case conwayDiffProjection options value of
         DiffAtomic atomic ->
             insertPath
@@ -1017,17 +1037,284 @@ collectValueTrie options path trie value =
         DiffObjectChildren children ->
             foldl'
                 ( \acc (key, child) ->
-                    collectValueTrie options (path </> key) acc child
+                    collectValueTrie
+                        options
+                        collapseConfig
+                        (path </> key)
+                        acc
+                        child
                 )
                 trie
                 (Map.toAscList children)
         DiffArrayChildren children ->
-            foldl'
-                ( \acc (idx, child) ->
-                    collectValueTrie options (path </> Text.pack (show idx)) acc child
-                )
+            collectValueArray
+                options
+                collapseConfig
+                path
                 trie
                 (zip [0 :: Int ..] children)
+
+{- | Apply collapse rules (if any) at an array site, mirroring the
+diff-renderer's 'collectDiffArray'. The decision tree is:
+
+* No matching rule emits a view: walk the array verbatim, one trie
+  child per index.
+* At least one rule emitted a view AND @views.raw == show@: emit the
+  view(s) AND walk the raw array under @\<path\>\/raw@.
+* At least one rule emitted a view AND @views.raw == hide@: emit the
+  view(s) AND walk only the leaves that NO rule covered, under
+  @\<path\>@ (no @raw@ infix). If every leaf is covered, the raw
+  branch is dropped entirely.
+-}
+collectValueArray ::
+    TxDiffOptions ->
+    Maybe CollapseRules ->
+    DiffPath ->
+    RenderTrie ->
+    [(Int, ConwayDiffValue)] ->
+    RenderTrie
+collectValueArray options collapseConfig path trie indexedChildren =
+    let matchingRules =
+            collapseRulesAt collapseConfig path
+        (withViews, hasView) =
+            foldl'
+                (insertValueCollapseView options path indexedChildren)
+                (trie, False)
+                matchingRules
+        coveredLeaves =
+            collapseCoveredValueLeafPaths options matchingRules indexedChildren
+        walkRaw basePath acc =
+            foldl'
+                ( \innerAcc (idx, child) ->
+                    collectValueTrie
+                        options
+                        collapseConfig
+                        (basePath </> Text.pack (show idx))
+                        innerAcc
+                        child
+                )
+                acc
+                indexedChildren
+        walkPruned basePath acc =
+            foldl'
+                ( \innerAcc (idx, child) ->
+                    let covered =
+                            Map.findWithDefault Set.empty idx coveredLeaves
+                     in collectValueTriePruned
+                            options
+                            collapseConfig
+                            covered
+                            (DiffPath [])
+                            (basePath </> Text.pack (show idx))
+                            innerAcc
+                            child
+                )
+                acc
+                indexedChildren
+     in case (hasView, collapseRawViewEnabled collapseConfig) of
+            (False, _) ->
+                walkRaw path trie
+            (True, CollapseRawShow) ->
+                walkRaw (path </> "raw") withViews
+            (True, CollapseRawHide) ->
+                walkPruned path withViews
+
+{- | Build (and emit into the trie) the view entries for one
+'CollapseRule' applied to one array site. Returns @(trie', True)@ if
+the rule matched any item; otherwise @(trie, hasView)@ unchanged.
+-}
+insertValueCollapseView ::
+    TxDiffOptions ->
+    DiffPath ->
+    [(Int, ConwayDiffValue)] ->
+    (RenderTrie, Bool) ->
+    CollapseRule ->
+    (RenderTrie, Bool)
+insertValueCollapseView options listPath indexedChildren (trie, hasView) rule =
+    case matchingItems of
+        [] ->
+            (trie, hasView)
+        _ ->
+            ( foldl'
+                insertRequiredPath
+                trie
+                (collapseRuleRequired rule)
+            , True
+            )
+  where
+    matchingItems =
+        [ (index, leaves)
+        | (index, item) <- indexedChildren
+        , Just leaves <- [collectValueRequiredLeaves options rule item]
+        ]
+    viewPath =
+        listPath </> collapseRuleName rule
+    insertRequiredPath currentTrie requiredPath =
+        let grouped =
+                groupValueLeaves
+                    [ (index, leaf)
+                    | (index, leaves) <- matchingItems
+                    , Just leaf <- [lookup requiredPath leaves]
+                    ]
+         in foldl'
+                (insertLeafGroup requiredPath)
+                currentTrie
+                grouped
+    insertLeafGroup requiredPath currentTrie (indices, leaf) =
+        insertPath
+            ( diffPathSegments (viewPath </!> requiredPath)
+                <> [renderIndexRanges indices]
+            )
+            [Tree.Node (renderJsonValue leaf) []]
+            currentTrie
+
+{- | Group array indices that share the same required-leaf 'Aeson.Value'
+into contiguous-range buckets. Same shape as 'groupLeafDiffs' but
+keyed on a single value, not a 'LeafDiff' pair.
+-}
+groupValueLeaves :: [(Int, Aeson.Value)] -> [([Int], Aeson.Value)]
+groupValueLeaves =
+    foldl' step []
+  where
+    step [] (index, leaf) =
+        [([index], leaf)]
+    step ((indices, leaf) : rest) (index, newLeaf)
+        | leaf == newLeaf =
+            (indices <> [index], leaf) : rest
+    step (group : rest) indexedLeaf =
+        group : step rest indexedLeaf
+
+{- | For each 'CollapseRule' that matches an item, record the set of
+required leaf paths it covered. Indexed by item index so the
+'CollapseRawHide' branch can prune those exact leaves.
+-}
+collapseCoveredValueLeafPaths ::
+    TxDiffOptions ->
+    [CollapseRule] ->
+    [(Int, ConwayDiffValue)] ->
+    Map Int (Set.Set DiffPath)
+collapseCoveredValueLeafPaths options rules indexedChildren =
+    foldl' coverRule Map.empty rules
+  where
+    coverRule covered rule =
+        foldl' (coverItem rule) covered indexedChildren
+    coverItem rule covered (index, item) =
+        case collectValueRequiredLeaves options rule item of
+            Nothing ->
+                covered
+            Just _ ->
+                Map.insertWith
+                    Set.union
+                    index
+                    (Set.fromList (collapseRuleRequired rule))
+                    covered
+
+{- | Return the @Just leaves@ list iff every required path of the rule
+resolves to a 'DiffAtomic' under the item's projection. The returned
+list maps each required path to the looked-up leaf value.
+-}
+collectValueRequiredLeaves ::
+    TxDiffOptions ->
+    CollapseRule ->
+    ConwayDiffValue ->
+    Maybe [(DiffPath, Aeson.Value)]
+collectValueRequiredLeaves options rule item =
+    traverse
+        ( \requiredPath -> do
+            leaf <- lookupValueAtPath options requiredPath item
+            pure (requiredPath, leaf)
+        )
+        (collapseRuleRequired rule)
+
+{- | Walk @requiredPath@ inside @item@'s projection; return the leaf's
+'Aeson.Value' iff every step lands on a child key (for objects) or
+within array bounds (for arrays) and the final step lands on a
+'DiffAtomic'. Anything else returns 'Nothing'.
+-}
+lookupValueAtPath ::
+    TxDiffOptions -> DiffPath -> ConwayDiffValue -> Maybe Aeson.Value
+lookupValueAtPath options (DiffPath segments) =
+    go segments
+  where
+    go [] current =
+        case conwayDiffProjection options current of
+            DiffAtomic value -> Just value
+            _ -> Nothing
+    go (segment : rest) current =
+        case conwayDiffProjection options current of
+            DiffObjectChildren children -> do
+                child <- Map.lookup segment children
+                go rest child
+            DiffArrayChildren children -> do
+                index <- readDecimal segment
+                child <- safeIndex children index
+                go rest child
+            DiffAtomic _ -> Nothing
+
+    readDecimal :: Text -> Maybe Int
+    readDecimal t = case reads (Text.unpack t) of
+        [(n, "")] | n >= 0 -> Just n
+        _ -> Nothing
+
+    safeIndex :: [a] -> Int -> Maybe a
+    safeIndex xs n
+        | n < 0 = Nothing
+        | otherwise = case drop n xs of
+            (x : _) -> Just x
+            [] -> Nothing
+
+{- | A variant of 'collectValueTrie' that suppresses leaves whose
+*relative* path (from the supplied @itemBase@) is in the @covered@
+set. Used only by the @CollapseRawHide@ branch of 'collectValueArray'
+to mirror the diff renderer's 'pruneCoveredLeaves'.
+-}
+collectValueTriePruned ::
+    TxDiffOptions ->
+    Maybe CollapseRules ->
+    Set.Set DiffPath ->
+    -- | relative path inside the current item (initially empty)
+    DiffPath ->
+    -- | absolute trie path
+    DiffPath ->
+    RenderTrie ->
+    ConwayDiffValue ->
+    RenderTrie
+collectValueTriePruned options collapseConfig covered relPath absPath trie value
+    | relPath `Set.member` covered =
+        trie
+    | otherwise =
+        case conwayDiffProjection options value of
+            DiffAtomic atomic ->
+                insertPath
+                    (renderValuePathSegments absPath)
+                    [Tree.Node (renderJsonValue atomic) []]
+                    trie
+            DiffObjectChildren children ->
+                foldl'
+                    ( \acc (key, child) ->
+                        collectValueTriePruned
+                            options
+                            collapseConfig
+                            covered
+                            (relPath </> key)
+                            (absPath </> key)
+                            acc
+                            child
+                    )
+                    trie
+                    (Map.toAscList children)
+            DiffArrayChildren children ->
+                -- Nested arrays inside the item are walked verbatim
+                -- with the surrounding collapse config still active;
+                -- the @covered@ set is described in terms of leaf
+                -- paths from the item root, so it never matches a
+                -- nested array prefix.
+                collectValueArray
+                    options
+                    collapseConfig
+                    absPath
+                    trie
+                    (zip [0 :: Int ..] children)
 
 {- | Walk an 'OpenValue' projection into a 'RenderTrie'. Mirrors
 'collectValueTrie' but for the user-data substrate; the rename layer
