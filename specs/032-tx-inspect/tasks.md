@@ -47,7 +47,11 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 ### RED (subagent observes failing first)
 
 - [ ] T001 [P] Add `gate.sh smoke-inspect` line (the new just recipe is invoked by gate.sh — fails because `exe:tx-inspect` does not exist yet). Edit `/code/cardano-tx-tools-issue-32/gate.sh`.
-- [ ] T002 [P] Add `Cardano.Tx.Rewrite.LoadSpec` legacy-compat test (existing collapse-only YAML round-trips through `parseRewriteRulesYaml`). Create `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/Rewrite/LoadSpec.hs`. RED = module `Cardano.Tx.Rewrite` does not exist.
+- [ ] T002 [P] Add `Cardano.Tx.Rewrite.LoadSpec` cases at `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/Rewrite/LoadSpec.hs`. RED = module `Cardano.Tx.Rewrite` does not exist. Cases:
+    - **(a) legacy compatibility**: existing collapse-only `{ version: 1, collapse: [...] }` document round-trips through `parseRewriteRulesYaml` to the same `CollapseRules` `parseCollapseRulesYaml` produces.
+    - **(b) rename parsing**: each `RenameRule` variant parses correctly — `kind: address` with `match: full`, `kind: address` with `match: payment` (and default), `kind: script`. Parse-error cases per [contracts/rules-yaml-grammar.md § Parse errors](./contracts/rules-yaml-grammar.md) (invalid bech32, wrong-length hex, missing `name`, unknown `kind`, invalid `match`, wrong `version`).
+    - **(c) stage-order invariance (SC-004)**: a document with `rename:` before `collapse:` parses to a `RewriteRules` value equal (by `(==)`) to the same document with the keys in reverse order.
+    - **(d) empty document**: `{}` parses to `defaultRewriteRules`.
 
 ### GREEN (implementation, one commit)
 
@@ -62,7 +66,10 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 - [ ] T008 [P] Edit `/code/cardano-tx-tools-issue-32/justfile` — add `smoke-inspect` recipe (mirror `smoke-sign`); add `just smoke-inspect` invocation to `ci`.
 - [ ] T009 Create `/code/cardano-tx-tools-issue-32/test/StaticResolver.hs` — loads `cardano-cli`-shaped `utxo.json` from a path, returns `Resolver { resolverName = "static", resolveInputs = \askedFor -> pure (Map.restrictKeys loaded askedFor) }`. Test-only, not in `exposed-modules`.
 - [ ] T010 Create `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/InspectSpec.hs` — baseline golden: render `swap-cancel-issue-8/body.cbor.hex` resolved via `staticResolver swap-cancel-issue-8/utxo.json` with empty rules YAML; assert output matches `test/fixtures/mainnet-txbuild/swap-cancel-issue-8/inspect.verbatim.txt`. First run: capture+commit the file from observed output; second run: assert match.
-- [ ] T011 Edit `/code/cardano-tx-tools-issue-32/gate.sh` per T001 — smoke now passes.
+- [ ] T011 Edit `/code/cardano-tx-tools-issue-32/gate.sh` per T001 — `smoke-inspect` recipe now passes. In the same recipe, add **three smoke assertions** covering FR-016 / SC-005 (the per-exe `--version` / banner contract the four pre-existing CLIs already ship):
+    - `tx-inspect --version` exits 0 and the first stdout line equals `tx-inspect <semver>` (semver from `Paths_cardano_tx_tools.version`).
+    - `tx-inspect --help` exits 0.
+    - `TX_INSPECT_NO_UPDATE_CHECK=1 tx-inspect --version` exits 0 with no banner on stderr (assert stderr is empty or carries only the version output).
 
 ### Acceptance for slice S1
 
@@ -85,6 +92,7 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 - [ ] T013 [P] [US2] Create `/code/cardano-tx-tools-issue-32/test/fixtures/mainnet-txbuild/swap-cancel-issue-8/collapse-only.yaml` (a `{ version: 1, collapse: [<rule for swap-cancel order output>] }` document).
 - [ ] T014 [US2] Add Golden #1 case to `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/InspectSpec.hs` asserting render with `--rules collapse-only.yaml` matches `inspect.collapse-only.txt`. First run: capture+commit golden; second: assert match.
 - [ ] T015 [US2] Add `Rewrite.ApplySpec` to `/code/cardano-tx-tools-issue-32/test/Cardano/Tx/Rewrite/ApplySpec.hs` — pure-function: `applyCollapseFromRewriteRules` on a hand-crafted `RewriteRules` sets `humanCollapseRules` as expected; empty rules leave it unchanged from default.
+- [ ] T015a [US2] Extend `InspectSpec.hs` with a **shared-substrate cross-check at the collapse-only level** (covers spec.md US2 Acceptance #2): render `swap-cancel-issue-8/body.cbor.hex` via `tx-inspect ... --rules collapse-only.yaml` AND via `tx-diff body.cbor.hex body.cbor.hex --rules collapse-only.yaml` (self-diff), extract one side from the diff output, assert byte-equal. If tx-diff's self-diff mode does not emit a per-side render (the implementing subagent confirms by inspecting tx-diff's output format on the existing fixtures), then skip this assertion, note the reason in `WIP.md`, and tag T033 (S4's Amaru cross-check using `rules/amaru-treasury.yaml`) as the sole explicit shared-substrate evidence — US2 Ac#2 remains satisfied by-construction via S1's render-core extraction (T004) plus S2's collapse application.
 
 ### GREEN
 
@@ -95,7 +103,7 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 
 ### Acceptance for slice S2
 
-- [ ] T020 [US2] `./gate.sh` green. **Single commit** `feat(032): apply collapse rules from RewriteRules in tx-inspect` carrying `Tasks: T013, T014, T015, T016, T017, T018, T019`.
+- [ ] T020 [US2] `./gate.sh` green. **Single commit** `feat(032): apply collapse rules from RewriteRules in tx-inspect` carrying `Tasks: T013, T014, T015, T015a, T016, T017, T018, T019`.
 
 ---
 
@@ -114,7 +122,9 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 - [ ] T023 [US3] Extend `Rewrite.ApplySpec.hs` with the **load-bearing edge cases** from [spec.md Edge Cases](./spec.md):
     - address with `match: payment` against a base address whose stake credential differs → matches;
     - unknown identifier → leaf renders verbatim;
-    - same address with `match: full` against a different stake credential → does NOT match.
+    - same address with `match: full` against a different stake credential → does NOT match;
+    - an `OpenValue` carrying an unresolved input (no `.resolved.address`) plus a rename rule that *would* match the resolved address → render emits the structural unresolved marker; no crash.
+- [ ] T023a [US3] Extend `Rewrite.ApplySpec.hs` with the **render-level stage-order invariance test (SC-004)**: given a `RewriteRules` and a hand-crafted `OpenValue`, the output of `applyRewriteRules` is independent of the order in which `rewriteCollapse` / `rewriteRename` are constructed (collapse always runs first, rename second). Pair with the parsing-level invariance test T002(c).
 
 ### GREEN
 
@@ -128,7 +138,7 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 
 ### Acceptance for slice S3
 
-- [ ] T028 [US3] `./gate.sh` green. **Single commit** `feat(032): apply rename rules to payment addresses and script hashes in tx-inspect` carrying `Tasks: T021, T022, T023, T024, T025, T026, T027`.
+- [ ] T028 [US3] `./gate.sh` green. **Single commit** `feat(032): apply rename rules to payment addresses and script hashes in tx-inspect` carrying `Tasks: T021, T022, T023, T023a, T024, T025, T026, T027`.
 
 ---
 
@@ -142,7 +152,7 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 
 ### Subagent first-step open question
 
-- [ ] T029 [US1] Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` naming: the exact tx hashes chosen for swap-1 and swap-2, the fetch command, and the planned `swap-N.source.md` content. Orchestrator confirms before fixture commit. (Per plan.md § Open Questions.)
+- [ ] T029 [US1] Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` naming: the exact tx hashes chosen for swap-1 and swap-2, the fetch command, and the planned `swap-N.source.md` content. Orchestrator confirms before fixture commit. (Per plan.md § Open Questions.) **Fallback owner**: if the Amaru journal recipe lookup fails AND Blockfrost `/txs/{hash}/cbor` is unreachable, the subagent halts and surfaces to the orchestrator; the orchestrator chooses between (a) selecting a different recipe, (b) committing a synthetic TxBuild-DSL-constructed swap fixture as a temporary stand-in (covered by a follow-up ticket to refresh with real on-chain bytes), or (c) deferring S4 until network reachability returns. **The subagent never silently substitutes a synthetic fixture.**
 
 ### RED
 
@@ -158,7 +168,7 @@ No new production code in S4 — the production code is complete after S3. The s
 - [ ] T034 [US1] [US4] Extend `/code/cardano-tx-tools-issue-32/gate.sh` with both smokes:
     - `cabal run -v0 -O0 tx-inspect -- --rules rules/amaru-treasury.yaml test/fixtures/amaru-treasury-swap/swap-1.cbor.hex | diff -q - test/fixtures/amaru-treasury-swap/golden/swap-1.both.txt`.
     - `cabal run -v0 -O0 tx-diff -- --rules rules/amaru-treasury.yaml test/fixtures/amaru-treasury-swap/swap-1.cbor.hex test/fixtures/amaru-treasury-swap/swap-2.cbor.hex | <extract-side-1 helper> | diff -q - test/fixtures/amaru-treasury-swap/golden/swap-1.both.txt`. The `<extract-side-1 helper>` is a one-liner `awk`/`sed` selection from the tx-diff per-side output format; the subagent picks the right one when implementing.
-- [ ] T035 [US1] If T034 reveals a production-code gap (e.g. an OpenValue site rename does not reach), file a `WIP.md` note and surface to the orchestrator — **do not silently patch S3's code in S4**. The orchestrator decides whether to redispatch S3 (per [resolve-ticket § Reviewing Subagent Output](../../resolve-ticket) "the planning-phase invariant in the invariants" — accepted slices are frozen).
+- [ ] T035 [US1] **Contingency, non-blocking when no gap exists**: if T034 reveals a production-code gap (e.g. an `OpenValue` site rename does not reach), halt the slice, append a `WIP.md` note describing the gap, and surface to the orchestrator. **Do not silently patch S3's code in S4.** The orchestrator decides whether to redispatch S3 (per resolve-ticket — accepted slices are frozen; corrections are forward commits, not in-place restacks). Mark T035 complete on slice acceptance when no gap was found; otherwise T035 stays open and the slice is blocked.
 
 ### Acceptance for slice S4
 
