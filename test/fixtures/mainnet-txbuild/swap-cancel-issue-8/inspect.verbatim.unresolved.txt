@@ -13,21 +13,13 @@ body
 |  +- 0
 |  |  +- address
 |  |  |  `- {"bytes":"3132201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
-|  |  +- coin
-|  |  |  `- 52819.860941 ADA (52819860941 lovelace)
-|  |  +- datum
-|  |  |  `- cbor: (0 bytes)
-|  |  `- referenceScript
-|  |     `- null
+|  |  `- coin
+|  |     `- 52819.860941 ADA (52819860941 lovelace)
 |  `- 1
 |     +- address
 |     |  `- {"bytes":"018bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c14c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"}
-|     +- coin
-|     |  `- 92.300108 ADA (92300108 lovelace)
-|     +- datum
-|     |  `- cbor: (0 bytes)
-|     `- referenceScript
-|        `- null
+|     `- coin
+|        `- 92.300108 ADA (92300108 lovelace)
 +- referenceInputs
 |  `- 0
 |     `- {"index":0,"txId":"f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2"}

@@ -277,6 +277,15 @@ data HumanRenderOptions = HumanRenderOptions
     -- default) leaves every leaf verbatim. Wired by S3 of
     -- @specs\/032-tx-inspect@; the S1 renderer reads the field but
     -- does not apply it.
+    , humanHideEmpty :: Bool
+    -- ^ When 'True', suppress the @datum@ leaf for
+    -- 'Cardano.Ledger.Api.Scripts.Data.NoDatum' and the
+    -- @referenceScript@ leaf for
+    -- 'Cardano.Ledger.BaseTypes.SNothing' at every body-output site.
+    -- Default 'False' — the diff renderer keeps showing empty
+    -- markers so a diff can surface "datum disappeared".
+    -- @tx-inspect@ flips this to 'True' so single-tx renders are
+    -- not visually swamped by @cbor: (0 bytes)@ and @null@ leaves.
     }
     deriving stock (Eq, Show)
 
@@ -288,6 +297,7 @@ defaultHumanRenderOptions =
         , humanTreeArt = TreeArtAscii
         , humanCollapseRules = Nothing
         , humanRenameRules = Nothing
+        , humanHideEmpty = False
         }
 
 data CollapseRawView
@@ -991,6 +1001,7 @@ renderConwayDiffValueHuman options diffOptions root =
                         diffOptions
                         (humanCollapseRules options)
                         (humanRenameRules options)
+                        (humanHideEmpty options)
                         (DiffPath [])
                         emptyRenderTrie
                         root
@@ -1040,45 +1051,62 @@ collectValueTrie ::
     TxDiffOptions ->
     Maybe CollapseRules ->
     Maybe RenameRules ->
+    -- | 'humanHideEmpty' — skip 'NoDatum' / 'SNothing' leaves.
+    Bool ->
     DiffPath ->
     RenderTrie ->
     ConwayDiffValue ->
     RenderTrie
-collectValueTrie options collapseConfig renameConfig path trie value =
-    case renameValue renameConfig value of
-        Just renamed ->
-            insertPath
-                (renderValuePathSegments path)
-                [Tree.Node (renderJsonValue (renameLeafValue renamed)) []]
-                trie
-        Nothing ->
-            case conwayDiffProjection options value of
-                DiffAtomic atomic ->
-                    insertPath
-                        (renderValuePathSegments path)
-                        [Tree.Node (renderJsonValue atomic) []]
-                        trie
-                DiffObjectChildren children ->
-                    foldl'
-                        ( \acc (key, child) ->
-                            collectValueTrie
-                                options
-                                collapseConfig
-                                renameConfig
-                                (path </> key)
-                                acc
-                                child
-                        )
-                        trie
-                        (Map.toAscList children)
-                DiffArrayChildren children ->
-                    collectValueArray
-                        options
-                        collapseConfig
-                        renameConfig
-                        path
-                        trie
-                        (zip [0 :: Int ..] children)
+collectValueTrie options collapseConfig renameConfig hideEmpty path trie value
+    | hideEmpty && isEmptyOptionalLeaf value = trie
+    | otherwise =
+        case renameValue renameConfig value of
+            Just renamed ->
+                insertPath
+                    (renderValuePathSegments path)
+                    [Tree.Node (renderJsonValue (renameLeafValue renamed)) []]
+                    trie
+            Nothing ->
+                case conwayDiffProjection options value of
+                    DiffAtomic atomic ->
+                        insertPath
+                            (renderValuePathSegments path)
+                            [Tree.Node (renderJsonValue atomic) []]
+                            trie
+                    DiffObjectChildren children ->
+                        foldl'
+                            ( \acc (key, child) ->
+                                collectValueTrie
+                                    options
+                                    collapseConfig
+                                    renameConfig
+                                    hideEmpty
+                                    (path </> key)
+                                    acc
+                                    child
+                            )
+                            trie
+                            (Map.toAscList children)
+                    DiffArrayChildren children ->
+                        collectValueArray
+                            options
+                            collapseConfig
+                            renameConfig
+                            hideEmpty
+                            path
+                            trie
+                            (zip [0 :: Int ..] children)
+
+{- | Identify a 'ConwayDiffValue' whose render is a structurally-empty
+optional leaf (the @TxOut@'s @datum@ when no datum is attached, and the
+@TxOut@'s @referenceScript@ when no reference script is attached).
+Used by 'collectValueTrie' / 'collectValueTriePruned' to suppress
+the @cbor: (0 bytes)@ / @null@ noise when 'humanHideEmpty' is set.
+-}
+isEmptyOptionalLeaf :: ConwayDiffValue -> Bool
+isEmptyOptionalLeaf (ConwayDatumValue NoDatum) = True
+isEmptyOptionalLeaf (ConwayReferenceScriptValue SNothing) = True
+isEmptyOptionalLeaf _ = False
 
 {- | Intercept a 'ConwayDiffValue' that carries a rename-target leaf
 (payment address, script, reference script). Returns 'Just' the rename
@@ -1165,11 +1193,12 @@ collectValueArray ::
     TxDiffOptions ->
     Maybe CollapseRules ->
     Maybe RenameRules ->
+    Bool ->
     DiffPath ->
     RenderTrie ->
     [(Int, ConwayDiffValue)] ->
     RenderTrie
-collectValueArray options collapseConfig renameConfig path trie indexedChildren =
+collectValueArray options collapseConfig renameConfig hideEmpty path trie indexedChildren =
     let matchingRules =
             collapseRulesAt collapseConfig path
         (withViews, hasView) =
@@ -1186,6 +1215,7 @@ collectValueArray options collapseConfig renameConfig path trie indexedChildren 
                         options
                         collapseConfig
                         renameConfig
+                        hideEmpty
                         (basePath </> Text.pack (show idx))
                         innerAcc
                         child
@@ -1201,6 +1231,7 @@ collectValueArray options collapseConfig renameConfig path trie indexedChildren 
                             options
                             collapseConfig
                             renameConfig
+                            hideEmpty
                             covered
                             (DiffPath [])
                             (basePath </> Text.pack (show idx))
@@ -1370,6 +1401,7 @@ collectValueTriePruned ::
     TxDiffOptions ->
     Maybe CollapseRules ->
     Maybe RenameRules ->
+    Bool ->
     Set.Set DiffPath ->
     -- | relative path inside the current item (initially empty)
     DiffPath ->
@@ -1378,8 +1410,10 @@ collectValueTriePruned ::
     RenderTrie ->
     ConwayDiffValue ->
     RenderTrie
-collectValueTriePruned options collapseConfig renameConfig covered relPath absPath trie value
+collectValueTriePruned options collapseConfig renameConfig hideEmpty covered relPath absPath trie value
     | relPath `Set.member` covered =
+        trie
+    | hideEmpty && isEmptyOptionalLeaf value =
         trie
     | otherwise =
         case renameValue renameConfig value of
@@ -1402,6 +1436,7 @@ collectValueTriePruned options collapseConfig renameConfig covered relPath absPa
                                     options
                                     collapseConfig
                                     renameConfig
+                                    hideEmpty
                                     covered
                                     (relPath </> key)
                                     (absPath </> key)
@@ -1421,6 +1456,7 @@ collectValueTriePruned options collapseConfig renameConfig covered relPath absPa
                             options
                             collapseConfig
                             renameConfig
+                            hideEmpty
                             absPath
                             trie
                             (zip [0 :: Int ..] children)

@@ -10,27 +10,17 @@ body
 |  `- 1
 |     `- {"index":2,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
 +- outputs
-|  +- Output
-|  |  +- address
-|  |  |  +- 0
-|  |  |  |  `- {"bytes":"3132201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
-|  |  |  `- 1
-|  |  |     `- {"bytes":"018bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c14c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"}
-|  |  `- coin
-|  |     +- 0
-|  |     |  `- 52819.860941 ADA (52819860941 lovelace)
-|  |     `- 1
-|  |        `- 92.300108 ADA (92300108 lovelace)
-|  +- 0
-|  |  +- datum
-|  |  |  `- cbor: (0 bytes)
-|  |  `- referenceScript
-|  |     `- null
-|  `- 1
-|     +- datum
-|     |  `- cbor: (0 bytes)
-|     `- referenceScript
-|        `- null
+|  `- Output
+|     +- address
+|     |  +- 0
+|     |  |  `- {"bytes":"3132201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|     |  `- 1
+|     |     `- {"bytes":"018bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c14c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"}
+|     `- coin
+|        +- 0
+|        |  `- 52819.860941 ADA (52819860941 lovelace)
+|        `- 1
+|           `- 92.300108 ADA (92300108 lovelace)
 +- referenceInputs
 |  `- 0
 |     `- {"index":0,"txId":"f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2"}

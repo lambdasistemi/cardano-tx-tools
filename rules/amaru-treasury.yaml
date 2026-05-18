@@ -51,3 +51,9 @@ rename:
     key: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
     match: payment
     name: user.recipient
+  # The Amaru network wallet — the publicly-known operator wallet
+  # used for fuel + collateral in the swap-wizard's tx-build path.
+  - kind: address
+    key: addr1q802wxt6cg6aw0nl0vdzfxavu65rxu3yzhvgayw7chfxymduzkt66uw9t5kspx5jwjecx80dz4g33htknafhdhkvzd5st4f9xu
+    match: payment
+    name: amaru.network-wallet
