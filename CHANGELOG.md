@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [0.1.5.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.4.0...v0.1.5.0) (2026-05-18)
+
+### Features
+
+* **032:** tx-inspect baseline — add renderConwayTxHuman + parse RewriteRules + wire executable ([e43a3c7](https://github.com/lambdasistemi/cardano-tx-tools/commit/e43a3c7d92f3b159a6f442aa0b370ba66c705015))
+* **032:** apply collapse rules from RewriteRules in tx-inspect ([f51237d](https://github.com/lambdasistemi/cardano-tx-tools/commit/f51237d9122a9266f01fe794e47ef649709e30cf))
+* **032:** apply rename rules to payment addresses and script hashes in tx-inspect ([c6feef5](https://github.com/lambdasistemi/cardano-tx-tools/commit/c6feef5121ea0b9d59c7c2ced76de2458fb20921))
+* **032:** add Amaru treasury swap fixtures and shared-substrate goldens ([88f7b80](https://github.com/lambdasistemi/cardano-tx-tools/commit/88f7b80b261e296359958e6fd6874147c66cdf3e))
+* **032:** resolve Amaru InspectSpec inputs and suppress empty TxOut leaves ([5e444cd](https://github.com/lambdasistemi/cardano-tx-tools/commit/5e444cdc15f3e870e14c06efded48b0c7b04262b))
+
 ## [0.1.4.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.3.0...v0.1.4.0) (2026-05-17)
 
 ### Features
