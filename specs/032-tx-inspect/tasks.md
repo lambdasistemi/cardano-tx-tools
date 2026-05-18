@@ -187,21 +187,21 @@ No new production code in S4 — the production code is complete after S3. The s
 
 ### Subagent first-step open question
 
-- [ ] T037 Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` naming: the exact file where the existing collapse-rules grammar is documented today (`docs/rewriting-rules.md`, `docs/tx-diff.md`, or inline Haddock in `Cardano.Tx.Diff`). Orchestrator confirms.
+- [X] T037 (commit: 12940f7) Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` naming: the exact file where the existing collapse-rules grammar is documented today (`docs/rewriting-rules.md`, `docs/tx-diff.md`, or inline Haddock in `Cardano.Tx.Diff`). Orchestrator confirms.
 
 ### RED
 
-- [ ] T038 Add `tx-inspect.md` nav entry to `/code/cardano-tx-tools-issue-32/mkdocs.yml`. `nix develop --quiet -c just build-docs` (`mkdocs build --strict`) fails because the file does not yet exist.
+- [X] T038 (commit: 12940f7) Add `tx-inspect.md` nav entry to `/code/cardano-tx-tools-issue-32/mkdocs.yml`. `nix develop --quiet -c just build-docs` (`mkdocs build --strict`) fails because the file does not yet exist.
 
 ### GREEN
 
-- [ ] T039 Create `/code/cardano-tx-tools-issue-32/docs/tx-inspect.md` per [quickstart.md](./quickstart.md) — operator-facing end-to-end docs (input forms, `--rules`, resolver flags, output shape, exit codes, the two-stage pipeline).
-- [ ] T040 Edit the grammar doc identified by T037 — add a new section documenting the `rename:` grammar per [contracts/rules-yaml-grammar.md](./contracts/rules-yaml-grammar.md).
-- [ ] T041 [P] Edit `/code/cardano-tx-tools-issue-32/README.md` — `## CLIs` (or equivalent) row added for `tx-inspect`.
+- [X] T039 (commit: 12940f7) Create `/code/cardano-tx-tools-issue-32/docs/tx-inspect.md` per [quickstart.md](./quickstart.md) — operator-facing end-to-end docs (input forms, `--rules`, resolver flags, output shape, exit codes, the two-stage pipeline).
+- [X] T040 (commit: 12940f7) Edit the grammar doc identified by T037 — add a new section documenting the `rename:` grammar per [contracts/rules-yaml-grammar.md](./contracts/rules-yaml-grammar.md).
+- [X] T041 (commit: 12940f7) [P] Edit `/code/cardano-tx-tools-issue-32/README.md` — `## CLIs` (or equivalent) row added for `tx-inspect`.
 
 ### Acceptance for slice S5
 
-- [ ] T042 `./gate.sh` green; `nix develop --quiet -c just build-docs` passes. **Single commit** `docs(032): document tx-inspect and the rename rule kind` (no `Tasks:` trailer required — `docs:` is exempt per the commit message gate).
+- [X] T042 (commit: 12940f7) `./gate.sh` green; `nix develop --quiet -c just build-docs` passes. **Single commit** `docs(032): document tx-inspect and the rename rule kind` (no `Tasks:` trailer required — `docs:` is exempt per the commit message gate).
 
 ---
 
