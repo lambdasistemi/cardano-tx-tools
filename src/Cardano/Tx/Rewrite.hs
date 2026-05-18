@@ -23,11 +23,14 @@ There are two stages, fixed in order regardless of YAML key order:
 2. __Rename__ — substitute leaf identifiers (payment addresses, script
    hashes) with names from an address book.
 
-Slice S1 of @specs\/032-tx-inspect@ ships only the types and the
-'parseRewriteRulesYaml' loader. The application paths
-(@applyRewriteRules@ / @applyRename@ / @applyCollapseFromRewriteRules@)
-land in S2 (collapse) and S3 (rename); deliberately omitted from this
-slice to keep the diff additive.
+Slice S1 of @specs\/032-tx-inspect@ shipped the types and the
+'parseRewriteRulesYaml' loader. Slice S2 adds the collapse plumbing —
+'applyCollapseFromRewriteRules' — which moves the stage-1 rules from a
+'RewriteRules' record into 'Cardano.Tx.Diff.HumanRenderOptions' so the
+shared render core ('Cardano.Tx.Diff.renderConwayTxHuman') can consult
+them on its trie walk. The stage-2 rename application
+(@applyRename@ \/ @applyRewriteRules@) lands in S3; deliberately omitted
+from this slice to keep the diff additive.
 
 The grammar parsed by 'parseRewriteRulesYaml' is documented in
 @specs\/032-tx-inspect\/contracts\/rules-yaml-grammar.md@.
@@ -46,11 +49,15 @@ module Cardano.Tx.Rewrite (
 
     -- * Parser
     parseRewriteRulesYaml,
+
+    -- * Stage 1 — collapse plumbing
+    applyCollapseFromRewriteRules,
 ) where
 
 import Cardano.Tx.Diff (
     AddressMatch (..),
     AddressTarget (..),
+    HumanRenderOptions (..),
     RenameRule (..),
     RenameRules (..),
     RewriteRules (..),
@@ -58,3 +65,24 @@ import Cardano.Tx.Diff (
     emptyRenameRules,
     parseRewriteRulesYaml,
  )
+
+{- | Stage-1 plumbing: lift the 'rewriteCollapse' field of a 'RewriteRules'
+value into 'HumanRenderOptions' so the shared render core
+('Cardano.Tx.Diff.renderConwayTxHuman') consults the same
+'humanCollapseRules' channel the diff renderer already consults.
+
+The application semantics are uniform across @tx-inspect@ and @tx-diff@:
+the renderer walks its projection, looks up matching 'CollapseRule's at
+each array site, and emits the named-shape view plus the
+'collapseRawView'-gated raw subtree. Empty rule lists are a no-op (the
+renderer's @collapseRulesAt@ never finds a match), so feeding
+'defaultRewriteRules' through this helper is safe and idempotent.
+
+This helper is the only stage-1 application surface 'Cardano.Tx.Rewrite'
+exposes today. Slice S3 of @specs\/032-tx-inspect@ adds the stage-2
+counterpart @applyRename@ and the composite @applyRewriteRules@.
+-}
+applyCollapseFromRewriteRules ::
+    RewriteRules -> HumanRenderOptions -> HumanRenderOptions
+applyCollapseFromRewriteRules rr opts =
+    opts{humanCollapseRules = Just (rewriteCollapse rr)}

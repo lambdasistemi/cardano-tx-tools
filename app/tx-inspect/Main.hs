@@ -33,7 +33,7 @@ import Cardano.Node.Client.N2C.Provider (mkN2CProvider)
 import Cardano.Tx.Diff (
     HumanRenderOptions (..),
     RenderShape (..),
-    RewriteRules (..),
+    RewriteRules,
     TreeArt (..),
     TxDiffOptions (..),
     decodeConwayTxInput,
@@ -52,7 +52,10 @@ import Cardano.Tx.Diff.Resolver.Web2 (
     httpFetchTx,
     web2Resolver,
  )
-import Cardano.Tx.Rewrite (parseRewriteRulesYaml)
+import Cardano.Tx.Rewrite (
+    applyCollapseFromRewriteRules,
+    parseRewriteRulesYaml,
+ )
 import GitHub.Release.Check (
     CliBanner (..),
     RepoSlug (..),
@@ -310,10 +313,9 @@ runInspect cliOptions = do
     txBytes <- BS.readFile (inspectCliTxPath cliOptions)
     tx <- decodeOrDie txBytes
     let baseHumanOptions =
-            (inspectCliRenderOptions cliOptions)
-                { humanCollapseRules =
-                    Just (rewriteCollapse rewriteRules)
-                }
+            applyCollapseFromRewriteRules
+                rewriteRules
+                (inspectCliRenderOptions cliOptions)
         inputs = collectInputs tx
     resolutionResult <-
         if anyResolverConfigured cliOptions
