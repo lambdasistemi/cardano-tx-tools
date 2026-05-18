@@ -43,3 +43,24 @@ tx-diff \
   --web2-api-key-file ~/.blockfrost/preprod.key \
   a.cbor.hex b.cbor.hex
 ```
+
+## Rewriting rules
+
+`--collapse-rules FILE` consumes the unified
+[rewriting-rules YAML](rewriting-rules.md) — the same grammar
+[`tx-inspect --rules`](tx-inspect.md) consumes. The flag name
+is preserved for backwards compatibility (every existing
+collapse-only YAML file keeps working unchanged), but the
+semantics have widened: a `rename:` section in the file now
+takes effect inside each side of the diff renderer, so payment
+addresses and script hashes can appear under their
+address-book names on both sides.
+
+```bash
+tx-diff --collapse-rules rules/amaru-treasury.yaml \
+    swap-1.cbor.hex swap-2.cbor.hex
+```
+
+See [rewriting-rules grammar](rewriting-rules.md) for the
+full document shape, the `collapse:` / `rename:` sections, and
+the cross-tool semantics.

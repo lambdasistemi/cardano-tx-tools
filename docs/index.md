@@ -1,6 +1,6 @@
 # cardano-tx-tools
 
-Tooling for Conway-era Cardano transactions. Four command-line
+Tooling for Conway-era Cardano transactions. Five command-line
 executables plus the Haskell library that backs them.
 
 ## Executables
@@ -8,6 +8,11 @@ executables plus the Haskell library that backs them.
 - [**tx-diff**](tx-diff.md) — structural diff between two Conway
   transactions, with Plutus blueprint-aware decoding and opt-in
   input resolution via N2C or Blockfrost-style HTTP.
+- [**tx-inspect**](tx-inspect.md) — render one Conway transaction
+  as a structured, human-readable report. Optional
+  [rewriting-rules YAML](rewriting-rules.md) drives two stages
+  (collapse + rename) on top of the verbatim render; same loader
+  and per-leaf renderer `tx-diff` uses.
 - [**tx-sign**](tx-sign.md) — age-encrypted signing-key vault and
   detached vkey witness creation. The cleartext signing key never
   touches disk and the passphrase is never read from `argv`.
@@ -19,6 +24,10 @@ executables plus the Haskell library that backs them.
 - [**cardano-tx-generator**](cardano-tx-generator.md) — long-running
   daemon that drives a configurable mix of Conway transactions
   against a node for soak / fuzz testing.
+
+The [rewriting-rules grammar](rewriting-rules.md) document pins
+the shared YAML language consumed by both `tx-inspect --rules`
+and `tx-diff --collapse-rules`.
 
 ## Library
 

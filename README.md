@@ -1,10 +1,11 @@
 # cardano-tx-tools
 
-Four command-line tools and a Haskell library for working with
+Five command-line tools and a Haskell library for working with
 Conway-era Cardano transactions: **diff** two unsigned bodies,
-**sign** with an encrypted vault, **validate** against the ledger
-Phase-1 rule, and **generate** a workload of Conway transactions
-for soak testing. Each tool is a single self-contained executable;
+**inspect** one body as a structured named report, **sign** with
+an encrypted vault, **validate** against the ledger Phase-1
+rule, and **generate** a workload of Conway transactions for
+soak testing. Each tool is a single self-contained executable;
 the library is the same code, exposed for in-process callers.
 
 Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
@@ -14,13 +15,14 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 | Tool | What it does | One-line example |
 |------|--------------|------------------|
 | [`tx-diff`](https://lambdasistemi.github.io/cardano-tx-tools/tx-diff/) | Structural diff between two Conway transactions, keyed by ledger identity (TxIn, address+asset, vkey hash, redeemer purpose). Plutus datums and redeemers decoded against an optional blueprint schema. | `tx-diff a.cbor.hex b.cbor.hex` |
+| [`tx-inspect`](https://lambdasistemi.github.io/cardano-tx-tools/tx-inspect/) | Render one Conway transaction as a structured, human-readable report. Optional [rewriting-rules YAML](https://lambdasistemi.github.io/cardano-tx-tools/rewriting-rules/) drives two stages: **collapse** repeated shapes into named buckets, then **rename** payment addresses and script hashes to address-book names. Same loader and per-leaf renderer `tx-diff` uses. | `tx-inspect tx.cbor.hex --rules rules/amaru-treasury.yaml` |
 | [`tx-sign`](https://lambdasistemi.github.io/cardano-tx-tools/tx-sign/) | Age-encrypted signing-key vault and detached vkey witness creation. Cleartext keys never touch disk; passphrase never on `argv`. | `tx-sign --network mainnet witness --tx unsigned.cbor.hex --vault core.vault.age --out core.witness.hex` |
 | [`tx-validate`](https://lambdasistemi.github.io/cardano-tx-tools/tx-validate/) | Conway Phase-1 pre-flight against a local `cardano-node` via Node-to-Client. Exit code is the contract: `0` clean, `1` structural failure, `≥2` configuration/resolver error. | `tx-validate --input unsigned.cbor.hex --n2c-socket "$CARDANO_NODE_SOCKET_PATH"` |
 | [`cardano-tx-generator`](https://lambdasistemi.github.io/cardano-tx-tools/cardano-tx-generator/) | Long-running daemon that drives a configurable mix of Conway transactions against a node for soak / fuzz testing. | `cardano-tx-generator --config preprod.yaml` |
 
 ## A worked workflow
 
-The four CLIs compose. A typical signing pipeline:
+The CLIs compose. A typical signing pipeline:
 
 ```bash
 # 1. Build / receive an unsigned tx (out of scope; e.g. amaru-treasury-tx).
@@ -32,17 +34,22 @@ unsigned=tx.cbor.hex
 tx-validate --input "$unsigned" --n2c-socket "$CARDANO_NODE_SOCKET_PATH" \
     || { echo "Phase-1 rejected; do not sign"; exit 1; }
 
-# 3. Optionally diff against a known-good golden.
-tx-diff golden.cbor.hex "$unsigned"
+# 3. Inspect the tx as a structured, named report (collapse + rename
+# driven by a rewriting-rules YAML).
+tx-inspect "$unsigned" --rules rules/amaru-treasury.yaml
 
-# 4. Sign the body with an encrypted vault.
+# 4. Optionally diff against a known-good golden — the same rules
+# file applies to both sides of the diff.
+tx-diff --collapse-rules rules/amaru-treasury.yaml golden.cbor.hex "$unsigned"
+
+# 5. Sign the body with an encrypted vault.
 tx-sign --network mainnet witness \
     --tx "$unsigned" \
     --vault core.vault.age \
     --identity core_development \
     --out core.witness.hex
 
-# 5. Attach the witness and submit (cardano-cli; out of scope).
+# 6. Attach the witness and submit (cardano-cli; out of scope).
 cardano-cli conway transaction assemble \
     --tx-body-file "$unsigned" \
     --witness-file core.witness.hex \
@@ -76,8 +83,8 @@ docker pull ghcr.io/lambdasistemi/cardano-tx-tools/tx-validate:<version>
 nix run github:lambdasistemi/cardano-tx-tools#tx-validate -- --help
 ```
 
-Substitute the executable name (`tx-diff`, `tx-sign`,
-`cardano-tx-generator`) as needed. Each CLI prints an upgrade
+Substitute the executable name (`tx-diff`, `tx-inspect`,
+`tx-sign`, `cardano-tx-generator`) as needed. Each CLI prints an upgrade
 banner on stderr when a newer release is available; silence it
 with `<EXE>_NO_UPDATE_CHECK=1`.
 
