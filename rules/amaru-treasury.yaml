@@ -1,0 +1,53 @@
+version: 1
+views:
+  raw: hide
+
+# Stage 1 — collapse: name the Amaru treasury swap-order output shape so
+# each pair of swap outputs renders as a single "SwapOrder" bucket
+# exposing only its per-output address, coin, and datum-constructor
+# variable slots. Treasury-leftover and user-payment outputs do not
+# carry a datum constructor, so they remain rendered verbatim.
+collapse:
+  - name: "SwapOrder"
+    at: body.outputs
+    match:
+      required:
+        - coin
+        - datum.constructor
+
+# Stage 2 — rename: substitute every Amaru-treasury identifier appearing
+# in the two checked-in swap fixtures with its address-book name.
+#
+# Stake-key default `match: payment` covers every stake variant of the
+# same payment script — one rule reaches both the swap-order address
+# (payment = swap.v2, stake = treasury) and the treasury-leftover
+# address (payment = treasury, stake = treasury).
+rename:
+  # Plutus script hashes (the witness-set + reference-script sites
+  # render scripts by their 28-byte hash).
+  - kind: script
+    key: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077
+    name: amaru.swap.v2
+  - kind: script
+    key: 32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d
+    name: amaru-treasury.network_compliance
+  # Swap-order address — payment credential is the swap.v2 script,
+  # stake credential is the treasury script. `match: payment` matches
+  # every stake variant; `match: full` would also work here because the
+  # two fixtures share the same stake credential.
+  - kind: address
+    key: addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n
+    match: payment
+    name: amaru.swap-order
+  # Treasury self-address — payment + stake credential both the
+  # network_compliance treasury script.
+  - kind: address
+    key: addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
+    match: payment
+    name: amaru-treasury.network_compliance.account
+  # The recipient (user) payment address. Both fixtures send change
+  # outputs back to this address (the operator running the swap).
+  - kind: address
+    key: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+    match: payment
+    name: user.recipient

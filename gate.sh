@@ -12,6 +12,9 @@ nix develop --quiet -c just build
 nix develop --quiet -c just unit
 # S1: tx-inspect baseline live-boundary smoke.
 nix develop --quiet -c just smoke-inspect
+# S4: tx-diff shared-substrate live-boundary smoke (proves T034a
+# wiring — tx-diff consumes the unified rewriting-rules YAML).
+nix develop --quiet -c just smoke-diff
 
 nix develop --quiet -c cabal-fmt -c cardano-tx-tools.cabal
 nix develop --quiet -c bash -c "find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec fourmolu -m check {} +"

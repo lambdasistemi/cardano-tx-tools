@@ -155,27 +155,27 @@ Carried by the bootstrap commits ahead of this tasks file. Listed for traceabili
 
 ### Subagent first-step open question
 
-- [ ] T029 [US1] Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` naming: the exact tx hashes chosen for swap-1 and swap-2, the fetch command, and the planned `swap-N.source.md` content. Orchestrator confirms before fixture commit. (Per plan.md § Open Questions.) **Fallback owner**: if the Amaru journal recipe lookup fails AND Blockfrost `/txs/{hash}/cbor` is unreachable, the subagent halts and surfaces to the orchestrator; the orchestrator chooses between (a) selecting a different recipe, (b) committing a synthetic TxBuild-DSL-constructed swap fixture as a temporary stand-in (covered by a follow-up ticket to refresh with real on-chain bytes), or (c) deferring S4 until network reachability returns. **The subagent never silently substitutes a synthetic fixture.**
+- [X] T029 (commit: 3b8ee61) [US1] Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` naming: the exact tx hashes chosen for swap-1 and swap-2, the fetch command, and the planned `swap-N.source.md` content. Orchestrator confirms before fixture commit. (Per plan.md § Open Questions.) **Fallback owner**: if the Amaru journal recipe lookup fails AND Blockfrost `/txs/{hash}/cbor` is unreachable, the subagent halts and surfaces to the orchestrator; the orchestrator chooses between (a) selecting a different recipe, (b) committing a synthetic TxBuild-DSL-constructed swap fixture as a temporary stand-in (covered by a follow-up ticket to refresh with real on-chain bytes), or (c) deferring S4 until network reachability returns. **The subagent never silently substitutes a synthetic fixture.**
 
 ### RED
 
-- [ ] T030 [P] [US1] Create `/code/cardano-tx-tools-issue-32/test/fixtures/amaru-treasury-swap/swap-1.cbor.hex` and `swap-1.utxo.json` and `swap-1.source.md` per the recipe in the slice brief.
-- [ ] T031 [P] [US1] Same for `swap-2.cbor.hex`, `swap-2.utxo.json`, `swap-2.source.md`.
-- [ ] T032 [US1] Create `/code/cardano-tx-tools-issue-32/rules/amaru-treasury.yaml` per [contracts/rules-yaml-grammar.md § Example](./contracts/rules-yaml-grammar.md) — `version: 1`, `views: { raw: show }`, collapse rule(s) for the swap output shape, rename rules for the identifiers used in the two fixtures.
-- [ ] T033 [US1] [US4] Add Golden #3 case (`amaru-swap-1.both.txt`) and the cross-check Golden #3b case (`amaru-swap-1-vs-2.from-tx-diff.txt` — one side of `tx-diff swap-1 swap-2 --rules rules/amaru-treasury.yaml` must equal `amaru-swap-1.both.txt` byte-for-byte) to `InspectSpec.hs`. First-run capture pattern.
+- [X] T030 (commit: 3b8ee61) [P] [US1] Create `/code/cardano-tx-tools-issue-32/test/fixtures/amaru-treasury-swap/swap-1.cbor.hex` and `swap-1.utxo.json` and `swap-1.source.md` per the recipe in the slice brief.
+- [X] T031 (commit: 3b8ee61) [P] [US1] Same for `swap-2.cbor.hex`, `swap-2.utxo.json`, `swap-2.source.md`.
+- [X] T032 (commit: 3b8ee61) [US1] Create `/code/cardano-tx-tools-issue-32/rules/amaru-treasury.yaml` per [contracts/rules-yaml-grammar.md § Example](./contracts/rules-yaml-grammar.md) — `version: 1`, `views: { raw: show }`, collapse rule(s) for the swap output shape, rename rules for the identifiers used in the two fixtures.
+- [X] T033 (commit: 3b8ee61) [US1] [US4] Add Golden #3 case (`amaru-swap-1.both.txt`) and the cross-check Golden #3b case (`amaru-swap-1-vs-2.from-tx-diff.txt` — one side of `tx-diff swap-1 swap-2 --rules rules/amaru-treasury.yaml` must equal `amaru-swap-1.both.txt` byte-for-byte) to `InspectSpec.hs`. First-run capture pattern.
 
 ### GREEN
 
 No new production code in S4 — the production code is complete after S3. The slice is fixtures + rules + golden. The implementation work consists of:
 
-- [ ] T034 [US1] [US4] Extend `/code/cardano-tx-tools-issue-32/gate.sh` with both smokes:
+- [X] T034 (commit: 3b8ee61) [US1] [US4] Extend `/code/cardano-tx-tools-issue-32/gate.sh` with both smokes:
     - `cabal run -v0 -O0 tx-inspect -- --rules rules/amaru-treasury.yaml test/fixtures/amaru-treasury-swap/swap-1.cbor.hex | diff -q - test/fixtures/amaru-treasury-swap/golden/swap-1.both.txt`.
     - `cabal run -v0 -O0 tx-diff -- --rules rules/amaru-treasury.yaml test/fixtures/amaru-treasury-swap/swap-1.cbor.hex test/fixtures/amaru-treasury-swap/swap-2.cbor.hex | <extract-side-1 helper> | diff -q - test/fixtures/amaru-treasury-swap/golden/swap-1.both.txt`. The `<extract-side-1 helper>` is a one-liner `awk`/`sed` selection from the tx-diff per-side output format; the subagent picks the right one when implementing.
-- [ ] T035 [US1] **Contingency, non-blocking when no gap exists**: if T034 reveals a production-code gap (e.g. an `OpenValue` site rename does not reach), halt the slice, append a `WIP.md` note describing the gap, and surface to the orchestrator. **Do not silently patch S3's code in S4.** The orchestrator decides whether to redispatch S3 (per resolve-ticket — accepted slices are frozen; corrections are forward commits, not in-place restacks). Mark T035 complete on slice acceptance when no gap was found; otherwise T035 stays open and the slice is blocked.
+- [X] T035 (commit: 3b8ee61) [US1] (no gap surfaced) **Contingency, non-blocking when no gap exists**: if T034 reveals a production-code gap (e.g. an `OpenValue` site rename does not reach), halt the slice, append a `WIP.md` note describing the gap, and surface to the orchestrator. **Do not silently patch S3's code in S4.** The orchestrator decides whether to redispatch S3 (per resolve-ticket — accepted slices are frozen; corrections are forward commits, not in-place restacks). Mark T035 complete on slice acceptance when no gap was found; otherwise T035 stays open and the slice is blocked.
 
 ### Acceptance for slice S4
 
-- [ ] T036 [US1] [US4] `./gate.sh` green. **Single commit** `feat(032): add Amaru treasury swap fixtures and shared-substrate golden` carrying `Tasks: T029, T030, T031, T032, T033, T034`.
+- [X] T036 (commit: 3b8ee61) [US1] [US4] `./gate.sh` green. **Single commit** `feat(032): add Amaru treasury swap fixtures and shared-substrate golden` carrying `Tasks: T029, T030, T031, T032, T033, T034`.
 
 ---
 

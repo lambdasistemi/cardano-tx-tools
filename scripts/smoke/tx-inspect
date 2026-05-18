@@ -31,6 +31,13 @@ collapse_rules="$fixture/collapse-only.yaml"
 collapse_golden="$fixture/inspect.collapse-only.txt"
 rename_rules="$fixture/rename-only.yaml"
 rename_golden="$fixture/inspect.rename-only.unresolved.txt"
+
+amaru_fixture="test/fixtures/amaru-treasury-swap"
+amaru_swap1="$amaru_fixture/swap-1.cbor.hex"
+amaru_swap2="$amaru_fixture/swap-2.cbor.hex"
+amaru_rules="rules/amaru-treasury.yaml"
+amaru_golden="$amaru_fixture/golden/swap-1.both.txt"
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -98,5 +105,42 @@ diff -u "$collapse_golden" "$tmp/inspect.collapse.out" \
 
 diff -u "$rename_golden" "$tmp/inspect.rename.out" \
   || fail "rename render output diverged from $rename_golden"
+
+# Assertion 7: load-bearing User-Story-1 golden — render the on-chain
+# Amaru treasury swap-1 fixture under the checked-in unified
+# rewriting-rules file rules/amaru-treasury.yaml and assert
+# byte-identical match against the captured golden. Covers
+# specs/032-tx-inspect tasks T029..T033 (S4 — Amaru fixtures + golden).
+[[ -e "$amaru_swap1" ]] || fail "missing Amaru swap-1 fixture: $amaru_swap1"
+[[ -e "$amaru_rules" ]] || fail "missing Amaru rules: $amaru_rules"
+
+"$exe" --rules "$amaru_rules" "$amaru_swap1" >"$tmp/inspect.amaru.out"
+
+[[ -e "$amaru_golden" ]] \
+  || fail "golden $amaru_golden missing; capture via 'cp $tmp/inspect.amaru.out $amaru_golden'"
+
+diff -u "$amaru_golden" "$tmp/inspect.amaru.out" \
+  || fail "Amaru both-stages render diverged from $amaru_golden"
+
+# Assertion 8: positive guard against raw renamed-identifier hashes
+# leaking into the rendered output. Covers FR-009 / FR-010 / SC-001.
+amaru_swap_v2_prefix=fa6a58bbe2d0ff05
+amaru_treasury_prefix=32201dc1e8270836
+if grep -q -F "$amaru_swap_v2_prefix" "$tmp/inspect.amaru.out"; then
+  fail "render leaked the Amaru swap.v2 raw hash prefix $amaru_swap_v2_prefix"
+fi
+# The treasury script hash legitimately appears inside Plutus.Data
+# datum bytes (S3-documented residual: rename does not reach
+# datum-embedded identifiers). The render top-level address /
+# script-hash sites — covered by FR-009 — must NOT carry it. Assert
+# the rendered address slots show the rename name.
+grep -F 'amaru-treasury.network_compliance.account' "$tmp/inspect.amaru.out" >/dev/null \
+  || fail "render missing amaru-treasury.network_compliance.account rename"
+grep -F 'amaru.swap-order' "$tmp/inspect.amaru.out" >/dev/null \
+  || fail "render missing amaru.swap-order rename"
+grep -F 'SwapOrder' "$tmp/inspect.amaru.out" >/dev/null \
+  || fail "render missing SwapOrder collapse view name"
+grep -F 'user.recipient' "$tmp/inspect.amaru.out" >/dev/null \
+  || fail "render missing user.recipient rename"
 
 printf 'tx-inspect smoke: OK\n'

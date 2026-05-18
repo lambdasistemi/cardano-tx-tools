@@ -35,11 +35,18 @@ smoke-inspect:
     cabal build exe:tx-inspect -O0 >/dev/null
     TX_INSPECT_EXE="$(cabal list-bin exe:tx-inspect -O0)" scripts/smoke/tx-inspect
 
+smoke-diff:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cabal build cardano-tx-tools:exe:tx-diff -O0 >/dev/null
+    TX_DIFF_EXE="$(cabal list-bin cardano-tx-tools:exe:tx-diff -O0)" scripts/smoke/tx-diff
+
 ci:
     just build
     just unit
     just smoke-sign
     just smoke-inspect
+    just smoke-diff
     cabal-fmt -c cardano-tx-tools.cabal
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec fourmolu -m check {} +
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec hlint {} +

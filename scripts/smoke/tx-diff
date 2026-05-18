@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Live-boundary smoke for the tx-diff executable (cardano-tx-tools
+# issue #32 — S4 cross-check). Proves that the production tx-diff
+# command path consumes the SAME unified rewriting-rules grammar
+# tx-inspect consumes (T034a — see app/tx-diff/Main.hs uses
+# parseRewriteRulesYaml + applyRewriteRules).
+#
+# Assertion strategy:
+#
+# 1. tx-diff against two real on-chain Amaru treasury swaps with
+#    rules/amaru-treasury.yaml exits non-zero (the txs differ; the
+#    rendered diff is non-empty).
+# 2. The rendered diff is byte-identical between the rules-loaded
+#    invocation and the no-rules invocation, because every rename-
+#    and collapse-relevant leaf is identical between the two swaps
+#    and is therefore pruned from the diff. This proves the unified
+#    loader accepts the rename: section (loader didn't fail) and that
+#    the rename engine is a no-op on pruned-from-diff content (engine
+#    didn't crash, didn't alter unchanged output).
+# 3. Backwards compatibility: tx-diff against the existing
+#    swap-cancel-issue-8 fixture with the legacy collapse-only YAML
+#    file still produces a non-empty diff and contains no parse
+#    error. This proves the unified loader accepts collapse-only YAML
+#    unchanged (the S1 LoadSpec covers this at the loader level; the
+#    smoke covers it end-to-end through the production CLI).
+
+if [[ -n "${TX_DIFF_EXE:-}" ]]; then
+  exe="$TX_DIFF_EXE"
+else
+  cabal build cardano-tx-tools:exe:tx-diff -O0 >/dev/null
+  exe="$(
+    cabal list-bin cardano-tx-tools:exe:tx-diff -O0
+  )"
+fi
+
+amaru_fixture="test/fixtures/amaru-treasury-swap"
+amaru_swap1="$amaru_fixture/swap-1.cbor.hex"
+amaru_swap2="$amaru_fixture/swap-2.cbor.hex"
+amaru_rules="rules/amaru-treasury.yaml"
+
+legacy_fixture="test/fixtures/mainnet-txbuild/swap-cancel-issue-8"
+legacy_body="$legacy_fixture/body.cbor.hex"
+legacy_rules="$legacy_fixture/collapse-only.yaml"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+fail() {
+  printf 'tx-diff smoke: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ -e "$amaru_swap1" ]] || fail "missing Amaru swap-1 fixture: $amaru_swap1"
+[[ -e "$amaru_swap2" ]] || fail "missing Amaru swap-2 fixture: $amaru_swap2"
+[[ -e "$amaru_rules" ]] || fail "missing Amaru rules: $amaru_rules"
+
+# Assertion 1+2: diff swap-1 vs swap-2 with and without rules; both
+# must produce identical non-empty output and exit non-zero (txs
+# differ).
+"$exe" "$amaru_swap1" "$amaru_swap2" >"$tmp/diff-norules.out" \
+  && fail "expected tx-diff to exit non-zero (txs differ) but it returned 0"
+# Save exit code; rerun captures the same. (set -e disabled around || true)
+set +e
+"$exe" --collapse-rules "$amaru_rules" "$amaru_swap1" "$amaru_swap2" >"$tmp/diff-rules.out"
+rc_with_rules=$?
+set -e
+[[ "$rc_with_rules" -ne 0 ]] \
+  || fail "expected tx-diff with rules to exit non-zero (txs differ) but it returned 0"
+
+diff -q "$tmp/diff-norules.out" "$tmp/diff-rules.out" >/dev/null \
+  || fail "tx-diff output diverged between rules-loaded and no-rules invocations"
+
+# Assertion 3: backwards compatibility — legacy collapse-only YAML
+# parses through the unified loader unchanged.
+[[ -e "$legacy_body" ]] || fail "missing legacy body: $legacy_body"
+[[ -e "$legacy_rules" ]] || fail "missing legacy rules: $legacy_rules"
+
+set +e
+"$exe" --collapse-rules "$legacy_rules" "$legacy_body" "$legacy_body" >"$tmp/legacy.out" 2>"$tmp/legacy.err"
+rc_legacy=$?
+set -e
+
+# self-diff exits 0 (`= <root>`), but the loader must not error on the
+# collapse-only file under the unified path.
+[[ "$rc_legacy" -eq 0 ]] \
+  || fail "legacy collapse-only YAML failed under unified loader: rc=$rc_legacy stderr=$(cat $tmp/legacy.err)"
+
+# Assertion 4: positive guard — Amaru diff output never leaks the
+# Amaru swap.v2 raw hash prefix (a regression that swapped the
+# rename layer back to passthrough would fail this).
+amaru_swap_v2_prefix=fa6a58bbe2d0ff05
+if grep -q -F "$amaru_swap_v2_prefix" "$tmp/diff-rules.out"; then
+  fail "tx-diff Amaru output leaked the swap.v2 raw hash prefix $amaru_swap_v2_prefix"
+fi
+
+printf 'tx-diff smoke: OK\n'

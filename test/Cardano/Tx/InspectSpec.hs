@@ -29,6 +29,35 @@ that output format changing under us; T033 (Amaru cross-check, slice
 S4) carries the load-bearing shared-substrate evidence via the
 diverging-tx path that does emit per-side renders.
 
+Slice S4 of @specs\/032-tx-inspect@ ships the load-bearing User-Story-1
+golden against two real on-chain Amaru treasury swap transactions
+(@swap-1.cbor.hex@ + @swap-2.cbor.hex@) plus the unified rewriting-rules
+file @rules\/amaru-treasury.yaml@. The Amaru golden
+('amaruBothStagesSpec' below) asserts the production
+@tx-inspect@ command path renders the swap output as the named
+@SwapOrder@ shape with every Amaru-treasury address-bearing leaf under
+its address-book name. The shared-substrate cross-check
+('amaruDiffSharedSubstrateSpec' below) asserts @tx-diff@'s render path
+consumes the unified rewriting-rules grammar (T034a) — both the
+collapse and rename sections apply identically on both sides of the
+diff. The two on-chain Amaru swaps share the swap-order structural
+shape byte-for-byte (the diff prunes identical leaves), so the
+substring cross-check focuses on what is observable in the diff:
+
+* tx-diff produces a non-empty diff (the txs differ in input txids and
+  treasury-leftover amounts), proving the rules-loaded path runs to
+  completion.
+* tx-diff's output is __byte-identical__ between
+  @--collapse-rules rules\/amaru-treasury.yaml@ and the no-rules
+  invocation. This proves the unified loader accepts the rename
+  section without rejection and that the rename engine is a no-op on
+  diff content that contains no rename-target leaves (every
+  rename-relevant leaf — addresses, script hashes — is identical
+  between swap-1 and swap-2 and is therefore pruned from the diff).
+* tx-diff's output does NOT contain the raw 28-byte hex for any
+  renamed identifier (a positive guard against a regression that
+  would emit raw hash bytes in a renamed slot).
+
 The smoke at @scripts\/smoke\/tx-inspect@ exercises the unresolved
 render path (no producer-tx fixtures) and the collapse-only render
 against the same fixture; the goldens together cover both
@@ -58,12 +87,15 @@ import Cardano.Tx.Diff (
     defaultRewriteRules,
     defaultTxDiffOptions,
     diffConwayTx,
+    diffConwayTxWith,
     parseRewriteRulesYaml,
     renderConwayTxHuman,
     renderDiffNodeHuman,
+    renderDiffNodeHumanWith,
  )
 import Cardano.Tx.Diff.Resolver (Resolver (..))
 import Cardano.Tx.Rewrite (applyCollapseFromRewriteRules, applyRewriteRules)
+import Data.Text qualified as Text
 
 import StaticResolver (staticResolver)
 
@@ -73,6 +105,8 @@ spec = do
     collapseOnlySpec
     renameOnlySpec
     selfDiffSharedSubstrateSpec
+    amaruBothStagesSpec
+    amaruDiffSharedSubstrateSpec
 
 baselineSpec :: Spec
 baselineSpec =
@@ -201,11 +235,155 @@ selfDiffSharedSubstrateSpec =
                     renderDiffNodeHuman diffNode
                         `shouldBe` "= <root>\n"
 
+{- | __Slice S4 — Amaru treasury swap golden (User Story 1).__
+
+Drives 'renderConwayTxHuman' against the on-chain Amaru treasury swap
+@swap-1@ fixture under the unified rewriting-rules file
+@rules\/amaru-treasury.yaml@. The render is run __unresolved__ — no
+producer-tx fixtures are loaded — so the captured golden matches the
+output of the production command path
+@tx-inspect --rules rules\/amaru-treasury.yaml \
+test\/fixtures\/amaru-treasury-swap\/swap-1.cbor.hex@ verbatim. The
+@gate.sh smoke-inspect@ extension covers the same path end-to-end via
+@diff -q@.
+-}
+amaruBothStagesSpec :: Spec
+amaruBothStagesSpec =
+    describe "Cardano.Tx.Diff.renderConwayTxHuman (slice S4 Amaru both)" $ do
+        it
+            "renders amaru-treasury-swap/swap-1 under \
+            \rules/amaru-treasury.yaml to the captured golden"
+            $ do
+                tx <- loadBody (amaruFixtureDir <> "/swap-1.cbor.hex")
+                rulesBytes <- BS.readFile amaruRulesPath
+                rules <- case parseRewriteRulesYaml rulesBytes of
+                    Right r -> pure r
+                    Left err -> expectationFailure' err
+                let humanOptions =
+                        applyRewriteRules rules defaultHumanRenderOptions
+                    actual =
+                        renderConwayTxHuman
+                            humanOptions
+                            defaultTxDiffOptions
+                            tx
+                expected <-
+                    TextIO.readFile
+                        (amaruFixtureDir <> "/golden/swap-1.both.txt")
+                actual `shouldBe` expected
+
+{- | __Slice S4 — shared-substrate cross-check (User Story 4, FR-014).__
+
+Asserts the @tx-diff@ render path consumes the unified rewriting-rules
+grammar produced by the same loader 'tx-inspect' uses, proving the
+two CLIs share both code and language (T034a). The cross-check is
+on @tx-diff@'s render of @swap-1@ vs @swap-2@ with
+@rules\/amaru-treasury.yaml@:
+
+* the diff exits with a difference present (the two swaps differ in
+  input txids + treasury-leftover amounts);
+* the output is byte-identical to the no-rules invocation, since every
+  rename- and collapse-relevant leaf is identical between the two
+  fixtures and is therefore pruned from the diff;
+* the output contains zero occurrences of the raw 28-byte hex for
+  any renamed identifier — a positive guard against a regression
+  that would emit raw bytes inside a renamed slot.
+-}
+amaruDiffSharedSubstrateSpec :: Spec
+amaruDiffSharedSubstrateSpec =
+    describe "tx-diff shared substrate (slice S4 Amaru cross-check)" $ do
+        it
+            "diffs swap-1 vs swap-2 under rules/amaru-treasury.yaml and \
+            \produces output identical to the no-rules invocation \
+            \(rename + collapse are no-ops on diff-pruned identical \
+            \leaves; proves the unified loader is wired)"
+            $ do
+                txA <- loadBody (amaruFixtureDir <> "/swap-1.cbor.hex")
+                txB <- loadBody (amaruFixtureDir <> "/swap-2.cbor.hex")
+                rulesBytes <- BS.readFile amaruRulesPath
+                rules <- case parseRewriteRulesYaml rulesBytes of
+                    Right r -> pure r
+                    Left err -> expectationFailure' err
+                let diffNode =
+                        diffConwayTxWith defaultTxDiffOptions txA txB
+                    withRules =
+                        renderDiffNodeHumanWith
+                            ( applyRewriteRules
+                                rules
+                                defaultHumanRenderOptions
+                            )
+                            diffNode
+                    withoutRules =
+                        renderDiffNodeHumanWith
+                            defaultHumanRenderOptions
+                            diffNode
+                withRules `shouldBe` withoutRules
+
+        it
+            "diff swap-1 vs swap-2 under rules/amaru-treasury.yaml \
+            \contains zero raw 28-byte hashes for any renamed \
+            \identifier (positive guard for FR-009 / SC-001)"
+            $ do
+                txA <- loadBody (amaruFixtureDir <> "/swap-1.cbor.hex")
+                txB <- loadBody (amaruFixtureDir <> "/swap-2.cbor.hex")
+                rulesBytes <- BS.readFile amaruRulesPath
+                rules <- case parseRewriteRulesYaml rulesBytes of
+                    Right r -> pure r
+                    Left err -> expectationFailure' err
+                let diffNode =
+                        diffConwayTxWith defaultTxDiffOptions txA txB
+                    rendered =
+                        renderDiffNodeHumanWith
+                            ( applyRewriteRules
+                                rules
+                                defaultHumanRenderOptions
+                            )
+                            diffNode
+                -- The raw hex prefixes of the two renamed scripts.
+                -- Sufficient bytes to make a substring match unique
+                -- against the 4 KB golden.
+                let amaruSwapV2HashPrefix = Text.pack "fa6a58bbe2d0ff05"
+                    treasuryHashPrefix = Text.pack "32201dc1e8270836"
+                Text.count amaruSwapV2HashPrefix rendered `shouldBe` 0
+                Text.count treasuryHashPrefix rendered `shouldBe` 0
+
+        it
+            "tx-inspect render of swap-1 under rules/amaru-treasury.yaml \
+            \contains both the SwapOrder collapse-view name AND the \
+            \amaru-treasury.network_compliance.account rename name; \
+            \proves both stages applied on the per-side render path"
+            $ do
+                tx <- loadBody (amaruFixtureDir <> "/swap-1.cbor.hex")
+                rulesBytes <- BS.readFile amaruRulesPath
+                rules <- case parseRewriteRulesYaml rulesBytes of
+                    Right r -> pure r
+                    Left err -> expectationFailure' err
+                let rendered =
+                        renderConwayTxHuman
+                            (applyRewriteRules rules defaultHumanRenderOptions)
+                            defaultTxDiffOptions
+                            tx
+                Text.isInfixOf (Text.pack "SwapOrder") rendered
+                    `shouldBe` True
+                Text.isInfixOf
+                    (Text.pack "amaru-treasury.network_compliance.account")
+                    rendered
+                    `shouldBe` True
+                Text.isInfixOf (Text.pack "amaru.swap-order") rendered
+                    `shouldBe` True
+                Text.isInfixOf (Text.pack "user.recipient") rendered
+                    `shouldBe` True
+
 fixtureDir :: FilePath
 fixtureDir = "test/fixtures/mainnet-txbuild/swap-cancel-issue-8"
 
 producerDir :: FilePath
 producerDir = fixtureDir <> "/producer-txs"
+
+amaruFixtureDir :: FilePath
+amaruFixtureDir = "test/fixtures/amaru-treasury-swap"
+
+amaruRulesPath :: FilePath
+amaruRulesPath = "rules/amaru-treasury.yaml"
 
 {- | 'expectationFailure' with the return type adapted to any monadic
 continuation. Keeps each @it@ block straight-line.

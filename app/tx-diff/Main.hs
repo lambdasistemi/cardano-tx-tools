@@ -9,6 +9,15 @@ local N2C or a Blockfrost-compatible web2 endpoint, prints the human
 renderer output, and exits with a non-zero status when differences are
 present.
 
+The @--rules@ flag accepts the unified rewriting-rules YAML
+documented in @specs\/032-tx-inspect\/contracts\/rules-yaml-grammar.md@.
+Both @collapse:@ (existing) and @rename:@ (new in slice S4 of
+@specs\/032-tx-inspect@) sections are honoured — the per-side
+projection feeds the shared substrate, so any rename or collapse rule
+that lands in @tx-inspect@ is automatically available here too. The
+loader is forward-compatible with collapse-only YAML files (legacy
+compat verified by @Cardano.Tx.Rewrite.LoadSpec@).
+
 @main@ is wrapped in 'GitHub.Release.Check.withCli' so every run prints
 the latest-release banner to stderr on exit (suppressed by the
 @TX_DIFF_NO_UPDATE_CHECK@ env var); @--version@ short-circuits via
@@ -29,14 +38,14 @@ import Cardano.Tx.Blueprint (
     parseBlueprintJSON,
  )
 import Cardano.Tx.Diff (
-    CollapseRules,
-    HumanRenderOptions (..),
+    RewriteRules,
     TxDiffOptions (..),
     decodeConwayTxInput,
+    defaultRewriteRules,
     defaultTxDiffOptions,
     diffConwayTxWith,
     diffNodeHasChanges,
-    parseCollapseRulesYaml,
+    parseRewriteRulesYaml,
     renderDiffNodeHumanWith,
  )
 import Cardano.Tx.Diff.Cli (
@@ -55,6 +64,7 @@ import Cardano.Tx.Diff.Resolver.Web2 (
     httpFetchTx,
     web2Resolver,
  )
+import Cardano.Tx.Rewrite (applyRewriteRules)
 import GitHub.Release.Check (
     CliBanner (..),
     RepoSlug (..),
@@ -118,7 +128,11 @@ banner =
 runDiff :: TxDiffCliOptions -> IO ()
 runDiff cliOptions = do
     blueprints <- traverse loadBlueprint (txDiffCliBlueprintPaths cliOptions)
-    collapseRules <- traverse loadCollapseRules (txDiffCliCollapseRulesPath cliOptions)
+    rewriteRules <-
+        maybe
+            (pure defaultRewriteRules)
+            loadRewriteRules
+            (txDiffCliCollapseRulesPath cliOptions)
     leftBytes <- BS.readFile (txDiffCliLeftPath cliOptions)
     rightBytes <- BS.readFile (txDiffCliRightPath cliOptions)
     leftTx <- decodeOrDie "left" leftBytes
@@ -146,9 +160,9 @@ runDiff cliOptions = do
         diff = diffConwayTxWith options leftTx rightTx
     TextIO.putStr $
         renderDiffNodeHumanWith
-            ( (txDiffCliHumanRenderOptions cliOptions)
-                { humanCollapseRules = collapseRules
-                }
+            ( applyRewriteRules
+                rewriteRules
+                (txDiffCliHumanRenderOptions cliOptions)
             )
             diff
     if diffNodeHasChanges diff
@@ -275,15 +289,27 @@ loadBlueprint blueprintPath = do
         Right blueprint ->
             pure blueprint
 
-loadCollapseRules :: FilePath -> IO CollapseRules
-loadCollapseRules collapseRulesPath = do
-    input <- BS.readFile collapseRulesPath
-    case parseCollapseRulesYaml input of
+{- | Load the unified rewriting-rules YAML the @--rules@ flag points at.
+
+The CLI flag name is preserved as @--rules@ for backwards compatibility
+(see 'Cardano.Tx.Diff.Cli.txDiffCliCollapseRulesPath'). The loader is
+the unified 'parseRewriteRulesYaml' — a legacy collapse-only YAML file
+(no @rename:@ section) parses through to a 'RewriteRules' value whose
+'rewriteRename' field is empty, which 'applyRewriteRules' then plumbs
+into 'HumanRenderOptions' as a no-op rename layer; the rendered output
+is byte-identical to the pre-S4 collapse-only behaviour. See
+@specs\/032-tx-inspect\/contracts\/rules-yaml-grammar.md@ for the
+grammar.
+-}
+loadRewriteRules :: FilePath -> IO RewriteRules
+loadRewriteRules rewriteRulesPath = do
+    input <- BS.readFile rewriteRulesPath
+    case parseRewriteRulesYaml input of
         Left err -> do
             hPutStrLn
                 stderr
-                ( "tx-diff: failed to decode collapse rules "
-                    <> collapseRulesPath
+                ( "tx-diff: failed to decode rewriting rules "
+                    <> rewriteRulesPath
                     <> ": "
                     <> err
                 )
