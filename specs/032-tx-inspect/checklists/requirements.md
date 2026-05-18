@@ -15,7 +15,7 @@
 ## Requirement Completeness
 
 - [x] No [NEEDS CLARIFICATION] markers remain
-  - *Status*: Four clarifications recorded under "Clarifications > Session 2026-05-18" in `spec.md` and applied to FR-004 (module name = `Cardano.Tx.Rewrite`), FR-007 (YAML shape = optional `collapse:` + `rename:` sections, plus legacy bare-list compatibility), FR-009 + Key Entities (`RenameRule` shape = `{ kind, key, name, match? }` with `match: full | payment`), and the Edge Cases section (payment-credential-only matching for base addresses with differing stake credentials).
+  - *Status*: Four clarifications recorded under "Clarifications > Session 2026-05-18" in `spec.md` and applied to FR-004 (module name = `Cardano.Tx.Rewrite`), FR-007 (YAML shape = the existing top-level `{ version?, views?, collapse? }` object extended with an additional optional `rename:` key — additive only; no "legacy bare-list" form ever existed, corrected after code inspection of `parseCollapseRulesYaml`), FR-009 + Key Entities (`RenameRule` shape = `{ kind, key, name, match? }` with `match: full | payment`), and the Edge Cases section (payment-credential-only matching for base addresses with differing stake credentials).
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
