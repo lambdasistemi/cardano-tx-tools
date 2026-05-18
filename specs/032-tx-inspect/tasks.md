@@ -213,19 +213,19 @@ No new production code in S4 — the production code is complete after S3. The s
 
 ### Subagent first-step open question
 
-- [ ] T043 Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` listing every `.github/workflows/*.yaml` + `release-please*` site that names any of `{tx-validate, tx-diff, tx-sign, cardano-tx-generator}`. Orchestrator confirms list completeness before edits.
+- [X] T043 (commit: e70de3f) Append a WIP.md entry at `/code/cardano-tx-tools-issue-32/WIP.md` listing every `.github/workflows/*.yaml` + `release-please*` site that names any of `{tx-validate, tx-diff, tx-sign, cardano-tx-generator}`. Orchestrator confirms list completeness before edits.
 
 ### RED
 
-- [ ] T044 Add the local in-repo grep gate to `/code/cardano-tx-tools-issue-32/gate.sh`: `! grep -L 'tx-inspect' .github/workflows/release*.yaml` (every release workflow that names tx-diff must also name tx-inspect). Fails until T045 lands.
+- [X] T044 (commit: e70de3f) Add the local in-repo grep gate to `/code/cardano-tx-tools-issue-32/gate.sh`: `! grep -L 'tx-inspect' .github/workflows/release*.yaml` (every release workflow that names tx-diff must also name tx-inspect). Fails until T045 lands.
 
 ### GREEN
 
-- [ ] T045 Edit every file from T043 to also name `tx-inspect`. Auto-discovery channels need no edit; record any such in the commit body as "no edit required for channel X — already auto-discovered via flake apps iteration".
+- [X] T045 (commit: e70de3f) Edit every file from T043 to also name `tx-inspect`. Auto-discovery channels need no edit; record any such in the commit body as "no edit required for channel X — already auto-discovered via flake apps iteration".
 
 ### Acceptance for slice S6
 
-- [ ] T046 `./gate.sh` green (including the grep gate). **Single commit** `chore(032): wire tx-inspect into the release pipeline` (no `Tasks:` trailer required — `chore:` is exempt). PR body gains an **Operator follow-up** section naming `paolino` as the owner of the post-merge release verification (`gh release view v<next> --json assets` must list `tx-inspect`).
+- [X] T046 (commit: e70de3f) `./gate.sh` green (including the grep gate). **Single commit** `chore(032): wire tx-inspect into the release pipeline` (no `Tasks:` trailer required — `chore:` is exempt). PR body gains an **Operator follow-up** section naming `paolino` as the owner of the post-merge release verification (`gh release view v<next> --json assets` must list `tx-inspect`).
 
 ---
 

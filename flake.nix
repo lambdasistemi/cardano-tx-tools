@@ -157,6 +157,23 @@
                   ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
             '';
           };
+          # tx-inspect performs HTTPS via github-release-check's
+          # withCli banner on every run (unless TX_INSPECT_NO_UPDATE_CHECK
+          # is set). Per the constitution Operational Constraint, the
+          # AppImage / DEB / RPM closures must carry a CA bundle so the
+          # banner doesn't crash on a fresh user host. Future
+          # --resolve-web2 work for tx-inspect (parallel to tx-diff)
+          # would benefit from the same wrapper.
+          txInspect = pkgs.symlinkJoin {
+            name = "tx-inspect";
+            paths = [ components.exes.tx-inspect ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              wrapProgram $out/bin/tx-inspect \
+                --set-default SSL_CERT_FILE \
+                  ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+            '';
+          };
           packageVersion =
             let
               versionLines =
@@ -320,6 +337,21 @@
                   package = txValidate;
                   bundlers = inputs.bundlers;
                 };
+              tx-inspect-linux-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  executableName = "tx-inspect";
+                  package = txInspect;
+                  bundlers = inputs.bundlers;
+                };
+              tx-inspect-linux-dev-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  artifactVersion = devArtifactVersion;
+                  executableName = "tx-inspect";
+                  package = txInspect;
+                  bundlers = inputs.bundlers;
+                };
               linux-artifact-smoke =
                 import ./nix/linux-artifact-smoke.nix {
                   inherit pkgs system;
@@ -348,7 +380,7 @@
           packages = {
             default = txDiff;
             tx-diff = txDiff;
-            tx-inspect = components.exes.tx-inspect;
+            tx-inspect = txInspect;
             tx-sign = components.exes.tx-sign;
             tx-validate = txValidate;
             cardano-tx-generator =
@@ -374,7 +406,7 @@
             };
             tx-inspect = {
               type = "app";
-              program = "${components.exes.tx-inspect}/bin/tx-inspect";
+              program = "${txInspect}/bin/tx-inspect";
             };
             cardano-tx-generator = {
               type = "app";

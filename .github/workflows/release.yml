@@ -67,6 +67,11 @@ jobs:
             dev-output: tx-sign-linux-dev-release-artifacts
             usage-grep: "Create or use an encrypted Cardano"
             dev-tag: dev-linux-tx-sign
+          - name: tx-inspect
+            release-output: tx-inspect-linux-release-artifacts
+            dev-output: tx-inspect-linux-dev-release-artifacts
+            usage-grep: "[--rules FILE]"
+            dev-tag: dev-linux-tx-inspect
     env:
       EXE: ${{ matrix.executable.name }}
       USAGE_GREP: ${{ matrix.executable.usage-grep }}
