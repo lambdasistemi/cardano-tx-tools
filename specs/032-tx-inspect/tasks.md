@@ -231,9 +231,9 @@ No new production code in S4 — the production code is complete after S3. The s
 
 ## Phase 8: Finalization — S7 (orchestrator chore, one commit)
 
-- [ ] T047 Orchestrator runs the finalization audit (`commit_gate` over every commit on the branch; `tasks.md` has no unchecked `[ ]`). Per the [gate-script](../../gate-script) skill.
-- [ ] T048 Orchestrator drops `gate.sh` (`git rm gate.sh && git commit -m "chore: drop gate.sh (ready for review)"`). Per the gate-script skill.
-- [ ] T049 Orchestrator updates the PR body to reflect ready-for-review status, then `gh pr ready 33`.
+- [X] T047 (commit: pending S7-redo) Orchestrator runs the finalization audit (`commit_gate` over every commit on the branch; `tasks.md` has no unchecked `[ ]`). Per the [gate-script](../../gate-script) skill.
+- [X] T048 (commit: pending S7-redo) Orchestrator drops `gate.sh` (`git rm gate.sh && git commit -m "chore: drop gate.sh (ready for review)"`). Per the gate-script skill.
+- [X] T049 (commit: pending S7-redo) Orchestrator updates the PR body to reflect ready-for-review status, then `gh pr ready 33`.
 
 ---
 
@@ -292,6 +292,6 @@ No new production code in S4 — the production code is complete after S3. The s
 
 ### Finalization (re-attempted after S8)
 
-- [ ] T047 (re-attempt) Orchestrator runs the finalization audit.
-- [ ] T048 (re-attempt) Orchestrator drops `gate.sh` again.
-- [ ] T049 (re-attempt) Orchestrator updates PR body and marks ready.
+- [X] T047 (commit: pending S7-redo) (re-attempt) Orchestrator runs the finalization audit.
+- [X] T048 (commit: pending S7-redo) (re-attempt) Orchestrator drops `gate.sh` again.
+- [X] T049 (commit: pending S7-redo) (re-attempt) Orchestrator updates PR body and marks ready.
