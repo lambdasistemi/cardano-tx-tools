@@ -44,6 +44,7 @@ module Cardano.Tx.Graph.Rules.Load (
 import Cardano.Tx.Graph.Rules.Load.Emit.Overlay (emitOverlay)
 import Cardano.Tx.Graph.Rules.Load.Parse.Turtle (parseRulesTurtleText)
 import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (parseRulesYamlText)
+import Cardano.Tx.Graph.Rules.Load.Resolve.Imports (resolveImports)
 import Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
     EntityIdentifier (..),
@@ -52,7 +53,6 @@ import Cardano.Tx.Graph.Rules.Load.Types (
  )
 
 import Data.ByteString (ByteString)
-import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as Text
 import System.FilePath (takeBaseName, takeDirectory, takeExtension)
@@ -99,43 +99,31 @@ requirement, spec SC-005).
 -}
 loadRulesFile :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
 loadRulesFile path = case takeExtension path of
-    ".ttl" -> loadTurtle path
-    ".yaml" -> loadYaml path
-    ".yml" -> loadYaml path
+    ".ttl" -> loadWithResolver path
+    ".yaml" -> loadWithResolver path
+    ".yml" -> loadWithResolver path
     _ -> pure (Left (UnsupportedExtension path))
 
-{- | Helper for the @.yaml@/@.yml@ dispatch: read the file from disk,
-parse via 'parseRulesYamlText', serialize via 'emitOverlay', and wrap
-the bytes in 'RulesLoadResult'. The fixture-slug for the default IRI
-prefix is the basename of the parent directory (e.g.
-@.../02-alice-bob-ada/rules.yaml@ → @02-alice-bob-ada@).
--}
-loadYaml :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
-loadYaml path = do
-    blob <- BS.readFile path
-    pure $ case parseRulesYamlText blob of
-        Left err -> Left err
-        Right entities ->
-            let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))
-                bytes = emitOverlay fixtureSlug entities
-             in Right
-                    RulesLoadResult
-                        { rulesOverlayTurtle = bytes
-                        , rulesWarnings = []
-                        }
+{- | The shared @.yaml@/@.yml@/@.ttl@ dispatch: drive the imports
+resolver over the top-level file, then serialize the flattened
+@['EntityDecl']@ via 'emitOverlay'. The fixture-slug for the default
+IRI prefix is the basename of the parent directory (e.g.
+@.../02-alice-bob-ada/rules.yaml@ → @02-alice-bob-ada@). Both the
+YAML and Turtle authoring paths funnel through the same resolver
+(T007), so composed import graphs work uniformly across formats.
 
-{- | Helper for the @.ttl@ dispatch: read the file from disk, parse via
-'parseRulesTurtleText', re-emit through the shared serializer, and
-wrap the bytes in 'RulesLoadResult'. The Turtle parser discards the
-operator-chosen blank-node names; the serializer then assigns them
-via the deterministic 'Cardano.Tx.Graph.Rules.Load.Naming' algorithm
-so the YAML and Turtle authoring paths produce byte-equal output
-(spec SC-005).
+Single-file inputs (no @owl:imports@ / @imports:@) round-trip
+identically to the pre-T007 surface — the resolver's DFS terminates
+after one node and emits its entities verbatim.
+
+The two re-exports 'parseRulesYamlText' and 'parseRulesTurtleText'
+remain available for callers that only want the in-memory entity
+shape without filesystem effects (no resolver pass).
 -}
-loadTurtle :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
-loadTurtle path = do
-    blob <- BS.readFile path
-    pure $ case parseRulesTurtleText blob of
+loadWithResolver :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
+loadWithResolver path = do
+    eEntities <- resolveImports path
+    pure $ case eEntities of
         Left err -> Left err
         Right entities ->
             let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))

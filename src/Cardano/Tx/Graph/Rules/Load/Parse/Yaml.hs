@@ -42,6 +42,7 @@ are stylistically ambiguous — see spec edge cases.)
 -}
 module Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
     parseRulesYamlText,
+    parseRulesYamlImports,
     slugify,
 ) where
 
@@ -95,7 +96,22 @@ Any structural failure (invalid YAML, non-string name, malformed
 bech32, bad hex) surfaces as a 'RulesLoadError' via 'Left'.
 -}
 parseRulesYamlText :: ByteString -> Either RulesLoadError [EntityDecl]
-parseRulesYamlText blob =
+parseRulesYamlText = fmap snd . parseRulesYamlImports
+
+{- | Parse a @rules.yaml@ byte blob into both the raw @imports:@ list
+(in source order) and the in-memory entity list. Used by the imports
+resolver in T007 (see
+"Cardano.Tx.Graph.Rules.Load.Resolve.Imports") so a single parse pass
+produces both the dependency edges and the entities the DFS resolver
+flattens.
+
+Returns @Right ([], [])@ for an empty document. Each element of the
+returned import list is the raw operator-authored string — the
+resolver applies its own absolute/HTTPS/missing-file checks.
+-}
+parseRulesYamlImports ::
+    ByteString -> Either RulesLoadError ([Text], [EntityDecl])
+parseRulesYamlImports blob =
     case Yaml.decodeEither' blob of
         Left err ->
             Left $
@@ -105,10 +121,11 @@ parseRulesYamlText blob =
                     (Text.pack ("YAML decode failed: " <> show err))
         Right val -> walkTop val
 
-walkTop :: Aeson.Value -> Either RulesLoadError [EntityDecl]
+walkTop :: Aeson.Value -> Either RulesLoadError ([Text], [EntityDecl])
 walkTop = \case
-    Aeson.Null -> Right []
+    Aeson.Null -> Right ([], [])
     Aeson.Object obj -> do
+        imports <- parseImportsKey obj
         entities <- case KeyMap.lookup (Key.fromText "entities") obj of
             Nothing -> Right []
             Just Aeson.Null -> Right []
@@ -130,13 +147,47 @@ walkTop = \case
         -- @collapse:@ is silently accepted (typed-list shape only;
         -- triples are emitted by #51, not the overlay serializer).
         validateCollapse obj
-        Right entities
+        Right (imports, entities)
     other ->
         Left $
             ParserError
                 inMemoryFile
                 inMemoryLine
                 ("top-level YAML must be an object, got: " <> typeName other)
+
+{- | Walk the top-level @imports:@ value (a list of relative file paths).
+Returns @[]@ when the key is absent or null; surfaces a
+'ParserError' for a non-list shape or a non-string entry. The
+resolver applies its own absolute / HTTPS / missing-file checks
+against the strings returned here.
+-}
+parseImportsKey ::
+    KeyMap.KeyMap Aeson.Value -> Either RulesLoadError [Text]
+parseImportsKey obj = case KeyMap.lookup (Key.fromText "imports") obj of
+    Nothing -> Right []
+    Just Aeson.Null -> Right []
+    Just (Aeson.Array arr) ->
+        traverse parseImportEntry (foldr (:) [] arr)
+    Just other ->
+        Left $
+            ParserError
+                inMemoryFile
+                inMemoryLine
+                ( "imports: must be a list of relative paths, got: "
+                    <> typeName other
+                )
+
+parseImportEntry :: Aeson.Value -> Either RulesLoadError Text
+parseImportEntry = \case
+    Aeson.String t -> Right t
+    other ->
+        Left $
+            ParserError
+                inMemoryFile
+                inMemoryLine
+                ( "imports[]: entry must be a string path, got: "
+                    <> typeName other
+                )
 
 {- | Walk the top-level @blueprints:@ value (a list of objects) and
 verify every @script: \<name\>@ field names an entity in @entities@

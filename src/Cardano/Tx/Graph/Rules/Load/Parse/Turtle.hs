@@ -53,6 +53,7 @@ normalized to the canonical form.
 -}
 module Cardano.Tx.Graph.Rules.Load.Parse.Turtle (
     parseRulesTurtleText,
+    parseRulesTurtleImports,
 ) where
 
 import Cardano.Tx.Graph.Rules.Load.Types (
@@ -105,11 +106,55 @@ Out-of-scope Turtle constructs and any structural failure surface
 as 'RulesLoadError' via 'Left'.
 -}
 parseRulesTurtleText :: ByteString -> Either RulesLoadError [EntityDecl]
-parseRulesTurtleText blob = do
+parseRulesTurtleText = fmap snd . parseRulesTurtleImports
+
+{- | Parse a @rules.ttl@ byte blob into both the @owl:imports@ targets
+(in source order) and the in-memory entity list. Used by the imports
+resolver in T007 (see
+"Cardano.Tx.Graph.Rules.Load.Resolve.Imports") so a single parse
+pass produces both the dependency edges and the entities the DFS
+resolver flattens.
+
+Returns @Right ([], [])@ for an empty document. Each element of the
+returned import list is the raw operator-authored IRI body (without
+the angle brackets) — the resolver applies its own absolute / HTTPS
+/ missing-file checks.
+
+@owl:imports@ triples whose object is a prefixed name rather than a
+full IRI reference are rejected with a 'ParserError' (the canonical
+authoring form uses @\<relative-path.ttl\>@).
+-}
+parseRulesTurtleImports ::
+    ByteString -> Either RulesLoadError ([Text], [EntityDecl])
+parseRulesTurtleImports blob = do
     let txt = TextEncoding.decodeUtf8With lenientDecode blob
     tokens <- lexTurtle txt
     parsed <- parseDocument tokens
-    reshapeEntities parsed
+    imports <- extractOwlImports (pdTriples parsed)
+    entities <- reshapeEntities parsed
+    pure (imports, entities)
+
+{- | Walk the parsed triple list and extract every @owl:imports@
+object as an IRI body. The resolver applies its own absolute /
+HTTPS / missing-file checks against the strings returned here.
+-}
+extractOwlImports :: [Triple] -> Either RulesLoadError [Text]
+extractOwlImports = traverse step . filter isOwlImports
+  where
+    isOwlImports (Triple _ p _) = case p of
+        PredPrefixed "owl" "imports" -> True
+        _ -> False
+    step (Triple _ _ obj) = case obj of
+        ObjIri iri -> Right iri
+        other ->
+            Left $
+                ParserError
+                    inMemoryFile
+                    inMemoryLine
+                    ( "owl:imports target must be an IRI reference"
+                        <> " <relative-path.ttl>; got: "
+                        <> Text.pack (show other)
+                    )
 
 ----------------------------------------------------------------------
 -- Token stream

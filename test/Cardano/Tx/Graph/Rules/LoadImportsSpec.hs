@@ -1,0 +1,310 @@
+{- |
+Module      : Cardano.Tx.Graph.Rules.LoadImportsSpec
+Description : T007 unit tests for the @owl:imports@ / @imports:@ DFS resolver.
+License     : Apache-2.0
+
+Covers the cross-file composition surface (spec FR-007, FR-017, US3):
+
+* parent imports child (Turtle/Turtle, YAML/YAML);
+* mixed-format imports (YAML imports Turtle, Turtle imports YAML);
+* diamond imports — the shared leaf file is loaded once;
+* transitive (chained) imports — entities flow from leaf to root;
+* 'MissingImport' on a dangling relative reference;
+* 'AbsoluteImport' on an absolute path (filesystem or @file://@ URI);
+* 'HttpsImport' on an HTTPS @owl:imports@ target (default-offline,
+  analyzer N4 + FR-017).
+
+Each test authors its file graph in a fresh temp directory using
+'System.IO.Temp.withSystemTempDirectory' and exercises the public
+'loadRulesFile' surface end-to-end. The assertions are on the
+serialized overlay byte stream (via 'BS.isInfixOf' substring checks)
+rather than the @['EntityDecl']@ AST so the test catches both the
+parser-level recognition of the imports surface and the resolver's
+DFS flattening.
+
+Cycle detection is **deferred to T008** — every graph in this spec is
+a DAG.
+-}
+module Cardano.Tx.Graph.Rules.LoadImportsSpec (spec) where
+
+import Cardano.Tx.Graph.Rules.Load (
+    RulesLoadError (..),
+    RulesLoadResult (..),
+    loadRulesFile,
+ )
+
+import Data.ByteString (ByteString)
+import Data.ByteString qualified as BS
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
+import Test.Hspec (
+    Spec,
+    describe,
+    expectationFailure,
+    it,
+    shouldBe,
+ )
+
+spec :: Spec
+spec = describe "Cardano.Tx.Graph.Rules.Load owl:imports composition (T007)" $ do
+    describe "happy path" $ do
+        it "Turtle imports Turtle — child entity reaches parent overlay" $ do
+            withSystemTempDirectory "tx-48-imports-ttl-ttl" $ \dir -> do
+                let parentPath = dir </> "parent.ttl"
+                    childPath = dir </> "child.ttl"
+                BS.writeFile childPath (ttlEntity "child_a" "PaymentScript" hexA)
+                BS.writeFile parentPath $
+                    ttlHeader
+                        <> "<> owl:imports <child.ttl> .\n\n"
+                        <> ttlEntityBody "parent_a" "PaymentScript" hexB
+                overlay <- loadOverlay parentPath
+                assertByteSubstring overlay ":child_a a cardano:Entity"
+                assertByteSubstring overlay ":parent_a a cardano:Entity"
+
+        it "YAML imports YAML — child entity reaches parent overlay" $ do
+            withSystemTempDirectory "tx-48-imports-yaml-yaml" $ \dir -> do
+                let parentPath = dir </> "parent.yaml"
+                    childPath = dir </> "child.yaml"
+                BS.writeFile childPath (yamlOne "child_a" hexA)
+                BS.writeFile parentPath $
+                    "imports:\n  - child.yaml\n"
+                        <> yamlOne "parent_a" hexB
+                overlay <- loadOverlay parentPath
+                assertByteSubstring overlay ":child_a a cardano:Entity"
+                assertByteSubstring overlay ":parent_a a cardano:Entity"
+
+        it "YAML imports Turtle — mixed format" $ do
+            withSystemTempDirectory "tx-48-imports-yaml-ttl" $ \dir -> do
+                let parentPath = dir </> "parent.yaml"
+                    childPath = dir </> "child.ttl"
+                BS.writeFile childPath (ttlEntity "child_a" "PaymentScript" hexA)
+                BS.writeFile parentPath $
+                    "imports:\n  - child.ttl\n"
+                        <> yamlOne "parent_a" hexB
+                overlay <- loadOverlay parentPath
+                assertByteSubstring overlay ":child_a a cardano:Entity"
+                assertByteSubstring overlay ":parent_a a cardano:Entity"
+
+        it "Turtle imports YAML — mixed format" $ do
+            withSystemTempDirectory "tx-48-imports-ttl-yaml" $ \dir -> do
+                let parentPath = dir </> "parent.ttl"
+                    childPath = dir </> "child.yaml"
+                BS.writeFile childPath (yamlOne "child_a" hexA)
+                BS.writeFile parentPath $
+                    ttlHeader
+                        <> "<> owl:imports <child.yaml> .\n\n"
+                        <> ttlEntityBody "parent_a" "PaymentScript" hexB
+                overlay <- loadOverlay parentPath
+                assertByteSubstring overlay ":child_a a cardano:Entity"
+                assertByteSubstring overlay ":parent_a a cardano:Entity"
+
+        it
+            ( "diamond — parent imports A and B; A and B import C;"
+                <> " C's entity appears in overlay exactly once"
+            )
+            $ do
+                withSystemTempDirectory "tx-48-imports-diamond" $ \dir -> do
+                    let parentPath = dir </> "parent.yaml"
+                        aPath = dir </> "a.yaml"
+                        bPath = dir </> "b.yaml"
+                        cPath = dir </> "c.yaml"
+                    BS.writeFile cPath (yamlOne "leaf_c" hexA)
+                    BS.writeFile aPath $
+                        "imports:\n  - c.yaml\n"
+                            <> yamlOne "side_a" hexB
+                    BS.writeFile bPath $
+                        "imports:\n  - c.yaml\n"
+                            <> yamlOne "side_b" hexC
+                    BS.writeFile parentPath $
+                        "imports:\n  - a.yaml\n  - b.yaml\n"
+                            <> yamlOne "root_p" hexD
+                    overlay <- loadOverlay parentPath
+                    -- All four entities reach the overlay.
+                    assertByteSubstring overlay ":leaf_c a cardano:Entity"
+                    assertByteSubstring overlay ":side_a a cardano:Entity"
+                    assertByteSubstring overlay ":side_b a cardano:Entity"
+                    assertByteSubstring overlay ":root_p a cardano:Entity"
+                    -- The shared leaf entity block appears exactly once.
+                    byteOccurrences overlay ":leaf_c a cardano:Entity"
+                        `shouldBe` 1
+
+        it "transitive — parent → A → B → C; C's entity reaches parent" $ do
+            withSystemTempDirectory "tx-48-imports-transitive" $ \dir -> do
+                let parentPath = dir </> "parent.yaml"
+                    aPath = dir </> "a.yaml"
+                    bPath = dir </> "b.yaml"
+                    cPath = dir </> "c.yaml"
+                BS.writeFile cPath (yamlOne "deep_c" hexA)
+                BS.writeFile bPath $
+                    "imports:\n  - c.yaml\n"
+                        <> yamlOne "mid_b" hexB
+                BS.writeFile aPath $
+                    "imports:\n  - b.yaml\n"
+                        <> yamlOne "near_a" hexC
+                BS.writeFile parentPath $
+                    "imports:\n  - a.yaml\n"
+                        <> yamlOne "root_p" hexD
+                overlay <- loadOverlay parentPath
+                assertByteSubstring overlay ":deep_c a cardano:Entity"
+                assertByteSubstring overlay ":mid_b a cardano:Entity"
+                assertByteSubstring overlay ":near_a a cardano:Entity"
+                assertByteSubstring overlay ":root_p a cardano:Entity"
+
+    describe "structured errors" $ do
+        it "MissingImport — parent imports a non-existent file" $ do
+            withSystemTempDirectory "tx-48-imports-missing" $ \dir -> do
+                let parentPath = dir </> "parent.yaml"
+                    missingPath = dir </> "absent.yaml"
+                BS.writeFile parentPath $
+                    "imports:\n  - absent.yaml\n"
+                        <> yamlOne "parent_a" hexA
+                result <- loadRulesFile parentPath
+                case result of
+                    Left (MissingImport importer imported) -> do
+                        importer `shouldBe` parentPath
+                        imported `shouldBe` missingPath
+                    other ->
+                        expectationFailure $
+                            "expected MissingImport, got: " <> show other
+
+        it "AbsoluteImport — YAML imports an absolute filesystem path" $ do
+            withSystemTempDirectory "tx-48-imports-abs-yaml" $ \dir -> do
+                let parentPath = dir </> "parent.yaml"
+                BS.writeFile parentPath $
+                    "imports:\n  - /abs/foo.yaml\n"
+                        <> yamlOne "parent_a" hexA
+                result <- loadRulesFile parentPath
+                case result of
+                    Left (AbsoluteImport importer imported) -> do
+                        importer `shouldBe` parentPath
+                        imported `shouldBe` "/abs/foo.yaml"
+                    other ->
+                        expectationFailure $
+                            "expected AbsoluteImport, got: " <> show other
+
+        it "AbsoluteImport — Turtle imports a file:/// URI" $ do
+            withSystemTempDirectory "tx-48-imports-abs-ttl" $ \dir -> do
+                let parentPath = dir </> "parent.ttl"
+                BS.writeFile parentPath $
+                    ttlHeader
+                        <> "<> owl:imports <file:///abs.ttl> .\n\n"
+                        <> ttlEntityBody "parent_a" "PaymentScript" hexA
+                result <- loadRulesFile parentPath
+                case result of
+                    Left (AbsoluteImport importer imported) -> do
+                        importer `shouldBe` parentPath
+                        imported `shouldBe` "file:///abs.ttl"
+                    other ->
+                        expectationFailure $
+                            "expected AbsoluteImport, got: " <> show other
+
+        it
+            ( "HttpsImport — Turtle's owl:imports <https://...>"
+                <> " is rejected (default-offline, FR-017)"
+            )
+            $ do
+                withSystemTempDirectory "tx-48-imports-https" $ \dir -> do
+                    let parentPath = dir </> "parent.ttl"
+                    BS.writeFile parentPath $
+                        ttlHeader
+                            <> "<> owl:imports <https://example.org/x.ttl> .\n\n"
+                            <> ttlEntityBody "parent_a" "PaymentScript" hexA
+                    result <- loadRulesFile parentPath
+                    case result of
+                        Left (HttpsImport importer imported) -> do
+                            importer `shouldBe` parentPath
+                            imported `shouldBe` "https://example.org/x.ttl"
+                        other ->
+                            expectationFailure $
+                                "expected HttpsImport, got: " <> show other
+
+----------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------
+
+{- | Drive 'loadRulesFile' over an absolute file path, returning the
+emitted overlay bytes or failing the spec on Left.
+-}
+loadOverlay :: FilePath -> IO ByteString
+loadOverlay path = do
+    result <- loadRulesFile path
+    case result of
+        Right RulesLoadResult{rulesOverlayTurtle = bs} -> pure bs
+        Left err ->
+            fail $
+                "loadOverlay: loadRulesFile " <> path <> " failed: " <> show err
+
+{- | The canonical Turtle prefix preamble used by every Turtle fixture in
+this spec. Matches the byte shape the YAML/Turtle parsers expect.
+-}
+ttlHeader :: ByteString
+ttlHeader =
+    "@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .\n\
+    \@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .\n\
+    \@prefix owl:     <http://www.w3.org/2002/07/owl#> .\n\
+    \@prefix :        <https://example.com/x#> .\n\
+    \\n"
+
+-- | A complete Turtle blob with header + one entity block.
+ttlEntity :: ByteString -> ByteString -> ByteString -> ByteString
+ttlEntity slug leafType hex = ttlHeader <> ttlEntityBody slug leafType hex
+
+{- | Just the entity + identifier blocks for a single Turtle entity,
+without the prefix header — composed onto an existing @ttlHeader@
+when the parent file also carries an @owl:imports@ triple.
+-}
+ttlEntityBody :: ByteString -> ByteString -> ByteString -> ByteString
+ttlEntityBody slug leafType hex =
+    ":"
+        <> slug
+        <> " a cardano:Entity ;\n  rdfs:label \""
+        <> slug
+        <> "\" ;\n  cardano:hasIdentifier _:"
+        <> slug
+        <> "_id .\n\n_:"
+        <> slug
+        <> "_id a cardano:Identifier ;\n  cardano:leafType \""
+        <> leafType
+        <> "\" ;\n  cardano:bytesHex \""
+        <> hex
+        <> "\" .\n"
+
+-- | A complete YAML blob declaring one PaymentScript entity.
+yamlOne :: ByteString -> ByteString -> ByteString
+yamlOne slug hex =
+    "entities:\n  - name: "
+        <> slug
+        <> "\n    script: "
+        <> hex
+        <> "\n"
+
+{- | Four distinct 28-byte hex blobs the tests author into entity files.
+Each starts with an alphabetic nibble so YAML decodes the value as a
+string, not as a number.
+-}
+hexA, hexB, hexC, hexD :: ByteString
+hexA = "aa11111111111111111111111111111111111111111111111111111a"
+hexB = "bb22222222222222222222222222222222222222222222222222222b"
+hexC = "cc33333333333333333333333333333333333333333333333333333c"
+hexD = "dd44444444444444444444444444444444444444444444444444444d"
+
+-- | Assert that @needle@ appears at least once inside @haystack@.
+assertByteSubstring :: ByteString -> ByteString -> IO ()
+assertByteSubstring haystack needle =
+    if needle `BS.isInfixOf` haystack
+        then pure ()
+        else
+            expectationFailure $
+                "expected substring not found in overlay bytes: "
+                    <> show needle
+
+-- | Count occurrences of @needle@ inside @haystack@.
+byteOccurrences :: ByteString -> ByteString -> Int
+byteOccurrences haystack needle
+    | BS.null needle = 0
+    | otherwise = go 0 haystack
+  where
+    go n hs = case BS.breakSubstring needle hs of
+        (_, rest)
+            | BS.null rest -> n
+            | otherwise -> go (n + 1) (BS.drop (BS.length needle) rest)
