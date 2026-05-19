@@ -1,0 +1,93 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/02-alice-bob-ada#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:alice a cardano:Entity ;
+  rdfs:label "alice" ;
+  cardano:hasIdentifier _:aliceIdPayment ;
+  cardano:hasIdentifier _:aliceIdStake .
+
+_:aliceIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "601f58e4436698104adbbda7bc9d8f3f10e9e49652f9799d6c63aeda" .
+
+_:aliceIdStake a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "80226c84b26fe1a280649d819757ff2ffaec51adca5a3780356c05bf" .
+
+:bob a cardano:Entity ;
+  rdfs:label "bob" ;
+  cardano:hasIdentifier _:bobIdPayment ;
+  cardano:hasIdentifier _:bobIdStake .
+
+_:bobIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "2841f2c629212003be2c87fd02c0ff91fb81d8993129036d758ba548" .
+
+_:bobIdStake a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "e54e05afe3cb96ad42650e389b397b1722f0918ca977f239fd595a14" .
+
+#
+# Transaction body.
+#
+
+_:tx a cardano:Transaction ;
+  cardano:hasInput _:input1 ;
+  cardano:hasOutput _:output1 ;
+  cardano:hasOutput _:output2 ;
+  cardano:hasFee 175000 .
+
+#
+# Input — alice's 100 ADA UTxO.
+#
+
+_:input1 a cardano:Input ;
+  cardano:resolvedTo _:resolvedInput1 .
+
+_:resolvedInput1 a cardano:Output ;
+  cardano:atAddress _:aliceAddr .
+
+#
+# Output 1 — 10 ADA to bob.
+#
+
+_:output1 a cardano:Output ;
+  cardano:atAddress _:bobAddr .
+
+#
+# Output 2 — 89.825 ADA change to alice.
+#
+
+_:output2 a cardano:Output ;
+  cardano:atAddress _:aliceAddr .
+
+#
+# Address decompositions — payment + stake credential per leaf.
+#
+
+_:aliceAddr a cardano:Address ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
+  cardano:hasPaymentCredential _:aliceCredPayment ;
+  cardano:hasStakeCredential _:aliceCredStake .
+
+_:aliceCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:aliceIdPayment .
+
+_:aliceCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:aliceIdStake .
+
+_:bobAddr a cardano:Address ;
+  cardano:bech32 "addr1q8r2k7yj4vkkznhcdrqz4qa3acsyxh8mxd8shx6yh4t7rgt8s8u04hgw95dx9j4uqe6flf3v3qcgyc60v3y6h4hpvy7s9j2q5g" ;
+  cardano:hasPaymentCredential _:bobCredPayment ;
+  cardano:hasStakeCredential _:bobCredStake .
+
+_:bobCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:bobIdPayment .
+
+_:bobCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:bobIdStake .

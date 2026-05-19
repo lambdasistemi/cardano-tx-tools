@@ -72,7 +72,8 @@ module Fixtures.RewriteRedesign.Helpers (
     assertShape,
 ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
+import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Short qualified as SBS
 import Data.Default (def)
@@ -142,6 +143,8 @@ import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
 import Cardano.Tx.Build (TxBuild, draft)
 import Cardano.Tx.Ledger (ConwayTx)
+
+import Fixtures.RewriteRedesign.TurtleShim (isWellFormedTurtle)
 
 -- ---------------------------------------------------------------------------
 -- Identifiers
@@ -469,7 +472,9 @@ Checks, in order:
 * @rules.yaml@ and @expected.txt@ — must exist on disk; skipped for
   'StoryId' @"smoke"@ (see module header),
 * @expected.ttl@ — only checked when the file is present (B-side
-  contract); never fails on absence.
+  contract); never fails on absence. When present, the file is read
+  and passed to 'isWellFormedTurtle' to confirm it is syntactically
+  Turtle and pins the kmaps#53 Phase A @cardano:@ namespace IRI.
 -}
 assertShape ::
     ConwayTx ->
@@ -499,6 +504,10 @@ assertShape tx ExpectedShape{..} FixturePaths{..} = do
         rulesPresent `shouldBe` True
         expectedPresent <- doesFileExist fpExpectedTxt
         expectedPresent `shouldBe` True
+    ttlPresent <- doesFileExist fpExpectedTtl
+    when ttlPresent $ do
+        bs <- BS.readFile fpExpectedTtl
+        isWellFormedTurtle bs `shouldBe` Right ()
   where
     isSmoke :: StoryId -> Bool
     isSmoke (StoryId t) = t == "smoke"
