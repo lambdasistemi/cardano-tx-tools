@@ -390,8 +390,10 @@ carries `Tasks: T###`.
 
 ## Phase 4 — Imports composition (US3, US4)
 
-- [ ] **T007** *(type=feat, US3)* — `owl:imports` (Turtle) +
-  `imports:` (YAML) + DFS resolver + diamond.
+- [X] **T007** *(type=feat, US3)* — `owl:imports` (Turtle) +
+  `imports:` (YAML) + DFS resolver + diamond. Cycle detection
+  explicitly deferred to T008. 10-test matrix (turtle/yaml/mixed/diamond/
+  transitive/missing/absolute/file/https). 215 unit examples.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load/Resolve/Imports.hs` (new)

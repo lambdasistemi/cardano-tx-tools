@@ -118,4 +118,22 @@ data RulesLoadError
       -- has no 'PaymentScript' identifier). The 'Text' payload is the
       -- offending entity name.
       BlueprintRefsUnknownScript !FilePath !Int !Text
+    | -- | An @owl:imports@ / @imports:@ entry references a file the
+      -- resolver could not stat. The first 'FilePath' is the importer
+      -- (the file containing the bad reference); the second is the
+      -- resolved-relative path the resolver attempted to load.
+      MissingImport !FilePath !FilePath
+    | -- | An @owl:imports@ / @imports:@ entry is an absolute filesystem
+      -- path or a @file://@ URI. The constitution's
+      -- Default-Offline / Filesystem-Only Imports rule forbids
+      -- absolute imports: every relative path is resolved against
+      -- the importer's directory, so the loader stays within the
+      -- worktree by construction. The 'Text' payload is the raw
+      -- import string the operator authored.
+      AbsoluteImport !FilePath !Text
+    | -- | An @owl:imports@ entry targets an @http://@ or @https://@
+      -- IRI. The loader is default-offline (FR-017 / analyzer N4)
+      -- and never fetches network resources. The 'Text' payload is
+      -- the raw URI.
+      HttpsImport !FilePath !Text
     deriving stock (Eq, Show)
