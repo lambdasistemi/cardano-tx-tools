@@ -1,0 +1,183 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/08-contingency-disburse#> .
+
+#
+# Operator-declared entities (from rules.yaml). user-wallet reuses the
+# same 28-byte payment / stake key hashes as alice in 02-alice-bob-ada
+# (entity IRI renamed; identifier bytes unchanged); recipient reuses the
+# same 28-byte payment / stake key hashes as bob there. The third entity,
+# amaru-treasury.contingency.account, is a script-style base address —
+# both the payment and stake credentials are script hashes — paralleling
+# the amaru-treasury.network_compliance precedent in T017
+# (05-withdrawal-script-stake). The two script-hash leaves surface as two
+# distinct Identifier instances with leafType "PaymentScript" /
+# "StakeScript"; in this particular address the on-chain payment-side
+# and stake-side script-hashes are the same 28-byte value, so both
+# Identifier instances carry an identical bytesHex but distinct
+# leafTypes — matching the kmaps#53 (leafType, bytesHex) key. The dots
+# in the entity name are rewritten to underscores in the CURIE
+# local-part (:amaru-treasury_contingency_account) to avoid the Turtle
+# PN_LOCAL trailing-dot trap; rdfs:label preserves the operator-declared
+# spelling.
+#
+
+:user-wallet a cardano:Entity ;
+  rdfs:label "user-wallet" ;
+  cardano:hasIdentifier _:userWalletIdPayment ;
+  cardano:hasIdentifier _:userWalletIdStake .
+
+_:userWalletIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "601f58e4436698104adbbda7bc9d8f3f10e9e49652f9799d6c63aeda" .
+
+_:userWalletIdStake a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "80226c84b26fe1a280649d819757ff2ffaec51adca5a3780356c05bf" .
+
+:recipient a cardano:Entity ;
+  rdfs:label "recipient" ;
+  cardano:hasIdentifier _:recipientIdPayment ;
+  cardano:hasIdentifier _:recipientIdStake .
+
+_:recipientIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "2841f2c629212003be2c87fd02c0ff91fb81d8993129036d758ba548" .
+
+_:recipientIdStake a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "e54e05afe3cb96ad42650e389b397b1722f0918ca977f239fd595a14" .
+
+:amaru-treasury_contingency_account a cardano:Entity ;
+  rdfs:label "amaru-treasury.contingency.account" ;
+  cardano:hasIdentifier _:contingencyAccountIdPayment ;
+  cardano:hasIdentifier _:contingencyAccountIdStake .
+
+_:contingencyAccountIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "e6dbff09245eb89c4f583faaa428387e42c471f1868637a848602a4e" .
+
+_:contingencyAccountIdStake a cardano:Identifier ;
+  cardano:leafType "StakeScript" ;
+  cardano:bytesHex "e6dbff09245eb89c4f583faaa428387e42c471f1868637a848602a4e" .
+
+#
+# Transaction body — 2 inputs, 2 outputs, 1 collateral input, 175_000
+# fee. This is the first B-side fixture to populate the collateral
+# field, so it is also the first to surface cardano:hasCollateralInput
+# on the transaction blank node — the structural counterpart to
+# cardano:hasInput already used by T015..T019. Collateral inputs share
+# the Input class with body inputs (both carry cardano:resolvedTo →
+# Output → atAddress) and differ only in the body→input property name
+# that pins them. No certificates, withdrawals, proposals, reference
+# inputs, or mint entries.
+#
+
+_:tx a cardano:Transaction ;
+  cardano:hasInput _:input1 ;
+  cardano:hasInput _:input2 ;
+  cardano:hasOutput _:output1 ;
+  cardano:hasOutput _:output2 ;
+  cardano:hasCollateralInput _:collateral1 ;
+  cardano:hasFee 175000 .
+
+#
+# Inputs — two UTxOs both held at the contingency self-script address
+# (60 + 50 ADA on the 044 side; coin values are body-data and live in
+# expected.txt / the future #47 emitter, not in this structural graph).
+# The rules.yaml collapse rule pins resolved.address in required:, so
+# the future emitter elides the per-input address row in favour of a
+# collapsed @Input × 2@ header — that pinning is the #43 reproducer
+# trigger and is verified by the future #47 emitter against
+# expected.txt, not here.
+#
+
+_:input1 a cardano:Input ;
+  cardano:resolvedTo _:resolvedInput1 .
+
+_:resolvedInput1 a cardano:Output ;
+  cardano:atAddress _:contingencyAccountAddr .
+
+_:input2 a cardano:Input ;
+  cardano:resolvedTo _:resolvedInput2 .
+
+_:resolvedInput2 a cardano:Output ;
+  cardano:atAddress _:contingencyAccountAddr .
+
+#
+# Collateral input — first B-side encounter of cardano:hasCollateralInput.
+# Phase A declares this body→input property but does not (yet) declare a
+# CollateralInput class; the blank node carries the same Input rdf:type
+# as a body input and resolves the same way, via cardano:resolvedTo →
+# Output → atAddress. The collateral 'TxIn' bytes themselves are not
+# inspected by the structural goldens — only the count is — so the
+# (collateral-input → user-wallet) attribution surfaced here is the
+# rules.yaml/expected.txt narrative the future #47 emitter is expected
+# to render. T020's assertShape only checks @collateralInputsTxBodyL@
+# length == 1; the bytesHex/atAddress join is part of the B-side pin.
+#
+
+_:collateral1 a cardano:Input ;
+  cardano:resolvedTo _:resolvedCollateral1 .
+
+_:resolvedCollateral1 a cardano:Output ;
+  cardano:atAddress _:userWalletAddr .
+
+#
+# Output 1 — 100 ADA disbursement to recipient.
+#
+
+_:output1 a cardano:Output ;
+  cardano:atAddress _:recipientAddr .
+
+#
+# Output 2 — 9.825 ADA change back to the contingency account
+# (60 + 50 ADA in minus 100 ADA disbursed minus 0.175 ADA fee).
+#
+
+_:output2 a cardano:Output ;
+  cardano:atAddress _:contingencyAccountAddr .
+
+#
+# Address decompositions — payment + stake credential per leaf. The
+# user-wallet bech32 is identical to alice's in 02-alice-bob-ada and the
+# recipient bech32 is identical to bob's there; the contingency-account
+# address is a script-script base address whose payment and stake
+# credentials both resolve to the same decoded 28-byte hash (see entity
+# block above). The contingency-account stake credential bnode is
+# reusable from any future cert/withdrawal that points at the same
+# script — Phase A has no separate CollateralStakeCredential class.
+#
+
+_:userWalletAddr a cardano:Address ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
+  cardano:hasPaymentCredential _:userWalletCredPayment ;
+  cardano:hasStakeCredential _:userWalletCredStake .
+
+_:userWalletCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:userWalletIdPayment .
+
+_:userWalletCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:userWalletIdStake .
+
+_:recipientAddr a cardano:Address ;
+  cardano:bech32 "addr1q8r2k7yj4vkkznhcdrqz4qa3acsyxh8mxd8shx6yh4t7rgt8s8u04hgw95dx9j4uqe6flf3v3qcgyc60v3y6h4hpvy7s9j2q5g" ;
+  cardano:hasPaymentCredential _:recipientCredPayment ;
+  cardano:hasStakeCredential _:recipientCredStake .
+
+_:recipientCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:recipientIdPayment .
+
+_:recipientCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:recipientIdStake .
+
+_:contingencyAccountAddr a cardano:Address ;
+  cardano:bech32 "addr1x8ndhlcfy30t38z0tql64fpg8ply93r37xrgvdagfpsz5nhxm0lsjfz7hzwy7kpl42jzswr7gtz8ruvxscm6sjrq9f8qruq0ae" ;
+  cardano:hasPaymentCredential _:contingencyAccountCredPayment ;
+  cardano:hasStakeCredential _:contingencyAccountCredStake .
+
+_:contingencyAccountCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:contingencyAccountIdPayment .
+
+_:contingencyAccountCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:contingencyAccountIdStake .
