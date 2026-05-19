@@ -335,6 +335,7 @@ test-suite unit-tests
     Fixtures.RewriteRedesign.S08_ContingencyDisburse
     Fixtures.RewriteRedesign.S09_MpfsFactsRequest
     Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal
+    Fixtures.RewriteRedesign.TurtleShim
     StaticResolver
 
   build-depends:
