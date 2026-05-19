@@ -1,0 +1,15 @@
+entities:
+  - name: amaru-treasury.contingency.account
+    from-address: addr1x8ndhlcfy30t38z0tql64fpg8ply93r37xrgvdagfpsz5nhxm0lsjfz7hzwy7kpl42jzswr7gtz8ruvxscm6sjrq9f8qruq0ae
+  - name: user-wallet
+    from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+  - name: recipient
+    from-address: addr1q8r2k7yj4vkkznhcdrqz4qa3acsyxh8mxd8shx6yh4t7rgt8s8u04hgw95dx9j4uqe6flf3v3qcgyc60v3y6h4hpvy7s9j2q5g
+collapse:
+  - name: Input
+    at: body.inputs
+    match:
+      required:
+        - resolved.address
+        - resolved.coin
+    view: hide-matched
