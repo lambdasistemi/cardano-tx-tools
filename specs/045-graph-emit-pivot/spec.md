@@ -90,7 +90,7 @@ The reasoner, given:
 
 - the operator's rule above
 - the emitted base graph (33 SwapOrder inputs each with a payment credential and a blueprint-decoded `cardano:swapRecipient` field pointing at the same script hash)
-- the ontology axiom `cardano:hasIdentifier owl:hasKey (rdf:type cardano:bytesHex)` (any two identifiers of the same type with the same bytes are the same identifier)
+- the ontology axiom `cardano:Identifier owl:hasKey (cardano:leafType cardano:bytesHex)` (any two identifiers of the same type with the same bytes are the same identifier)
 
 deduces `owl:sameAs` between every site referencing that hash and the entity URI `:network_compliance`. The CLI view query then prints `amaru-treasury.network_compliance` at the output address site AND inside each input's `swapRecipient` field — without the engine doing a per-site lookup; the deduction is graph-level.
 
@@ -190,12 +190,12 @@ The ontology adds the following to `cardano-knowledge-maps`' `cardano:` namespac
 - **`cardano:Address`** — a Cardano address. Properties: `cardano:hasPaymentCredential`, `cardano:hasStakeCredential`, `cardano:bech32`.
 - **`cardano:Credential`** — a credential. Subclasses: `cardano:PaymentCredential`, `cardano:StakeCredential`. Each carries a `cardano:hasIdentifier` to the typed-leaf node.
 - **`cardano:LeafType`** — a `skos:ConceptScheme`. Members: `cardano:PaymentKey`, `cardano:PaymentScript`, `cardano:StakeKey`, `cardano:StakeScript`, `cardano:DRepKey`, `cardano:DRepScript`, `cardano:PoolId`, `cardano:Policy`, `cardano:AssetClass`. Each is a `skos:Concept` carrying `skos:related` links to siblings (key vs. script of the same role) and `skos:broader` to a `cardano:Hash28` super-concept where applicable.
-- **`cardano:Identifier`** — the typed leaf. Properties: `cardano:bytesHex` (the canonical hex), `cardano:leafType` (one of `LeafType`'s concepts). `cardano:hasIdentifier owl:hasKey (cardano:leafType cardano:bytesHex)` — two identifiers with the same type + bytes are the same identifier (this axiom is what enables OWL deduction of `owl:sameAs` for entities).
+- **`cardano:Identifier`** — the typed leaf. Properties: `cardano:bytesHex` (the canonical hex), `cardano:leafType` (one of `LeafType`'s concepts). `cardano:Identifier owl:hasKey (cardano:leafType cardano:bytesHex)` — two identifiers with the same type + bytes are the same identifier (this axiom is what enables OWL deduction of `owl:sameAs` for entities).
 - **`cardano:Entity`** — operator-declared on-chain identity. Properties: `rdfs:label` (display name), `cardano:hasIdentifier` (one or more, each linking to an `cardano:Identifier`).
 - **`cardano:Asset`** — a native asset. Properties: `cardano:hasPolicy` (a `cardano:Policy` identifier), `cardano:hasAssetName` (xsd:hexBinary). An `AssetClass` identifier is computed from `policy <> name`.
 - **`cardano:Datum`**, **`cardano:Redeemer`** — script-locked data. Properties: `cardano:hasRawBytes`, `cardano:decodedAs` (a blueprint URI), plus blueprint-specific properties minted into the ontology when the blueprint is loaded (e.g., `swap:recipient`).
 - **`cardano:Script`** — a Plutus or native script. Properties: `cardano:hasHash`, `cardano:hasVersion`.
-- **Reasoning axioms**: `cardano:hasIdentifier owl:hasKey (cardano:leafType cardano:bytesHex)`; `cardano:resolvedTo owl:inverseOf cardano:hasResolution`; `cardano:hasInput / cardano:resolvedTo / cardano:atAddress owl:propertyChainAxiom cardano:hasSpenderAddress`; etc. Phase 0 of the plan finalises the axiom set.
+- **Reasoning axioms**: `cardano:Identifier owl:hasKey (cardano:leafType cardano:bytesHex)`; `cardano:resolvedTo owl:inverseOf cardano:hasResolution`; `cardano:hasInput / cardano:resolvedTo / cardano:atAddress owl:propertyChainAxiom cardano:hasSpenderAddress`; etc. Phase 0 of the plan finalises the axiom set.
 
 ## Success Criteria *(mandatory)*
 
