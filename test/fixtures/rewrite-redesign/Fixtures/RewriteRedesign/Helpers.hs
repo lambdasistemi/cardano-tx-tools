@@ -66,6 +66,7 @@ module Fixtures.RewriteRedesign.Helpers (
     stubStakeDelegationCert,
     stubVoteDelegationCert,
     stubMintEntry,
+    stubTreasuryWithdrawalProposal,
 
     -- * Hspec contract
     assertShape,
@@ -111,9 +112,19 @@ import Cardano.Ledger.Api.Tx.Cert (
     pattern DelegTxCert,
  )
 import Cardano.Ledger.Api.Tx.Out (TxOut, mkBasicTxOut)
-import Cardano.Ledger.BaseTypes (Network (Testnet), TxIx (..))
+import Cardano.Ledger.BaseTypes (
+    Network (Testnet),
+    StrictMaybe (SNothing),
+    TxIx (..),
+    textToUrl,
+ )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.Governance (
+    Anchor (..),
+    GovAction (TreasuryWithdrawals),
+    ProposalProcedure (..),
+ )
 import Cardano.Ledger.Credential (
     Credential (KeyHashObj),
     StakeReference (StakeRefNull),
@@ -408,6 +419,31 @@ stubVoteDelegationCert n =
     d k = "0123456789abcdef" !! k
     stakeHash = fromJust (hashFromStringAsHex hex)
     drepHash = fromJust (hashFromStringAsHex hex)
+
+{- | A synthetic Conway 'ProposalProcedure' of variety 'TreasuryWithdrawals'
+with one withdrawal entry. Tag @n@ is zero-padded into both the 28-byte
+stake key-hash credential of the return account and the 28-byte stake
+key-hash credential of the single withdrawal entry. Deposit, anchor, and
+the withdrawal coin are fixed structurally-valid stubs — 'assertShape'
+only counts proposal entries via 'esProposals', so the internal byte
+values are arbitrary.
+-}
+stubTreasuryWithdrawalProposal :: Int -> ProposalProcedure ConwayEra
+stubTreasuryWithdrawalProposal n =
+    ProposalProcedure
+        (Coin 100_000_000_000)
+        (stubRewardAccount n)
+        ( TreasuryWithdrawals
+            (Map.singleton (stubRewardAccount (n + 1)) (Coin 50_000_000_000))
+            SNothing
+        )
+        stubAnchor
+
+stubAnchor :: Anchor
+stubAnchor =
+    Anchor
+        (fromJust (textToUrl 64 "https://example.invalid/stub-anchor"))
+        (unsafeMakeSafeHash (fromJust (hashFromStringAsHex (replicate 64 '0'))))
 
 -- ---------------------------------------------------------------------------
 -- Hspec contract

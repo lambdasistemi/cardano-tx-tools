@@ -131,7 +131,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Goal**: Conway `ProposalProcedure` of variety `TreasuryWithdrawals`.
 
-- [ ] T012 [P] [US11] Ship fixture `10-governance-treasury-withdrawal`: `Tx.hs` (1 deposit input, 1 change output, 1 proposal procedure), `rules.yaml` from 044 Story 10, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S10_GovernanceTreasuryWithdrawal.hs`, `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [X] T012 [P] [US11] Ship fixture `10-governance-treasury-withdrawal`: `Tx.hs` (1 deposit input, 1 change output, 1 proposal procedure), `rules.yaml` from 044 Story 10, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S10_GovernanceTreasuryWithdrawal.hs`, `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
