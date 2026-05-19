@@ -1,0 +1,42 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/04-mint-spend-script-overlap#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:usdm_control a cardano:Entity ;
+  rdfs:label "usdm-control" ;
+  cardano:hasIdentifier _:usdm_control_paymentScript ;
+  cardano:hasIdentifier _:usdm_control_policy .
+
+_:usdm_control_paymentScript a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad" .
+
+_:usdm_control_policy a cardano:Identifier ;
+  cardano:leafType "Policy" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad" .
+
+:usdm a cardano:Entity ;
+  rdfs:label "usdm" ;
+  cardano:hasIdentifier _:usdm_assetClass .
+
+_:usdm_assetClass a cardano:Identifier ;
+  cardano:leafType "AssetClass" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad5553444d" .
+
+:alice a cardano:Entity ;
+  rdfs:label "alice" ;
+  cardano:hasIdentifier _:alice_paymentKey ;
+  cardano:hasIdentifier _:alice_stakeKey .
+
+_:alice_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
+
+_:alice_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
+

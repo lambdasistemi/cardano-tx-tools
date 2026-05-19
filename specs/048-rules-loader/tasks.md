@@ -294,8 +294,12 @@ carries `Tasks: T###`.
 
   **Commit subject**: `feat(graph): canonical Turtle serializer + 7 basic-shape goldens`
 
-- [ ] **T004** *(type=feat, US1)* — `keys:` + `bytes:` compound-key
-  entity (fixture 04) + carve out 04 + activate byte-diff.
+- [X] **T004** *(type=feat, US1)* — `keys:` + `bytes:` compound-key
+  entity (fixture 04) + carve out 04 + activate byte-diff. Also
+  surfaced fixture 04's USMM/USDM artisan typo (parallel to fixture 03);
+  loader produces correct `…5553444d` for `name: USDM` — carve-out is
+  the truth, existing expected.ttl diverges. Alice's bech32 already
+  canonical (matches T003 fixture-02 repair).
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load/Parse/Yaml.hs`

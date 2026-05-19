@@ -116,6 +116,31 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                         }
                     ]
 
+        it "parses a compound-key (keys + bytes) entity — N identifiers share bytesHex" $ do
+            -- Fixture-04's usdm-control declaration. The 28-byte hash
+            -- is replicated under PaymentScript and Policy leafTypes,
+            -- in source order matching the keys: list.
+            let yaml =
+                    "entities:\n\
+                    \  - name: usdm-control\n\
+                    \    keys: [PaymentScript, Policy]\n\
+                    \    bytes: c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad\n"
+            parseRulesYamlText yaml
+                `shouldBe` Right
+                    [ EntityDecl
+                        { entityName = "usdm-control"
+                        , entitySlug = "usdm_control"
+                        , entityIdentifiers =
+                            [ EntityIdentifier
+                                PaymentScript
+                                "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
+                            , EntityIdentifier
+                                Policy
+                                "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
+                            ]
+                        }
+                    ]
+
         it "parses multiple entities in source order" $ do
             let yaml =
                     "entities:\n\
@@ -217,9 +242,36 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
             parseRulesYamlText yaml
                 `shouldSatisfy` isEntityZeroIdentifiers
 
+        it "rejects keys: without bytes: (orphan compound key)" $ do
+            let yaml =
+                    "entities:\n\
+                    \  - name: orphan-keys\n\
+                    \    keys: [PaymentScript, Policy]\n"
+            parseRulesYamlText yaml `shouldSatisfy` isParserError
+
+        it "rejects bytes: without keys: (orphan compound bytes)" $ do
+            let yaml =
+                    "entities:\n\
+                    \  - name: orphan-bytes\n\
+                    \    bytes: c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad\n"
+            parseRulesYamlText yaml `shouldSatisfy` isParserError
+
+        it "rejects keys+bytes mixed with another identifier shape (multi-shape mix)" $ do
+            let yaml =
+                    "entities:\n\
+                    \  - name: mixed\n\
+                    \    keys: [PaymentScript, Policy]\n\
+                    \    bytes: c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad\n\
+                    \    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077\n"
+            parseRulesYamlText yaml `shouldSatisfy` isParserError
+
 isEntityZeroIdentifiers :: Either RulesLoadError [EntityDecl] -> Bool
 isEntityZeroIdentifiers (Left (EntityZeroIdentifiers _)) = True
 isEntityZeroIdentifiers _ = False
+
+isParserError :: Either RulesLoadError [EntityDecl] -> Bool
+isParserError (Left ParserError{}) = True
+isParserError _ = False
 
 ----------------------------------------------------------------------
 -- Address synthesis helpers
