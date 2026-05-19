@@ -163,7 +163,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 - [X] T015 [P] [US3] Add `02-alice-bob-ada/expected.ttl` pinned to kmaps#53 Phase A vocab; extend the structural Hspec item to additionally parse `expected.ttl` as well-formed Turtle. Files: `test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.ttl`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs` (optional shared Turtle-parse helper).
 - [X] T016 [P] [US4] Add `03-multi-asset-transfer/expected.ttl`. Files: `test/fixtures/rewrite-redesign/03-multi-asset-transfer/expected.ttl`.
-- [ ] T017 [P] [US6] Add `05-withdrawal-script-stake/expected.ttl`. Files: `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/expected.ttl`.
+- [X] T017 [P] [US6] Add `05-withdrawal-script-stake/expected.ttl`. Files: `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/expected.ttl`.
 - [ ] T018 [P] [US7] Add `06-stake-pool-delegation/expected.ttl`. Files: `test/fixtures/rewrite-redesign/06-stake-pool-delegation/expected.ttl`.
 - [ ] T019 [P] [US8] Add `07-vote-delegation/expected.ttl`. Files: `test/fixtures/rewrite-redesign/07-vote-delegation/expected.ttl`.
 - [ ] T020 [P] [US9] Add `08-contingency-disburse/expected.ttl`. Files: `test/fixtures/rewrite-redesign/08-contingency-disburse/expected.ttl`.
