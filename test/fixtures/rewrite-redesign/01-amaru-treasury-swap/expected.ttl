@@ -1,0 +1,294 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/01-amaru-treasury-swap#> .
+
+#
+# 044 Story 1: load-bearing P1 fixture — 33 SwapOrder UTxOs at the
+# amaru.swap.v2 script settle into one USDM-bearing treasury output, with
+# a small ADA change output and a collateral input both sourced from the
+# user wallet. The 044 narrative pins the per-input datum.recipient field
+# to amaru-treasury.network_compliance (i.e. the same script hash that
+# also lives at body.outputs[0].address.payment) — the cross-leaf
+# identity reproducer for issue #43.
+#
+# This structural slice surfaces the identity-bearing surface only:
+#   * 34 inputs (33 swap-order + 1 network-wallet),
+#   * 2 outputs (treasury + network-wallet change),
+#   * 1 collateral input,
+#   * a single _:treasuryComplianceId Identifier bnode shared by the
+#     amaru-treasury.network_compliance entity and the treasury output's
+#     PaymentCredential — the structural projection of the recipient
+#     cross-leaf identity that the future #47 emitter will extend with
+#     blueprint-decoded datum.recipient links from every swap-order
+#     input.
+#
+# Body-data (per-input swap-order coin, the 95 USDM mint asset value,
+# the 0.85 ADA change coin, the 0.65 ADA fee in expected.txt) live in
+# expected.txt / the future #47 emitter, not in this structural graph —
+# matching the convention used by the merged B-side fixtures.
+#
+
+#
+# Operator-declared entities (from rules.yaml). The script-hash values
+# for amaru-treasury.network_compliance, amaru.swap-order, and
+# amaru.swap.v2 mirror the real on-chain bytes carried by the sibling
+# 11-amaru-treasury-swap-real fixture so reviewers can spot the
+# hypothetical-vs-real pairing at a glance; the structural OWL key on
+# (leafType, bytesHex) treats them as the same identity. The
+# amaru.network-wallet credentials are synthetic placeholders (this
+# fixture's bech32 is hypothetical, not bech32-decodable to the
+# placeholder bytes), flagged with the 0101... / 0202... prefix.
+#
+
+:amaru_treasury_network_compliance a cardano:Entity ;
+  rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:hasIdentifier _:treasuryComplianceId ;
+  cardano:hasIdentifier _:treasuryComplianceStakeId .
+
+_:treasuryComplianceId a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
+
+_:treasuryComplianceStakeId a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "9100eb83504e21b27158c84a9f89ecea2c52ee6d5da6699aa42ea906" .
+
+:amaru_swap_order a cardano:Entity ;
+  rdfs:label "amaru.swap-order" ;
+  cardano:hasIdentifier _:swapOrderPaymentId ;
+  cardano:hasIdentifier _:swapOrderStakeId .
+
+_:swapOrderPaymentId a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077" .
+
+_:swapOrderStakeId a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "9100eb83504e21b27158c84a9f89ecea2c52ee6d5da6699aa42ea906" .
+
+:amaru_swap_v2 a cardano:Entity ;
+  rdfs:label "amaru.swap.v2" ;
+  cardano:hasIdentifier _:swapOrderPaymentId .
+
+:amaru_network_wallet a cardano:Entity ;
+  rdfs:label "amaru.network-wallet" ;
+  cardano:hasIdentifier _:networkWalletPaymentId ;
+  cardano:hasIdentifier _:networkWalletStakeId .
+
+_:networkWalletPaymentId a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "01010101010101010101010101010101010101010101010101010101" .
+
+_:networkWalletStakeId a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "02020202020202020202020202020202020202020202020202020202" .
+
+:usdm a cardano:Entity ;
+  rdfs:label "usdm" ;
+  cardano:hasIdentifier _:usdmAssetId .
+
+_:usdmAssetId a cardano:Identifier ;
+  cardano:leafType "AssetClass" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad55534446" .
+
+#
+# Transaction body — 34 inputs (33 swap-order at the amaru.swap.v2 script
+# + 1 network-wallet input), 2 outputs (treasury USDM-bearing + change),
+# 1 collateral input. No certs/withdrawals/proposals/refs/mint.
+#
+
+_:tx a cardano:Transaction ;
+  cardano:hasInput _:swapInput1 ;
+  cardano:hasInput _:swapInput2 ;
+  cardano:hasInput _:swapInput3 ;
+  cardano:hasInput _:swapInput4 ;
+  cardano:hasInput _:swapInput5 ;
+  cardano:hasInput _:swapInput6 ;
+  cardano:hasInput _:swapInput7 ;
+  cardano:hasInput _:swapInput8 ;
+  cardano:hasInput _:swapInput9 ;
+  cardano:hasInput _:swapInput10 ;
+  cardano:hasInput _:swapInput11 ;
+  cardano:hasInput _:swapInput12 ;
+  cardano:hasInput _:swapInput13 ;
+  cardano:hasInput _:swapInput14 ;
+  cardano:hasInput _:swapInput15 ;
+  cardano:hasInput _:swapInput16 ;
+  cardano:hasInput _:swapInput17 ;
+  cardano:hasInput _:swapInput18 ;
+  cardano:hasInput _:swapInput19 ;
+  cardano:hasInput _:swapInput20 ;
+  cardano:hasInput _:swapInput21 ;
+  cardano:hasInput _:swapInput22 ;
+  cardano:hasInput _:swapInput23 ;
+  cardano:hasInput _:swapInput24 ;
+  cardano:hasInput _:swapInput25 ;
+  cardano:hasInput _:swapInput26 ;
+  cardano:hasInput _:swapInput27 ;
+  cardano:hasInput _:swapInput28 ;
+  cardano:hasInput _:swapInput29 ;
+  cardano:hasInput _:swapInput30 ;
+  cardano:hasInput _:swapInput31 ;
+  cardano:hasInput _:swapInput32 ;
+  cardano:hasInput _:swapInput33 ;
+  cardano:hasInput _:networkWalletInput ;
+  cardano:hasOutput _:treasuryOutput ;
+  cardano:hasOutput _:networkWalletChange ;
+  cardano:hasCollateralInput _:collateral1 ;
+  cardano:hasFee 650000 .
+
+#
+# Thirty-three swap-order inputs at amaru.swap.v2. Each input's datum
+# carries a SwapOrder record whose `recipient` field decodes (via the
+# future #47 emitter) to the same _:treasuryComplianceId bnode pinned
+# below — the structural graph models the INPUT count here and leaves
+# the datum-decode triples to #50/#47.
+#
+
+_:swapInput1  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput1 .
+_:swapInput2  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput2 .
+_:swapInput3  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput3 .
+_:swapInput4  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput4 .
+_:swapInput5  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput5 .
+_:swapInput6  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput6 .
+_:swapInput7  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput7 .
+_:swapInput8  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput8 .
+_:swapInput9  a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput9 .
+_:swapInput10 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput10 .
+_:swapInput11 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput11 .
+_:swapInput12 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput12 .
+_:swapInput13 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput13 .
+_:swapInput14 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput14 .
+_:swapInput15 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput15 .
+_:swapInput16 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput16 .
+_:swapInput17 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput17 .
+_:swapInput18 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput18 .
+_:swapInput19 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput19 .
+_:swapInput20 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput20 .
+_:swapInput21 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput21 .
+_:swapInput22 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput22 .
+_:swapInput23 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput23 .
+_:swapInput24 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput24 .
+_:swapInput25 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput25 .
+_:swapInput26 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput26 .
+_:swapInput27 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput27 .
+_:swapInput28 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput28 .
+_:swapInput29 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput29 .
+_:swapInput30 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput30 .
+_:swapInput31 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput31 .
+_:swapInput32 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput32 .
+_:swapInput33 a cardano:Input ; cardano:resolvedTo _:resolvedSwapInput33 .
+
+_:resolvedSwapInput1  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput2  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput3  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput4  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput5  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput6  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput7  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput8  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput9  a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput10 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput11 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput12 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput13 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput14 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput15 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput16 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput17 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput18 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput19 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput20 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput21 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput22 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput23 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput24 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput25 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput26 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput27 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput28 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput29 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput30 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput31 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput32 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+_:resolvedSwapInput33 a cardano:Output ; cardano:atAddress _:swapOrderAddr .
+
+#
+# Network-wallet input — sources the fee and the collateral.
+#
+
+_:networkWalletInput a cardano:Input ;
+  cardano:resolvedTo _:resolvedNetworkWalletInput .
+
+_:resolvedNetworkWalletInput a cardano:Output ;
+  cardano:atAddress _:networkWalletAddr .
+
+#
+# Output 1 — 1.5 ADA + 95 USDM to amaru-treasury.network_compliance. The
+# PaymentCredential reuses the _:treasuryComplianceId bnode the entity
+# already declared, pinning the cross-leaf identity surface from issue
+# #43 at the structural level.
+#
+
+_:treasuryOutput a cardano:Output ;
+  cardano:atAddress _:treasuryComplianceAddr .
+
+#
+# Output 2 — 0.85 ADA change back to amaru.network-wallet.
+#
+
+_:networkWalletChange a cardano:Output ;
+  cardano:atAddress _:networkWalletAddr .
+
+#
+# Collateral — sourced from the same user wallet.
+#
+
+_:collateral1 a cardano:Input ;
+  cardano:resolvedTo _:resolvedCollateral1 .
+
+_:resolvedCollateral1 a cardano:Output ;
+  cardano:atAddress _:networkWalletAddr .
+
+#
+# Address decompositions — payment + stake credential per leaf. The
+# treasury output's PaymentCredential and the
+# amaru-treasury.network_compliance entity share the same
+# _:treasuryComplianceId bnode (the #43 cross-leaf reproducer at the
+# structural surface); the swap-order address and the amaru.swap.v2
+# script entity share the same _:swapOrderPaymentId bnode (the
+# script-hash cross-reference at the witness/output surface).
+#
+
+_:treasuryComplianceAddr a cardano:Address ;
+  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
+  cardano:hasPaymentCredential _:treasuryComplianceCredPayment ;
+  cardano:hasStakeCredential _:treasuryComplianceCredStake .
+
+_:treasuryComplianceCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:treasuryComplianceId .
+
+_:treasuryComplianceCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:treasuryComplianceStakeId .
+
+_:swapOrderAddr a cardano:Address ;
+  cardano:bech32 "addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n" ;
+  cardano:hasPaymentCredential _:swapOrderCredPayment ;
+  cardano:hasStakeCredential _:swapOrderCredStake .
+
+_:swapOrderCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:swapOrderPaymentId .
+
+_:swapOrderCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:swapOrderStakeId .
+
+_:networkWalletAddr a cardano:Address ;
+  cardano:bech32 "addr1q802wxt6cg6aw0nl0vdzfxavu65rxu3yzhvgayw7chfxymduzkt66uw9t5kspx5jwjecx80dz4g33htknafhdhkvzd5st4f9xu" ;
+  cardano:hasPaymentCredential _:networkWalletCredPayment ;
+  cardano:hasStakeCredential _:networkWalletCredStake .
+
+_:networkWalletCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:networkWalletPaymentId .
+
+_:networkWalletCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:networkWalletStakeId .
