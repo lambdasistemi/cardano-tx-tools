@@ -324,6 +324,7 @@ test-suite unit-tests
     Cardano.Tx.Validate.LoadUtxo
     Cardano.Tx.Validate.LoadUtxoSpec
     Cardano.Tx.ValidateSpec
+    Fixtures.RewriteRedesign.Helpers
     StaticResolver
 
   build-depends:
@@ -347,6 +348,7 @@ test-suite unit-tests
     , cardano-tx-tools
     , cardano-tx-tools:n2c-resolver
     , containers
+    , data-default
     , directory
     , filepath
     , hspec
