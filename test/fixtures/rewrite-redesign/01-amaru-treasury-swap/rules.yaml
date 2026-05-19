@@ -1,0 +1,24 @@
+entities:
+  - name: amaru-treasury.network_compliance
+    from-address: addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
+  - name: amaru.swap-order
+    from-address: addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n
+  - name: amaru.swap.v2
+    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077
+  - name: amaru.network-wallet
+    from-address: addr1q802wxt6cg6aw0nl0vdzfxavu65rxu3yzhvgayw7chfxymduzkt66uw9t5kspx5jwjecx80dz4g33htknafhdhkvzd5st4f9xu
+  - name: usdm
+    asset:
+      policy: c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad
+      name: USDM
+blueprints:
+  - script: amaru.swap.v2
+    datum: ./blueprints/swap-v2-datum.cip57.json
+collapse:
+  - name: SwapOrderInput
+    at: body.inputs
+    match:
+      required:
+        - resolved.address
+        - datum.SwapOrder.recipient
+    view: omit
