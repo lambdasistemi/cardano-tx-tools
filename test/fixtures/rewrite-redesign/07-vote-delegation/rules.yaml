@@ -1,0 +1,5 @@
+entities:
+  - name: alice
+    from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+  - name: cardano-foundation-drep
+    drep: drep1y2v5h0g4qjqj9p6h9rp3z5lyqz3xczvqj5x3z7c7gj7nf2c52u7m3   # CIP-129 form
