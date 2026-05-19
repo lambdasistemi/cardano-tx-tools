@@ -1,0 +1,12 @@
+inputs:
+  - resolved.address: alice
+    resolved.coin: 200.000000 ADA
+    resolved.assets: { usdm: 500, meme: 5_000_000 }
+outputs:
+  - address: bob
+    coin: 50.000000 ADA
+    assets: { usdm: 100, meme: 1_000_000 }
+  - address: alice
+    coin: 149.825000 ADA
+    assets: { usdm: 400, meme: 4_000_000 }
+fee: 0.175000 ADA

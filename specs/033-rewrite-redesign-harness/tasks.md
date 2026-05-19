@@ -83,7 +83,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Independent Test**: Match `--match "03-multi-asset-transfer"`; structural item PASS; pending items PENDING.
 
-- [ ] T006 [P] [US4] Ship fixture `03-multi-asset-transfer`: `Tx.hs` (1 input from Alice, 2 outputs carrying USDM + MEME), `rules.yaml` (verbatim from 044 Story 3), `expected.txt`. Append to `other-modules` + `fixtureRegistry`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S03_MultiAssetTransfer.hs`, `test/fixtures/rewrite-redesign/03-multi-asset-transfer/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [X] T006 [P] [US4] Ship fixture `03-multi-asset-transfer`: `Tx.hs` (1 input from Alice, 2 outputs carrying USDM + MEME), `rules.yaml` (verbatim from 044 Story 3), `expected.txt`. Append to `other-modules` + `fixtureRegistry`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S03_MultiAssetTransfer.hs`, `test/fixtures/rewrite-redesign/03-multi-asset-transfer/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
