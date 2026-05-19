@@ -1,0 +1,10 @@
+inputs:
+  - resolved.address: operator
+    resolved.coin: 50.000000 ADA
+outputs:
+  FactOutput × 10:
+    address: mpfs.oracle
+    datum.Fact.requester: operator
+  - address: operator
+    coin: 19.825000 ADA
+fee: 0.175000 ADA
