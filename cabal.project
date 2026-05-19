@@ -118,3 +118,6 @@ package ouroboros-consensus
 package ouroboros-network
   tests: False
   benchmarks: False
+
+package cardano-tx-tools
+  flags: +werror

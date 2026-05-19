@@ -71,10 +71,13 @@ carries `Tasks: T###`.
 
   **Commit subject**: `chore(048): add PvP upper bounds to cardano-tx-tools.cabal`
 
-- [ ] **T001c** *(type=chore, subagent slice; constitution-compliance
+- [X] **T001c** *(type=chore, subagent slice; constitution-compliance
   sweep per Q-002 Option B)* — Gate `-Werror` behind a `werror` cabal
   flag per the cardano-node-clients pattern and constitution
-  Principle V.
+  Principle V. Q-003 surfaced that haskell.nix `modules.flags` does
+  not reach the dev-shell `cabal`; A-003 approved adding a
+  `cabal.project` `package cardano-tx-tools / flags: +werror` stanza
+  to flip the flag for `nix develop -c cabal` as well.
 
   **Owned files**:
   - `cardano-tx-tools.cabal` (introduce `flag werror`; move `-Werror`
