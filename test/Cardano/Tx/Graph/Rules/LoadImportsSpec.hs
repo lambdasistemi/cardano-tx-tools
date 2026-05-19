@@ -33,6 +33,7 @@ module Cardano.Tx.Graph.Rules.LoadImportsSpec (spec) where
 import Cardano.Tx.Graph.Rules.Load (
     RulesLoadError (..),
     RulesLoadResult (..),
+    RulesLoadWarning (..),
     loadRulesFile,
  )
 
@@ -154,6 +155,103 @@ spec = describe "Cardano.Tx.Graph.Rules.Load owl:imports composition (T007)" $ d
                 assertByteSubstring overlay ":mid_b a cardano:Entity"
                 assertByteSubstring overlay ":near_a a cardano:Entity"
                 assertByteSubstring overlay ":root_p a cardano:Entity"
+
+    describe "cross-file duplicate entities (T010, FR-011 / US6)" $ do
+        it
+            ( "DuplicateEntityAcrossFiles — two imports declare 'usdm'"
+                <> " with conflicting asset policy hashes; first-wins,"
+                <> " warning surfaces, second's payload is NOT merged"
+            )
+            $ do
+                withSystemTempDirectory "tx-48-dup-cross-conflict" $ \dir -> do
+                    let parentPath = dir </> "parent.yaml"
+                        aPath = dir </> "a.yaml"
+                        bPath = dir </> "b.yaml"
+                    BS.writeFile aPath $
+                        yamlAsset "usdm" policyAaa "USDM"
+                    BS.writeFile bPath $
+                        yamlAsset "usdm" policyBbb "USDM"
+                    BS.writeFile
+                        parentPath
+                        "imports:\n  - a.yaml\n  - b.yaml\n"
+                    aCanon <- canonicalizePath aPath
+                    bCanon <- canonicalizePath bPath
+                    result <- loadRulesFile parentPath
+                    case result of
+                        Right
+                            RulesLoadResult
+                                { rulesOverlayTurtle = bs
+                                , rulesWarnings = ws
+                                } -> do
+                                ws
+                                    `shouldBe` [ DuplicateEntityAcrossFiles
+                                                    "usdm"
+                                                    aCanon
+                                                    bCanon
+                                               ]
+                                -- a.yaml's payload wins:
+                                --   policy aaa…1a + "USDM" hex 5553444d
+                                assertByteSubstring
+                                    bs
+                                    ":usdm a cardano:Entity"
+                                assertByteSubstring
+                                    bs
+                                    "cardano:bytesHex \"aa11111111111111111111111111111111111111111111111111111a5553444d\""
+                                -- b.yaml's payload is NOT in the overlay.
+                                byteOccurrences
+                                    bs
+                                    "cardano:bytesHex \"bb22222222222222222222222222222222222222222222222222222b5553444d\""
+                                    `shouldBe` 0
+                                -- Exactly one :usdm block.
+                                byteOccurrences
+                                    bs
+                                    ":usdm a cardano:Entity"
+                                    `shouldBe` 1
+                        other ->
+                            expectationFailure $
+                                "expected Right with one warning, got: "
+                                    <> show other
+
+        it
+            ( "DuplicateEntityAcrossFiles — identical-payload dup still"
+                <> " warns (per FR-011: loader names the duplication,"
+                <> " does not infer additive intent)"
+            )
+            $ do
+                withSystemTempDirectory "tx-48-dup-cross-identical" $ \dir -> do
+                    let parentPath = dir </> "parent.yaml"
+                        aPath = dir </> "a.yaml"
+                        bPath = dir </> "b.yaml"
+                    BS.writeFile aPath $
+                        yamlAsset "usdm" policyAaa "USDM"
+                    BS.writeFile bPath $
+                        yamlAsset "usdm" policyAaa "USDM"
+                    BS.writeFile
+                        parentPath
+                        "imports:\n  - a.yaml\n  - b.yaml\n"
+                    aCanon <- canonicalizePath aPath
+                    bCanon <- canonicalizePath bPath
+                    result <- loadRulesFile parentPath
+                    case result of
+                        Right
+                            RulesLoadResult
+                                { rulesOverlayTurtle = bs
+                                , rulesWarnings = ws
+                                } -> do
+                                ws
+                                    `shouldBe` [ DuplicateEntityAcrossFiles
+                                                    "usdm"
+                                                    aCanon
+                                                    bCanon
+                                               ]
+                                byteOccurrences
+                                    bs
+                                    ":usdm a cardano:Entity"
+                                    `shouldBe` 1
+                        other ->
+                            expectationFailure $
+                                "expected Right with one warning, got: "
+                                    <> show other
 
     describe "structured errors" $ do
         it "MissingImport — parent imports a non-existent file" $ do
@@ -353,6 +451,29 @@ hexA = "aa11111111111111111111111111111111111111111111111111111a"
 hexB = "bb22222222222222222222222222222222222222222222222222222b"
 hexC = "cc33333333333333333333333333333333333333333333333333333c"
 hexD = "dd44444444444444444444444444444444444444444444444444444d"
+
+{- | Two distinct 28-byte hex policy IDs used by the cross-file
+duplicate-entity tests (T010). Their suffix differs so the bytesHex
+substring assertions can distinguish a.yaml's payload from b.yaml's.
+-}
+policyAaa, policyBbb :: ByteString
+policyAaa = "aa11111111111111111111111111111111111111111111111111111a"
+policyBbb = "bb22222222222222222222222222222222222222222222222222222b"
+
+{- | A complete YAML blob declaring one asset-shape entity with a given
+slug, policy hex, and asset name. Used by the cross-file duplicate-
+entity tests so the per-file payload differs by policy hash while
+the entity slug collides.
+-}
+yamlAsset :: ByteString -> ByteString -> ByteString -> ByteString
+yamlAsset slug policy assetName =
+    "entities:\n  - name: "
+        <> slug
+        <> "\n    asset: { policy: "
+        <> policy
+        <> ", name: "
+        <> assetName
+        <> " }\n"
 
 -- | Assert that @needle@ appears at least once inside @haystack@.
 assertByteSubstring :: ByteString -> ByteString -> IO ()

@@ -87,6 +87,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 StakeKey
                                 "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"
                             ]
+                        , entitySourceFile = inMemoryFile
                         }
                     ]
 
@@ -105,6 +106,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 PaymentScript
                                 "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077"
                             ]
+                        , entitySourceFile = inMemoryFile
                         }
                     ]
 
@@ -124,6 +126,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 AssetClass
                                 "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad5553444d"
                             ]
+                        , entitySourceFile = inMemoryFile
                         }
                     ]
 
@@ -149,6 +152,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 Policy
                                 "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
                             ]
+                        , entitySourceFile = inMemoryFile
                         }
                     ]
 
@@ -168,6 +172,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                             PaymentScript
                             "0123456789abcdef0123456789abcdef0123456789abcdef01234567"
                         ]
+                        inMemoryFile
                     , EntityDecl
                         "beta"
                         "beta"
@@ -175,6 +180,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                             AssetClass
                             "aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc4d454d45"
                         ]
+                        inMemoryFile
                     ]
 
     describe "six Conway address classes (FR-005)" $ do
@@ -434,6 +440,17 @@ isRightSingleton :: Either RulesLoadError [EntityDecl] -> Bool
 isRightSingleton (Right [_]) = True
 isRightSingleton _ = False
 
+{- | The placeholder source-file path the in-memory parser entry
+points stamp onto every produced 'EntityDecl'. Mirrors the
+@inMemoryFile@ constant in
+"Cardano.Tx.Graph.Rules.Load.Parse.Yaml"; the assertion sites in
+this spec compare expected 'EntityDecl' values verbatim, so the
+test reproduces the same string here rather than depending on an
+internal export.
+-}
+inMemoryFile :: FilePath
+inMemoryFile = "<in-memory>"
+
 {- | Drive the public 'loadRulesFile' surface over an in-memory YAML
 blob by writing it to a temp file and reading back the serialized
 overlay bytes. Used by the shared-identity test to assert byte
@@ -494,7 +511,7 @@ decomposeAddrShouldBe addr expected = do
                 <> "\n"
     parseRulesYamlText (TextEncoding.encodeUtf8 yaml)
         `shouldBe` Right
-            [EntityDecl "synth" "synth" expected]
+            [EntityDecl "synth" "synth" expected inMemoryFile]
 
 encodeMainnetAddr :: Addr -> Text
 encodeMainnetAddr a =

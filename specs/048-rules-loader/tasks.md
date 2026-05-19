@@ -482,8 +482,12 @@ carries `Tasks: T###`.
 
 ## Phase 6 — Cross-file duplicate warning (US6)
 
-- [ ] **T010** *(type=feat, US6)* — `DuplicateEntityAcrossFiles`
-  warning naming both files.
+- [X] **T010** *(type=feat, US6)* — `DuplicateEntityAcrossFiles`
+  warning naming both files. `EntityDecl` widened with
+  `entitySourceFile` provenance. Post-resolver `dedupAcrossFiles`
+  walks the merged decls in reverse-post-order; first-file wins;
+  the warning fires on both same-payload and different-payload
+  cross-file collisions per FR-011. 228 unit examples.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load/Resolve/Imports.hs` (detect

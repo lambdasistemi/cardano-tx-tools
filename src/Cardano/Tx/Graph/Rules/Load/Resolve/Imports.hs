@@ -69,6 +69,7 @@ before any infinite recursion can occur.
 -}
 module Cardano.Tx.Graph.Rules.Load.Resolve.Imports (
     resolveImports,
+    dedupAcrossFiles,
 ) where
 
 import Cardano.Tx.Graph.Rules.Load.Parse.Turtle (
@@ -80,6 +81,7 @@ import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
 import Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
     RulesLoadError (..),
+    RulesLoadWarning (..),
  )
 
 import Control.Monad.IO.Class (liftIO)
@@ -251,3 +253,64 @@ isHttpsLike t =
 -- | True for @file://@ URIs. Treated as absolute (analyzer N2).
 isFileUri :: Text -> Bool
 isFileUri = Text.isPrefixOf "file://"
+
+{- | Deduplicate an 'EntityDecl' list by 'entitySlug' while emitting a
+'DuplicateEntityAcrossFiles' warning for every entity-slug collision
+that spans two different source files.
+
+Spec FR-011 / US6: when two imported files declare the same entity
+slug, the loader does not attempt to infer additive vs conflicting
+intent. The first declaration in source order wins; the second is
+dropped from the output; the warning names both files so the
+operator can locate the duplication and resolve it explicitly.
+
+Source order is the resolver's reverse-post-order (children before
+parents), which is what 'resolveImports' returns. The first-wins
+rule applied to that order means: a file appears in the output
+exactly once even when reachable via multiple import paths
+(handled by the DFS diamond merge), and a slug declared in two
+distinct files surfaces the warning at the second file's site.
+
+Same-file dups (e.g. two @- name: foo@ entries in one YAML file)
+are passed through unchanged here — the per-file parsers are the
+single source of truth for that case, and a future hard-error
+slice (FR-009 follow-up) will surface them upstream of the
+resolver. The cross-file relaxation pinned by FR-011 fires only
+when @entitySourceFile@ differs.
+-}
+dedupAcrossFiles ::
+    [EntityDecl] -> ([EntityDecl], [RulesLoadWarning])
+dedupAcrossFiles = go Map.empty [] []
+  where
+    -- @seen@ records the first-seen 'entitySourceFile' per slug;
+    -- @kept@ accumulates the deduplicated 'EntityDecl' list in
+    -- reverse source order; @warns@ accumulates the warning list
+    -- in reverse emission order. Both are reversed in the base case
+    -- so the caller observes source order.
+    go ::
+        Map Text FilePath ->
+        [EntityDecl] ->
+        [RulesLoadWarning] ->
+        [EntityDecl] ->
+        ([EntityDecl], [RulesLoadWarning])
+    go _ kept warns [] = (reverse kept, reverse warns)
+    go seen kept warns (d : rest) =
+        let slug = entitySlug d
+            src = entitySourceFile d
+         in case Map.lookup slug seen of
+                Nothing ->
+                    go (Map.insert slug src seen) (d : kept) warns rest
+                Just firstSrc
+                    | firstSrc == src ->
+                        -- Same-file dup — not the cross-file case.
+                        -- Keep the declaration as-is; a future
+                        -- single-file dup error variant will fire
+                        -- upstream in the per-file parser.
+                        go seen (d : kept) warns rest
+                    | otherwise ->
+                        let w =
+                                DuplicateEntityAcrossFiles
+                                    slug
+                                    firstSrc
+                                    src
+                         in go seen kept (w : warns) rest

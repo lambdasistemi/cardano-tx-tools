@@ -44,16 +44,19 @@ module Cardano.Tx.Graph.Rules.Load (
 import Cardano.Tx.Graph.Rules.Load.Emit.Overlay (emitOverlay)
 import Cardano.Tx.Graph.Rules.Load.Parse.Turtle (parseRulesTurtleText)
 import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (parseRulesYamlText)
-import Cardano.Tx.Graph.Rules.Load.Resolve.Imports (resolveImports)
+import Cardano.Tx.Graph.Rules.Load.Resolve.Imports (
+    dedupAcrossFiles,
+    resolveImports,
+ )
 import Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
     EntityIdentifier (..),
     LeafType (..),
     RulesLoadError (..),
+    RulesLoadWarning (..),
  )
 
 import Data.ByteString (ByteString)
-import Data.Text (Text)
 import Data.Text qualified as Text
 import System.FilePath (takeBaseName, takeDirectory, takeExtension)
 
@@ -72,13 +75,6 @@ data RulesLoadResult = RulesLoadResult
     , rulesWarnings :: ![RulesLoadWarning]
     -- ^ Non-fatal warnings (e.g. cross-file duplicate entity URIs).
     }
-    deriving stock (Eq, Show)
-
--- | Non-fatal warnings the loader can emit while still returning a 'Right'.
-data RulesLoadWarning
-    = -- | The same entity URI was declared in two imported files. The
-      -- first declaration is kept; the second is dropped (per spec US6).
-      DuplicateEntityAcrossFiles !Text !FilePath !FilePath
     deriving stock (Eq, Show)
 
 {- | Load a rules file by path.
@@ -127,9 +123,10 @@ loadWithResolver path = do
         Left err -> Left err
         Right entities ->
             let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))
-                bytes = emitOverlay fixtureSlug entities
+                (deduped, warnings) = dedupAcrossFiles entities
+                bytes = emitOverlay fixtureSlug deduped
              in Right
                     RulesLoadResult
                         { rulesOverlayTurtle = bytes
-                        , rulesWarnings = []
+                        , rulesWarnings = warnings
                         }
