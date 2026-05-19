@@ -1,0 +1,12 @@
+inputs:
+  Input × 2:
+    resolved.address: amaru-treasury.contingency.account
+    resolved.coin: [60.000000 ADA, 50.000000 ADA]
+outputs:
+  - address: recipient
+    coin: 100.000000 ADA
+  - address: amaru-treasury.contingency.account
+    coin: 9.825000 ADA
+collateral:
+  - resolved.address: user-wallet
+fee: 0.175000 ADA

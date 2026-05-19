@@ -115,7 +115,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Goal**: The #43 reproducer — collapse bucket pinning `resolved.address` in `required:`.
 
-- [ ] T010 [US9] Ship fixture `08-contingency-disburse`: `Tx.hs` (2 inputs from the contingency self-script, 1 user-wallet collateral, 1 output to recipient + 1 change to contingency), `rules.yaml` from 044 Story 8 (collapse rule pinning `resolved.address`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S08_ContingencyDisburse.hs`, `test/fixtures/rewrite-redesign/08-contingency-disburse/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — relies on the contingency-self-script address helper; first fixture exercising self-script collateral.)*
+- [X] T010 [US9] Ship fixture `08-contingency-disburse`: `Tx.hs` (2 inputs from the contingency self-script, 1 user-wallet collateral, 1 output to recipient + 1 change to contingency), `rules.yaml` from 044 Story 8 (collapse rule pinning `resolved.address`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S08_ContingencyDisburse.hs`, `test/fixtures/rewrite-redesign/08-contingency-disburse/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — relies on the contingency-self-script address helper; first fixture exercising self-script collateral.)*
 
 ---
 

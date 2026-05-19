@@ -330,6 +330,7 @@ test-suite unit-tests
     Fixtures.RewriteRedesign.S05_WithdrawalScriptStake
     Fixtures.RewriteRedesign.S06_StakePoolDelegation
     Fixtures.RewriteRedesign.S07_VoteDelegation
+    Fixtures.RewriteRedesign.S08_ContingencyDisburse
     StaticResolver
 
   build-depends:
