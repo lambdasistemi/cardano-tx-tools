@@ -26,7 +26,12 @@ verbatim.
 -}
 module Cardano.Tx.Graph.Rules.Load.Bech32 (
     decomposeFromAddress,
+    decodePoolBech32,
+    decodeDrepCip129,
 ) where
+
+import Codec.Binary.Bech32 qualified as Bech32
+import Data.ByteString qualified as BS
 
 import Cardano.Tx.Diff (decodeBech32Address)
 import Cardano.Tx.Graph.Rules.Load.Types (
@@ -89,3 +94,60 @@ stakeIdentifiers = \case
 
 hexHash :: ByteString -> Text
 hexHash = TextEncoding.decodeUtf8 . Base16.encode
+
+{- | Decode a @pool: \<bech32\>@ value into a single 'PoolId'
+identifier. The bech32 string uses HRP @"pool"@ and the data part
+is exactly 28 bytes (the pool key-hash). Returns 'BadBech32' on any
+framing/decode failure or wrong byte length.
+-}
+decodePoolBech32 ::
+    FilePath ->
+    Int ->
+    Text ->
+    Either RulesLoadError [EntityIdentifier]
+decodePoolBech32 file line bech32 =
+    case Bech32.decodeLenient bech32 of
+        Left _ -> Left (BadBech32 file line bech32)
+        Right (_hrp, dataPart) ->
+            case Bech32.dataPartToBytes dataPart of
+                Nothing -> Left (BadBech32 file line bech32)
+                Just bytes
+                    | BS.length bytes == 28 ->
+                        Right [EntityIdentifier PoolId (hexHash bytes)]
+                    | otherwise -> Left (BadBech32 file line bech32)
+
+{- | Decode a @drep: \<CIP-129 bech32\>@ value into a single
+'DRepKey' or 'DRepScript' identifier. CIP-129 encodes the credential
+discriminator in the first byte of the data part: @0x22@ for
+@DRepKey@ and @0x23@ for @DRepScript@. The remaining 28 bytes are
+the credential hash. The bech32 HRP is @"drep"@.
+
+Any framing/decode failure, wrong total byte length, or unknown
+discriminator byte surfaces as 'BadBech32'.
+-}
+decodeDrepCip129 ::
+    FilePath ->
+    Int ->
+    Text ->
+    Either RulesLoadError [EntityIdentifier]
+decodeDrepCip129 file line bech32 =
+    case Bech32.decodeLenient bech32 of
+        Left _ -> Left (BadBech32 file line bech32)
+        Right (_hrp, dataPart) ->
+            case Bech32.dataPartToBytes dataPart of
+                Nothing -> Left (BadBech32 file line bech32)
+                Just bytes
+                    | BS.length bytes == 29 ->
+                        let prefix = BS.head bytes
+                            hash28 = BS.drop 1 bytes
+                            mkLeaf lt =
+                                Right
+                                    [ EntityIdentifier
+                                        lt
+                                        (hexHash hash28)
+                                    ]
+                         in case prefix of
+                                0x22 -> mkLeaf DRepKey
+                                0x23 -> mkLeaf DRepScript
+                                _ -> Left (BadBech32 file line bech32)
+                    | otherwise -> Left (BadBech32 file line bech32)

@@ -1,0 +1,29 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/07-vote-delegation#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:alice a cardano:Entity ;
+  rdfs:label "alice" ;
+  cardano:hasIdentifier _:alice_paymentKey ;
+  cardano:hasIdentifier _:alice_stakeKey .
+
+_:alice_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
+
+_:alice_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
+
+:cardano_foundation_drep a cardano:Entity ;
+  rdfs:label "cardano-foundation-drep" ;
+  cardano:hasIdentifier _:cardano_foundation_drep_dRepKey .
+
+_:cardano_foundation_drep_dRepKey a cardano:Identifier ;
+  cardano:leafType "DRepKey" ;
+  cardano:bytesHex "994bbd15048122875728c31153e400a26c0980950d117b1e44bd34ab" .
+
