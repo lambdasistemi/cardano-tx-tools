@@ -1,6 +1,6 @@
 {- |
 Module      : Cardano.Tx.Graph.Rules.LoadImportsSpec
-Description : T007 unit tests for the @owl:imports@ / @imports:@ DFS resolver.
+Description : Unit tests for the @owl:imports@ / @imports:@ DFS resolver.
 License     : Apache-2.0
 
 Covers the cross-file composition surface (spec FR-007, FR-017, US3):
@@ -12,18 +12,21 @@ Covers the cross-file composition surface (spec FR-007, FR-017, US3):
 * 'MissingImport' on a dangling relative reference;
 * 'AbsoluteImport' on an absolute path (filesystem or @file://@ URI);
 * 'HttpsImport' on an HTTPS @owl:imports@ target (default-offline,
-  analyzer N4 + FR-017).
+  analyzer N4 + FR-017);
+* 'RulesImportCycle' on a back-edge in the import graph (two-file
+  cycle and self-import — T008).
 
 Each test authors its file graph in a fresh temp directory using
 'System.IO.Temp.withSystemTempDirectory' and exercises the public
-'loadRulesFile' surface end-to-end. The assertions are on the
+'loadRulesFile' surface end-to-end. The DAG assertions are on the
 serialized overlay byte stream (via 'BS.isInfixOf' substring checks)
 rather than the @['EntityDecl']@ AST so the test catches both the
 parser-level recognition of the imports surface and the resolver's
-DFS flattening.
-
-Cycle detection is **deferred to T008** — every graph in this spec is
-a DAG.
+DFS flattening. The cycle assertions are on the structured 'Left'
+'RulesImportCycle' payload; we wrap the loader call in a 5-second
+'System.Timeout.timeout' so a regression that disables Grey-state
+detection surfaces as a finite test failure (the symptom) rather
+than hanging CI.
 -}
 module Cardano.Tx.Graph.Rules.LoadImportsSpec (spec) where
 
@@ -35,8 +38,10 @@ import Cardano.Tx.Graph.Rules.Load (
 
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
+import System.Directory (canonicalizePath)
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
+import System.Timeout (timeout)
 import Test.Hspec (
     Spec,
     describe,
@@ -218,9 +223,70 @@ spec = describe "Cardano.Tx.Graph.Rules.Load owl:imports composition (T007)" $ d
                             expectationFailure $
                                 "expected HttpsImport, got: " <> show other
 
+    describe "cycle detection (T008)" $ do
+        it
+            ( "RulesImportCycle — two-file cycle a.yaml ↔ b.yaml"
+                <> " surfaces [a, b, a]"
+            )
+            $ do
+                withSystemTempDirectory "tx-48-imports-cycle-pair" $ \dir -> do
+                    let aPath = dir </> "a.yaml"
+                        bPath = dir </> "b.yaml"
+                    BS.writeFile aPath $
+                        "imports:\n  - b.yaml\n" <> yamlOne "a_ent" hexA
+                    BS.writeFile bPath $
+                        "imports:\n  - a.yaml\n" <> yamlOne "b_ent" hexB
+                    -- Cycle keys are canonical paths — resolve before
+                    -- comparing so the assertion is robust against
+                    -- /tmp ↔ /private/tmp on macOS or any future
+                    -- canonicalization shift on Linux.
+                    aCanon <- canonicalizePath aPath
+                    bCanon <- canonicalizePath bPath
+                    mResult <- timeout cycleTimeoutMicros $ loadRulesFile aPath
+                    case mResult of
+                        Nothing ->
+                            expectationFailure $
+                                "loader did not return within "
+                                    <> show cycleTimeoutMicros
+                                    <> "µs — Grey-state cycle detection"
+                                    <> " regression: DFS hung through readFile"
+                        Just (Left (RulesImportCycle cyc)) ->
+                            cyc `shouldBe` [aCanon, bCanon, aCanon]
+                        Just other ->
+                            expectationFailure $
+                                "expected RulesImportCycle, got: " <> show other
+
+        it "RulesImportCycle — self-import a.yaml → a.yaml surfaces [a, a]" $ do
+            withSystemTempDirectory "tx-48-imports-cycle-self" $ \dir -> do
+                let aPath = dir </> "a.yaml"
+                BS.writeFile aPath $
+                    "imports:\n  - a.yaml\n" <> yamlOne "a_ent" hexA
+                aCanon <- canonicalizePath aPath
+                mResult <- timeout cycleTimeoutMicros $ loadRulesFile aPath
+                case mResult of
+                    Nothing ->
+                        expectationFailure $
+                            "loader did not return within "
+                                <> show cycleTimeoutMicros
+                                <> "µs — Grey-state cycle detection"
+                                <> " regression: DFS hung through readFile"
+                    Just (Left (RulesImportCycle cyc)) ->
+                        cyc `shouldBe` [aCanon, aCanon]
+                    Just other ->
+                        expectationFailure $
+                            "expected RulesImportCycle, got: " <> show other
+
 ----------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------
+
+{- | The microsecond cap for the cycle-detection tests. Five seconds
+is generous on any CI runner the project supports; it exists to
+turn a regression that re-enables unbounded recursion into a finite
+test failure rather than a CI hang.
+-}
+cycleTimeoutMicros :: Int
+cycleTimeoutMicros = 5_000_000
 
 {- | Drive 'loadRulesFile' over an absolute file path, returning the
 emitted overlay bytes or failing the spec on Left.

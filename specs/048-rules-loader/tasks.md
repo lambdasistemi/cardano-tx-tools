@@ -420,8 +420,10 @@ carries `Tasks: T###`.
 
   **Commit subject**: `feat(graph): owl:imports composition + DFS resolver`
 
-- [ ] **T008** *(type=feat, US4)* — Cycle detection + structured
-  `RulesImportCycle` error.
+- [X] **T008** *(type=feat, US4)* — Cycle detection + structured
+  `RulesImportCycle` error. Grey-state added to DFS; cycle path
+  `[start, …, start]`. Tests wrapped in 5s `System.Timeout.timeout`
+  so future regressions surface as finite failures, not hangs.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load/Resolve/Imports.hs`

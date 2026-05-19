@@ -21,21 +21,29 @@ Walks a rules file's import graph and produces a flat
 
 == Algorithm
 
-DFS, three-state-ready but only two states (White / Black) are used
-in this slice — the Grey state used to detect back-edges in the
-cycle-detection pass is reserved for T008. Every test in this slice
-authors only DAG inputs; a cycle would diverge through @readFile@.
+Three-state DFS (White / Grey / Black) over the import graph.
+White nodes are absent from the visit map; Grey marks an
+in-progress frontier (the DFS-active path); Black marks a fully
+loaded subtree. A second-visit to a Grey node is a back-edge —
+the loader surfaces 'RulesImportCycle' carrying the cycle path
+in DFS-entry order, with the revisited node appended at the end
+so the cycle reads naturally (e.g. @[a, b, a]@ for a two-file
+cycle @a → b → a@; @[a, a]@ for a self-import).
 
 For each node:
 
 1. Canonicalize the importer's path (so duplicate references to the
    same physical file deduplicate even when authored as different
    relative path strings).
-2. If the canonical path is already in the visited set, return @[]@
-   (the diamond-merge step — the file's entities were emitted on the
-   first visit).
-3. Mark the path visited.
-4. Read and parse the file (dispatch on extension).
+2. If the canonical path is Black in the visit map, return @[]@
+   (the diamond-merge step — the file's entities were emitted on
+   the first visit).
+3. If the canonical path is Grey in the visit map, abort with
+   'RulesImportCycle' whose payload is the suffix of the active
+   DFS path starting at the revisited node, with the revisited
+   node appended at the end (the cycle, in cycle order).
+4. Mark the path Grey, then read and parse the file (dispatch on
+   extension).
 5. For each raw import string:
 
     * Reject @http://@ / @https://@ as 'HttpsImport' (default-offline,
@@ -46,16 +54,18 @@ For each node:
     * Reject any other absolute filesystem path as 'AbsoluteImport'.
     * Otherwise, resolve the relative path against the importer's
       directory; stat it; if the resolved file does not exist surface
-      'MissingImport'; else recurse.
+      'MissingImport'; else recurse, appending the importer's
+      canonical path to the active DFS path.
 
-6. Accumulate the file's own entities **after** its children, so a
-   parent file's entities appear after the entities it imports — the
-   reverse-post-order property the loader's overlap-detector
-   (downstream) and the cross-file dup warning (T010) rely on.
+6. Once every child returns, mark the path Black and accumulate the
+   file's own entities **after** its children, so a parent file's
+   entities appear after the entities it imports — the reverse-
+   post-order property the loader's overlap-detector (downstream)
+   and the cross-file dup warning (T010) rely on.
 
-The function is total in the absence of cycles. Cycle detection is
-deferred to T008; a back-edge in this slice produces unbounded
-recursion.
+The function is total: a DAG terminates after one visit per node,
+and a back-edge is detected and surfaced as 'RulesImportCycle'
+before any infinite recursion can occur.
 -}
 module Cardano.Tx.Graph.Rules.Load.Resolve.Imports (
     resolveImports,
@@ -77,8 +87,8 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT (..), runExceptT, throwE)
 import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, modify')
 import Data.ByteString qualified as BS
-import Data.Set (Set)
-import Data.Set qualified as Set
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as Text
 import System.Directory (canonicalizePath, doesFileExist)
@@ -88,6 +98,20 @@ import System.FilePath (
     takeExtension,
     (</>),
  )
+
+{- | Tri-state colour of a node in the DFS visit map. White is the
+absence of a key (no entry in the map); 'Grey' is the in-progress
+frontier (the active DFS path); 'Black' is a fully loaded subtree.
+A revisit to a 'Grey' node is a back-edge — the loader surfaces
+'RulesImportCycle' carrying the cycle path.
+-}
+data VisitState
+    = Grey
+    | Black
+    deriving stock (Eq, Show)
+
+-- | The DFS visit map keyed by canonical path.
+type VisitMap = Map FilePath VisitState
 
 {- | Resolve a top-level rules file's full import graph into a flat
 @['EntityDecl']@ list. Entities are returned in DFS post-order
@@ -101,36 +125,70 @@ resolveImports ::
     FilePath -> IO (Either RulesLoadError [EntityDecl])
 resolveImports topPath = do
     -- The caller's path may be relative — canonicalize once so the
-    -- visited-set keys are consistent across the DFS.
+    -- visit-map keys are consistent across the DFS.
     canonicalTop <- canonicalizePath topPath
-    runExceptT (evalStateT (dfs canonicalTop) Set.empty)
+    runExceptT (evalStateT (dfs [] canonicalTop) Map.empty)
 
-{- | DFS over the import graph. The 'StateT' tracks the visited set
-keyed by canonical path; the 'ExceptT' threads the first structured
-error up to the caller. The two-state White / Black scheme is
-sufficient for DAG inputs — Grey (in-progress) for cycle detection
-is T008's surface.
+{- | DFS over the import graph. The 'StateT' tracks the tri-state
+visit map keyed by canonical path; the 'ExceptT' threads the first
+structured error up to the caller.
+
+The @activePath@ argument is the DFS-entry-ordered list of canonical
+paths currently on the active frontier (the Grey nodes). On a
+'Grey' revisit, the back-edge handler slices @activePath@ from the
+revisited node onward and appends the revisited node so the cycle
+payload reads naturally (e.g. @[a, b, a]@).
 
 The @canonicalPath@ argument doubles as the importer the
 diagnostic-bearing 'MissingImport' / 'AbsoluteImport' / 'HttpsImport'
 errors carry when one of its imports is rejected.
 -}
 dfs ::
+    [FilePath] ->
     FilePath ->
     StateT
-        (Set FilePath)
+        VisitMap
         (ExceptT RulesLoadError IO)
         [EntityDecl]
-dfs canonicalPath = do
+dfs activePath canonicalPath = do
     visited <- get
-    if Set.member canonicalPath visited
-        then pure []
-        else do
-            modify' (Set.insert canonicalPath)
+    case Map.lookup canonicalPath visited of
+        Just Black -> pure []
+        Just Grey ->
+            lift
+                ( throwE
+                    (RulesImportCycle (cyclePath activePath canonicalPath))
+                )
+        Nothing -> do
+            modify' (Map.insert canonicalPath Grey)
             (imports, ownEntities) <- parseFile canonicalPath
-            childEntities <- traverse (resolveChild canonicalPath) imports
+            let activePath' = activePath <> [canonicalPath]
+            childEntities <-
+                traverse (resolveChild activePath' canonicalPath) imports
+            modify' (Map.insert canonicalPath Black)
             -- Reverse-post-order: children before parent.
             pure (concat childEntities <> ownEntities)
+
+{- | Build the cycle-path payload for a 'RulesImportCycle'.
+
+Given the active DFS path (in DFS-entry order) and the canonical
+path of the revisited Grey node, return the suffix of the active
+path starting at the revisited node with the revisited node
+appended at the end. The result reads as a closed loop:
+@start, hop_1, …, hop_k, start@.
+
+By invariant @revisited@ is on the active path whenever this
+function is called from the DFS back-edge handler (Grey means
+in-progress on the current frontier), so @dropWhile (/= revisited)
+activePath@ is non-empty. The defensive fallback @[revisited,
+revisited]@ guards the impossible "not on path" case so the loader
+cannot return an empty cycle list under any future refactor.
+-}
+cyclePath :: [FilePath] -> FilePath -> [FilePath]
+cyclePath activePath revisited =
+    case dropWhile (/= revisited) activePath of
+        [] -> [revisited, revisited]
+        xs -> xs <> [revisited]
 
 {- | Parse the file at @canonicalPath@, dispatching on its extension.
 Bubbles up the per-parser 'RulesLoadError' on a malformed file.
@@ -138,7 +196,7 @@ Bubbles up the per-parser 'RulesLoadError' on a malformed file.
 parseFile ::
     FilePath ->
     StateT
-        (Set FilePath)
+        VisitMap
         (ExceptT RulesLoadError IO)
         ([Text], [EntityDecl])
 parseFile path = do
@@ -156,13 +214,14 @@ and recurse. Performs the URI / absolute / missing-file checks
 listed in the module header.
 -}
 resolveChild ::
+    [FilePath] ->
     FilePath ->
     Text ->
     StateT
-        (Set FilePath)
+        VisitMap
         (ExceptT RulesLoadError IO)
         [EntityDecl]
-resolveChild importer importRaw
+resolveChild activePath importer importRaw
     | isHttpsLike importRaw =
         throw (HttpsImport importer importRaw)
     | isFileUri importRaw =
@@ -178,7 +237,7 @@ resolveChild importer importRaw
             then throw (MissingImport importer resolvedRaw)
             else do
                 canonicalChild <- liftIO (canonicalizePath resolvedRaw)
-                dfs canonicalChild
+                dfs activePath canonicalChild
   where
     throw = lift . throwE
 
