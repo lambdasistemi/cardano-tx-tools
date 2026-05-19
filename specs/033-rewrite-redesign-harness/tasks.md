@@ -180,8 +180,9 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Purpose**: Documentation alignment, PR-body sync, drop `gate.sh`, mark PR ready.
 
-- [ ] T025 Sync `README.md`, `CHANGELOG.md`, and `docs/` with the harness. Add a paragraph in `README.md` pointing at `specs/033-rewrite-redesign-harness/quickstart.md`. Files: `README.md`, `CHANGELOG.md`, `docs/`.
-- [ ] T026 Drop `gate.sh` in a final `chore: drop gate.sh (ready for review)` commit and mark PR #55 ready via `gh pr ready 55`. Files: `gate.sh` (removed).
+- [X] T025 Ship fixture `11-amaru-treasury-swap-real` — sibling of `01-amaru-treasury-swap` mirroring the real on-chain mainnet tx `5fc04113…32ea` (2 inputs + 5 outputs + 1 collateral; see `test/fixtures/amaru-treasury-swap/swap-1.source.md` in cardano-tx-tools and `Amaru.Treasury.Tx.Swap` in amaru-treasury-tx as read-only references). Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S11_AmaruTreasurySwapReal.hs`, `test/fixtures/rewrite-redesign/11-amaru-treasury-swap-real/{rules.yaml,expected.txt,expected.ttl}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [ ] T026 Sync `README.md`, `CHANGELOG.md`, and `docs/` with the harness. Add a paragraph in `README.md` pointing at `specs/033-rewrite-redesign-harness/quickstart.md`. Files: `README.md`, `CHANGELOG.md`, `docs/`.
+- [ ] T027 Drop `gate.sh` in a final `chore: drop gate.sh (ready for review)` commit and mark PR #55 ready via `gh pr ready 55`. Files: `gate.sh` (removed).
 
 ---
 

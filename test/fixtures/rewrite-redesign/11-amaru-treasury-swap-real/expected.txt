@@ -1,0 +1,19 @@
+inputs:
+  - resolved.address: amaru.network-wallet
+    resolved.coin: 96.800000 ADA
+  - resolved.address: amaru-treasury.network_compliance
+    resolved.coin: 1_137_000.000000 ADA
+outputs:
+  - address: amaru.swap-order
+    coin: 39_306.821250 ADA
+  - address: amaru.swap-order
+    coin: 39_306.821249 ADA
+  - address: amaru-treasury.network_compliance
+    coin: 1_058_730.000000 ADA
+  - address: amaru.network-wallet
+    coin: 50.000000 ADA
+  - address: amaru.network-wallet
+    coin: 46.800000 ADA
+collateral:
+  - resolved.address: amaru.network-wallet
+fee: 0.452865 ADA
