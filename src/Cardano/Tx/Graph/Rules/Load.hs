@@ -17,14 +17,16 @@ Both formats compose via @owl:imports@ / @imports:@; cycles are detected.
 See @specs\/048-rules-loader\/@ for the full specification.
 
 This module exposes the public type surface, the high-level
-'loadRulesFile' entrypoint, and the YAML compiler's in-memory
-'parseRulesYamlText' helper (T002). The Turtle parser, the Turtle
-serializer, and the cross-file imports resolver land in later slices.
+'loadRulesFile' entrypoint, the YAML compiler's in-memory
+'parseRulesYamlText' helper (T002), and the structural Turtle
+parser's in-memory 'parseRulesTurtleText' helper (T006). The
+cross-file imports resolver lands in a later slice.
 -}
 module Cardano.Tx.Graph.Rules.Load (
     -- * Public API
     loadRulesFile,
     parseRulesYamlText,
+    parseRulesTurtleText,
 
     -- * Result + warnings
     RulesLoadResult (..),
@@ -40,6 +42,7 @@ module Cardano.Tx.Graph.Rules.Load (
 ) where
 
 import Cardano.Tx.Graph.Rules.Load.Emit.Overlay (emitOverlay)
+import Cardano.Tx.Graph.Rules.Load.Parse.Turtle (parseRulesTurtleText)
 import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (parseRulesYamlText)
 import Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
@@ -82,19 +85,21 @@ data RulesLoadWarning
 
 The file extension dispatches the parser:
 
-* @.ttl@ — canonical Turtle (T006 will implement).
+* @.ttl@ — canonical Turtle (T006).
 * @.yaml@, @.yml@ — YAML sugar (T002 onwards; the YAML compiler is
   available in-memory via 'parseRulesYamlText'; the file-loading and
   serializer plumbing lands with T003+).
 
 Any other extension returns 'UnsupportedExtension'.
 
-The scaffold returns 'NotImplemented' for the two supported extensions;
-later slices replace the right-hand side with real parsing.
+Both parsers feed the same in-memory @['EntityDecl']@ shape into the
+shared serializer, so authoring the same rules content as YAML or as
+Turtle produces byte-equal overlay output (the co-equality
+requirement, spec SC-005).
 -}
 loadRulesFile :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
 loadRulesFile path = case takeExtension path of
-    ".ttl" -> pure (Left (NotImplemented "turtle"))
+    ".ttl" -> loadTurtle path
     ".yaml" -> loadYaml path
     ".yml" -> loadYaml path
     _ -> pure (Left (UnsupportedExtension path))
@@ -109,6 +114,28 @@ loadYaml :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
 loadYaml path = do
     blob <- BS.readFile path
     pure $ case parseRulesYamlText blob of
+        Left err -> Left err
+        Right entities ->
+            let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))
+                bytes = emitOverlay fixtureSlug entities
+             in Right
+                    RulesLoadResult
+                        { rulesOverlayTurtle = bytes
+                        , rulesWarnings = []
+                        }
+
+{- | Helper for the @.ttl@ dispatch: read the file from disk, parse via
+'parseRulesTurtleText', re-emit through the shared serializer, and
+wrap the bytes in 'RulesLoadResult'. The Turtle parser discards the
+operator-chosen blank-node names; the serializer then assigns them
+via the deterministic 'Cardano.Tx.Graph.Rules.Load.Naming' algorithm
+so the YAML and Turtle authoring paths produce byte-equal output
+(spec SC-005).
+-}
+loadTurtle :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
+loadTurtle path = do
+    blob <- BS.readFile path
+    pure $ case parseRulesTurtleText blob of
         Left err -> Left err
         Right entities ->
             let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))
