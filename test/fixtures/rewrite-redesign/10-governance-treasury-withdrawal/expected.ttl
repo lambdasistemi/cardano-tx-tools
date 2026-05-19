@@ -1,0 +1,162 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/10-governance-treasury-withdrawal#> .
+
+#
+# Operator-declared entities (from rules.yaml). operator reuses the same
+# 28-byte payment / stake key hashes as alice in 02-alice-bob-ada (entity
+# IRI renamed; identifier bytes unchanged); cardano-foundation.ops reuses
+# the same 28-byte payment / stake key hashes as bob there. The dot in
+# the cardano-foundation.ops name is rewritten to an underscore in the
+# CURIE local-part (:cardano-foundation_ops) to avoid the Turtle
+# PN_LOCAL trailing-dot trap; rdfs:label preserves the operator-declared
+# spelling, paralleling the T020 (08-contingency-disburse) precedent for
+# :amaru-treasury_contingency_account.
+#
+
+:operator a cardano:Entity ;
+  rdfs:label "operator" ;
+  cardano:hasIdentifier _:operatorIdPayment ;
+  cardano:hasIdentifier _:operatorIdStake .
+
+_:operatorIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "601f58e4436698104adbbda7bc9d8f3f10e9e49652f9799d6c63aeda" .
+
+_:operatorIdStake a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "80226c84b26fe1a280649d819757ff2ffaec51adca5a3780356c05bf" .
+
+:cardano-foundation_ops a cardano:Entity ;
+  rdfs:label "cardano-foundation.ops" ;
+  cardano:hasIdentifier _:cardanoFoundationOpsIdPayment ;
+  cardano:hasIdentifier _:cardanoFoundationOpsIdStake .
+
+_:cardanoFoundationOpsIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "2841f2c629212003be2c87fd02c0ff91fb81d8993129036d758ba548" .
+
+_:cardanoFoundationOpsIdStake a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "e54e05afe3cb96ad42650e389b397b1722f0918ca977f239fd595a14" .
+
+#
+# Transaction body — 1 input, 1 output, 1 governance proposal, 175_000
+# fee. No certificates, withdrawals, collateral, reference inputs, or
+# mint entries. This is the first B-side fixture to populate the
+# proposalProcedures field, so it is also the first to surface
+# cardano:hasProposal on the transaction blank node — the structural
+# counterpart to cardano:hasCertificate (T018 / T019),
+# cardano:hasWithdrawal (T017), and cardano:hasCollateralInput (T020)
+# already used by earlier B-side slices.
+#
+
+_:tx a cardano:Transaction ;
+  cardano:hasInput _:input1 ;
+  cardano:hasOutput _:output1 ;
+  cardano:hasProposal _:proposal1 ;
+  cardano:hasFee 175000 .
+
+#
+# Input — operator's 100_001 ADA UTxO funding both the 100_000 ADA
+# proposal deposit and the 0.175 ADA fee, with 0.825 ADA change
+# returned in output 1.
+#
+
+_:input1 a cardano:Input ;
+  cardano:resolvedTo _:resolvedInput1 .
+
+_:resolvedInput1 a cardano:Output ;
+  cardano:atAddress _:operatorAddr .
+
+#
+# Output 1 — 0.825 ADA change back to operator (100_001 ADA in minus
+# the 100_000 ADA proposal deposit minus the 0.175 ADA fee).
+#
+
+_:output1 a cardano:Output ;
+  cardano:atAddress _:operatorAddr .
+
+#
+# Proposal 1 — ProposalProcedure carrying a TreasuryWithdrawals action
+# requesting 50_000 ADA paid to cardano-foundation.ops. Phase A
+# declares cardano:hasProposal as the body→proposal binding but does
+# not (yet) declare a ProposalProcedure class or per-variety
+# subclasses — and the (deposit, returnAddr,
+# action.withdrawals.{address: amount}) shape from 044 Story 10
+# carries coin amounts (body-data), not structural-leaf data. The
+# structural graph therefore surfaces only the identity-bearing
+# surface of the proposal:
+#
+#   * the proposal's variety tag is pinned via cardano:Datum +
+#     cardano:decodedAs "TreasuryWithdrawals" — reusing the
+#     decodedAs property Phase A declares for datum/redeemer payloads
+#     to label the action variant — and parallels the precedent set
+#     by T015..T021 of leaving body-data quantities (deposit, mint
+#     amounts, coin values) out of the structural graph while
+#     pinning the kind of action;
+#   * the proposer's returnAddr is the operator's stake credential,
+#     so the proposal carries a cardano:hasIdentifier link to the
+#     same _:operatorIdStake bnode the address decomposition emits;
+#   * the TreasuryWithdrawals target reward-account is
+#     cardano-foundation.ops's stake credential, surfaced as a
+#     second cardano:hasIdentifier link to the same
+#     _:cardanoFoundationOpsIdStake bnode emitted by that entity's
+#     address decomposition.
+#
+# Both stake-side identifiers — returnAddr vs withdrawal target —
+# attach to the proposal under the same cardano:hasIdentifier
+# property because Phase A has no separate hasReturnAddr /
+# hasWithdrawalTarget terms; the kmaps#53 (leafType, bytesHex) key
+# on each leaf still pins which is which through the address
+# decomposition. A future kmaps follow-up can mint richer terms
+# (deposit amount, per-withdrawal coin, returnAddr/target role
+# discriminators) and the rename remains a mechanical sed across
+# this fixture and the future #47 emitter.
+#
+# The 50_000 ADA withdrawal amount and the 100_000 ADA deposit live
+# in expected.txt / the future #47 emitter, not in this structural
+# graph — matching the same convention as the earlier B-side
+# fixtures (cert deposits, withdrawal amounts, mint quantities,
+# coin values).
+#
+
+_:proposal1 a cardano:Datum ;
+  cardano:decodedAs "TreasuryWithdrawals" ;
+  cardano:hasIdentifier _:operatorIdStake ;
+  cardano:hasIdentifier _:cardanoFoundationOpsIdStake .
+
+#
+# Address decompositions — payment + stake credential per leaf. The
+# operator bech32 is identical to alice's in 02-alice-bob-ada and the
+# cardano-foundation.ops bech32 is identical to bob's there. Both
+# address decompositions reuse the identifier bnodes declared in the
+# entity blocks above; the operator stake-credential bnode
+# (_:operatorIdStake) is the same one referenced by the proposal's
+# returnAddr link, and the cardano-foundation.ops stake-credential
+# bnode (_:cardanoFoundationOpsIdStake) is the same one referenced
+# by the proposal's TreasuryWithdrawals target link — the cross-leaf
+# identity surface kmaps#53 pins.
+#
+
+_:operatorAddr a cardano:Address ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
+  cardano:hasPaymentCredential _:operatorCredPayment ;
+  cardano:hasStakeCredential _:operatorCredStake .
+
+_:operatorCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:operatorIdPayment .
+
+_:operatorCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:operatorIdStake .
+
+_:cardanoFoundationOpsAddr a cardano:Address ;
+  cardano:bech32 "addr1q8r2k7yj4vkkznhcdrqz4qa3acsyxh8mxd8shx6yh4t7rgt8s8u04hgw95dx9j4uqe6flf3v3qcgyc60v3y6h4hpvy7s9j2q5g" ;
+  cardano:hasPaymentCredential _:cardanoFoundationOpsCredPayment ;
+  cardano:hasStakeCredential _:cardanoFoundationOpsCredStake .
+
+_:cardanoFoundationOpsCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:cardanoFoundationOpsIdPayment .
+
+_:cardanoFoundationOpsCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:cardanoFoundationOpsIdStake .
