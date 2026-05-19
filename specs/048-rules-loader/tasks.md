@@ -510,8 +510,14 @@ carries `Tasks: T###`.
 
 ## Phase 7 — Executable wiring (US7)
 
-- [ ] **T011** *(type=feat, US7)* — `tx-graph` executable + `--rules`
-  flag + cabal stanza + executable smoke test.
+- [X] **T011** *(type=feat, US7)* — `tx-graph` executable + `--rules`
+  flag + cabal stanza + executable smoke test. `renderRulesLoadError`
+  + `renderRulesLoadWarning` exported. LoadExeSpec spawns the freshly
+  built binary as a subprocess via `cabal list-bin -O0 exe:tx-graph`
+  (3 it blocks: success / cycle / missing-flag). 231 unit examples.
+  Body-emitter flags (`--utxo`, `--out`, `--tx`, `--format`) are not
+  declared — passing them surfaces optparse-applicative usage error,
+  matching the #58 deferral.
 
   **Owned files**:
   - `app/tx-graph/Main.hs` (new)
