@@ -407,6 +407,44 @@ nesting) are part of the views' surface.
 - **Drop `collapse:` entirely** — rejected — same round-trip
   argument as R10.
 
+## R13 — Constitution-compliance sweep happens in this PR (not as a follow-up)
+
+**Decision**: T001b (PvP upper bounds across every dep stanza in
+`cardano-tx-tools.cabal`) and T001c (`werror` cabal flag per
+cardano-node-clients pattern) land **inside #48**, ahead of T001a's
+gate extension. SC-007 (`cabal check` clean) is an in-scope
+acceptance criterion, not a deferred follow-up.
+
+**Rationale** (resolved as Q-002 Option B under user override):
+
+- The constitution's Principle IV mandates `cabal check` clean at
+  all times. The existing repo violates that in two ways
+  (missing-upper-bounds across every stanza; unguarded `-Werror`
+  in the `warnings` common stanza). The natural orchestrator
+  instinct is to defer constitution-compliance work to a separate
+  PR. The user override on Q-002 says: don't defer.
+- Deferred constitution work tends to pile up forever. Closing it
+  inside the PR that surfaced it is the discipline that keeps the
+  constitution operational rather than aspirational.
+- The dep-bounds sweep + werror flag plumbing are mechanical
+  (T001b + T001c can each be one subagent commit). The PR grows by
+  ~80 lines of cabal + a flake-side flag wire, not by behaviour.
+- T001a's `cabal check` step now has a green path to enforce on
+  every subsequent slice; without T001b + T001c, the step would
+  trip immediately.
+
+**Alternatives**:
+
+- **Option A — defer SC-007** (my original recommendation) —
+  rejected by user override. Pre-existing violations are not a
+  free pass to ship more code on top of them.
+- **Option C — `cabal check` softening** (grep-and-ignore) —
+  rejected as fragile; hides future regressions.
+
+The Q-file + answer at
+`/tmp/epic-046/tx-48/{questions,answers}/A-002-defer-cabal-check-sc007.md`
+holds the durable record of the override.
+
 ## R12 — Diamond imports merge by triple-equality
 
 **Decision**: When a node is `Black` (already visited) and is
