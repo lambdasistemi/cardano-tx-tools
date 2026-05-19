@@ -123,7 +123,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Goal**: Plutus mint + spend overlap where the same hash carries both `PaymentScript` and `Policy` roles.
 
-- [ ] T011 [US5] Ship fixture `04-mint-spend-script-overlap`: `Tx.hs` (1 input under the script address, 1 output, mint field, witness-set script), `rules.yaml` from 044 Story 4 (`keys: [PaymentScript, Policy]`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S04_MintSpendScriptOverlap.hs`, `test/fixtures/rewrite-redesign/04-mint-spend-script-overlap/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — requires the witness-set script helpers added in T003.)*
+- [X] T011 [US5] Ship fixture `04-mint-spend-script-overlap`: `Tx.hs` (1 input under the script address, 1 output, mint field, witness-set script), `rules.yaml` from 044 Story 4 (`keys: [PaymentScript, Policy]`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S04_MintSpendScriptOverlap.hs`, `test/fixtures/rewrite-redesign/04-mint-spend-script-overlap/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — requires the witness-set script helpers added in T003.)*
 
 ---
 

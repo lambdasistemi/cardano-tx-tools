@@ -327,6 +327,7 @@ test-suite unit-tests
     Fixtures.RewriteRedesign.Helpers
     Fixtures.RewriteRedesign.S02_AliceBobAda
     Fixtures.RewriteRedesign.S03_MultiAssetTransfer
+    Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap
     Fixtures.RewriteRedesign.S05_WithdrawalScriptStake
     Fixtures.RewriteRedesign.S06_StakePoolDelegation
     Fixtures.RewriteRedesign.S07_VoteDelegation
@@ -360,6 +361,7 @@ test-suite unit-tests
     , hspec
     , microlens
     , plutus-core
+    , plutus-tx
     , QuickCheck
     , text
 

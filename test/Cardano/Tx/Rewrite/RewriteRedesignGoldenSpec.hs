@@ -40,6 +40,7 @@ import Fixtures.RewriteRedesign.Helpers (
  )
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
+import Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap qualified as S04
 import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
 import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
 import Fixtures.RewriteRedesign.S07_VoteDelegation qualified as S07
@@ -81,6 +82,12 @@ fixtureRegistry =
         , feBuilder = S03.tx
         , fePaths = mkFixturePaths S03.storyId
         , feShape = S03.shape
+        }
+    , FixtureEntry
+        { feStoryId = S04.storyId
+        , feBuilder = S04.tx
+        , fePaths = mkFixturePaths S04.storyId
+        , feShape = S04.shape
         }
     , FixtureEntry
         { feStoryId = S05.storyId
