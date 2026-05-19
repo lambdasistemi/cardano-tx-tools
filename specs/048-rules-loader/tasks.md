@@ -41,7 +41,7 @@ carries `Tasks: T###`.
 
 ## Phase 1 — loader scaffolding (chore-shaped, no behaviour change)
 
-- [ ] **T001b** *(type=chore, subagent slice; constitution-compliance
+- [X] **T001b** *(type=chore, subagent slice; constitution-compliance
   sweep per Q-002 Option B)* — Add PvP-compliant upper bounds to every
   dependency in every stanza of `cardano-tx-tools.cabal`.
 
