@@ -1,0 +1,18 @@
+entities:
+  - name: mpfs.oracle
+    from-address: addr1x9zh2u6h7n9q3v8r0p4x5w7c8e9d2k4t6m1y3z5b8j2l4n6p8q1r3s5t7v9
+  - name: mpfs.oracle.script
+    script: aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc
+  - name: operator
+    from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+blueprints:
+  - script: mpfs.oracle.script
+    datum: ./blueprints/mpfs-fact.cip57.json
+collapse:
+  - name: FactOutput
+    at: body.outputs
+    match:
+      required:
+        - address
+        - datum.Fact.requester
+    view: omit

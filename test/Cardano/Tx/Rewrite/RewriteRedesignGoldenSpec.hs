@@ -45,6 +45,7 @@ import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
 import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
 import Fixtures.RewriteRedesign.S07_VoteDelegation qualified as S07
 import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
+import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
 import Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal qualified as S10
 
 spec :: Spec
@@ -113,6 +114,12 @@ fixtureRegistry =
         , feBuilder = S08.tx
         , fePaths = mkFixturePaths S08.storyId
         , feShape = S08.shape
+        }
+    , FixtureEntry
+        { feStoryId = S09.storyId
+        , feBuilder = S09.tx
+        , fePaths = mkFixturePaths S09.storyId
+        , feShape = S09.shape
         }
     , FixtureEntry
         { feStoryId = S10.storyId

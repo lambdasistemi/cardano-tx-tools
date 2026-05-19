@@ -139,7 +139,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Goal**: MPFS facts-request with 10 chunked outputs to the oracle script, blueprint-decoded `requester` field.
 
-- [ ] T013 [US10] Ship fixture `09-mpfs-facts-request`: `Tx.hs` (1 operator input, 10 oracle-script outputs each with inline datum + 1 operator change), `rules.yaml` from 044 Story 9 referencing `blueprints/mpfs-fact.cip57.json`, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S09_MpfsFactsRequest.hs`, `test/fixtures/rewrite-redesign/09-mpfs-facts-request/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — uses the blueprint from T003.)*
+- [X] T013 [US10] Ship fixture `09-mpfs-facts-request`: `Tx.hs` (1 operator input, 10 oracle-script outputs each with inline datum + 1 operator change), `rules.yaml` from 044 Story 9 referencing `blueprints/mpfs-fact.cip57.json`, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S09_MpfsFactsRequest.hs`, `test/fixtures/rewrite-redesign/09-mpfs-facts-request/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — uses the blueprint from T003.)*
 
 ---
 
