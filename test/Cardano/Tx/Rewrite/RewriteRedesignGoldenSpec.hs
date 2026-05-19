@@ -38,6 +38,7 @@ import Fixtures.RewriteRedesign.Helpers (
     mkFixturePaths,
     mkTx,
  )
+import Fixtures.RewriteRedesign.S01_AmaruTreasurySwap qualified as S01
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
 import Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap qualified as S04
@@ -74,6 +75,12 @@ is predictable (per @contracts/goldens-suite.md@, Invariants).
 fixtureRegistry :: [FixtureEntry]
 fixtureRegistry =
     [ FixtureEntry
+        { feStoryId = S01.storyId
+        , feBuilder = S01.tx
+        , fePaths = mkFixturePaths S01.storyId
+        , feShape = S01.shape
+        }
+    , FixtureEntry
         { feStoryId = S02.storyId
         , feBuilder = S02.tx
         , fePaths = mkFixturePaths S02.storyId

@@ -1,0 +1,15 @@
+inputs:
+  SwapOrderInput × 33:
+    resolved.address: amaru.swap-order
+    datum.SwapOrder.recipient: amaru-treasury.network_compliance
+  - resolved.address: amaru.network-wallet
+    resolved.coin: 2.000000 ADA
+outputs:
+  - address: amaru-treasury.network_compliance
+    coin: 1.500000 ADA
+    assets: { usdm: 95 }
+  - address: amaru.network-wallet
+    coin: 0.850000 ADA
+witnesses:
+  scripts: [amaru.swap.v2]
+fee: 0.650000 ADA
