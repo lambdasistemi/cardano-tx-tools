@@ -255,6 +255,19 @@ executable tx-diff
     , ouroboros-network:api
     , text                           >=2.1  && <2.2
 
+executable tx-graph
+  import:           warnings
+  hs-source-dirs:   app/tx-graph
+  main-is:          Main.hs
+  default-language: GHC2021
+  autogen-modules:  Paths_cardano_tx_tools
+  other-modules:    Paths_cardano_tx_tools
+  build-depends:
+    , base
+    , bytestring            >=0.12 && <0.13
+    , cardano-tx-tools
+    , optparse-applicative  >=0.19 && <0.20
+
 executable tx-inspect
   import:           warnings
   hs-source-dirs:   app/tx-inspect
@@ -337,6 +350,7 @@ test-suite unit-tests
     Cardano.Tx.Diff.ResolverSpec
     Cardano.Tx.Diff.Web2Spec
     Cardano.Tx.DiffSpec
+    Cardano.Tx.Graph.Rules.LoadExeSpec
     Cardano.Tx.Graph.Rules.LoadGoldenSpec
     Cardano.Tx.Graph.Rules.LoadImportsSpec
     Cardano.Tx.Graph.Rules.LoadSmokeSpec
@@ -395,6 +409,7 @@ test-suite unit-tests
     , microlens                      >=0.4  && <0.5
     , plutus-core                    >=1.60 && <3
     , plutus-tx                      >=1.60 && <3
+    , process                        >=1.6  && <1.7
     , QuickCheck                     >=2.15 && <2.16
     , temporary                      >=1.3  && <1.4
     , text                           >=2.1  && <2.2

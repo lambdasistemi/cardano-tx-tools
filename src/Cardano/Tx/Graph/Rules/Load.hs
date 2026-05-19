@@ -39,6 +39,10 @@ module Cardano.Tx.Graph.Rules.Load (
 
     -- * Errors
     RulesLoadError (..),
+
+    -- * Diagnostic rendering (CLI surface)
+    renderRulesLoadError,
+    renderRulesLoadWarning,
 ) where
 
 import Cardano.Tx.Graph.Rules.Load.Emit.Overlay (emitOverlay)
@@ -130,3 +134,100 @@ loadWithResolver path = do
                         { rulesOverlayTurtle = bytes
                         , rulesWarnings = warnings
                         }
+
+----------------------------------------------------------------------
+-- Diagnostic rendering (CLI surface)
+----------------------------------------------------------------------
+
+{- | Render a 'RulesLoadError' as a single human-readable line for the
+@tx-graph@ executable's stderr. The variants that carry a file path
+and a 1-based line number are formatted as @\<file\>:\<line\>:
+\<variant\> \<details\>@ so editors and CI log scrapers can hyperlink
+back to the offending location. Variants with cross-file provenance
+(imports, cycles) render their full file paths in the same line.
+
+The format is deliberately stable but not part of the public API
+contract — the executable's tests assert on substring presence
+(variant tag + key payload), not on exact byte-equality.
+-}
+renderRulesLoadError :: RulesLoadError -> String
+renderRulesLoadError = \case
+    UnsupportedExtension path ->
+        "UnsupportedExtension: " <> path
+    NotImplemented msg ->
+        "NotImplemented: " <> Text.unpack msg
+    ParserError file line msg ->
+        file <> ":" <> show line <> ": ParserError: " <> Text.unpack msg
+    EntityZeroIdentifiers file line name ->
+        file
+            <> ":"
+            <> show line
+            <> ": EntityZeroIdentifiers: entity "
+            <> show (Text.unpack name)
+            <> " declares no identifier shapes"
+    BadBech32 file line raw ->
+        file
+            <> ":"
+            <> show line
+            <> ": BadBech32: "
+            <> show (Text.unpack raw)
+    BadPolicyHex file line raw ->
+        file
+            <> ":"
+            <> show line
+            <> ": BadPolicyHex: "
+            <> show (Text.unpack raw)
+    EntityNameSlugEmpty file line raw ->
+        file
+            <> ":"
+            <> show line
+            <> ": EntityNameSlugEmpty: "
+            <> show (Text.unpack raw)
+    EntityNameSlugLeadingDigit file line raw ->
+        file
+            <> ":"
+            <> show line
+            <> ": EntityNameSlugLeadingDigit: "
+            <> show (Text.unpack raw)
+    BlueprintRefsUnknownScript file line name ->
+        file
+            <> ":"
+            <> show line
+            <> ": BlueprintRefsUnknownScript: "
+            <> show (Text.unpack name)
+    MissingImport importer imported ->
+        "MissingImport: "
+            <> importer
+            <> " -> "
+            <> imported
+    AbsoluteImport importer raw ->
+        "AbsoluteImport: "
+            <> importer
+            <> " -> "
+            <> show (Text.unpack raw)
+    HttpsImport importer raw ->
+        "HttpsImport: "
+            <> importer
+            <> " -> "
+            <> show (Text.unpack raw)
+    RulesImportCycle cyc ->
+        "RulesImportCycle: " <> renderCycle cyc
+  where
+    renderCycle = \case
+        [] -> "<empty cycle>"
+        (p : ps) -> foldl (\acc q -> acc <> " -> " <> q) p ps
+
+{- | Render a 'RulesLoadWarning' as a single human-readable line for the
+@tx-graph@ executable's stderr. The format mirrors
+'renderRulesLoadError' for consistency: a variant tag and the
+key payload.
+-}
+renderRulesLoadWarning :: RulesLoadWarning -> String
+renderRulesLoadWarning = \case
+    DuplicateEntityAcrossFiles slug kept dropped ->
+        "DuplicateEntityAcrossFiles: entity "
+            <> show (Text.unpack slug)
+            <> " kept from "
+            <> kept
+            <> ", dropped from "
+            <> dropped
