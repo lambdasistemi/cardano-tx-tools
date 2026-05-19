@@ -133,7 +133,7 @@ carries `Tasks: T###`.
 
   **Commit subject**: `chore(048): extend gate.sh with cabal check + haddock build`
 
-- [ ] **T001** *(type=feat, US1 scaffolding)* — Module skeleton + types
+- [X] **T001** *(type=feat, US1 scaffolding)* — Module skeleton + types
   + cabal expose + smoke spec.
 
   **Owned files**:
