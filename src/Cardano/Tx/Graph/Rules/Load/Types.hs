@@ -16,6 +16,7 @@ module Cardano.Tx.Graph.Rules.Load.Types (
     EntityIdentifier (..),
     LeafType (..),
     RulesLoadError (..),
+    RulesLoadWarning (..),
 ) where
 
 import Data.Text (Text)
@@ -50,6 +51,15 @@ data EntityDecl = EntityDecl
     , entityIdentifiers :: ![EntityIdentifier]
     -- ^ Identifiers in source order. At least one (zero-identifier
     -- entities are rejected at parse).
+    , entitySourceFile :: !FilePath
+    -- ^ The path of the file this declaration was parsed from. The
+    -- in-memory parser entry points use the placeholder
+    -- @\<in-memory\>@; the file-aware entry points used by the
+    -- imports resolver thread the real path through. Consumed by
+    -- 'Cardano.Tx.Graph.Rules.Load.Resolve.Imports' to detect
+    -- duplicate entity slugs that originate from two different
+    -- imported files (spec FR-011 / US6) — first-wins,
+    -- 'Cardano.Tx.Graph.Rules.Load.RulesLoadWarning' emitted.
     }
     deriving stock (Eq, Show)
 
@@ -162,4 +172,25 @@ data RulesLoadError
       -- (in-progress) state on the DFS frontier and aborts on the
       -- first back-edge.
       RulesImportCycle ![FilePath]
+    deriving stock (Eq, Show)
+
+{- | Non-fatal warnings the loader emits while still returning a 'Right'
+'Cardano.Tx.Graph.Rules.Load.RulesLoadResult'. The CLI surfaces these
+on @stderr@; a future LSP can render them as squiggly underlines.
+
+The only variant today is 'DuplicateEntityAcrossFiles' (spec FR-011 /
+US6): when two imported files declare the same entity slug, the first
+declaration wins, the second is silently dropped from the overlay,
+and this warning names both file paths so the operator can locate
+the duplicate. Same-file dups remain a hard 'RulesLoadError' surfaced
+by the per-file parsers — this warning is the cross-file relaxation
+only.
+-}
+data RulesLoadWarning
+    = -- | The same entity slug was declared in two imported files.
+      -- The first declaration is kept; the second is dropped (per spec
+      -- US6). Carries the entity slug, the path of the kept file, and
+      -- the path of the dropped file (both canonical absolute paths
+      -- after the resolver's 'canonicalizePath' pass).
+      DuplicateEntityAcrossFiles !Text !FilePath !FilePath
     deriving stock (Eq, Show)

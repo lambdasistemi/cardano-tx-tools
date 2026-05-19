@@ -871,6 +871,7 @@ buildEntity file subjectLines groups subj = do
             { entityName = name
             , entitySlug = slug
             , entityIdentifiers = idents
+            , entitySourceFile = file
             }
 
 -- | The slug for a subject. Only prefixed-name subjects are supported.

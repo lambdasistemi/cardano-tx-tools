@@ -80,6 +80,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                                 StakeKey
                                 "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"
                             ]
+                        , entitySourceFile = inMemoryFile
                         }
                     ]
 
@@ -113,6 +114,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                             PaymentScript
                             "0123456789abcdef0123456789abcdef0123456789abcdef01234567"
                         ]
+                        inMemoryFile
                     , EntityDecl
                         "beta"
                         "beta"
@@ -120,6 +122,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                             AssetClass
                             "aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc4d454d45"
                         ]
+                        inMemoryFile
                     ]
 
         it "ignores comments and accepts owl:imports triples without failing" $ do
@@ -151,6 +154,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                             PaymentScript
                             "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077"
                         ]
+                        inMemoryFile
                     ]
 
     describe "out-of-scope constructs are rejected (research R1)" $ do
@@ -253,6 +257,17 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
 isParserError :: Either RulesLoadError [EntityDecl] -> Bool
 isParserError (Left ParserError{}) = True
 isParserError _ = False
+
+{- | The placeholder source-file path the in-memory parser entry
+points stamp onto every produced 'EntityDecl'. Mirrors the
+@inMemoryFile@ constant in
+"Cardano.Tx.Graph.Rules.Load.Parse.Turtle"; the assertion sites
+in this spec compare expected 'EntityDecl' values verbatim, so
+the test reproduces the same string here rather than depending
+on an internal export.
+-}
+inMemoryFile :: FilePath
+inMemoryFile = "<in-memory>"
 
 {- | Drive the YAML and Turtle blobs through 'loadRulesFile' in the same
 temp directory so the fixture-slug derived from the directory

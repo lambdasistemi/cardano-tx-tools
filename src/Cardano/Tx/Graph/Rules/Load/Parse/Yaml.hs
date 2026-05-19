@@ -402,6 +402,7 @@ parseEntity ctx ln = \case
                 { entityName = name
                 , entitySlug = slug
                 , entityIdentifiers = idents
+                , entitySourceFile = ctxFile ctx
                 }
     other ->
         Left $
