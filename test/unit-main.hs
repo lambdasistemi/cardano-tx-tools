@@ -4,6 +4,7 @@ import Test.Hspec (hspec)
 
 import Cardano.Tx.BuildSpec qualified as BuildSpec
 import Cardano.Tx.DiffSpec qualified as DiffSpec
+import Cardano.Tx.Graph.Rules.LoadSmokeSpec qualified as GraphRulesLoadSmokeSpec
 import Cardano.Tx.InspectSpec qualified as InspectSpec
 import Cardano.Tx.Rewrite.ApplySpec qualified as RewriteApplySpec
 import Cardano.Tx.Rewrite.LoadSpec qualified as RewriteLoadSpec
@@ -15,6 +16,7 @@ main :: IO ()
 main = hspec $ do
     DiffSpec.spec
     BuildSpec.spec
+    GraphRulesLoadSmokeSpec.spec
     InspectSpec.spec
     LoadUtxoSpec.spec
     RewriteApplySpec.spec
