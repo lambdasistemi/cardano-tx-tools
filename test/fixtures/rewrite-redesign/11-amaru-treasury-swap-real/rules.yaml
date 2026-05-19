@@ -1,0 +1,18 @@
+# Mirrors mainnet tx 5fc04113da630ec676a5a7a66d82f53c0e64527ee592c3e6c5e1dccad67732ea.
+# See test/fixtures/amaru-treasury-swap/swap-1.source.md (in cardano-tx-tools)
+# for the real on-chain provenance: 2 body inputs (treasury 1137k ADA +
+# user 96.8 ADA), 5 outputs (2 swap-orders + 1 treasury leftover + 2 user
+# payments), 1 collateral input from the user wallet. The harness sister
+# fixture 01-amaru-treasury-swap remains as the hypothetical 33-input
+# stress example from the 044 spec narrative; this one tracks the actual
+# on-chain shape.
+
+entities:
+  - name: amaru-treasury.network_compliance
+    from-address: addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
+  - name: amaru.swap-order
+    from-address: addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n
+  - name: amaru.swap.v2
+    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077
+  - name: amaru.network-wallet
+    from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
