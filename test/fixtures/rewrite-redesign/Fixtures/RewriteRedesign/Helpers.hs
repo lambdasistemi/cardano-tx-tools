@@ -16,10 +16,13 @@ This slice (S2) ships the minimum reviewable surface:
 * an empty 'baseShape' that fixtures override with their own counts,
 * a smart 'mkFixturePaths' constructor that mechanically computes the
   per-fixture file layout from a 'StoryId',
-* a one-constructor 'TxBuilder' value and its 'mkTx' interpreter — both
-  intentionally empty in this slice; each later fixture slice grows
-  'TxBuilder' by exactly the body fields the fixture needs (the helper
-  extension lands in the same bisect-safe commit as the fixture),
+* a 'TxBuilder' newtype that wraps a 'TxBuild' program authored against
+  @Cardano.Tx.Build@'s operational DSL, plus the pure 'mkTx' interpreter
+  ('draft' under 'def' protocol params),
+* per-fixture stub value constructors ('stubTxIn', 'stubTxOut') that
+  produce structurally-correct ledger leaves the DSL combinators
+  consume; @assertShape@ counts body fields and does not inspect leaf
+  contents,
 * 'assertShape', the structural-shape contract that the active Hspec item
   in @Cardano.Tx.Rewrite.RewriteRedesignGoldenSpec@ exercises per fixture
   — see @specs/033-rewrite-redesign-harness/contracts/goldens-suite.md@,
@@ -56,6 +59,10 @@ module Fixtures.RewriteRedesign.Helpers (
     defTxBuilder,
     mkTx,
 
+    -- * Smart constructors for body-leaf values
+    stubTxIn,
+    stubTxOut,
+
     -- * Hspec contract
     assertShape,
 ) where
@@ -63,6 +70,7 @@ module Fixtures.RewriteRedesign.Helpers (
 import Control.Monad (unless)
 import Data.Default (def)
 import Data.Map.Strict qualified as Map
+import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Void (Void)
@@ -72,7 +80,8 @@ import System.FilePath ((</>))
 import Lens.Micro ((^.))
 import Test.Hspec (Expectation, shouldBe)
 
-import Cardano.Ledger.Address (Withdrawals (..))
+import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Address (Addr (..), Withdrawals (..))
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
@@ -84,7 +93,18 @@ import Cardano.Ledger.Api.Tx.Body (
     referenceInputsTxBodyL,
     withdrawalsTxBodyL,
  )
-import Cardano.Ledger.Mary.Value (MultiAsset (..))
+import Cardano.Ledger.Api.Tx.Out (TxOut, mkBasicTxOut)
+import Cardano.Ledger.BaseTypes (Network (Testnet), TxIx (..))
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Credential (
+    Credential (KeyHashObj),
+    StakeReference (StakeRefNull),
+ )
+import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
+import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment))
+import Cardano.Ledger.Mary.Value (MaryValue (..), MultiAsset (..))
+import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
 import Cardano.Tx.Build (TxBuild, draft)
 import Cardano.Tx.Ledger (ConwayTx)
@@ -235,10 +255,10 @@ their body as a do-block, e.g.
 
 >   tx :: ConwayTx
 >   tx = mkTx . TxBuilder $ do
->       _ <- spend aliceTxIn
->       output aliceUtxoOut
->       output bobOut
->       output aliceChangeOut
+>       _ <- spend (stubTxIn 1)
+>       _ <- output (stubTxOut 10_000_000)
+>       _ <- output (stubTxOut 89_825_000)
+>       pure ()
 
 The type parameters are pinned to @q ~ NoCtx@ (no domain-ctx queries)
 and @e ~ Void@ (no custom validation errors); fixtures never need the
@@ -264,6 +284,36 @@ budget enforcement is out of scope for the harness (see spec.md
 -}
 mkTx :: TxBuilder -> ConwayTx
 mkTx (TxBuilder program) = draft def program
+
+-- ---------------------------------------------------------------------------
+-- Smart constructors for body-leaf values
+-- ---------------------------------------------------------------------------
+
+{- | A synthetic 'TxIn' keyed by an integer tag (zero-padded into the
+32-byte tx hash; @TxIx@ fixed at 0). 'assertShape' only counts inputs;
+distinct tags keep the input @Set@ from deduplicating.
+-}
+stubTxIn :: Int -> TxIn
+stubTxIn n = TxIn (TxId (unsafeMakeSafeHash (fromJust (hashFromStringAsHex hex)))) (TxIx 0)
+  where
+    hex = replicate 60 '0' ++ hexByte (n `div` 256) ++ hexByte (n `mod` 256)
+    hexByte x = [d (x `div` 16), d (x `mod` 16)]
+    d k = "0123456789abcdef" !! k
+
+{- | A coin-only 'TxOut' at a shared stub 'Addr'. 'assertShape' only counts
+outputs and does not inspect address bytes or values, so a single zero
+key-hash on Testnet with 'StakeRefNull' suffices for every fixture in
+this slice.
+-}
+stubTxOut :: Integer -> TxOut ConwayEra
+stubTxOut coin = mkBasicTxOut stubAddr (MaryValue (Coin coin) (MultiAsset mempty))
+
+stubAddr :: Addr
+stubAddr =
+    Addr
+        Testnet
+        (KeyHashObj (KeyHash (fromJust (hashFromStringAsHex (replicate 56 '0'))) :: KeyHash Payment))
+        StakeRefNull
 
 -- ---------------------------------------------------------------------------
 -- Hspec contract
