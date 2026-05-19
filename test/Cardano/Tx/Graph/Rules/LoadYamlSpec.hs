@@ -22,6 +22,8 @@ import Cardano.Tx.Graph.Rules.Load (
     EntityIdentifier (..),
     LeafType (..),
     RulesLoadError (..),
+    RulesLoadResult (..),
+    loadRulesFile,
     parseRulesYamlText,
  )
 
@@ -40,7 +42,16 @@ import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
-import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
+import Test.Hspec (
+    Spec,
+    describe,
+    expectationFailure,
+    it,
+    shouldBe,
+    shouldSatisfy,
+ )
 
 spec :: Spec
 spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
@@ -265,6 +276,152 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                     \    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077\n"
             parseRulesYamlText yaml `shouldSatisfy` isParserError
 
+    describe "shared identity (first-entity-wins, T005)" $ do
+        it "two entities share a (leafType, bytesHex) pair — both decls present, identifier block emitted exactly once" $ do
+            -- Two entities point at the same 28-byte script hash. The
+            -- first entity owns the identifier bnode name (its own
+            -- slug + roleSuffix); the second entity references the
+            -- same bnode in its hasIdentifier line without
+            -- re-declaring the identifier block. Verified by
+            -- byte-substring search over the overlay output produced
+            -- via the public 'loadRulesFile' surface (temp file).
+            let yaml =
+                    "entities:\n\
+                    \  - name: foo\n\
+                    \    script: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n\
+                    \  - name: bar\n\
+                    \    script: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+            case parseRulesYamlText yaml of
+                Right [decl1, decl2] -> do
+                    entityIdentifiers decl1
+                        `shouldBe` [ EntityIdentifier
+                                        PaymentScript
+                                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                   ]
+                    entityIdentifiers decl2
+                        `shouldBe` [ EntityIdentifier
+                                        PaymentScript
+                                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                   ]
+                other ->
+                    fail $ "expected two Right decls, got: " <> show other
+            overlay <- runLoaderViaTempFile yaml
+            -- Both entity decls appear.
+            assertByteSubstring overlay ":foo a cardano:Entity"
+            assertByteSubstring overlay ":bar a cardano:Entity"
+            -- The shared bnode name is wired into both entities'
+            -- hasIdentifier lines.
+            assertByteSubstring
+                overlay
+                "  cardano:hasIdentifier _:foo_paymentScript ."
+            assertByteSubstring
+                overlay
+                "  cardano:hasIdentifier _:foo_paymentScript ."
+            -- The shared identifier block is emitted exactly once.
+            let blockHeader = "_:foo_paymentScript a cardano:Identifier ;"
+                occurrences = byteOccurrences overlay blockHeader
+            if occurrences == 1
+                then pure ()
+                else
+                    expectationFailure $
+                        "expected the shared identifier block to be"
+                            <> " emitted exactly once, got "
+                            <> show occurrences
+                            <> " occurrence(s)"
+            -- No bnode named after the second entity gets emitted.
+            byteOccurrences
+                overlay
+                "_:bar_paymentScript a cardano:Identifier"
+                `shouldBe` 0
+
+    describe "blueprints: top-level shape (T005)" $ do
+        it "accepts a well-formed blueprints: entry whose script: names a script entity" $ do
+            let yaml =
+                    "entities:\n\
+                    \  - name: foo.script\n\
+                    \    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077\n\
+                    \blueprints:\n\
+                    \  - script: foo.script\n\
+                    \    datum: ./blueprints/foo.cip57.json\n"
+            case parseRulesYamlText yaml of
+                Right [decl] ->
+                    entityName decl `shouldBe` "foo.script"
+                other ->
+                    fail $ "expected single Right decl, got: " <> show other
+
+        it "rejects a blueprints: entry whose script: references an unknown entity" $ do
+            let yaml =
+                    "entities:\n\
+                    \  - name: foo.script\n\
+                    \    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077\n\
+                    \blueprints:\n\
+                    \  - script: bar.absent\n\
+                    \    datum: ./blueprints/bar.cip57.json\n"
+            case parseRulesYamlText yaml of
+                Left (BlueprintRefsUnknownScript _ _ refName) ->
+                    refName `shouldBe` "bar.absent"
+                other ->
+                    fail $
+                        "expected BlueprintRefsUnknownScript, got: " <> show other
+
+        it "rejects a blueprints: entry whose script: references a non-script entity (from-address)" $ do
+            -- Even though the referenced entity exists, it carries no
+            -- PaymentScript identifier (its only identifier is
+            -- PaymentKey + StakeKey), so the blueprint reference is
+            -- ill-formed.
+            let yaml =
+                    "entities:\n\
+                    \  - name: alice\n\
+                    \    from-address: "
+                        <> aliceBech32Mainnet
+                        <> "\n\
+                           \blueprints:\n\
+                           \  - script: alice\n\
+                           \    datum: ./blueprints/x.cip57.json\n"
+            case parseRulesYamlText (TextEncoding.encodeUtf8 yaml) of
+                Left (BlueprintRefsUnknownScript _ _ refName) ->
+                    refName `shouldBe` "alice"
+                other ->
+                    fail $
+                        "expected BlueprintRefsUnknownScript, got: " <> show other
+
+        it "accepts a blueprints: entry whose script: references a compound-key entity carrying PaymentScript" $ do
+            -- usdm-control declares keys: [PaymentScript, Policy] — the
+            -- PaymentScript leafType is present, so the blueprint
+            -- reference is well-formed.
+            let yaml =
+                    "entities:\n\
+                    \  - name: usdm-control\n\
+                    \    keys: [PaymentScript, Policy]\n\
+                    \    bytes: c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad\n\
+                    \blueprints:\n\
+                    \  - script: usdm-control\n\
+                    \    datum: ./blueprints/usdm.cip57.json\n"
+            parseRulesYamlText yaml `shouldSatisfy` isRightSingleton
+
+    describe "collapse: top-level shape (T005)" $ do
+        it "silently accepts a top-level collapse: list (no triples are emitted)" $ do
+            let yaml =
+                    "entities:\n\
+                    \  - name: foo\n\
+                    \    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077\n\
+                    \collapse:\n\
+                    \  - name: SwapOrderInput\n\
+                    \    at: body.inputs\n\
+                    \    match:\n\
+                    \      required:\n\
+                    \        - resolved.address\n\
+                    \    view: omit\n"
+            parseRulesYamlText yaml `shouldSatisfy` isRightSingleton
+
+        it "rejects a non-list collapse: value (shape guard)" $ do
+            let yaml =
+                    "entities:\n\
+                    \  - name: foo\n\
+                    \    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077\n\
+                    \collapse: notalist\n"
+            parseRulesYamlText yaml `shouldSatisfy` isParserError
+
 isEntityZeroIdentifiers :: Either RulesLoadError [EntityDecl] -> Bool
 isEntityZeroIdentifiers (Left (EntityZeroIdentifiers _)) = True
 isEntityZeroIdentifiers _ = False
@@ -272,6 +429,50 @@ isEntityZeroIdentifiers _ = False
 isParserError :: Either RulesLoadError [EntityDecl] -> Bool
 isParserError (Left ParserError{}) = True
 isParserError _ = False
+
+isRightSingleton :: Either RulesLoadError [EntityDecl] -> Bool
+isRightSingleton (Right [_]) = True
+isRightSingleton _ = False
+
+{- | Drive the public 'loadRulesFile' surface over an in-memory YAML
+blob by writing it to a temp file and reading back the serialized
+overlay bytes. Used by the shared-identity test to assert byte
+presence (the parser-only AST surface cannot prove that the
+serializer emits the deduplicated bnode block exactly once).
+-}
+runLoaderViaTempFile :: BS.ByteString -> IO BS.ByteString
+runLoaderViaTempFile blob =
+    withSystemTempDirectory "tx-48-yaml-spec" $ \dir -> do
+        let path = dir </> "rules.yaml"
+        BS.writeFile path blob
+        result <- loadRulesFile path
+        case result of
+            Left err ->
+                fail $
+                    "runLoaderViaTempFile: loadRulesFile failed: "
+                        <> show err
+            Right RulesLoadResult{rulesOverlayTurtle = bs} -> pure bs
+
+-- | Assert that @needle@ appears at least once inside @haystack@.
+assertByteSubstring :: BS.ByteString -> BS.ByteString -> IO ()
+assertByteSubstring haystack needle =
+    if needle `BS.isInfixOf` haystack
+        then pure ()
+        else
+            expectationFailure $
+                "expected substring not found in overlay bytes: "
+                    <> show needle
+
+-- | Count occurrences of @needle@ inside @haystack@.
+byteOccurrences :: BS.ByteString -> BS.ByteString -> Int
+byteOccurrences haystack needle
+    | BS.null needle = 0
+    | otherwise = go 0 haystack
+  where
+    go n hs = case BS.breakSubstring needle hs of
+        (_, rest)
+            | BS.null rest -> n
+            | otherwise -> go (n + 1) (BS.drop (BS.length needle) rest)
 
 ----------------------------------------------------------------------
 -- Address synthesis helpers

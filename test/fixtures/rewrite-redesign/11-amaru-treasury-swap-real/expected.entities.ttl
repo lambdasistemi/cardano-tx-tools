@@ -1,0 +1,47 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/11-amaru-treasury-swap-real#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:amaru_treasury_network_compliance a cardano:Entity ;
+  rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
+
+_:amaru_treasury_network_compliance_paymentScript a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
+
+_:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
+  cardano:leafType "StakeScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
+
+:amaru_swap_order a cardano:Entity ;
+  rdfs:label "amaru.swap-order" ;
+  cardano:hasIdentifier _:amaru_swap_order_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
+
+_:amaru_swap_order_paymentScript a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077" .
+
+:amaru_swap_v2 a cardano:Entity ;
+  rdfs:label "amaru.swap.v2" ;
+  cardano:hasIdentifier _:amaru_swap_order_paymentScript .
+
+:amaru_network_wallet a cardano:Entity ;
+  rdfs:label "amaru.network-wallet" ;
+  cardano:hasIdentifier _:amaru_network_wallet_paymentKey ;
+  cardano:hasIdentifier _:amaru_network_wallet_stakeKey .
+
+_:amaru_network_wallet_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
+
+_:amaru_network_wallet_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
+

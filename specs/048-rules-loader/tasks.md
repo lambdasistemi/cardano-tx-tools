@@ -317,9 +317,16 @@ carries `Tasks: T###`.
 
   **Commit subject**: `feat(graph): compound-key entities (keys+bytes) and fixture 04 golden`
 
-- [ ] **T005** *(type=feat, US1)* — Shared identity + `blueprints:`
+- [X] **T005** *(type=feat, US1)* — Shared identity + `blueprints:`
   validation + `collapse:` round-trip + carve out fixtures **01, 09,
-  11** + activate byte-diffs.
+  11** + activate byte-diffs. SC-001 + SC-002 satisfied — all 11
+  byte-diffs GREEN. Fixture 01: treasury stake half decodes as
+  StakeScript (harness expected.ttl said StakeKey; ledger decoder is
+  authoritative); network-wallet uses bech32-decoded bytes, not
+  artisanal 0101/0202 placeholders. Fixture 09: mpfs.oracle bech32
+  was a placeholder, reconstructed canonically from sibling
+  expected.ttl bytes. Fixture 11: alice-canonical bytes for
+  network-wallet because the rules.yaml uses the alice bech32.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load/Parse/Yaml.hs`
