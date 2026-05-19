@@ -7,20 +7,36 @@ The harness has no runtime data store. The "data model" here is the in-process s
 
 ## Filesystem layout
 
+Two sibling subtrees live under `test/fixtures/rewrite-redesign/`:
+
+1. A **Haskell module subtree** under `Fixtures/RewriteRedesign/`, whose path matches each module name 1:1 (GHC requires this — module `Fixtures.RewriteRedesign.Helpers` MUST live at `<hs-source-dir>/Fixtures/RewriteRedesign/Helpers.hs`, and a per-fixture module name such as `Fixtures.RewriteRedesign.S02_AliceBobAda` cannot resolve from a Haskell-illegal directory name like `02-alice-bob-ada`).
+2. A **per-fixture data-file subtree** under reviewer-friendly `<NN>-<kebab-slug>/` directories, holding the non-Haskell artifacts (`rules.yaml`, `expected.txt`, `expected.ttl`). The two subtrees are linked by the fixture's `StoryId`: the `StoryId` is the kebab directory name (e.g. `"02-alice-bob-ada"`); the corresponding builder lives in `Fixtures.RewriteRedesign.S<NN>_<CamelCaseSlug>` (e.g. `S02_AliceBobAda`).
+
 ```text
 test/fixtures/rewrite-redesign/
-├── Helpers.hs                                # Fixtures.RewriteRedesign.Helpers
-├── blueprints/
-│   ├── swap-v2-datum.cip57.json
-│   └── mpfs-fact.cip57.json
-└── <NN>-<kebab-slug>/                        # one directory per fixture
-    ├── Tx.hs                                 # Fixtures.RewriteRedesign.S<NN>_<CamelCaseSlug>
-    ├── rules.yaml
-    ├── expected.txt                          # vocab-independent (A-side)
-    └── expected.ttl                          # vocab-pinned (B-side; post-kmaps#53 Phase A)
+├── Fixtures/                                                  # Haskell module subtree
+│   └── RewriteRedesign/
+│       ├── Helpers.hs                                         # Fixtures.RewriteRedesign.Helpers (S2)
+│       ├── S01_AmaruTreasurySwap.hs                           # Fixtures.RewriteRedesign.S01_AmaruTreasurySwap
+│       ├── S02_AliceBobAda.hs                                 # Fixtures.RewriteRedesign.S02_AliceBobAda
+│       ├── S03_MultiAssetTransfer.hs
+│       ├── S04_MintSpendScriptOverlap.hs
+│       ├── S05_WithdrawalScriptStake.hs
+│       ├── S06_StakePoolDelegation.hs
+│       ├── S07_VoteDelegation.hs
+│       ├── S08_ContingencyDisburse.hs
+│       ├── S09_MpfsFactsRequest.hs
+│       └── S10_GovernanceTreasuryWithdrawal.hs
+├── blueprints/                                                # data files (CIP-57 JSON)
+│   ├── swap-v2-datum.cip57.json                               # consumed by 01-amaru-treasury-swap
+│   └── mpfs-fact.cip57.json                                   # consumed by 09-mpfs-facts-request
+└── <NN>-<kebab-slug>/                                         # one data-file directory per fixture
+    ├── rules.yaml                                             # A-side
+    ├── expected.txt                                           # A-side (vocab-independent)
+    └── expected.ttl                                           # B-side (post-kmaps#53 Phase A)
 ```
 
-The `<NN>-<kebab-slug>` directory name matches the fixture's `StoryId`. The leading two-digit prefix preserves the 044 story order; the slug is unambiguous human-readable.
+The `<NN>-<kebab-slug>` directory name matches the fixture's `StoryId`. The leading two-digit prefix preserves the 044 story order; the slug is unambiguous human-readable. The corresponding Haskell module's `S<NN>_<CamelCaseSlug>` name is mechanically derivable from the `StoryId` — strip the leading digits, replace hyphens with capitalised joins, prefix with `S<NN>_`. `mkFixturePaths` resolves the data-file paths from a `StoryId`; the per-fixture `Tx.hs` references that `StoryId` and `mkFixturePaths` to build its `FixturePaths` record.
 
 Ten directories total, named:
 
@@ -69,7 +85,7 @@ Pure record; constructed once per fixture by the registry's smart constructor.
 ```haskell
 data FixtureEntry = FixtureEntry
   { feStoryId :: StoryId
-  , feBuilder :: Tx ConwayEra                       -- the `tx` export of the fixture module
+  , feBuilder :: ConwayTx                       -- the `tx` export of the fixture module
   , fePaths   :: FixturePaths
   , feShape   :: ExpectedShape                      -- structural shape contract
   }
@@ -97,14 +113,16 @@ data ExpectedShape = ExpectedShape
 Values for `ExpectedShape` are extracted directly from each 044 story's "What's in the tx" prose and hand-encoded in the fixture's `Tx.hs` module:
 
 ```haskell
-module Fixtures.RewriteRedesign.S02_AliceBobAda (tx, shape) where
+module Fixtures.RewriteRedesign.S02_AliceBobAda (storyId, tx, shape) where
 
-import Cardano.Ledger.Conway (ConwayEra)
-import Cardano.Ledger.Core (Tx)
+import Cardano.Tx.Ledger (ConwayTx)
 import Fixtures.RewriteRedesign.Helpers
 
-tx :: Tx ConwayEra
-tx = mkTx
+storyId :: StoryId
+storyId = StoryId "02-alice-bob-ada"
+
+tx :: ConwayTx
+tx = mkTx defTxBuilder
   { txInputs   = [alice `at` 0 `withResolved` (alice, 100 `ada`)]
   , txOutputs  = [bob `to` (10 `ada`), alice `to` (89_825_000 `lovelace`)]
   , txFee      = 175_000
@@ -114,7 +132,7 @@ shape :: ExpectedShape
 shape = baseShape { esInputs = 1, esOutputs = 2 }
 ```
 
-(The `mkTx` and helper names above are illustrative; final names are pinned in slice S2's commit.)
+(The `at` / `withResolved` / `to` / `ada` smart constructors are illustrative; each is added to `Fixtures.RewriteRedesign.Helpers` by the first fixture slice that needs it, riding in the same bisect-safe commit as the fixture per the per-fixture growth model from S2.)
 
 ### `FixtureRegistry`
 
@@ -129,7 +147,7 @@ spec :: Spec
 spec = describe "RewriteRedesignGoldens" $
   forM_ fixtureRegistry $ \FixtureEntry{..} ->
     describe (Text.unpack (unStoryId feStoryId)) $ do
-      it "produces a Tx ConwayEra of expected shape" $
+      it "produces a ConwayTx of expected shape" $
         assertShape feBuilder feShape
       it "Turtle byte-equivalence with the future emitter (#47)" $
         pendingWith "awaits #47 emitter MVP"
@@ -215,7 +233,7 @@ Hspec output excerpt (target shape, post-S1):
 Cardano.Tx.Rewrite.RewriteRedesignGoldenSpec
   RewriteRedesignGoldens
     02-alice-bob-ada
-      produces a Tx ConwayEra of expected shape
+      produces a ConwayTx of expected shape
       Turtle byte-equivalence with the future emitter (#47) # PENDING: awaits #47 emitter MVP
       Text byte-equivalence via cli-tree SPARQL view (#51)  # PENDING: awaits #51 cli-tree SPARQL view
     ...
