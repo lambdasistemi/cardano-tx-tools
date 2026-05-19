@@ -166,7 +166,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 - [X] T017 [P] [US6] Add `05-withdrawal-script-stake/expected.ttl`. Files: `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/expected.ttl`.
 - [X] T018 [P] [US7] Add `06-stake-pool-delegation/expected.ttl`. Files: `test/fixtures/rewrite-redesign/06-stake-pool-delegation/expected.ttl`.
 - [X] T019 [P] [US8] Add `07-vote-delegation/expected.ttl`. Files: `test/fixtures/rewrite-redesign/07-vote-delegation/expected.ttl`.
-- [ ] T020 [P] [US9] Add `08-contingency-disburse/expected.ttl`. Files: `test/fixtures/rewrite-redesign/08-contingency-disburse/expected.ttl`.
+- [X] T020 [P] [US9] Add `08-contingency-disburse/expected.ttl`. Files: `test/fixtures/rewrite-redesign/08-contingency-disburse/expected.ttl`.
 - [ ] T021 [P] [US5] Add `04-mint-spend-script-overlap/expected.ttl`. Files: `test/fixtures/rewrite-redesign/04-mint-spend-script-overlap/expected.ttl`.
 - [ ] T022 [P] [US11] Add `10-governance-treasury-withdrawal/expected.ttl`. Files: `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/expected.ttl`.
 - [ ] T023 [P] [US10] Add `09-mpfs-facts-request/expected.ttl` referencing the mpfs-fact blueprint property URIs. Files: `test/fixtures/rewrite-redesign/09-mpfs-facts-request/expected.ttl`.
