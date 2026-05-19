@@ -1,0 +1,109 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/07-vote-delegation#> .
+
+#
+# Operator-declared entities (from rules.yaml). alice reuses the same
+# 28-byte payment / stake key hashes as 02-alice-bob-ada and the same
+# bnode targets used by 06-stake-pool-delegation. cardano-foundation-drep
+# is a single-leaf entity — a DRep identified by its 28-byte
+# DRep-key-hash, the lenient bech32 decoding of the CIP-129 form
+# drep1y2v5h0g4qjqj9p6h9rp3z5lyqz3xczvqj5x3z7c7gj7nf2c52u7m3. The
+# CIP-129 bech32 body is 29 bytes: a 1-byte header (0x22, identifying a
+# DRepKey credential) followed by the 28-byte key-hash. The leaf's
+# bytesHex pins the 28-byte tail; the header byte's "DRepKey vs
+# DRepScript" discriminator is carried by the leafType "DRepKey" code
+# instead, alongside "PoolId" (T018) and the
+# "PaymentKey"/"StakeKey"/"PaymentScript"/"StakeScript"/"AssetClass"
+# leaf-type codes already in use by T015..T018.
+#
+
+:alice a cardano:Entity ;
+  rdfs:label "alice" ;
+  cardano:hasIdentifier _:aliceIdPayment ;
+  cardano:hasIdentifier _:aliceIdStake .
+
+_:aliceIdPayment a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "601f58e4436698104adbbda7bc9d8f3f10e9e49652f9799d6c63aeda" .
+
+_:aliceIdStake a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "80226c84b26fe1a280649d819757ff2ffaec51adca5a3780356c05bf" .
+
+:cardano-foundation-drep a cardano:Entity ;
+  rdfs:label "cardano-foundation-drep" ;
+  cardano:hasIdentifier _:cardanoFoundationDRepId .
+
+_:cardanoFoundationDRepId a cardano:Identifier ;
+  cardano:leafType "DRepKey" ;
+  cardano:bytesHex "994bbd15048122875728c31153e400a26c0980950d117b1e44bd34ab" .
+
+#
+# Transaction body — 1 input, 1 output, 1 certificate, 175_000 fee.
+#
+
+_:tx a cardano:Transaction ;
+  cardano:hasInput _:input1 ;
+  cardano:hasOutput _:output1 ;
+  cardano:hasCertificate _:cert1 ;
+  cardano:hasFee 175000 .
+
+#
+# Input — alice's 5 ADA fee-paying UTxO.
+#
+
+_:input1 a cardano:Input ;
+  cardano:resolvedTo _:resolvedInput1 .
+
+_:resolvedInput1 a cardano:Output ;
+  cardano:atAddress _:aliceAddr .
+
+#
+# Output 1 — 4.825 ADA change back to alice (5 ADA in minus 0.175 ADA
+# fee).
+#
+
+_:output1 a cardano:Output ;
+  cardano:atAddress _:aliceAddr .
+
+#
+# Certificate 1 — VoteDelegation. Structurally identical to T018's
+# StakeDelegation: Phase A declares cardano:hasCertificate as the
+# body→cert property but does not (yet) declare a Certificate class,
+# so the blank node carries no rdf:type. The cert binds two leaves:
+#
+#   * the delegator's stake credential (alice's stake-key) via
+#     cardano:hasStakeCredential, reusing the same _:aliceCredStake
+#     bnode emitted by the address decomposition below;
+#   * the target DRep's 28-byte DRep-key-hash, surfaced as a bare
+#     cardano:hasIdentifier link to _:cardanoFoundationDRepId — Phase A
+#     has no DRepCredential class and the (leafType "DRepKey",
+#     bytesHex) pair is sufficient to pin the DRep identity.
+#
+# The 044 AlwaysAbstain sibling variant would produce a cert with a
+# DRepAlwaysAbstain delegatee carrying no cardano:hasIdentifier link
+# at all; that case is out of scope for this fixture, which exercises
+# the explicit-DRep arm only (S07 module header).
+#
+
+_:cert1 cardano:hasStakeCredential _:aliceCredStake ;
+  cardano:hasIdentifier _:cardanoFoundationDRepId .
+
+#
+# Address decompositions — payment + stake credential per leaf. Same
+# bech32 + same identifier targets as 02-alice-bob-ada / 03 / 05 / 06.
+# The delegator's stake credential bnode (_:aliceCredStake) is the
+# same one bound by the certificate above.
+#
+
+_:aliceAddr a cardano:Address ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
+  cardano:hasPaymentCredential _:aliceCredPayment ;
+  cardano:hasStakeCredential _:aliceCredStake .
+
+_:aliceCredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:aliceIdPayment .
+
+_:aliceCredStake a cardano:StakeCredential ;
+  cardano:hasIdentifier _:aliceIdStake .
