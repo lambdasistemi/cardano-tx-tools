@@ -8,9 +8,9 @@ fixtures' @rules.yaml@ files and byte-compares the produced overlay
 bytes against the corresponding @expected.entities.ttl@ carve-out.
 
 T003 activates the seven basic-shape fixtures (02, 03, 05, 06, 07,
-08, 10) and leaves the four complex-shape fixtures (01, 04, 09, 11)
-@pending@ — those land in T004 (keys+bytes compound) and T005
-(shared identity / blueprints / collapse).
+08, 10); T004 activates fixture 04 (keys+bytes compound); the three
+remaining complex-shape fixtures (01, 09, 11) stay @pending@ for
+T005 (shared identity / blueprints / collapse).
 
 The carve-outs are authored by capturing the loader's stdout, not by
 hand — see the T003 task description for the three-step ritual.
@@ -45,7 +45,7 @@ fixtures =
     [ ("01-amaru-treasury-swap", Pending "T005 — shared identity + blueprints")
     , ("02-alice-bob-ada", Active)
     , ("03-multi-asset-transfer", Active)
-    , ("04-mint-spend-script-overlap", Pending "T004 — keys+bytes compound entity")
+    , ("04-mint-spend-script-overlap", Active)
     , ("05-withdrawal-script-stake", Active)
     , ("06-stake-pool-delegation", Active)
     , ("07-vote-delegation", Active)

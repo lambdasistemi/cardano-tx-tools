@@ -35,9 +35,12 @@ each of the entity's identifiers.
 * @script: \<hex\>@ → 1 'PaymentScript' identifier.
 * @asset: { policy, name }@ → 1 'AssetClass' identifier with
   @bytesHex = policy ++ hex(ascii(name))@.
-
-Pool, DRep, and compound-key shapes are not handled by the T002 parser;
-later slices add them.
+* @pool: \<bech32\>@ → 1 'PoolId' identifier.
+* @drep: \<CIP-129 bech32\>@ → 1 'DRepKey' or 'DRepScript' identifier.
+* @keys: [LeafType, …] + bytes: \<hex\>@ → N identifiers (one per
+  @keys:@ leafType) that all share the same 28-byte @bytes:@ payload
+  — the cross-leaf identity surface used by fixture-04's
+  @usdm-control@ entity.
 -}
 data EntityDecl = EntityDecl
     { entityName :: !Text

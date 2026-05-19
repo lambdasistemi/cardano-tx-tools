@@ -4,16 +4,17 @@ Description : YAML compiler for the operator-authored rules-loader.
 License     : Apache-2.0
 
 Decodes a @rules.yaml@ blob into an in-memory @['EntityDecl']@ list.
-Handles the three basic entity shapes — @from-address: \<bech32\>@,
-@script: \<hex\>@, @asset: { policy, name }@ — and produces, per
-entity, one or more @(leafType, bytesHex)@ identifier pairs that the
-Turtle serializer (T003) will fold into canonical @cardano:Identifier@
-blank nodes.
+Handles the five basic entity shapes — @from-address: \<bech32\>@,
+@script: \<hex\>@, @asset: { policy, name }@, @pool: \<bech32\>@,
+@drep: \<CIP-129 bech32\>@ — and the compound-key shape
+@keys: [LeafType, …] + bytes: \<hex\>@ (fixture-04's cross-leaf
+identity surface), producing, per entity, one or more
+@(leafType, bytesHex)@ identifier pairs that the Turtle serializer
+folds into canonical @cardano:Identifier@ blank nodes.
 
-Compound-key (@keys: + bytes:@), @pool:@, and @drep:@ shapes are NOT
-handled here; they land with T003 / T004. Likewise, @imports:@,
-@blueprints:@, and @collapse:@ keys are ignored for now — the loader
-returns just the entity list and lets later slices wire them in.
+@imports:@, @blueprints:@, and @collapse:@ keys are ignored for now —
+the loader returns just the entity list and lets later slices wire
+them in.
 
 The slug algorithm:
 
@@ -200,14 +201,25 @@ trimUnderscores = Text.dropAround (== '_')
 ----------------------------------------------------------------------
 
 {- | Pick the one identifier shape present in an entity's keymap.
-T002 handles @from-address@, @script@, @asset@. Zero shapes →
-'EntityZeroIdentifiers'. Two or more → 'ParserError' (covered by a
-later slice that adds the @keys: + bytes:@ compound shape).
+
+Five basic shapes — @from-address@, @script@, @asset@, @pool@,
+@drep@ — and one compound shape — @keys: + bytes:@ — are accepted.
+
+* Exactly one basic shape and no compound keys → dispatch to
+  'parseSingleShape'.
+* @keys:@ and @bytes:@ together and no basic shape → dispatch to
+  'parseCompoundKey' (yields N identifiers sharing the @bytes:@
+  payload, one per @keys:@ leafType).
+* Zero shapes (no basic key and no compound key) →
+  'EntityZeroIdentifiers'.
+* Any other combination — multiple basic shapes, basic + compound mix,
+  orphan @keys:@ without @bytes:@, orphan @bytes:@ without @keys:@ —
+  → 'ParserError'.
 -}
 parseShape ::
     Text -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError [EntityIdentifier]
 parseShape slug obj =
-    let shapes =
+    let basicShapes =
             catMaybes
                 [ ("from-address",) <$> KeyMap.lookup (Key.fromText "from-address") obj
                 , ("script",) <$> KeyMap.lookup (Key.fromText "script") obj
@@ -215,19 +227,45 @@ parseShape slug obj =
                 , ("pool",) <$> KeyMap.lookup (Key.fromText "pool") obj
                 , ("drep",) <$> KeyMap.lookup (Key.fromText "drep") obj
                 ]
-     in case shapes of
-            [] -> Left (EntityZeroIdentifiers slug)
-            [(k, v)] -> parseSingleShape slug k v
-            many ->
+        mKeys = KeyMap.lookup (Key.fromText "keys") obj
+        mBytes = KeyMap.lookup (Key.fromText "bytes") obj
+     in case (basicShapes, mKeys, mBytes) of
+            ([], Nothing, Nothing) -> Left (EntityZeroIdentifiers slug)
+            ([(k, v)], Nothing, Nothing) -> parseSingleShape slug k v
+            ([], Just keysV, Just bytesV) ->
+                parseCompoundKey slug keysV bytesV
+            ([], Just _, Nothing) ->
                 Left $
                     ParserError
                         inMemoryFile
                         inMemoryLine
                         ( "entity "
                             <> slug
-                            <> " declares multiple identifier shapes: "
-                            <> Text.intercalate ", " (map fst many)
+                            <> " declares 'keys:' without 'bytes:'"
                         )
+            ([], Nothing, Just _) ->
+                Left $
+                    ParserError
+                        inMemoryFile
+                        inMemoryLine
+                        ( "entity "
+                            <> slug
+                            <> " declares 'bytes:' without 'keys:'"
+                        )
+            (many, mK, mB) ->
+                let labels =
+                        map fst many
+                            <> ["keys" | Just _ <- [mK]]
+                            <> ["bytes" | Just _ <- [mB]]
+                 in Left $
+                        ParserError
+                            inMemoryFile
+                            inMemoryLine
+                            ( "entity "
+                                <> slug
+                                <> " declares multiple identifier shapes: "
+                                <> Text.intercalate ", " labels
+                            )
 
 parseSingleShape ::
     Text -> Text -> Aeson.Value -> Either RulesLoadError [EntityIdentifier]
@@ -317,6 +355,86 @@ requireField obj fieldName missingMsg =
     case KeyMap.lookup (Key.fromText fieldName) obj of
         Just v -> Right v
         Nothing -> Left (ParserError inMemoryFile inMemoryLine missingMsg)
+
+{- | Parse the compound-key shape (@keys: [LeafType, …] + bytes: \<hex\>@).
+Produces N 'EntityIdentifier' values, one per leafType in the
+@keys:@ list, all sharing the validated 28-byte @bytes:@ payload.
+The cross-leaf identity surface is owned downstream by the naming
+table (first-entity-wins on @(leafType, bytesHex)@).
+-}
+parseCompoundKey ::
+    Text ->
+    Aeson.Value ->
+    Aeson.Value ->
+    Either RulesLoadError [EntityIdentifier]
+parseCompoundKey slug keysV bytesV = do
+    leaves <- parseKeysList slug keysV
+    bytesHex <- case bytesV of
+        Aeson.String t -> validateHash28 t BadPolicyHex
+        other ->
+            Left $
+                ParserError
+                    inMemoryFile
+                    inMemoryLine
+                    ("bytes: must be a 56-char hex string, got: " <> typeName other)
+    Right [EntityIdentifier lt bytesHex | lt <- leaves]
+
+{- | Parse the @keys:@ list value as a non-empty list of 'LeafType'
+constructor names. Surfaces a 'ParserError' on an empty list, a
+non-array value, or any unknown leafType label.
+-}
+parseKeysList ::
+    Text -> Aeson.Value -> Either RulesLoadError [LeafType]
+parseKeysList slug = \case
+    Aeson.Array arr ->
+        case foldr (:) [] arr of
+            [] ->
+                Left $
+                    ParserError
+                        inMemoryFile
+                        inMemoryLine
+                        ( "entity "
+                            <> slug
+                            <> " declares an empty 'keys:' list"
+                        )
+            xs -> traverse parseLeafTypeValue xs
+    other ->
+        Left $
+            ParserError
+                inMemoryFile
+                inMemoryLine
+                ("keys: must be a list of leafType names, got: " <> typeName other)
+
+parseLeafTypeValue :: Aeson.Value -> Either RulesLoadError LeafType
+parseLeafTypeValue = \case
+    Aeson.String t -> case parseLeafType t of
+        Just lt -> Right lt
+        Nothing ->
+            Left $
+                ParserError
+                    inMemoryFile
+                    inMemoryLine
+                    ("keys: unknown leafType label: " <> t)
+    other ->
+        Left $
+            ParserError
+                inMemoryFile
+                inMemoryLine
+                ("keys: leafType must be a string, got: " <> typeName other)
+
+-- | Reverse of @show@ for 'LeafType'. Pinned by spec FR-013.
+parseLeafType :: Text -> Maybe LeafType
+parseLeafType = \case
+    "PaymentKey" -> Just PaymentKey
+    "PaymentScript" -> Just PaymentScript
+    "StakeKey" -> Just StakeKey
+    "StakeScript" -> Just StakeScript
+    "AssetClass" -> Just AssetClass
+    "Policy" -> Just Policy
+    "PoolId" -> Just PoolId
+    "DRepKey" -> Just DRepKey
+    "DRepScript" -> Just DRepScript
+    _ -> Nothing
 
 {- | Validate a 56-char hex value used in a @script:@ shape.
 Reuses 'BadPolicyHex' for the error variant — both @script:@ and
