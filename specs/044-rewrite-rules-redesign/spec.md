@@ -2,7 +2,8 @@
 
 **Feature Branch**: `044-rewrite-rules-redesign`
 **Created**: 2026-05-19
-**Status**: Draft
+**Status**: Superseded by [specs/045-graph-emit-pivot/](../045-graph-emit-pivot/spec.md)
+**Supersession note**: 045 re-targets the engine from "in-memory ADT + text renderer" to "Conway tx → RDF graph" emitted under `cardano-knowledge-maps`' `cardano:` namespace, with OWL 2 RL deduction (EYE reasoner) replacing the typed-leaf walker and SPARQL views replacing the text renderer. 044's ten user stories carry over to 045 as the *Reference Acceptance* contract: every "expected rendered output" here is preserved there as a SPARQL view projection that produces byte-equivalent text. 044's plan, data-model, and contracts are obsoleted by 045's plan; 044 is kept as design context, not as work to ship.
 **Input**: Redesign the `tx-inspect` rewrite-rules ADT and engine so that the open follow-ups (lambdasistemi/cardano-tx-tools #34, #35, #36, #37, #38, #39, #40, #43) are solved by design instead of accreted as per-ticket constructors. The reviewer-facing goal is **cross-leaf identity**: two leaves at unrelated tree sites that resolve to the same on-chain entity must render with the same name, so the reviewer reads the narrative of the transaction rather than cross-checking 56-hex strings. Acceptance is pinned by ten golden-test transactions covering the full identifier surface, the blueprint-decoded-datum case, the nested-collapse case, and the collapse-suppresses-rename bug.
 
 ## Background — what the current model can't express
