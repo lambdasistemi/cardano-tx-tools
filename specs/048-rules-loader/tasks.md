@@ -106,12 +106,15 @@ carries `Tasks: T###`.
 
   **Commit subject**: `chore(048): gate -Werror behind a cabal werror flag`
 
-- [ ] **T001a** *(type=chore, subagent slice; analyzer C4 + Q-002
+- [X] **T001a** *(type=chore, subagent slice; analyzer C4 + Q-002
   Option B closer)* — Extend `./gate.sh` to run `nix develop --quiet
   -c cabal check` and `nix develop --quiet -c cabal -O0 haddock
   lib:cardano-tx-tools`. After T001b + T001c, `cabal check` is clean;
   T001a's purpose is to make the gate enforce SC-006 + SC-007 on
-  every subsequent slice.
+  every subsequent slice. Q-001 surfaced that `cabal haddock` does
+  not fail on missing docstrings out of the box; A-001 approved
+  Option A (partial enforcement — haddock build correctness only;
+  strict per-export coverage tracked as follow-up — see research R14).
 
   **Owned files**:
   - `gate.sh` (add the two new lines)

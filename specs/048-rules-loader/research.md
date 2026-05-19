@@ -407,6 +407,57 @@ nesting) are part of the views' surface.
 - **Drop `collapse:` entirely** — rejected — same round-trip
   argument as R10.
 
+## R14 — Strict Haddock-coverage enforcement deferred to a follow-up
+
+**Decision**: T001a wires `nix develop --quiet -c cabal -O0 haddock
+lib:cardano-tx-tools` into `gate.sh` so the haddock build itself is
+gated (broken `'foo'` references, malformed `@since` tags, broken
+`[link]` targets — anything haddock-parser-level — fail the gate
+from the next slice onward). The gate does **NOT** enforce strict
+per-export coverage (every export carries a docstring). Strict
+enforcement is tracked as a follow-up ticket.
+
+**Rationale** (resolved as T001a Q-001 Option A):
+
+- `cabal haddock` does not fail on missing docstrings by default and
+  the `werror` cabal flag T001c added does not propagate
+  `-Wmissing-documentation` to the haddock build pipeline (the flag
+  surfaces only inside the `common warnings` ghc-options, which apply
+  to library compilation, not to haddock's coverage check).
+- The existing codebase has ~76 pre-existing undocumented exports
+  distributed across `Cardano.Tx.Diff` (37% coverage), `Cardano.Tx.Diff.Cli`
+  (25%), `Cardano.Tx.Blueprint` (5%), `Cardano.Tx.Build` (81%), plus
+  smaller gaps in `Cardano.Tx.Sign.{Envelope,Hex,Vault,Witness}`. Strict
+  enforcement (e.g., adding `-Wmissing-documentation` under the
+  `werror` flag) would immediately break the gate; closing the gap
+  requires writing ~76 substantive docstrings (purpose, parameters,
+  return value, side effects) which is editorial content work
+  unrelated to the rules loader.
+- The Q-002 override on `cabal check` applied to a mechanical fix
+  (cabal upper bounds + flag plumbing). Strict Haddock coverage is
+  substantive editorial work — the orchestrator should authorize that
+  as its own ticket where the author can focus on docstring quality.
+- FR-016 *for new code in this PR* (`Cardano.Tx.Graph.Rules.Load`
+  and its internal submodules) is still enforced — by review
+  convention. Every new export in the rules loader carries a
+  docstring. The gate's `cabal haddock` verifies those docstrings
+  parse correctly.
+
+**Alternatives**:
+
+- **`--haddock-options="--fail-on-warnings"`** — rejected — would
+  fail immediately due to pre-existing haddock warnings (ambiguous
+  identifiers, out-of-scope link targets) across the codebase.
+- **Add `-Wmissing-documentation` under the `werror` flag** — rejected
+  — would fail the build on ~76 pre-existing undocumented exports.
+- **Sweep the 76 missing docstrings inside this PR** — rejected as
+  scope creep (the rules loader is one feature; docstring sweep is
+  another).
+
+The Q-file + answer at
+`/tmp/epic-046/tx-48/subagents/T001a/{questions,answers}/A-001-haddock-missing-docs-not-enforced.md`
+holds the durable record.
+
 ## R13 — Constitution-compliance sweep happens in this PR (not as a follow-up)
 
 **Decision**: T001b (PvP upper bounds across every dep stanza in

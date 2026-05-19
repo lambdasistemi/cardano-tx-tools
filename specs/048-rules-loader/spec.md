@@ -422,8 +422,17 @@ test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.entities.ttl`. Exit 0.
 - **FR-015**: The `tx-graph` executable MUST exit non-zero and write the
   structured error to stderr on any loader failure (parser, cycle,
   zero-identifier, missing file).
-- **FR-016**: The loader's public API surface MUST be Haddock-documented per
-  the constitution.
+- **FR-016**: Every exported function and type in the new
+  `Cardano.Tx.Graph.*` modules added by this PR MUST carry a Haddock
+  docstring (constitution Principle IV — strict for new code in this
+  PR; enforced by reviewer convention since the gate's `cabal haddock`
+  step verifies haddock builds cleanly but does not surface
+  missing-docstring as a build failure given pre-existing
+  undocumented exports in unrelated modules — see [research.md R14](./research.md)
+  and the Q-001/A-001 record at
+  `/tmp/epic-046/tx-48/subagents/T001a/{questions,answers}/A-001-haddock-missing-docs-not-enforced.md`).
+  Strict per-export missing-docstring enforcement across the whole
+  codebase is tracked as a follow-up.
 - **FR-017**: The loader MUST default to fully offline behaviour per the
   constitution's Default-Offline Semantics: import resolution is filesystem-only
   and never fetches remote IRIs. Future network-resolution capability is
