@@ -41,6 +41,7 @@ import Fixtures.RewriteRedesign.Helpers (
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
 import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
+import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
 
 spec :: Spec
 spec = do
@@ -84,6 +85,12 @@ fixtureRegistry =
         , feBuilder = S05.tx
         , fePaths = mkFixturePaths S05.storyId
         , feShape = S05.shape
+        }
+    , FixtureEntry
+        { feStoryId = S06.storyId
+        , feBuilder = S06.tx
+        , fePaths = mkFixturePaths S06.storyId
+        , feShape = S06.shape
         }
     ]
 

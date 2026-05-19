@@ -99,7 +99,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Goal**: `StakeDelegation` certificate referencing a pool key hash.
 
-- [ ] T008 [P] [US7] Ship fixture `06-stake-pool-delegation`: `Tx.hs` (1 input, 1 output, 1 cert), `rules.yaml` from 044 Story 6, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S06_StakePoolDelegation.hs`, `test/fixtures/rewrite-redesign/06-stake-pool-delegation/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [X] T008 [P] [US7] Ship fixture `06-stake-pool-delegation`: `Tx.hs` (1 input, 1 output, 1 cert), `rules.yaml` from 044 Story 6, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S06_StakePoolDelegation.hs`, `test/fixtures/rewrite-redesign/06-stake-pool-delegation/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 

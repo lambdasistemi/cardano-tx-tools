@@ -1,0 +1,11 @@
+inputs:
+  - resolved.address: alice
+    resolved.coin: 5.000000 ADA
+outputs:
+  - address: alice
+    coin: 4.825000 ADA
+certificates:
+  - StakeDelegation:
+      stake-cred: alice            # via stake credential of alice's address
+      pool: iog-pool-1
+fee: 0.175000 ADA

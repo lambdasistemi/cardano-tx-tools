@@ -328,6 +328,7 @@ test-suite unit-tests
     Fixtures.RewriteRedesign.S02_AliceBobAda
     Fixtures.RewriteRedesign.S03_MultiAssetTransfer
     Fixtures.RewriteRedesign.S05_WithdrawalScriptStake
+    Fixtures.RewriteRedesign.S06_StakePoolDelegation
     StaticResolver
 
   build-depends:
