@@ -1,0 +1,15 @@
+inputs:
+  - resolved.address: operator
+    resolved.coin: 100_001.000000 ADA
+outputs:
+  - address: operator
+    coin: 0.825000 ADA
+proposalProcedures:
+  - ProposalProcedure:
+      deposit: 100_000.000000 ADA
+      returnAddr: operator
+      action:
+        TreasuryWithdrawals:
+          withdrawals:
+            cardano-foundation.ops: 50_000.000000 ADA
+fee: 0.175000 ADA
