@@ -18,7 +18,7 @@ carries `Tasks: T###`.
 
 ## Phase 0 — orchestrator gate
 
-- [ ] **T000** *(orchestrator-owned; not a subagent slice)* — Analyzer
+- [X] **T000** *(orchestrator-owned; not a subagent slice)* — Analyzer
   dispatch via `speckit-analyze` against spec.md, plan.md, tasks.md.
   Address findings (or fail-fast back through speckit-plan/tasks) before
   T001 starts. Open Q-files for the design questions in plan.md
@@ -26,7 +26,7 @@ carries `Tasks: T###`.
   `Cardano.Tx.Graph.*` subtree placement, cross-PR contract shape) so
   the orchestrator can confirm or correct before any code lands.
 
-- [ ] **T000a** *(orchestrator-owned; not a subagent slice; post-analyzer)*
+- [X] **T000a** *(orchestrator-owned; not a subagent slice; post-analyzer)*
   — Verify the `cardano-foundation-drep` CIP-129 bech32 string in
   `test/fixtures/rewrite-redesign/07-vote-delegation/rules.yaml`
   (currently `drep1y2v5h0g4qjqj9p6h9rp3z5lyqz3xczvqj5x3z7c7gj7nf2c52u7m3`,
@@ -564,7 +564,7 @@ carries `Tasks: T###`.
   **Notes**: this is a mechanical docs edit; orchestrator may
   apply directly without dispatching a subagent.
 
-- [ ] **T013** *(type=chore, orchestrator-owned)* — Drop `gate.sh`
+- [X] **T013** *(type=chore, orchestrator-owned)* — Drop `gate.sh`
   in the final commit; mark PR ready.
 
   **Owned files**: `gate.sh` (removed).
