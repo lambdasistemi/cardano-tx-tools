@@ -83,6 +83,9 @@ library
   other-modules:
     Cardano.Tx.Credentials
     Cardano.Tx.Deposits
+    Cardano.Tx.Graph.Rules.Load.Bech32
+    Cardano.Tx.Graph.Rules.Load.Parse.Yaml
+    Cardano.Tx.Graph.Rules.Load.Types
     Cardano.Tx.Inputs
     Cardano.Tx.Scripts
     Cardano.Tx.Witnesses
@@ -330,6 +333,7 @@ test-suite unit-tests
     Cardano.Tx.Diff.Web2Spec
     Cardano.Tx.DiffSpec
     Cardano.Tx.Graph.Rules.LoadSmokeSpec
+    Cardano.Tx.Graph.Rules.LoadYamlSpec
     Cardano.Tx.InspectSpec
     Cardano.Tx.Rewrite.ApplySpec
     Cardano.Tx.Rewrite.LoadSpec
@@ -356,6 +360,7 @@ test-suite unit-tests
     , aeson                          >=2.2  && <2.3
     , base
     , base16-bytestring              >=1.0  && <1.1
+    , bech32                         >=1.1  && <1.2
     , bytestring                     >=0.12 && <0.13
     , cardano-binary                 >=1.8  && <3
     , cardano-crypto-class           >=2.3  && <4

@@ -35,6 +35,7 @@ module Cardano.Tx.Diff (
     defaultHumanRenderOptions,
     defaultRewriteRules,
     defaultTxDiffOptions,
+    decodeBech32Address,
     decodeConwayTxInput,
     diffConwayTxInput,
     diffConwayTxInputWith,

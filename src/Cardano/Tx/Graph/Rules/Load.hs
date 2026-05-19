@@ -16,23 +16,36 @@ Both formats compose via @owl:imports@ / @imports:@; cycles are detected.
 
 See @specs\/048-rules-loader\/@ for the full specification.
 
-This scaffold module exposes the public type surface and a 'loadRulesFile'
-function. The actual parsing, serialization, and import resolution land in
-later slices (T002..T011); right now 'loadRulesFile' returns
-@Left UnsupportedExtension@ for unknown extensions and
-@Left NotImplemented@ for the two supported extensions.
+This module exposes the public type surface, the high-level
+'loadRulesFile' entrypoint, and the YAML compiler's in-memory
+'parseRulesYamlText' helper (T002). The Turtle parser, the Turtle
+serializer, and the cross-file imports resolver land in later slices.
 -}
 module Cardano.Tx.Graph.Rules.Load (
     -- * Public API
     loadRulesFile,
+    parseRulesYamlText,
 
     -- * Result + warnings
     RulesLoadResult (..),
     RulesLoadWarning (..),
 
+    -- * Parsed entities
+    EntityDecl (..),
+    EntityIdentifier (..),
+    LeafType (..),
+
     -- * Errors
     RulesLoadError (..),
 ) where
+
+import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (parseRulesYamlText)
+import Cardano.Tx.Graph.Rules.Load.Types (
+    EntityDecl (..),
+    EntityIdentifier (..),
+    LeafType (..),
+    RulesLoadError (..),
+ )
 
 import Data.ByteString (ByteString)
 import Data.Text (Text)
@@ -62,25 +75,14 @@ data RulesLoadWarning
       DuplicateEntityAcrossFiles !Text !FilePath !FilePath
     deriving stock (Eq, Show)
 
-{- | Structured errors the loader returns via 'Left'. Each constructor
-carries enough provenance (file path, line number, offending string)
-that the @tx-graph@ CLI and a future LSP can render a hyperlinked
-diagnostic.
--}
-data RulesLoadError
-    = -- | The file's extension is not @.ttl@, @.yaml@, or @.yml@.
-      UnsupportedExtension !FilePath
-    | -- | Scaffold-only sentinel. Later slices replace this with concrete
-      -- error variants per spec FR-018 / Key Entities.
-      NotImplemented !Text
-    deriving stock (Eq, Show)
-
 {- | Load a rules file by path.
 
 The file extension dispatches the parser:
 
 * @.ttl@ — canonical Turtle (T006 will implement).
-* @.yaml@, @.yml@ — YAML sugar (T002 onwards will implement).
+* @.yaml@, @.yml@ — YAML sugar (T002 onwards; the YAML compiler is
+  available in-memory via 'parseRulesYamlText'; the file-loading and
+  serializer plumbing lands with T003+).
 
 Any other extension returns 'UnsupportedExtension'.
 

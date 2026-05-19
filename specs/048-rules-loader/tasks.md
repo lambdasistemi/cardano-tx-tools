@@ -178,9 +178,12 @@ carries `Tasks: T###`.
 
 ## Phase 2 — YAML loader (the load-bearing P1 surface)
 
-- [ ] **T002** *(type=feat, US1)* — YAML parser for the basic
+- [X] **T002** *(type=feat, US1)* — YAML parser for the basic
   `entities:` shapes (`from-address`, `script`, `asset`) + slugify +
-  identifier extraction.
+  identifier extraction. Also broke out `Cardano.Tx.Graph.Rules.Load.Types`
+  as an internal module (avoids an import cycle through the public
+  `Load` re-exports) and exported `Cardano.Tx.Diff.decodeBech32Address`
+  from `Cardano.Tx.Diff` (brief had assumed it was already public).
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load.hs` (extend with the YAML
