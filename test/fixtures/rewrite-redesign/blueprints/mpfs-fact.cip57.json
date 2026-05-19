@@ -1,0 +1,32 @@
+{
+  "preamble": {
+    "title": "mpfs.oracle.fact",
+    "description": "Minimal CIP-57 blueprint for the MPFS oracle Fact datum consumed by fixture 09-mpfs-facts-request.",
+    "version": "0.1.0",
+    "plutusVersion": "v3",
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "mpfs.oracle.spend",
+      "datum": {
+        "title": "Fact",
+        "schema": { "$ref": "#/definitions/Fact" }
+      }
+    }
+  ],
+  "definitions": {
+    "Fact": {
+      "title": "Fact",
+      "description": "Single-constructor record carrying the requester's PubKeyHash.",
+      "dataType": "constructor",
+      "index": 0,
+      "fields": [
+        {
+          "title": "requester",
+          "dataType": "bytes"
+        }
+      ]
+    }
+  }
+}

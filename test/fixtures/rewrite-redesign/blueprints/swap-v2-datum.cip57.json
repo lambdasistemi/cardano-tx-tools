@@ -1,0 +1,54 @@
+{
+  "preamble": {
+    "title": "amaru.swap.v2",
+    "description": "Minimal CIP-57 blueprint for the amaru SwapOrder datum consumed by fixture 01-amaru-treasury-swap.",
+    "version": "0.1.0",
+    "plutusVersion": "v3",
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "amaru.swap.v2.spend",
+      "datum": {
+        "title": "SwapOrder",
+        "schema": { "$ref": "#/definitions/SwapOrder" }
+      }
+    }
+  ],
+  "definitions": {
+    "SwapOrder": {
+      "title": "SwapOrder",
+      "description": "Single-constructor record carrying the recipient credential.",
+      "dataType": "constructor",
+      "index": 0,
+      "fields": [
+        {
+          "title": "recipient",
+          "schema": { "$ref": "#/definitions/Credential" }
+        }
+      ]
+    },
+    "Credential": {
+      "title": "Credential",
+      "description": "plutus-ledger-api Credential = PubKeyCredential PubKeyHash | ScriptCredential ScriptHash.",
+      "anyOf": [
+        {
+          "title": "PubKeyCredential",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            { "title": "pubKeyHash", "dataType": "bytes" }
+          ]
+        },
+        {
+          "title": "ScriptCredential",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            { "title": "scriptHash", "dataType": "bytes" }
+          ]
+        }
+      ]
+    }
+  }
+}
