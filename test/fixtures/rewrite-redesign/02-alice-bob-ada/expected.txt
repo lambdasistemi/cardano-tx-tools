@@ -1,0 +1,9 @@
+inputs:
+  - resolved.address: alice
+    resolved.coin: 100.000000 ADA
+outputs:
+  - address: bob
+    coin: 10.000000 ADA
+  - address: alice
+    coin: 89.825000 ADA
+fee: 0.175000 ADA

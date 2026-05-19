@@ -325,6 +325,7 @@ test-suite unit-tests
     Cardano.Tx.Validate.LoadUtxoSpec
     Cardano.Tx.ValidateSpec
     Fixtures.RewriteRedesign.Helpers
+    Fixtures.RewriteRedesign.S02_AliceBobAda
     StaticResolver
 
   build-depends:
