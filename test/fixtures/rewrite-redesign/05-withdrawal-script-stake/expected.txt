@@ -1,0 +1,9 @@
+inputs:
+  - resolved.address: alice
+    resolved.coin: 2.000000 ADA
+outputs:
+  - address: alice
+    coin: 51.825000 ADA
+withdrawals:
+  amaru-treasury.network_compliance: 50.000000 ADA
+fee: 0.175000 ADA

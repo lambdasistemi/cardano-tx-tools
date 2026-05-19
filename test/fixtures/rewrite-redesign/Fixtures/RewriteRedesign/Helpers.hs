@@ -62,6 +62,7 @@ module Fixtures.RewriteRedesign.Helpers (
     -- * Smart constructors for body-leaf values
     stubTxIn,
     stubTxOut,
+    stubRewardAccount,
 
     -- * Hspec contract
     assertShape,
@@ -81,7 +82,12 @@ import Lens.Micro ((^.))
 import Test.Hspec (Expectation, shouldBe)
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
-import Cardano.Ledger.Address (Addr (..), Withdrawals (..))
+import Cardano.Ledger.Address (
+    AccountAddress (..),
+    AccountId (..),
+    Addr (..),
+    Withdrawals (..),
+ )
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
@@ -102,7 +108,7 @@ import Cardano.Ledger.Credential (
     StakeReference (StakeRefNull),
  )
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
-import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment))
+import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment, Staking))
 import Cardano.Ledger.Mary.Value (MaryValue (..), MultiAsset (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
@@ -314,6 +320,22 @@ stubAddr =
         Testnet
         (KeyHashObj (KeyHash (fromJust (hashFromStringAsHex (replicate 56 '0'))) :: KeyHash Payment))
         StakeRefNull
+
+{- | A synthetic 'AccountAddress' (a.k.a. reward account) keyed by an
+integer tag (zero-padded into the 28-byte stake key-hash). Network is
+'Testnet'; credential is a key-hash, since 'assertShape' only counts
+@withdrawals@ entries and does not inspect the credential kind.
+-}
+stubRewardAccount :: Int -> AccountAddress
+stubRewardAccount n =
+    AccountAddress
+        Testnet
+        (AccountId (KeyHashObj (KeyHash hash :: KeyHash Staking)))
+  where
+    hex = replicate 52 '0' ++ hexByte (n `div` 256) ++ hexByte (n `mod` 256)
+    hexByte x = [d (x `div` 16), d (x `mod` 16)]
+    d k = "0123456789abcdef" !! k
+    hash = fromJust (hashFromStringAsHex hex)
 
 -- ---------------------------------------------------------------------------
 -- Hspec contract

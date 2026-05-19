@@ -91,7 +91,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Goal**: Stake reward withdrawal from a script-controlled stake account.
 
-- [ ] T007 [P] [US6] Ship fixture `05-withdrawal-script-stake`: `Tx.hs` (1 input from Alice, 1 output to Alice, 1 withdrawal at the script-stake), `rules.yaml` from 044 Story 5, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S05_WithdrawalScriptStake.hs`, `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [X] T007 [P] [US6] Ship fixture `05-withdrawal-script-stake`: `Tx.hs` (1 input from Alice, 1 output to Alice, 1 withdrawal at the script-stake), `rules.yaml` from 044 Story 5, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S05_WithdrawalScriptStake.hs`, `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
