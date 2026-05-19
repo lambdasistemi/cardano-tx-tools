@@ -122,7 +122,10 @@
                 export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
               '';
             };
-            modules = [ fix-libs ];
+            modules = [
+              fix-libs
+              { packages.cardano-tx-tools.flags.werror = true; }
+            ];
             inputMap = {
               "https://chap.intersectmbo.org/" = CHaP;
             };

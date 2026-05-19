@@ -21,10 +21,18 @@ extra-doc-files:
   CHANGELOG.md
   README.md
 
+flag werror
+  description: Enable -Werror (compile-time enforcement of warnings).
+  default:     False
+  manual:      True
+
 common warnings
   ghc-options:
-    -Wall -Werror -Wunused-imports -Wmissing-export-lists
-    -Wname-shadowing -Wredundant-constraints
+    -Wall -Wunused-imports -Wmissing-export-lists -Wname-shadowing
+    -Wredundant-constraints
+
+  if flag(werror)
+    ghc-options: -Werror
 
   default-extensions:
     DataKinds
