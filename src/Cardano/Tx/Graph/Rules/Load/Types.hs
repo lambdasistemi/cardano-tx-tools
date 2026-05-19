@@ -136,4 +136,13 @@ data RulesLoadError
       -- and never fetches network resources. The 'Text' payload is
       -- the raw URI.
       HttpsImport !FilePath !Text
+    | -- | The import graph contains a cycle. The payload is the cycle
+      -- path in DFS-entry order with the revisited node appended at
+      -- the end so the cycle reads naturally: e.g. when @a@ imports
+      -- @b@ and @b@ imports @a@, the payload is
+      -- @[a-path, b-path, a-path]@. A self-import yields
+      -- @[a-path, a-path]@. The loader detects cycles via a Grey
+      -- (in-progress) state on the DFS frontier and aborts on the
+      -- first back-edge.
+      RulesImportCycle ![FilePath]
     deriving stock (Eq, Show)
