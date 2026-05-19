@@ -39,10 +39,25 @@ An empty slug or a slug that starts with a digit is rejected with
 'EntityNameSlugEmpty' / 'EntityNameSlugLeadingDigit'. (Turtle's
 PN_LOCAL allows leading digits, but bnode local-parts like @_:0foo@
 are stylistically ambiguous — see spec edge cases.)
+
+== Source-line provenance (T009)
+
+The parser threads a 'Ctx' record (file path + per-entity / per-
+blueprint source lines) through every error producer site. Lines
+are 1-based to match every editor and LSP. The mapping is
+computed by 'entityNameLines' and 'blueprintScriptLines', which
+pre-scan the raw byte blob for @^\\s*- name:@ and @^\\s*- script:@
+lines respectively, in source order. The walk over the parsed
+'Aeson.Value' then zips entities and blueprints with their source
+lines via list-index alignment.
+
+YAML decode failures (libyaml-level parse errors) extract the line
+number from the libyaml 'YamlMark' (which is 0-based; we add 1).
 -}
 module Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
     parseRulesYamlText,
     parseRulesYamlImports,
+    parseRulesYamlImportsWithFile,
     slugify,
 ) where
 
@@ -65,24 +80,42 @@ import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Char (isAsciiLower, isDigit)
-import Data.Foldable (traverse_)
 import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
+import Data.Text.Encoding.Error (lenientDecode)
 import Data.Yaml qualified as Yaml
+import Text.Libyaml qualified as Libyaml
 
-{- | The placeholder file path attached to T002 error variants. T003
-threads the real file path through when @loadRulesFile@ runs.
+{- | The placeholder file path attached to errors when the caller uses
+the in-memory entry point ('parseRulesYamlText' /
+'parseRulesYamlImports') with no real file path. The
+'Cardano.Tx.Graph.Rules.Load.loadRulesFile' entrypoint threads the
+real path through 'parseRulesYamlImportsWithFile'.
 -}
 inMemoryFile :: FilePath
 inMemoryFile = "<in-memory>"
 
-{- | The placeholder line number attached to T002 error variants. T009
-tightens the surface to real line numbers from the YAML parser.
+{- | Per-parse-call context: source file path plus the 1-based source
+line of every entity's @- name:@ key and every blueprint entry's
+@- script:@ key (in source order). The walk over the parsed
+'Aeson.Value' indexes into these lists to attach a real source line
+to each error.
+
+When the parser has no per-entity line (e.g. for top-level shape
+errors like @entities: must be a list@), it falls back to line 1
+('topLevelLine') — the start of the document.
 -}
-inMemoryLine :: Int
-inMemoryLine = 0
+data Ctx = Ctx
+    { ctxFile :: !FilePath
+    , ctxEntityLines :: ![Int]
+    , ctxBlueprintLines :: ![Int]
+    }
+
+-- | The fallback line for an error with no per-entity context.
+topLevelLine :: Int
+topLevelLine = 1
 
 {- | Parse a @rules.yaml@ byte blob into the in-memory entity list.
 
@@ -94,16 +127,19 @@ each @entities:@ entry, computes its slug, dispatches on the
 
 Any structural failure (invalid YAML, non-string name, malformed
 bech32, bad hex) surfaces as a 'RulesLoadError' via 'Left'.
+
+The in-memory entry point uses @\<in-memory\>@ as the source file in
+every error. For real file-path provenance, drive
+'Cardano.Tx.Graph.Rules.Load.loadRulesFile' (which threads the file
+path through 'parseRulesYamlImportsWithFile').
 -}
 parseRulesYamlText :: ByteString -> Either RulesLoadError [EntityDecl]
 parseRulesYamlText = fmap snd . parseRulesYamlImports
 
 {- | Parse a @rules.yaml@ byte blob into both the raw @imports:@ list
-(in source order) and the in-memory entity list. Used by the imports
-resolver in T007 (see
-"Cardano.Tx.Graph.Rules.Load.Resolve.Imports") so a single parse pass
-produces both the dependency edges and the entities the DFS resolver
-flattens.
+(in source order) and the in-memory entity list. Uses the placeholder
+@\<in-memory\>@ file path — see 'parseRulesYamlImportsWithFile' for
+the file-aware variant used by the imports resolver.
 
 Returns @Right ([], [])@ for an empty document. Each element of the
 returned import list is the raw operator-authored string — the
@@ -111,31 +147,64 @@ resolver applies its own absolute/HTTPS/missing-file checks.
 -}
 parseRulesYamlImports ::
     ByteString -> Either RulesLoadError ([Text], [EntityDecl])
-parseRulesYamlImports blob =
-    case Yaml.decodeEither' blob of
-        Left err ->
-            Left $
-                ParserError
-                    inMemoryFile
-                    inMemoryLine
-                    (Text.pack ("YAML decode failed: " <> show err))
-        Right val -> walkTop val
+parseRulesYamlImports = parseRulesYamlImportsWithFile inMemoryFile
 
-walkTop :: Aeson.Value -> Either RulesLoadError ([Text], [EntityDecl])
-walkTop = \case
+{- | Variant of 'parseRulesYamlImports' that takes the source 'FilePath'
+so every 'RulesLoadError' carries real (file, line) provenance. Used
+by 'Cardano.Tx.Graph.Rules.Load.Resolve.Imports.resolveImports'.
+-}
+parseRulesYamlImportsWithFile ::
+    FilePath ->
+    ByteString ->
+    Either RulesLoadError ([Text], [EntityDecl])
+parseRulesYamlImportsWithFile file blob =
+    let ctx =
+            Ctx
+                { ctxFile = file
+                , ctxEntityLines = entityNameLines blob
+                , ctxBlueprintLines = blueprintScriptLines blob
+                }
+     in case Yaml.decodeEither' blob of
+            Left err ->
+                Left $
+                    ParserError
+                        file
+                        (yamlParseExceptionLine err)
+                        (Text.pack ("YAML decode failed: " <> show err))
+            Right val -> walkTop ctx val
+
+{- | Extract a 1-based source line from a 'Yaml.ParseException'. The
+libyaml-level 'YamlMark' is 0-based; we add 1. Any other exception
+shape falls back to 'topLevelLine' (line 1) — there is no source
+position to surface.
+-}
+yamlParseExceptionLine :: Yaml.ParseException -> Int
+yamlParseExceptionLine = \case
+    Yaml.InvalidYaml (Just (Libyaml.YamlParseException _ _ mark)) ->
+        Libyaml.yamlLine mark + 1
+    Yaml.InvalidYaml (Just (Libyaml.YamlException _)) -> topLevelLine
+    Yaml.InvalidYaml Nothing -> topLevelLine
+    _ -> topLevelLine
+
+walkTop ::
+    Ctx -> Aeson.Value -> Either RulesLoadError ([Text], [EntityDecl])
+walkTop ctx = \case
     Aeson.Null -> Right ([], [])
     Aeson.Object obj -> do
-        imports <- parseImportsKey obj
+        imports <- parseImportsKey ctx obj
         entities <- case KeyMap.lookup (Key.fromText "entities") obj of
             Nothing -> Right []
             Just Aeson.Null -> Right []
             Just (Aeson.Array arr) ->
-                traverse parseEntity (foldr (:) [] arr)
+                traverseWithLines
+                    (parseEntity ctx)
+                    (foldr (:) [] arr)
+                    (ctxEntityLines ctx)
             Just other ->
                 Left $
                     ParserError
-                        inMemoryFile
-                        inMemoryLine
+                        (ctxFile ctx)
+                        topLevelLine
                         ( "entities: must be a list, got: "
                             <> typeName other
                         )
@@ -143,17 +212,38 @@ walkTop = \case
         -- @script: \<name\>@ reference must resolve to an entity in
         -- the same file whose shape is @script:@. The blueprint
         -- entries themselves do not produce overlay triples (#51).
-        validateBlueprints entities obj
+        validateBlueprints ctx entities obj
         -- @collapse:@ is silently accepted (typed-list shape only;
         -- triples are emitted by #51, not the overlay serializer).
-        validateCollapse obj
+        validateCollapse ctx obj
         Right (imports, entities)
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                topLevelLine
                 ("top-level YAML must be an object, got: " <> typeName other)
+
+{- | Walk a parsed list with its parallel source-line list, calling
+@k@ with each element's 1-based line number. Missing line entries
+fall back to 'topLevelLine'.
+
+The pre-scan of @- name:@ lines is best-effort: if it produces
+fewer lines than there are entities (e.g. an exotic indented form
+the scanner doesn't match), the extras fall back to 'topLevelLine'
+so the traversal still terminates.
+-}
+traverseWithLines ::
+    (Int -> a -> Either RulesLoadError b) -> [a] -> [Int] -> Either RulesLoadError [b]
+traverseWithLines _ [] _ = Right []
+traverseWithLines k (x : xs) (ln : lns) = do
+    y <- k ln x
+    ys <- traverseWithLines k xs lns
+    pure (y : ys)
+traverseWithLines k (x : xs) [] = do
+    y <- k topLevelLine x
+    ys <- traverseWithLines k xs []
+    pure (y : ys)
 
 {- | Walk the top-level @imports:@ value (a list of relative file paths).
 Returns @[]@ when the key is absent or null; surfaces a
@@ -162,29 +252,29 @@ resolver applies its own absolute / HTTPS / missing-file checks
 against the strings returned here.
 -}
 parseImportsKey ::
-    KeyMap.KeyMap Aeson.Value -> Either RulesLoadError [Text]
-parseImportsKey obj = case KeyMap.lookup (Key.fromText "imports") obj of
+    Ctx -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError [Text]
+parseImportsKey ctx obj = case KeyMap.lookup (Key.fromText "imports") obj of
     Nothing -> Right []
     Just Aeson.Null -> Right []
     Just (Aeson.Array arr) ->
-        traverse parseImportEntry (foldr (:) [] arr)
+        traverse (parseImportEntry ctx) (foldr (:) [] arr)
     Just other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                topLevelLine
                 ( "imports: must be a list of relative paths, got: "
                     <> typeName other
                 )
 
-parseImportEntry :: Aeson.Value -> Either RulesLoadError Text
-parseImportEntry = \case
+parseImportEntry :: Ctx -> Aeson.Value -> Either RulesLoadError Text
+parseImportEntry ctx = \case
     Aeson.String t -> Right t
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                topLevelLine
                 ( "imports[]: entry must be a string path, got: "
                     <> typeName other
                 )
@@ -198,31 +288,44 @@ non-object entry, missing @script:@ field, non-string @script:@
 value).
 -}
 validateBlueprints ::
-    [EntityDecl] -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError ()
-validateBlueprints entities obj =
+    Ctx ->
+    [EntityDecl] ->
+    KeyMap.KeyMap Aeson.Value ->
+    Either RulesLoadError ()
+validateBlueprints ctx entities obj =
     case KeyMap.lookup (Key.fromText "blueprints") obj of
         Nothing -> Right ()
         Just Aeson.Null -> Right ()
         Just (Aeson.Array arr) ->
-            traverse_ (validateBlueprintEntry entities) (foldr (:) [] arr)
+            walk (foldr (:) [] arr) (ctxBlueprintLines ctx)
         Just other ->
             Left $
                 ParserError
-                    inMemoryFile
-                    inMemoryLine
+                    (ctxFile ctx)
+                    topLevelLine
                     ( "blueprints: must be a list, got: "
                         <> typeName other
                     )
+  where
+    walk [] _ = Right ()
+    walk (x : xs) (ln : lns) =
+        validateBlueprintEntry ctx ln entities x >> walk xs lns
+    walk (x : xs) [] =
+        validateBlueprintEntry ctx topLevelLine entities x >> walk xs []
 
 validateBlueprintEntry ::
-    [EntityDecl] -> Aeson.Value -> Either RulesLoadError ()
-validateBlueprintEntry entities = \case
+    Ctx ->
+    Int ->
+    [EntityDecl] ->
+    Aeson.Value ->
+    Either RulesLoadError ()
+validateBlueprintEntry ctx ln entities = \case
     Aeson.Object o -> case KeyMap.lookup (Key.fromText "script") o of
         Nothing ->
             Left $
                 ParserError
-                    inMemoryFile
-                    inMemoryLine
+                    (ctxFile ctx)
+                    ln
                     "blueprints[]: entry is missing the 'script:' field"
         Just (Aeson.String refName) ->
             if scriptEntityKnown entities refName
@@ -230,22 +333,22 @@ validateBlueprintEntry entities = \case
                 else
                     Left $
                         BlueprintRefsUnknownScript
-                            inMemoryFile
-                            inMemoryLine
+                            (ctxFile ctx)
+                            ln
                             refName
         Just other ->
             Left $
                 ParserError
-                    inMemoryFile
-                    inMemoryLine
+                    (ctxFile ctx)
+                    ln
                     ( "blueprints[].script: must be a string, got: "
                         <> typeName other
                     )
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ( "blueprints[]: entry must be an object, got: "
                     <> typeName other
                 )
@@ -271,8 +374,9 @@ is owned by #51; the loader only enforces the list shape so a
 mistyped @collapse:@ value is caught at parse time rather than
 silently swallowed.
 -}
-validateCollapse :: KeyMap.KeyMap Aeson.Value -> Either RulesLoadError ()
-validateCollapse obj =
+validateCollapse ::
+    Ctx -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError ()
+validateCollapse ctx obj =
     case KeyMap.lookup (Key.fromText "collapse") obj of
         Nothing -> Right ()
         Just Aeson.Null -> Right ()
@@ -280,18 +384,19 @@ validateCollapse obj =
         Just other ->
             Left $
                 ParserError
-                    inMemoryFile
-                    inMemoryLine
+                    (ctxFile ctx)
+                    topLevelLine
                     ( "collapse: must be a list, got: "
                         <> typeName other
                     )
 
-parseEntity :: Aeson.Value -> Either RulesLoadError EntityDecl
-parseEntity = \case
+parseEntity ::
+    Ctx -> Int -> Aeson.Value -> Either RulesLoadError EntityDecl
+parseEntity ctx ln = \case
     Aeson.Object obj -> do
-        name <- requireName obj
-        slug <- slugifyOrError name
-        idents <- parseShape slug obj
+        name <- requireName ctx ln obj
+        slug <- slugifyOrError ctx ln name
+        idents <- parseShape ctx ln slug obj
         Right
             EntityDecl
                 { entityName = name
@@ -301,34 +406,37 @@ parseEntity = \case
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("entity entry must be an object, got: " <> typeName other)
 
-requireName :: KeyMap.KeyMap Aeson.Value -> Either RulesLoadError Text
-requireName obj = case KeyMap.lookup (Key.fromText "name") obj of
+requireName ::
+    Ctx -> Int -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError Text
+requireName ctx ln obj = case KeyMap.lookup (Key.fromText "name") obj of
     Just (Aeson.String t)
         | not (Text.null t) -> Right t
     Just other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("entity name: must be a non-empty string, got: " <> typeName other)
     Nothing ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 "entity is missing the required 'name:' field"
 
-slugifyOrError :: Text -> Either RulesLoadError Text
-slugifyOrError name = do
+slugifyOrError :: Ctx -> Int -> Text -> Either RulesLoadError Text
+slugifyOrError ctx ln name = do
     let s = slugify name
     if Text.null s
-        then Left (EntityNameSlugEmpty inMemoryFile inMemoryLine name)
+        then Left (EntityNameSlugEmpty (ctxFile ctx) ln name)
         else case Text.uncons s of
-            Just (c, _) | isDigit c -> Left (EntityNameSlugLeadingDigit inMemoryFile inMemoryLine name)
+            Just (c, _)
+                | isDigit c ->
+                    Left (EntityNameSlugLeadingDigit (ctxFile ctx) ln name)
             _ -> Right s
 
 {- | Pure slug algorithm: lowercase the input, rewrite every character
@@ -387,8 +495,12 @@ Five basic shapes — @from-address@, @script@, @asset@, @pool@,
   → 'ParserError'.
 -}
 parseShape ::
-    Text -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError [EntityIdentifier]
-parseShape slug obj =
+    Ctx ->
+    Int ->
+    Text ->
+    KeyMap.KeyMap Aeson.Value ->
+    Either RulesLoadError [EntityIdentifier]
+parseShape ctx ln slug obj =
     let basicShapes =
             catMaybes
                 [ ("from-address",) <$> KeyMap.lookup (Key.fromText "from-address") obj
@@ -400,15 +512,16 @@ parseShape slug obj =
         mKeys = KeyMap.lookup (Key.fromText "keys") obj
         mBytes = KeyMap.lookup (Key.fromText "bytes") obj
      in case (basicShapes, mKeys, mBytes) of
-            ([], Nothing, Nothing) -> Left (EntityZeroIdentifiers slug)
-            ([(k, v)], Nothing, Nothing) -> parseSingleShape slug k v
+            ([], Nothing, Nothing) ->
+                Left (EntityZeroIdentifiers (ctxFile ctx) ln slug)
+            ([(k, v)], Nothing, Nothing) -> parseSingleShape ctx ln slug k v
             ([], Just keysV, Just bytesV) ->
-                parseCompoundKey slug keysV bytesV
+                parseCompoundKey ctx ln slug keysV bytesV
             ([], Just _, Nothing) ->
                 Left $
                     ParserError
-                        inMemoryFile
-                        inMemoryLine
+                        (ctxFile ctx)
+                        ln
                         ( "entity "
                             <> slug
                             <> " declares 'keys:' without 'bytes:'"
@@ -416,8 +529,8 @@ parseShape slug obj =
             ([], Nothing, Just _) ->
                 Left $
                     ParserError
-                        inMemoryFile
-                        inMemoryLine
+                        (ctxFile ctx)
+                        ln
                         ( "entity "
                             <> slug
                             <> " declares 'bytes:' without 'keys:'"
@@ -429,8 +542,8 @@ parseShape slug obj =
                             <> ["bytes" | Just _ <- [mB]]
                  in Left $
                         ParserError
-                            inMemoryFile
-                            inMemoryLine
+                            (ctxFile ctx)
+                            ln
                             ( "entity "
                                 <> slug
                                 <> " declares multiple identifier shapes: "
@@ -438,72 +551,88 @@ parseShape slug obj =
                             )
 
 parseSingleShape ::
-    Text -> Text -> Aeson.Value -> Either RulesLoadError [EntityIdentifier]
-parseSingleShape _slug "from-address" v = case v of
+    Ctx ->
+    Int ->
+    Text ->
+    Text ->
+    Aeson.Value ->
+    Either RulesLoadError [EntityIdentifier]
+parseSingleShape ctx ln _slug "from-address" v = case v of
     Aeson.String bech32 ->
-        decomposeFromAddress inMemoryFile inMemoryLine bech32
+        decomposeFromAddress (ctxFile ctx) ln bech32
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("from-address: must be a bech32 string, got: " <> typeName other)
-parseSingleShape _slug "script" v = case v of
+parseSingleShape ctx ln _slug "script" v = case v of
     Aeson.String hex -> do
-        validated <- validateScriptHex hex
+        validated <- validateScriptHex ctx ln hex
         Right [EntityIdentifier PaymentScript validated]
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("script: must be a 56-character hex string, got: " <> typeName other)
-parseSingleShape _slug "asset" v = parseAsset v
-parseSingleShape _slug "pool" v = case v of
-    Aeson.String bech32 -> decodePoolBech32 inMemoryFile inMemoryLine bech32
+parseSingleShape ctx ln _slug "asset" v = parseAsset ctx ln v
+parseSingleShape ctx ln _slug "pool" v = case v of
+    Aeson.String bech32 -> decodePoolBech32 (ctxFile ctx) ln bech32
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("pool: must be a pool1 bech32 string, got: " <> typeName other)
-parseSingleShape _slug "drep" v = case v of
-    Aeson.String bech32 -> decodeDrepCip129 inMemoryFile inMemoryLine bech32
+parseSingleShape ctx ln _slug "drep" v = case v of
+    Aeson.String bech32 -> decodeDrepCip129 (ctxFile ctx) ln bech32
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("drep: must be a CIP-129 bech32 string, got: " <> typeName other)
-parseSingleShape _ k _ =
+parseSingleShape ctx ln _ k _ =
     Left $
         ParserError
-            inMemoryFile
-            inMemoryLine
+            (ctxFile ctx)
+            ln
             ("unknown identifier shape key: " <> k)
 
-parseAsset :: Aeson.Value -> Either RulesLoadError [EntityIdentifier]
-parseAsset = \case
+parseAsset ::
+    Ctx -> Int -> Aeson.Value -> Either RulesLoadError [EntityIdentifier]
+parseAsset ctx ln = \case
     Aeson.Object o -> do
         policyVal <-
-            requireField o "policy" "asset.policy: must be a 56-char hex string"
+            requireField
+                ctx
+                ln
+                o
+                "policy"
+                "asset.policy: must be a 56-char hex string"
         nameVal <-
-            requireField o "name" "asset.name: must be an ASCII string"
+            requireField
+                ctx
+                ln
+                o
+                "name"
+                "asset.name: must be an ASCII string"
         policy <- case policyVal of
-            Aeson.String t -> validatePolicyHex t
+            Aeson.String t -> validatePolicyHex ctx ln t
             other ->
                 Left $
                     ParserError
-                        inMemoryFile
-                        inMemoryLine
+                        (ctxFile ctx)
+                        ln
                         ("asset.policy: must be a string, got: " <> typeName other)
         name <- case nameVal of
             Aeson.String t -> Right t
             other ->
                 Left $
                     ParserError
-                        inMemoryFile
-                        inMemoryLine
+                        (ctxFile ctx)
+                        ln
                         ("asset.name: must be a string, got: " <> typeName other)
         let nameHex =
                 TextEncoding.decodeUtf8
@@ -512,19 +641,21 @@ parseAsset = \case
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("asset: must be an object with 'policy' and 'name', got: " <> typeName other)
 
 requireField ::
+    Ctx ->
+    Int ->
     KeyMap.KeyMap Aeson.Value ->
     Text ->
     Text ->
     Either RulesLoadError Aeson.Value
-requireField obj fieldName missingMsg =
+requireField ctx ln obj fieldName missingMsg =
     case KeyMap.lookup (Key.fromText fieldName) obj of
         Just v -> Right v
-        Nothing -> Left (ParserError inMemoryFile inMemoryLine missingMsg)
+        Nothing -> Left (ParserError (ctxFile ctx) ln missingMsg)
 
 {- | Parse the compound-key shape (@keys: [LeafType, …] + bytes: \<hex\>@).
 Produces N 'EntityIdentifier' values, one per leafType in the
@@ -533,19 +664,21 @@ The cross-leaf identity surface is owned downstream by the naming
 table (first-entity-wins on @(leafType, bytesHex)@).
 -}
 parseCompoundKey ::
+    Ctx ->
+    Int ->
     Text ->
     Aeson.Value ->
     Aeson.Value ->
     Either RulesLoadError [EntityIdentifier]
-parseCompoundKey slug keysV bytesV = do
-    leaves <- parseKeysList slug keysV
+parseCompoundKey ctx ln slug keysV bytesV = do
+    leaves <- parseKeysList ctx ln slug keysV
     bytesHex <- case bytesV of
-        Aeson.String t -> validateHash28 t BadPolicyHex
+        Aeson.String t -> validateHash28 ctx ln t BadPolicyHex
         other ->
             Left $
                 ParserError
-                    inMemoryFile
-                    inMemoryLine
+                    (ctxFile ctx)
+                    ln
                     ("bytes: must be a 56-char hex string, got: " <> typeName other)
     Right [EntityIdentifier lt bytesHex | lt <- leaves]
 
@@ -554,42 +687,47 @@ constructor names. Surfaces a 'ParserError' on an empty list, a
 non-array value, or any unknown leafType label.
 -}
 parseKeysList ::
-    Text -> Aeson.Value -> Either RulesLoadError [LeafType]
-parseKeysList slug = \case
+    Ctx ->
+    Int ->
+    Text ->
+    Aeson.Value ->
+    Either RulesLoadError [LeafType]
+parseKeysList ctx ln slug = \case
     Aeson.Array arr ->
         case foldr (:) [] arr of
             [] ->
                 Left $
                     ParserError
-                        inMemoryFile
-                        inMemoryLine
+                        (ctxFile ctx)
+                        ln
                         ( "entity "
                             <> slug
                             <> " declares an empty 'keys:' list"
                         )
-            xs -> traverse parseLeafTypeValue xs
+            xs -> traverse (parseLeafTypeValue ctx ln) xs
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("keys: must be a list of leafType names, got: " <> typeName other)
 
-parseLeafTypeValue :: Aeson.Value -> Either RulesLoadError LeafType
-parseLeafTypeValue = \case
+parseLeafTypeValue ::
+    Ctx -> Int -> Aeson.Value -> Either RulesLoadError LeafType
+parseLeafTypeValue ctx ln = \case
     Aeson.String t -> case parseLeafType t of
         Just lt -> Right lt
         Nothing ->
             Left $
                 ParserError
-                    inMemoryFile
-                    inMemoryLine
+                    (ctxFile ctx)
+                    ln
                     ("keys: unknown leafType label: " <> t)
     other ->
         Left $
             ParserError
-                inMemoryFile
-                inMemoryLine
+                (ctxFile ctx)
+                ln
                 ("keys: leafType must be a string, got: " <> typeName other)
 
 -- | Reverse of @show@ for 'LeafType'. Pinned by spec FR-013.
@@ -612,24 +750,26 @@ Reuses 'BadPolicyHex' for the error variant — both @script:@ and
 validation semantics, and the spec's error enum currently lists
 only the policy variant.
 -}
-validateScriptHex :: Text -> Either RulesLoadError Text
-validateScriptHex hex = validateHash28 hex BadPolicyHex
+validateScriptHex :: Ctx -> Int -> Text -> Either RulesLoadError Text
+validateScriptHex ctx ln hex = validateHash28 ctx ln hex BadPolicyHex
 
 -- | Validate a 56-char hex value used as an @asset.policy:@ value.
-validatePolicyHex :: Text -> Either RulesLoadError Text
-validatePolicyHex hex = validateHash28 hex BadPolicyHex
+validatePolicyHex :: Ctx -> Int -> Text -> Either RulesLoadError Text
+validatePolicyHex ctx ln hex = validateHash28 ctx ln hex BadPolicyHex
 
 validateHash28 ::
+    Ctx ->
+    Int ->
     Text ->
     (FilePath -> Int -> Text -> RulesLoadError) ->
     Either RulesLoadError Text
-validateHash28 hex mkErr =
+validateHash28 ctx ln hex mkErr =
     let lowered = Text.toLower hex
      in if Text.length lowered /= 56
-            then Left (mkErr inMemoryFile inMemoryLine hex)
+            then Left (mkErr (ctxFile ctx) ln hex)
             else case Base16.decode (TextEncoding.encodeUtf8 lowered) of
                 Right bs | BS.length bs == 28 -> Right lowered
-                _ -> Left (mkErr inMemoryFile inMemoryLine hex)
+                _ -> Left (mkErr (ctxFile ctx) ln hex)
 
 typeName :: Aeson.Value -> Text
 typeName = \case
@@ -639,3 +779,63 @@ typeName = \case
     Aeson.String _ -> "string"
     Aeson.Array _ -> "array"
     Aeson.Object _ -> "object"
+
+----------------------------------------------------------------------
+-- Source-line pre-scan
+----------------------------------------------------------------------
+
+{- | Pre-scan the raw byte blob and return the 1-based source line of
+each entity's @- name:@ key (in source order).
+
+The scan matches lines whose first non-space character is @-@
+followed by a key whose unquoted first identifier is @name@:
+
+@
+  - name: alice
+@
+
+Lines whose @- @ prefix is followed by a different key (e.g.
+@- script:@ under @blueprints:@) are ignored. Lines whose @name:@
+appears without a leading @- @ (continuation @name:@ inside a flow
+mapping, for instance) are also ignored — only the list-element
+introducer counts.
+
+The scanner is a heuristic. If it returns fewer entries than the
+parser sees in the decoded 'Aeson.Value', the parser falls back to
+'topLevelLine' for the trailing entities (see 'traverseWithLines').
+This keeps the loader total under exotic authoring forms.
+-}
+entityNameLines :: ByteString -> [Int]
+entityNameLines = lineIndicesMatchingDashKey "name"
+
+{- | Sibling of 'entityNameLines' for blueprint entries: returns the
+1-based source line of each blueprint's @- script:@ key.
+-}
+blueprintScriptLines :: ByteString -> [Int]
+blueprintScriptLines = lineIndicesMatchingDashKey "script"
+
+{- | Scan a raw YAML byte blob for lines whose leading non-space content
+is @- <key>:@ with the supplied key name. Returns the 1-based source
+line of each match in source order.
+-}
+lineIndicesMatchingDashKey :: Text -> ByteString -> [Int]
+lineIndicesMatchingDashKey key blob =
+    [ ln
+    | (ln, line) <- zip [1 ..] (Text.lines text)
+    , matchesDashKey key line
+    ]
+  where
+    text = TextEncoding.decodeUtf8With lenientDecode blob
+
+{- | True iff @line@'s first non-space content is @- <key>:@ (with
+optional space between @-@ and the key, and any value after the
+colon).
+-}
+matchesDashKey :: Text -> Text -> Bool
+matchesDashKey key line =
+    case Text.uncons (Text.stripStart line) of
+        Just ('-', afterDash) ->
+            let body = Text.stripStart afterDash
+                (head_, rest) = Text.break (== ':') body
+             in head_ == key && not (Text.null rest)
+        _ -> False

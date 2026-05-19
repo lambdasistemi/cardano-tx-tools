@@ -72,10 +72,10 @@ module Cardano.Tx.Graph.Rules.Load.Resolve.Imports (
 ) where
 
 import Cardano.Tx.Graph.Rules.Load.Parse.Turtle (
-    parseRulesTurtleImports,
+    parseRulesTurtleImportsWithFile,
  )
 import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
-    parseRulesYamlImports,
+    parseRulesYamlImportsWithFile,
  )
 import Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
@@ -202,9 +202,9 @@ parseFile ::
 parseFile path = do
     blob <- liftIO (BS.readFile path)
     case takeExtension path of
-        ".ttl" -> liftEither (parseRulesTurtleImports blob)
-        ".yaml" -> liftEither (parseRulesYamlImports blob)
-        ".yml" -> liftEither (parseRulesYamlImports blob)
+        ".ttl" -> liftEither (parseRulesTurtleImportsWithFile path blob)
+        ".yaml" -> liftEither (parseRulesYamlImportsWithFile path blob)
+        ".yml" -> liftEither (parseRulesYamlImportsWithFile path blob)
         _ -> liftEither (Left (UnsupportedExtension path))
   where
     liftEither = lift . ExceptT . pure
