@@ -305,7 +305,7 @@ executable tx-validate
 test-suite unit-tests
   import:           warnings
   type:             exitcode-stdio-1.0
-  hs-source-dirs:   test
+  hs-source-dirs:   test test/fixtures/rewrite-redesign
   main-is:          unit-main.hs
   default-language: GHC2021
   other-modules:
@@ -320,6 +320,7 @@ test-suite unit-tests
     Cardano.Tx.InspectSpec
     Cardano.Tx.Rewrite.ApplySpec
     Cardano.Tx.Rewrite.LoadSpec
+    Cardano.Tx.Rewrite.RewriteRedesignGoldenSpec
     Cardano.Tx.Validate.LoadUtxo
     Cardano.Tx.Validate.LoadUtxoSpec
     Cardano.Tx.ValidateSpec
