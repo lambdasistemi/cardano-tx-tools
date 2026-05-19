@@ -1,0 +1,15 @@
+inputs:
+  - resolved.address: <addr-under-usdm-control-script>   # bech32 verbatim
+                                                          # because no entity
+                                                          # declared for the full
+                                                          # address
+    resolved.coin: 5.000000 ADA
+outputs:
+  - address: alice
+    coin: 4.500000 ADA
+    assets: { usdm: 1000 }
+mint:
+  usdm-control: { usdm: +1000 }
+witnesses:
+  scripts: [usdm-control]
+fee: 0.500000 ADA

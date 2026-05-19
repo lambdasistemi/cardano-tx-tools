@@ -65,12 +65,15 @@ module Fixtures.RewriteRedesign.Helpers (
     stubRewardAccount,
     stubStakeDelegationCert,
     stubVoteDelegationCert,
+    stubMintEntry,
 
     -- * Hspec contract
     assertShape,
 ) where
 
 import Control.Monad (unless)
+import Data.ByteString.Char8 qualified as BS8
+import Data.ByteString.Short qualified as SBS
 import Data.Default (def)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
@@ -116,9 +119,14 @@ import Cardano.Ledger.Credential (
     StakeReference (StakeRefNull),
  )
 import Cardano.Ledger.DRep (DRep (DRepKeyHash))
-import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
+import Cardano.Ledger.Hashes (ScriptHash (..), unsafeMakeSafeHash)
 import Cardano.Ledger.Keys (KeyHash (..), KeyRole (DRepRole, Payment, StakePool, Staking))
-import Cardano.Ledger.Mary.Value (MaryValue (..), MultiAsset (..))
+import Cardano.Ledger.Mary.Value (
+    AssetName (..),
+    MaryValue (..),
+    MultiAsset (..),
+    PolicyID (..),
+ )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
 import Cardano.Tx.Build (TxBuild, draft)
@@ -363,6 +371,24 @@ stubStakeDelegationCert n =
     d k = "0123456789abcdef" !! k
     stakeHash = fromJust (hashFromStringAsHex hex)
     poolHash = fromJust (hashFromStringAsHex hex)
+
+{- | A single-entry minting bundle shaped for the DSL's 'mint' combinator.
+Returns @(policyID, assetMap)@ where @assetMap@ has one
+@(AssetName "USDM", coin)@ entry. Tag @n@ is zero-padded into the
+28-byte policy script-hash; the asset name is fixed at @"USDM"@;
+@coin@ is the positive mint quantity. 'assertShape' counts
+@(policy, name)@ pairs via 'esMintEntries' — one per 'stubMintEntry'
+call.
+-}
+stubMintEntry :: Int -> Integer -> (PolicyID, Map.Map AssetName Integer)
+stubMintEntry n coin =
+    (PolicyID (ScriptHash policyHash), Map.singleton assetName coin)
+  where
+    hex = replicate 52 '0' ++ hexByte (n `div` 256) ++ hexByte (n `mod` 256)
+    hexByte x = [d (x `div` 16), d (x `mod` 16)]
+    d k = "0123456789abcdef" !! k
+    policyHash = fromJust (hashFromStringAsHex hex)
+    assetName = AssetName (SBS.toShort (BS8.pack "USDM"))
 
 {- | A synthetic Conway @VoteDelegation@ 'TxCert' keyed by an integer tag
 (zero-padded into both the 28-byte stake key-hash credential and the
