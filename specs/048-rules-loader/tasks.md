@@ -360,8 +360,12 @@ carries `Tasks: T###`.
 
 ## Phase 3 — Turtle parser path (US2)
 
-- [ ] **T006** *(type=feat, US2)* — Structural Turtle parser for the
-  subset in research.md R1.
+- [X] **T006** *(type=feat, US2)* — Structural Turtle parser for the
+  subset in research.md R1. Hand-rolled over Data.Text — no new
+  parser deps. Operator-chosen bnode names are discarded; Naming
+  algorithm canonicalizes through the serializer (co-equal with YAML
+  authoring per SC-005). 9 unit tests (3 happy + 4 reject + 2
+  round-trip); 205 unit examples total; gate green.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load/Parse/Turtle.hs` (new)

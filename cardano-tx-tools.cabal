@@ -86,6 +86,7 @@ library
     Cardano.Tx.Graph.Rules.Load.Bech32
     Cardano.Tx.Graph.Rules.Load.Emit.Overlay
     Cardano.Tx.Graph.Rules.Load.Naming
+    Cardano.Tx.Graph.Rules.Load.Parse.Turtle
     Cardano.Tx.Graph.Rules.Load.Parse.Yaml
     Cardano.Tx.Graph.Rules.Load.Types
     Cardano.Tx.Inputs
@@ -336,6 +337,7 @@ test-suite unit-tests
     Cardano.Tx.DiffSpec
     Cardano.Tx.Graph.Rules.LoadGoldenSpec
     Cardano.Tx.Graph.Rules.LoadSmokeSpec
+    Cardano.Tx.Graph.Rules.LoadTurtleSpec
     Cardano.Tx.Graph.Rules.LoadYamlSpec
     Cardano.Tx.InspectSpec
     Cardano.Tx.Rewrite.ApplySpec
