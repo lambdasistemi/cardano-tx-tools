@@ -290,7 +290,18 @@ breakdown collapses pool/drep (plan S5) directly into **T003** (which
 carves fixtures 06 + 07 alongside 02/03/05/08/10), and compound-key
 (plan S4) into **T004**. Plan slices S6 onward map 1:1 to tasks
 T005..T013 with one offset (plan S6 = tasks T005, plan S7 = tasks T006,
-etc.). The plan table above is kept as the high-level decomposition;
+etc.).
+
+**Post-Q-002 sequencing addendum** (Option B, constitution sweep
+in-scope): three chore slices land at the head of the implementation
+sequence, ahead of T001 — **T001b** (PvP upper bounds across every
+dep), **T001c** (gate `-Werror` behind a cabal `werror` flag), then
+**T001a** (extend `gate.sh` with `cabal check` + `cabal haddock`).
+After T001a, T001 (module scaffold) proceeds. See research.md R13
+for the rationale. Total slice count: 13 → **15 implementation +
+chore slices** + 3 orchestrator-owned (T000, T000a, T012, T013).
+
+The plan table above is kept as the high-level decomposition;
 [tasks.md](./tasks.md) is the authoritative per-commit list a subagent
 runs against.
 

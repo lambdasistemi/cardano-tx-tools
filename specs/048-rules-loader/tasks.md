@@ -41,15 +41,91 @@ carries `Tasks: T###`.
 
 ## Phase 1 — loader scaffolding (chore-shaped, no behaviour change)
 
-- [ ] **T001a** *(type=chore; orchestrator-owned or first subagent slice)*
-  — Extend `./gate.sh` to also run `cabal check` (must exit clean — no
-  warnings, no missing fields) and a Haddock build of the library
-  (e.g. `nix develop --quiet -c cabal haddock --haddock-quickjump
-  --enable-documentation`), so every subsequent slice's gate proves
-  FR-016 (Haddock on public API) and SC-007 (`cabal check` clean) for
-  free. This closes analyzer finding C4. Land as
-  `chore(048): extend gate.sh with cabal check + haddock`. No
-  behaviour-changing code; orchestrator may apply directly.
+- [ ] **T001b** *(type=chore, subagent slice; constitution-compliance
+  sweep per Q-002 Option B)* — Add PvP-compliant upper bounds to every
+  dependency in every stanza of `cardano-tx-tools.cabal`.
+
+  **Owned files**:
+  - `cardano-tx-tools.cabal` (every `build-depends:` block)
+
+  **Forbidden scope**: anything else. No `flake.nix`, no source files,
+  no test files, no `gate.sh` (that's T001a).
+
+  **RED proof**: before this slice, `nix develop --quiet -c cabal
+  check` reports `Warning: [missing-upper-bounds] On library …` and
+  similar for every executable + test-suite stanza. (The orchestrator
+  has confirmed this — see Q-002.)
+
+  **GREEN proof**: after this slice, `nix develop --quiet -c cabal
+  check` reports zero `missing-upper-bounds` warnings (the only
+  remaining error is the `werror` one, which T001c removes). Build
+  + unit + fourmolu + hlint + cabal-fmt remain green.
+
+  **Strategy**: for each dep, use `^>=<current-major>` per PvP. Pick
+  the current major from `cabal.project.freeze` if present, otherwise
+  from the build plan computed by `nix develop -c cabal v2-build
+  --dry-run all` (read `dist-newstyle/cache/plan.json`). Where the
+  PvP-strict bound would be too restrictive (e.g., for fast-moving
+  Cardano libs), widen the bound to the next major (`< x+2`), noting
+  the choice in the commit body.
+
+  **Commit subject**: `chore(048): add PvP upper bounds to cardano-tx-tools.cabal`
+
+- [ ] **T001c** *(type=chore, subagent slice; constitution-compliance
+  sweep per Q-002 Option B)* — Gate `-Werror` behind a `werror` cabal
+  flag per the cardano-node-clients pattern and constitution
+  Principle V.
+
+  **Owned files**:
+  - `cardano-tx-tools.cabal` (introduce `flag werror`; move `-Werror`
+    out of the inline `common warnings` and into a conditional
+    `if flag(werror)` clause that adds it)
+  - `flake.nix` (wire the flag through the haskell.nix build so dev
+    and CI builds still get `-Werror` enabled; usually a
+    `flags.werror = true` in the per-component cabalProject options
+    or a `--flag=werror` pass)
+  - `cabal.project.local` (only if needed for dev convenience; CI
+    must inherit from the flake)
+
+  **Forbidden scope**: source files, tests, gate.sh, fixtures.
+
+  **RED proof**: before this slice, `nix develop --quiet -c cabal
+  check` reports the `[werror]` error and `Hackage would reject this
+  package`. (Per Q-002.)
+
+  **GREEN proof**: after this slice, `nix develop --quiet -c cabal
+  check` no longer reports the `[werror]` error and reports
+  `Hackage would accept …` (zero errors). The dev shell still
+  builds with `-Werror` active — verified by inducing a warning
+  (e.g., a temporary unused import in a throwaway .hs) and observing
+  the build fail; restore the file before commit. Cabal-fmt +
+  fourmolu + hlint + build + unit remain green.
+
+  **Commit subject**: `chore(048): gate -Werror behind a cabal werror flag`
+
+- [ ] **T001a** *(type=chore, subagent slice; analyzer C4 + Q-002
+  Option B closer)* — Extend `./gate.sh` to run `nix develop --quiet
+  -c cabal check` and `nix develop --quiet -c cabal -O0 haddock
+  lib:cardano-tx-tools`. After T001b + T001c, `cabal check` is clean;
+  T001a's purpose is to make the gate enforce SC-006 + SC-007 on
+  every subsequent slice.
+
+  **Owned files**:
+  - `gate.sh` (add the two new lines)
+
+  **Forbidden scope**: cabal file, source, tests.
+
+  **RED proof**: before this slice, `./gate.sh` doesn't invoke
+  `cabal check` or `cabal haddock`; FR-016 + SC-007 are
+  unenforced. Manual verification suffices since this slice's RED is
+  "the new commands aren't there".
+
+  **GREEN proof**: `./gate.sh` includes both new commands and runs
+  green on the current HEAD. Try inducing a missing-Haddock failure
+  on a fresh export (add a `module Foo where; foo :: Int` with no
+  docstring) and confirm the gate fails; restore.
+
+  **Commit subject**: `chore(048): extend gate.sh with cabal check + haddock build`
 
 - [ ] **T001** *(type=feat, US1 scaffolding)* — Module skeleton + types
   + cabal expose + smoke spec.
@@ -489,10 +565,10 @@ sequential at the end.
 
 ## Counts
 
-- 11 subagent slices (T001–T011 implementation). 5 orchestrator-owned
-  slices: T000 (analyzer), T000a (drep bech32 verify), T001a
-  (extend gate.sh with `cabal check` + Haddock), T012 (docs), T013
-  (drop gate.sh). 16 total tracked entries.
+- 11 implementation subagent slices (T001–T011) + 3 chore subagent
+  slices (T001b, T001c, T001a — constitution sweep per Q-002 Option B).
+  3 orchestrator-owned slices: T000 (analyzer), T000a (drep bech32
+  verify), T012 (docs), T013 (drop gate.sh). 18 total tracked entries.
 - 7 fixtures byte-diffed in T003; 1 in T004; 3 in T005 → 11 total.
 - 5 user stories closed by T001 (scaffolding part of US1) → T011
   (US7).

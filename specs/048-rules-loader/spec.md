@@ -481,11 +481,17 @@ test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.entities.ttl`. Exit 0.
   `EntityZeroIdentifiers ":<slug>"`; the executable exits non-zero.
 - **SC-005**: A round-trip pair (the same content authored as YAML and as
   Turtle) produces byte-equal output through the loader's serializer.
-- **SC-006**: `./gate.sh` (build + unit + cabal-fmt + fourmolu + hlint) is
-  green on every commit on this branch; CI mirrors it.
-- **SC-007**: `cabal check` is clean — no warnings, no missing fields. The new
-  module is Haddock-documented and listed in `extra-doc-files` where
-  applicable.
+- **SC-006**: `./gate.sh` (build + unit + cabal-fmt + fourmolu + hlint
+  + `cabal check` + `cabal haddock lib:cardano-tx-tools`) is green on
+  every commit on this branch; CI mirrors it. The Haddock build
+  anchors FR-016 (every exported function and type carries a
+  docstring; absent docstrings fail the haddock build).
+- **SC-007**: `cabal check` is clean — no warnings, no missing fields.
+  This anchors constitution Principle IV (Hackage-Ready Quality). Per
+  Q-002 the constitution-compliance sweep happens **inside** this PR
+  (slices T001b adding upper bounds + T001c gating `-Werror` behind
+  a `werror` cabal flag) rather than as a follow-up — the user
+  override on Q-002 invoked the "no pre-existing excuses" rule.
 
 ## Assumptions
 
