@@ -63,6 +63,7 @@ module Fixtures.RewriteRedesign.Helpers (
     stubTxIn,
     stubTxOut,
     stubRewardAccount,
+    stubStakeDelegationCert,
 
     -- * Hspec contract
     assertShape,
@@ -99,6 +100,7 @@ import Cardano.Ledger.Api.Tx.Body (
     referenceInputsTxBodyL,
     withdrawalsTxBodyL,
  )
+import Cardano.Ledger.Api.Tx.Cert (TxCert, pattern DelegStakeTxCert)
 import Cardano.Ledger.Api.Tx.Out (TxOut, mkBasicTxOut)
 import Cardano.Ledger.BaseTypes (Network (Testnet), TxIx (..))
 import Cardano.Ledger.Coin (Coin (..))
@@ -108,7 +110,7 @@ import Cardano.Ledger.Credential (
     StakeReference (StakeRefNull),
  )
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
-import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment, Staking))
+import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment, StakePool, Staking))
 import Cardano.Ledger.Mary.Value (MaryValue (..), MultiAsset (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
@@ -336,6 +338,24 @@ stubRewardAccount n =
     hexByte x = [d (x `div` 16), d (x `mod` 16)]
     d k = "0123456789abcdef" !! k
     hash = fromJust (hashFromStringAsHex hex)
+
+{- | A synthetic Conway @StakeDelegation@ 'TxCert' keyed by an integer tag
+(zero-padded into both the 28-byte stake key-hash credential and the
+28-byte pool key-hash). 'assertShape' only counts cert entries, so the
+internal byte values are arbitrary — distinct tags simply keep distinct
+certs distinguishable should later contracts inspect them.
+-}
+stubStakeDelegationCert :: Int -> TxCert ConwayEra
+stubStakeDelegationCert n =
+    DelegStakeTxCert
+        (KeyHashObj (KeyHash stakeHash :: KeyHash Staking))
+        (KeyHash poolHash :: KeyHash StakePool)
+  where
+    hex = replicate 52 '0' ++ hexByte (n `div` 256) ++ hexByte (n `mod` 256)
+    hexByte x = [d (x `div` 16), d (x `mod` 16)]
+    d k = "0123456789abcdef" !! k
+    stakeHash = fromJust (hashFromStringAsHex hex)
+    poolHash = fromJust (hashFromStringAsHex hex)
 
 -- ---------------------------------------------------------------------------
 -- Hspec contract
