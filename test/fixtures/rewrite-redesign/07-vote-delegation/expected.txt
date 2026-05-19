@@ -1,0 +1,11 @@
+inputs:
+  - resolved.address: alice
+    resolved.coin: 5.000000 ADA
+outputs:
+  - address: alice
+    coin: 4.825000 ADA
+certificates:
+  - VoteDelegation:
+      stake-cred: alice
+      drep: cardano-foundation-drep
+fee: 0.175000 ADA

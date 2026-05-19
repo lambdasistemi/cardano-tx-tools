@@ -107,7 +107,7 @@ Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md
 
 **Goal**: `VoteDelegation` cert + the `AlwaysAbstain` variant.
 
-- [ ] T009 [P] [US8] Ship fixture `07-vote-delegation`: `Tx.hs` (1 input, 1 output, 1 vote-delegation cert), `rules.yaml` from 044 Story 7, `expected.txt`. Carries a sibling micro-fixture path for the `AlwaysAbstain` variant case (encoded as a second exported `tx` value if needed; see helpers contract). Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S07_VoteDelegation.hs`, `test/fixtures/rewrite-redesign/07-vote-delegation/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [X] T009 [P] [US8] Ship fixture `07-vote-delegation`: `Tx.hs` (1 input, 1 output, 1 vote-delegation cert), `rules.yaml` from 044 Story 7, `expected.txt`. Carries a sibling micro-fixture path for the `AlwaysAbstain` variant case (encoded as a second exported `tx` value if needed; see helpers contract). Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S07_VoteDelegation.hs`, `test/fixtures/rewrite-redesign/07-vote-delegation/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
