@@ -1,0 +1,34 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/05-withdrawal-script-stake#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:alice a cardano:Entity ;
+  rdfs:label "alice" ;
+  cardano:hasIdentifier _:alice_paymentKey ;
+  cardano:hasIdentifier _:alice_stakeKey .
+
+_:alice_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
+
+_:alice_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
+
+:amaru_treasury_network_compliance a cardano:Entity ;
+  rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
+
+_:amaru_treasury_network_compliance_paymentScript a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
+
+_:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
+  cardano:leafType "StakeScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
+

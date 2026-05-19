@@ -39,6 +39,7 @@ module Cardano.Tx.Graph.Rules.Load (
     RulesLoadError (..),
 ) where
 
+import Cardano.Tx.Graph.Rules.Load.Emit.Overlay (emitOverlay)
 import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (parseRulesYamlText)
 import Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
@@ -48,8 +49,10 @@ import Cardano.Tx.Graph.Rules.Load.Types (
  )
 
 import Data.ByteString (ByteString)
+import Data.ByteString qualified as BS
 import Data.Text (Text)
-import System.FilePath (takeExtension)
+import Data.Text qualified as Text
+import System.FilePath (takeBaseName, takeDirectory, takeExtension)
 
 {- | Successful loader result. Carries the in-memory triple set, the
 serialized operator-entity overlay (canonical Turtle bytes), and any
@@ -90,8 +93,28 @@ The scaffold returns 'NotImplemented' for the two supported extensions;
 later slices replace the right-hand side with real parsing.
 -}
 loadRulesFile :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
-loadRulesFile path = pure $ case takeExtension path of
-    ".ttl" -> Left (NotImplemented "turtle")
-    ".yaml" -> Left (NotImplemented "yaml")
-    ".yml" -> Left (NotImplemented "yaml")
-    _ -> Left (UnsupportedExtension path)
+loadRulesFile path = case takeExtension path of
+    ".ttl" -> pure (Left (NotImplemented "turtle"))
+    ".yaml" -> loadYaml path
+    ".yml" -> loadYaml path
+    _ -> pure (Left (UnsupportedExtension path))
+
+{- | Helper for the @.yaml@/@.yml@ dispatch: read the file from disk,
+parse via 'parseRulesYamlText', serialize via 'emitOverlay', and wrap
+the bytes in 'RulesLoadResult'. The fixture-slug for the default IRI
+prefix is the basename of the parent directory (e.g.
+@.../02-alice-bob-ada/rules.yaml@ → @02-alice-bob-ada@).
+-}
+loadYaml :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
+loadYaml path = do
+    blob <- BS.readFile path
+    pure $ case parseRulesYamlText blob of
+        Left err -> Left err
+        Right entities ->
+            let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))
+                bytes = emitOverlay fixtureSlug entities
+             in Right
+                    RulesLoadResult
+                        { rulesOverlayTurtle = bytes
+                        , rulesWarnings = []
+                        }

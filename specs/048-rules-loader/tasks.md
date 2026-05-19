@@ -230,9 +230,16 @@ carries `Tasks: T###`.
 
   **Commit subject**: `feat(graph): YAML parser for entities (from-address, script, asset)`
 
-- [ ] **T003** *(type=feat, US1)* — Canonical Turtle serializer +
+- [X] **T003** *(type=feat, US1)* — Canonical Turtle serializer +
   deterministic naming + carve out & byte-diff fixtures **02, 03, 05,
-  06, 07, 08, 10** (the 7 "basic-shape" fixtures).
+  06, 07, 08, 10** (the 7 "basic-shape" fixtures). Q-001 surfaced
+  six fixture bech32 checksum corruptions (02/03/08/10 bob/recipient;
+  06 iog-pool-1 pool; 07 cardano-foundation-drep CIP-129); A-001
+  confirmed Option A — canonical-encoding recovery from the sibling
+  expected.ttl byte payloads, recorded in the commit body. Also
+  surfaced fixture 03's USDM AssetClass typo (...55534d4d → ...5553444d,
+  ASCII "USDM") and fixture 08's entity ordering — both acceptable
+  per the cross-PR contract since this PR does not edit `expected.ttl`.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load.hs` (wire serializer into

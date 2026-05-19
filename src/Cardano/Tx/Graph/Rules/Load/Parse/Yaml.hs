@@ -32,7 +32,11 @@ module Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
     slugify,
 ) where
 
-import Cardano.Tx.Graph.Rules.Load.Bech32 (decomposeFromAddress)
+import Cardano.Tx.Graph.Rules.Load.Bech32 (
+    decodeDrepCip129,
+    decodePoolBech32,
+    decomposeFromAddress,
+ )
 import Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
     EntityIdentifier (..),
@@ -208,6 +212,8 @@ parseShape slug obj =
                 [ ("from-address",) <$> KeyMap.lookup (Key.fromText "from-address") obj
                 , ("script",) <$> KeyMap.lookup (Key.fromText "script") obj
                 , ("asset",) <$> KeyMap.lookup (Key.fromText "asset") obj
+                , ("pool",) <$> KeyMap.lookup (Key.fromText "pool") obj
+                , ("drep",) <$> KeyMap.lookup (Key.fromText "drep") obj
                 ]
      in case shapes of
             [] -> Left (EntityZeroIdentifiers slug)
@@ -245,6 +251,22 @@ parseSingleShape _slug "script" v = case v of
                 inMemoryLine
                 ("script: must be a 56-character hex string, got: " <> typeName other)
 parseSingleShape _slug "asset" v = parseAsset v
+parseSingleShape _slug "pool" v = case v of
+    Aeson.String bech32 -> decodePoolBech32 inMemoryFile inMemoryLine bech32
+    other ->
+        Left $
+            ParserError
+                inMemoryFile
+                inMemoryLine
+                ("pool: must be a pool1 bech32 string, got: " <> typeName other)
+parseSingleShape _slug "drep" v = case v of
+    Aeson.String bech32 -> decodeDrepCip129 inMemoryFile inMemoryLine bech32
+    other ->
+        Left $
+            ParserError
+                inMemoryFile
+                inMemoryLine
+                ("drep: must be a CIP-129 bech32 string, got: " <> typeName other)
 parseSingleShape _ k _ =
     Left $
         ParserError

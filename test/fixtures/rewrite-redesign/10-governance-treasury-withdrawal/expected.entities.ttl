@@ -1,0 +1,34 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/10-governance-treasury-withdrawal#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:operator a cardano:Entity ;
+  rdfs:label "operator" ;
+  cardano:hasIdentifier _:operator_paymentKey ;
+  cardano:hasIdentifier _:operator_stakeKey .
+
+_:operator_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
+
+_:operator_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
+
+:cardano_foundation_ops a cardano:Entity ;
+  rdfs:label "cardano-foundation.ops" ;
+  cardano:hasIdentifier _:cardano_foundation_ops_paymentKey ;
+  cardano:hasIdentifier _:cardano_foundation_ops_stakeKey .
+
+_:cardano_foundation_ops_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "2841f2c629212003be2c87fd02c0ff91fb81d8993129036d758ba548" .
+
+_:cardano_foundation_ops_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "e54e05afe3cb96ad42650e389b397b1722f0918ca977f239fd595a14" .
+

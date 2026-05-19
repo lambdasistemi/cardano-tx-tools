@@ -1,0 +1,47 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/08-contingency-disburse#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:amaru_treasury_contingency_account a cardano:Entity ;
+  rdfs:label "amaru-treasury.contingency.account" ;
+  cardano:hasIdentifier _:amaru_treasury_contingency_account_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_contingency_account_stakeScript .
+
+_:amaru_treasury_contingency_account_paymentScript a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "e6dbff09245eb89c4f583faaa428387e42c471f1868637a848602a4e" .
+
+_:amaru_treasury_contingency_account_stakeScript a cardano:Identifier ;
+  cardano:leafType "StakeScript" ;
+  cardano:bytesHex "e6dbff09245eb89c4f583faaa428387e42c471f1868637a848602a4e" .
+
+:user_wallet a cardano:Entity ;
+  rdfs:label "user-wallet" ;
+  cardano:hasIdentifier _:user_wallet_paymentKey ;
+  cardano:hasIdentifier _:user_wallet_stakeKey .
+
+_:user_wallet_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
+
+_:user_wallet_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
+
+:recipient a cardano:Entity ;
+  rdfs:label "recipient" ;
+  cardano:hasIdentifier _:recipient_paymentKey ;
+  cardano:hasIdentifier _:recipient_stakeKey .
+
+_:recipient_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "2841f2c629212003be2c87fd02c0ff91fb81d8993129036d758ba548" .
+
+_:recipient_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "e54e05afe3cb96ad42650e389b397b1722f0918ca977f239fd595a14" .
+
