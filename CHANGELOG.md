@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Features
+
+* **048:** `Cardano.Tx.Graph.Rules.Load` — operator-rules loader for Turtle
+  + YAML sugar with `owl:imports` / `imports:` composition, deterministic
+  blank-node + entity-IRI naming (slug-everywhere; one bnode per shared
+  `(leafType, bytesHex)` identity), structured validation errors with
+  file + line provenance, cycle detection, and `DuplicateEntityAcrossFiles`
+  warnings. Companion executable `tx-graph` (with `--rules <file>` flag)
+  prints the canonical operator-entity overlay on stdout. Anchors the
+  Wave-2 entry point for epic #46; per-fixture `expected.entities.ttl`
+  byte-diff goldens cover all 11 `rewrite-redesign` fixtures. Body-emitter
+  flags (`--utxo`, `--out`, `--tx`, `--format`) deferred to a follow-up.
+
+### Maintenance
+
+* **048:** Constitution-compliance sweep — `cabal check` is now clean
+  across every stanza (PvP upper bounds added) and `-Werror` is gated
+  behind a manual `werror` cabal flag enabled from `cabal.project` and
+  the haskell.nix build. `./gate.sh` runs `cabal check` + `cabal haddock`
+  alongside the existing build / unit / cabal-fmt / fourmolu / hlint
+  steps.
+
 ## [0.1.5.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.4.0...v0.1.5.0) (2026-05-18)
 
 ### Features

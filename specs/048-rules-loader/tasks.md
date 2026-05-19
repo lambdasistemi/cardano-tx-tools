@@ -554,7 +554,7 @@ carries `Tasks: T###`.
 
 ## Phase 8 — Finalization
 
-- [ ] **T012** *(type=docs, orchestrator-owned)* — Update README +
+- [X] **T012** *(type=docs, orchestrator-owned)* — Update README +
   CHANGELOG with the new executable and module surface.
 
   **Owned files** (orchestrator):
