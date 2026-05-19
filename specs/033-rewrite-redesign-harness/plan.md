@@ -69,6 +69,8 @@ specs/033-rewrite-redesign-harness/
 
 ### Source Code (repository root)
 
+The fixture tree splits into a **Haskell module subtree** (path = module name, GHC's requirement) and **data-file directories** (reviewer-friendly `<NN>-<kebab-slug>/` for `rules.yaml` / `expected.txt` / `expected.ttl`). Haskell modules cannot resolve from Haskell-illegal directory names (e.g. `02-alice-bob-ada`), so the per-fixture `Tx.hs` files live under `Fixtures/RewriteRedesign/S<NN>_<CamelCaseSlug>.hs`, not inside the kebab data-file directories. The two halves are linked by the fixture's `StoryId` (the kebab directory name) and `mkFixturePaths` (which derives the data-file paths from the `StoryId`).
+
 ```text
 test/
 ├── unit-main.hs                                          # extended: import + register RewriteRedesignGoldenSpec
@@ -77,20 +79,30 @@ test/
 │       └── Rewrite/
 │           ├── ApplySpec.hs                              # untouched
 │           ├── LoadSpec.hs                               # untouched
-│           └── RewriteRedesignGoldenSpec.hs              # NEW — the goldens suite
+│           └── RewriteRedesignGoldenSpec.hs              # NEW — the goldens suite (S1)
 └── fixtures/
     └── rewrite-redesign/                                 # NEW
-        ├── Helpers.hs                                    # shared mkTx + addresses + smart constructors
-        ├── blueprints/
-        │   ├── swap-v2-datum.cip57.json                  # for fixture 01
-        │   └── mpfs-fact.cip57.json                      # for fixture 09
-        ├── 01-amaru-treasury-swap/
-        │   ├── Tx.hs
+        ├── Fixtures/                                     # Haskell module subtree (path == module name)
+        │   └── RewriteRedesign/
+        │       ├── Helpers.hs                            # Fixtures.RewriteRedesign.Helpers (S2)
+        │       ├── S01_AmaruTreasurySwap.hs              # one per fixture
+        │       ├── S02_AliceBobAda.hs
+        │       ├── S03_MultiAssetTransfer.hs
+        │       ├── S04_MintSpendScriptOverlap.hs
+        │       ├── S05_WithdrawalScriptStake.hs
+        │       ├── S06_StakePoolDelegation.hs
+        │       ├── S07_VoteDelegation.hs
+        │       ├── S08_ContingencyDisburse.hs
+        │       ├── S09_MpfsFactsRequest.hs
+        │       └── S10_GovernanceTreasuryWithdrawal.hs
+        ├── blueprints/                                   # CIP-57 data files (S3)
+        │   ├── swap-v2-datum.cip57.json
+        │   └── mpfs-fact.cip57.json
+        ├── 01-amaru-treasury-swap/                       # per-fixture data-file directory
         │   ├── rules.yaml
         │   ├── expected.txt                              # vocab-independent (lands ahead of signal)
         │   └── expected.ttl                              # post-signal
         ├── 02-alice-bob-ada/
-        │   ├── Tx.hs
         │   ├── rules.yaml
         │   ├── expected.txt
         │   └── expected.ttl
@@ -111,12 +123,10 @@ test/
         └── 10-governance-treasury-withdrawal/
             └── ...
 
-cardano-tx-tools.cabal                                    # extended: unit-tests other-modules + (optional) new build-deps
+cardano-tx-tools.cabal                                    # extended: unit-tests other-modules + hs-source-dirs
 ```
 
-**Structure Decision**: The harness extends the existing `test/` tree only. No new library exposed-modules, no new executable, no new test-suite. One additive Hspec module plus a Haskell-source fixture tree alongside the existing `test/fixtures/` content (`tx-sign`, `mainnet-txbuild`, `amaru-treasury-swap`). The fixture builders live under `test/fixtures/rewrite-redesign/<story-id>/Tx.hs` as Haskell modules so the unit-tests suite can import them directly — no test-time CBOR loading, no on-disk serialization detour.
-
-Each `Tx.hs` is a discrete Haskell module under the `test/fixtures/rewrite-redesign/<story-id>` path with the module name `Fixtures.RewriteRedesign.S<NN>` (e.g. `Fixtures.RewriteRedesign.S01_AmaruTreasurySwap`). The cabal `unit-tests` `other-modules` list grows by 1 helpers module + 1 goldens spec + 10 fixture modules; the existing `hs-source-dirs: test` is extended with `hs-source-dirs: test test/fixtures/rewrite-redesign`.
+**Structure Decision**: The harness extends the existing `test/` tree only. No new library exposed-modules, no new executable, no new test-suite. One additive Hspec module plus a Haskell-source fixture tree alongside the existing `test/fixtures/` content (`tx-sign`, `mainnet-txbuild`, `amaru-treasury-swap`). The fixture builders live as Haskell modules under `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S<NN>_<CamelCaseSlug>.hs` so the unit-tests suite can import them directly — no test-time CBOR loading, no on-disk serialization detour. The cabal `unit-tests` `other-modules` list grows by 1 helpers module + 1 goldens spec + 10 fixture modules; the existing `hs-source-dirs: test` is extended with `hs-source-dirs: test test/fixtures/rewrite-redesign`.
 
 ## Complexity Tracking
 

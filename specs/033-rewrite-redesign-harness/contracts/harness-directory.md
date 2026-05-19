@@ -6,46 +6,60 @@
 
 ## Directory layout
 
+Two sibling subtrees: a **Haskell module subtree** under `Fixtures/RewriteRedesign/` whose path matches each module name 1:1 (GHC requirement — `Fixtures.RewriteRedesign.S02_AliceBobAda` cannot resolve from a Haskell-illegal directory name like `02-alice-bob-ada`), and ten **per-fixture data-file directories** named `<NN>-<kebab-slug>/` holding the non-Haskell artifacts. The `StoryId` is the kebab directory name; the corresponding module's `S<NN>_<CamelCaseSlug>` name is mechanically derivable from it.
+
 ```text
 test/fixtures/rewrite-redesign/
-├── Helpers.hs                                       # Fixtures.RewriteRedesign.Helpers
-├── blueprints/
-│   ├── swap-v2-datum.cip57.json                     # consumed by 01-amaru-treasury-swap
-│   └── mpfs-fact.cip57.json                         # consumed by 09-mpfs-facts-request
-├── 01-amaru-treasury-swap/
-│   ├── Tx.hs                                        # exports `tx`, `shape`
+├── Fixtures/                                              # Haskell module subtree
+│   └── RewriteRedesign/
+│       ├── Helpers.hs                                     # Fixtures.RewriteRedesign.Helpers
+│       ├── S01_AmaruTreasurySwap.hs                       # exports `tx`, `shape`
+│       ├── S02_AliceBobAda.hs
+│       ├── S03_MultiAssetTransfer.hs
+│       ├── S04_MintSpendScriptOverlap.hs
+│       ├── S05_WithdrawalScriptStake.hs
+│       ├── S06_StakePoolDelegation.hs
+│       ├── S07_VoteDelegation.hs
+│       ├── S08_ContingencyDisburse.hs
+│       ├── S09_MpfsFactsRequest.hs
+│       └── S10_GovernanceTreasuryWithdrawal.hs
+├── blueprints/                                            # CIP-57 data files
+│   ├── swap-v2-datum.cip57.json                           # consumed by S01 / 01-amaru-treasury-swap
+│   └── mpfs-fact.cip57.json                               # consumed by S09 / 09-mpfs-facts-request
+├── 01-amaru-treasury-swap/                                # per-fixture data-file directory
 │   ├── rules.yaml
-│   ├── expected.txt                                 # vocab-independent (A-side)
-│   └── expected.ttl                                 # vocab-pinned (B-side, post-signal)
+│   ├── expected.txt                                       # vocab-independent (A-side)
+│   └── expected.ttl                                       # vocab-pinned (B-side, post-signal)
 ├── 02-alice-bob-ada/
-│   └── (same four files)
+│   └── (same three files)
 ├── 03-multi-asset-transfer/
-│   └── (same four files)
+│   └── (same three files)
 ├── 04-mint-spend-script-overlap/
-│   └── (same four files)
+│   └── (same three files)
 ├── 05-withdrawal-script-stake/
-│   └── (same four files)
+│   └── (same three files)
 ├── 06-stake-pool-delegation/
-│   └── (same four files)
+│   └── (same three files)
 ├── 07-vote-delegation/
-│   └── (same four files)
+│   └── (same three files)
 ├── 08-contingency-disburse/
-│   └── (same four files)
+│   └── (same three files)
 ├── 09-mpfs-facts-request/
-│   └── (same four files)
+│   └── (same three files)
 └── 10-governance-treasury-withdrawal/
-    └── (same four files)
+    └── (same three files)
 ```
 
-Ten fixture directories, named `<NN>-<kebab-slug>`. The two-digit `NN` prefix matches the 044 story number.
+Ten data-file directories named `<NN>-<kebab-slug>`. The two-digit `NN` prefix matches the 044 story number. Each `S<NN>_<CamelCaseSlug>.hs` references the corresponding kebab directory via its `StoryId` constructor + `mkFixturePaths`.
 
 ## Per-file contracts
 
-### `Tx.hs`
+### `Fixtures.RewriteRedesign.S<NN>_<CamelCaseSlug>` Haskell module
 
-- Haskell module named `Fixtures.RewriteRedesign.S<NN>_<CamelCaseSlug>`.
-- Exports at least two top-level bindings:
-  - `tx :: Tx ConwayEra` — the fixture's transaction value.
+- Filesystem path: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S<NN>_<CamelCaseSlug>.hs` (driven by GHC module-name resolution).
+- Exports at least three top-level bindings:
+  - `storyId :: StoryId` — the kebab-slug constructor for this fixture's data-file directory.
+  - `tx :: ConwayTx` — the fixture's transaction value (using the project-local `ConwayTx` alias from `Cardano.Tx.Ledger`).
   - `shape :: ExpectedShape` — the body-field counts the structural Hspec item asserts on.
 - Built via `Fixtures.RewriteRedesign.Helpers.mkTx { ... }` declarative record style.
 - ≤ 80 lines (excluding imports and the module header). Reviewability gate per SC-007.

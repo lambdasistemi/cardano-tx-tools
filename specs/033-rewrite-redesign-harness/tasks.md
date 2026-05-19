@@ -61,13 +61,17 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 ---
 
+## Module-path convention for per-fixture slices
+
+Per `data-model.md` (post-S2 reconciliation) and `contracts/harness-directory.md`: each per-fixture Haskell module lives at `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S<NN>_<CamelCaseSlug>.hs` (GHC module-name resolution requires this — kebab-cased directories aren't valid Haskell module paths). The kebab data-file directories `test/fixtures/rewrite-redesign/<NN>-<kebab-slug>/` hold only `rules.yaml`, `expected.txt`, and (B-side) `expected.ttl`. Each fixture's `S<NN>_<CamelCaseSlug>` module references its kebab directory via its `StoryId` constructor + `mkFixturePaths`.
+
 ## Phase 4: User Story US3 — 02-alice-bob-ada (Priority: P2, simplest A-side fixture) 🎯 first MVP fixture
 
-**Goal**: Land the simplest fixture as the first per-fixture slice, validating the scaffold + helpers contract end-to-end against a real `Tx ConwayEra` and a real `rules.yaml`.
+**Goal**: Land the simplest fixture as the first per-fixture slice, validating the scaffold + helpers contract end-to-end against a real `ConwayTx` and a real `rules.yaml`.
 
 **Independent Test**: `nix develop --quiet -c just unit -- --match "RewriteRedesignGoldens/02-alice-bob-ada"` reports the structural item PASS and the two pending items PENDING. `./gate.sh` green at HEAD.
 
-- [ ] T005 [US3] **Preflight**: before writing any code, parse the planned `02-alice-bob-ada/rules.yaml` (the verbatim 044 Story 2 YAML) against the **current** `Cardano.Tx.Rewrite.parseRewriteRulesYaml` in `ghci`. If the parse fails, **halt**, log a STATUS.md `NOTE T005 preflight: rules.yaml does not parse on existing parser; triggering T004`, write a question file naming the parser gap, and dispatch **T004 first**; T005 lands on top of T004. If the parse succeeds, proceed with T005 normally and drop T004 from the plan in a follow-up `docs(045)` slice. Then: ship fixture `02-alice-bob-ada`: `Tx.hs` (1 input from Alice, 2 outputs to Bob + Alice change), `rules.yaml` (verbatim from 044 Story 2), `expected.txt` (verbatim canon-stripped from 044 Story 2). Append the `Fixtures.RewriteRedesign.S02_AliceBobAda` module to the cabal `other-modules`. Append one `FixtureEntry` to `fixtureRegistry` in `RewriteRedesignGoldenSpec`. Files: `test/fixtures/rewrite-redesign/02-alice-bob-ada/Tx.hs`, `test/fixtures/rewrite-redesign/02-alice-bob-ada/rules.yaml`, `test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.txt`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [ ] T005 [US3] **Preflight**: before writing any code, parse the planned `02-alice-bob-ada/rules.yaml` (the verbatim 044 Story 2 YAML) against the **current** `Cardano.Tx.Rewrite.parseRewriteRulesYaml` in `ghci`. If the parse fails, **halt**, log a STATUS.md `NOTE T005 preflight: rules.yaml does not parse on existing parser; triggering T004`, write a question file naming the parser gap, and dispatch **T004 first**; T005 lands on top of T004. If the parse succeeds, proceed with T005 normally and drop T004 from the plan in a follow-up `docs(045)` slice. Then: ship fixture `02-alice-bob-ada`: `Tx.hs` (1 input from Alice, 2 outputs to Bob + Alice change), `rules.yaml` (verbatim from 044 Story 2), `expected.txt` (verbatim canon-stripped from 044 Story 2). Append the `Fixtures.RewriteRedesign.S02_AliceBobAda` module to the cabal `other-modules`. Append one `FixtureEntry` to `fixtureRegistry` in `RewriteRedesignGoldenSpec`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S02_AliceBobAda.hs`, `test/fixtures/rewrite-redesign/02-alice-bob-ada/rules.yaml`, `test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.txt`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 **Checkpoint**: First fixture lives; the registry pattern is validated; remaining fixtures repeat the shape.
 
@@ -79,7 +83,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Independent Test**: Match `--match "03-multi-asset-transfer"`; structural item PASS; pending items PENDING.
 
-- [ ] T006 [P] [US4] Ship fixture `03-multi-asset-transfer`: `Tx.hs` (1 input from Alice, 2 outputs carrying USDM + MEME), `rules.yaml` (verbatim from 044 Story 3), `expected.txt`. Append to `other-modules` + `fixtureRegistry`. Files: `test/fixtures/rewrite-redesign/03-multi-asset-transfer/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [ ] T006 [P] [US4] Ship fixture `03-multi-asset-transfer`: `Tx.hs` (1 input from Alice, 2 outputs carrying USDM + MEME), `rules.yaml` (verbatim from 044 Story 3), `expected.txt`. Append to `other-modules` + `fixtureRegistry`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S03_MultiAssetTransfer.hs`, `test/fixtures/rewrite-redesign/03-multi-asset-transfer/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
@@ -87,7 +91,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Goal**: Stake reward withdrawal from a script-controlled stake account.
 
-- [ ] T007 [P] [US6] Ship fixture `05-withdrawal-script-stake`: `Tx.hs` (1 input from Alice, 1 output to Alice, 1 withdrawal at the script-stake), `rules.yaml` from 044 Story 5, `expected.txt`. Files: `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [ ] T007 [P] [US6] Ship fixture `05-withdrawal-script-stake`: `Tx.hs` (1 input from Alice, 1 output to Alice, 1 withdrawal at the script-stake), `rules.yaml` from 044 Story 5, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S05_WithdrawalScriptStake.hs`, `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
@@ -95,7 +99,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Goal**: `StakeDelegation` certificate referencing a pool key hash.
 
-- [ ] T008 [P] [US7] Ship fixture `06-stake-pool-delegation`: `Tx.hs` (1 input, 1 output, 1 cert), `rules.yaml` from 044 Story 6, `expected.txt`. Files: `test/fixtures/rewrite-redesign/06-stake-pool-delegation/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [ ] T008 [P] [US7] Ship fixture `06-stake-pool-delegation`: `Tx.hs` (1 input, 1 output, 1 cert), `rules.yaml` from 044 Story 6, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S06_StakePoolDelegation.hs`, `test/fixtures/rewrite-redesign/06-stake-pool-delegation/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
@@ -103,7 +107,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Goal**: `VoteDelegation` cert + the `AlwaysAbstain` variant.
 
-- [ ] T009 [P] [US8] Ship fixture `07-vote-delegation`: `Tx.hs` (1 input, 1 output, 1 vote-delegation cert), `rules.yaml` from 044 Story 7, `expected.txt`. Carries a sibling micro-fixture path for the `AlwaysAbstain` variant case (encoded as a second exported `tx` value if needed; see helpers contract). Files: `test/fixtures/rewrite-redesign/07-vote-delegation/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [ ] T009 [P] [US8] Ship fixture `07-vote-delegation`: `Tx.hs` (1 input, 1 output, 1 vote-delegation cert), `rules.yaml` from 044 Story 7, `expected.txt`. Carries a sibling micro-fixture path for the `AlwaysAbstain` variant case (encoded as a second exported `tx` value if needed; see helpers contract). Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S07_VoteDelegation.hs`, `test/fixtures/rewrite-redesign/07-vote-delegation/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
@@ -111,7 +115,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Goal**: The #43 reproducer — collapse bucket pinning `resolved.address` in `required:`.
 
-- [ ] T010 [US9] Ship fixture `08-contingency-disburse`: `Tx.hs` (2 inputs from the contingency self-script, 1 user-wallet collateral, 1 output to recipient + 1 change to contingency), `rules.yaml` from 044 Story 8 (collapse rule pinning `resolved.address`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/08-contingency-disburse/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — relies on the contingency-self-script address helper; first fixture exercising self-script collateral.)*
+- [ ] T010 [US9] Ship fixture `08-contingency-disburse`: `Tx.hs` (2 inputs from the contingency self-script, 1 user-wallet collateral, 1 output to recipient + 1 change to contingency), `rules.yaml` from 044 Story 8 (collapse rule pinning `resolved.address`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S08_ContingencyDisburse.hs`, `test/fixtures/rewrite-redesign/08-contingency-disburse/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — relies on the contingency-self-script address helper; first fixture exercising self-script collateral.)*
 
 ---
 
@@ -119,7 +123,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Goal**: Plutus mint + spend overlap where the same hash carries both `PaymentScript` and `Policy` roles.
 
-- [ ] T011 [US5] Ship fixture `04-mint-spend-script-overlap`: `Tx.hs` (1 input under the script address, 1 output, mint field, witness-set script), `rules.yaml` from 044 Story 4 (`keys: [PaymentScript, Policy]`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/04-mint-spend-script-overlap/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — requires the witness-set script helpers added in T003.)*
+- [ ] T011 [US5] Ship fixture `04-mint-spend-script-overlap`: `Tx.hs` (1 input under the script address, 1 output, mint field, witness-set script), `rules.yaml` from 044 Story 4 (`keys: [PaymentScript, Policy]`), `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S04_MintSpendScriptOverlap.hs`, `test/fixtures/rewrite-redesign/04-mint-spend-script-overlap/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — requires the witness-set script helpers added in T003.)*
 
 ---
 
@@ -127,7 +131,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Goal**: Conway `ProposalProcedure` of variety `TreasuryWithdrawals`.
 
-- [ ] T012 [P] [US11] Ship fixture `10-governance-treasury-withdrawal`: `Tx.hs` (1 deposit input, 1 change output, 1 proposal procedure), `rules.yaml` from 044 Story 10, `expected.txt`. Files: `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
+- [ ] T012 [P] [US11] Ship fixture `10-governance-treasury-withdrawal`: `Tx.hs` (1 deposit input, 1 change output, 1 proposal procedure), `rules.yaml` from 044 Story 10, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S10_GovernanceTreasuryWithdrawal.hs`, `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`.
 
 ---
 
@@ -135,7 +139,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Goal**: MPFS facts-request with 10 chunked outputs to the oracle script, blueprint-decoded `requester` field.
 
-- [ ] T013 [US10] Ship fixture `09-mpfs-facts-request`: `Tx.hs` (1 operator input, 10 oracle-script outputs each with inline datum + 1 operator change), `rules.yaml` from 044 Story 9 referencing `blueprints/mpfs-fact.cip57.json`, `expected.txt`. Files: `test/fixtures/rewrite-redesign/09-mpfs-facts-request/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — uses the blueprint from T003.)*
+- [ ] T013 [US10] Ship fixture `09-mpfs-facts-request`: `Tx.hs` (1 operator input, 10 oracle-script outputs each with inline datum + 1 operator change), `rules.yaml` from 044 Story 9 referencing `blueprints/mpfs-fact.cip57.json`, `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S09_MpfsFactsRequest.hs`, `test/fixtures/rewrite-redesign/09-mpfs-facts-request/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — uses the blueprint from T003.)*
 
 ---
 
@@ -145,7 +149,7 @@ US1 from `spec.md` is the suite scaffolding itself. It is delivered by Phase 2 (
 
 **Independent Test**: Structural Hspec item passes — 33 inputs, 2 outputs, 1 collateral input, Plutus script witness for `amaru.swap.v2`, every input's inline datum references the swap-v2 blueprint, USDM asset class present in the output mint/value field. Turtle and text items PENDING.
 
-- [ ] T014 [US2] Ship fixture `01-amaru-treasury-swap`: `Tx.hs` (33 swap inputs, 2 outputs, 1 collateral, Plutus witness, per-input inline datums decoding `SwapOrder { recipient = … }`), `rules.yaml` from 044 Story 1 (the load-bearing rule set with `entities:`, `blueprints:`, and the `SwapOrderInput` nested-collapse), `expected.txt`. Files: `test/fixtures/rewrite-redesign/01-amaru-treasury-swap/{Tx.hs,rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — relies on T003 blueprints, T011 mint/spend helpers, T010 collateral pattern.)*
+- [ ] T014 [US2] Ship fixture `01-amaru-treasury-swap`: `Tx.hs` (33 swap inputs, 2 outputs, 1 collateral, Plutus witness, per-input inline datums decoding `SwapOrder { recipient = … }`), `rules.yaml` from 044 Story 1 (the load-bearing rule set with `entities:`, `blueprints:`, and the `SwapOrderInput` nested-collapse), `expected.txt`. Files: `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S01_AmaruTreasurySwap.hs`, `test/fixtures/rewrite-redesign/01-amaru-treasury-swap/{rules.yaml,expected.txt}`, `test/Cardano/Tx/Rewrite/RewriteRedesignGoldenSpec.hs`, `cardano-tx-tools.cabal`. *(No `[P]` — relies on T003 blueprints, T011 mint/spend helpers, T010 collateral pattern.)*
 
 **Checkpoint**: All ten A-side fixtures landed. `RewriteRedesignGoldens` reports 30 examples: 10 active structural items PASS, 20 PENDING. `./gate.sh` green.
 
@@ -215,11 +219,11 @@ Each slice below is the orchestrator's pre-baked subagent brief. The orchestrato
 Each slice has the same shape:
 
 - **RED**: append the fixture's `FixtureEntry` to `fixtureRegistry` with the new `feShape` value, then the new `describe` block fails because the fixture module / files do not exist (compile error on the `Fixtures.RewriteRedesign.S<NN>_…` import).
-- **GREEN**: write `Tx.hs` exporting `tx :: Tx ConwayEra` and `shape :: ExpectedShape` matching the 044 narrative; drop `rules.yaml` verbatim; drop `expected.txt` canon-stripped; add the cabal `other-modules` entry; the structural Hspec item now PASSES, two pending items PENDING.
+- **GREEN**: write `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S<NN>_<CamelCaseSlug>.hs` exporting `storyId :: StoryId`, `tx :: ConwayTx`, and `shape :: ExpectedShape` matching the 044 narrative; drop `rules.yaml` and `expected.txt` (canon-stripped) into the sibling kebab data-file directory `test/fixtures/rewrite-redesign/<NN>-<kebab-slug>/`; add the cabal `other-modules` entry; the structural Hspec item now PASSES, two pending items PENDING.
 - **`./gate.sh`** must be green at HEAD.
 - **Subject**: `test(045): fixture <NN-story-id>`
-- **Owned files** per slice: only the fixture directory, the cabal entry for that fixture's module, and the registry-list edit in `RewriteRedesignGoldenSpec`. No edits to other fixtures, helpers, or blueprints (those are foundational and already present).
-- **Forbidden scope**: `specs/`, `gate.sh`, `Helpers.hs`, `blueprints/`, `src/Cardano/Tx/Rewrite.hs`, PR/issue metadata.
+- **Owned files** per slice: the fixture's Haskell module under `Fixtures/RewriteRedesign/`, the fixture's kebab data-file directory (only `rules.yaml` + `expected.txt` in A-side), the cabal entry for that fixture's module, and the registry-list edit in `RewriteRedesignGoldenSpec`. No edits to other fixtures, helpers, or blueprints (those are foundational and already present).
+- **Forbidden scope**: `specs/`, `gate.sh`, `Helpers.hs`, `blueprints/`, `src/Cardano/Tx/Rewrite.hs`, any other fixture's directory or Haskell module, PR/issue metadata.
 
 ### S15..S24 / T015..T024 — post-signal `expected.ttl` slices
 
