@@ -444,11 +444,14 @@ carries `Tasks: T###`.
 
 ## Phase 5 — Loader-level validation (US5)
 
-- [ ] **T009** *(type=feat, US5)* — `EntityZeroIdentifiers` + parser
-  errors with file+line + invalid-bech32 / bad-policy-hex /
-  duplicate-in-file + slug-collision errors (per Q-001 Option A:
-  `EntityNameSlugEmpty`, `EntityNameSlugLeadingDigit`,
-  `DuplicateEntitySlugInFile`).
+- [X] **T009** *(type=feat, US5)* — Structured validation errors with
+  file+line provenance across all parse-level constructors.
+  `EntityZeroIdentifiers` widened from 1-arg to `(file, line, slug)`.
+  Approach: libyaml `YamlMark` for YAML decode failures; pure
+  pre-scan of `^\s*- name:` / `^\s*- script:` lines for post-decode
+  entity/blueprint validation (no new YAML lib needed); Turtle
+  lexer threads 1-based line counter via `TokLoc`. 9 new validation
+  tests; total 226 unit examples.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Rules/Load.hs` (extend `RulesLoadError`

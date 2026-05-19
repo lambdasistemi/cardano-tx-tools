@@ -423,7 +423,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
             parseRulesYamlText yaml `shouldSatisfy` isParserError
 
 isEntityZeroIdentifiers :: Either RulesLoadError [EntityDecl] -> Bool
-isEntityZeroIdentifiers (Left (EntityZeroIdentifiers _)) = True
+isEntityZeroIdentifiers (Left EntityZeroIdentifiers{}) = True
 isEntityZeroIdentifiers _ = False
 
 isParserError :: Either RulesLoadError [EntityDecl] -> Bool

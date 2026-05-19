@@ -85,9 +85,22 @@ carries enough provenance (file path, line number, offending string)
 that the @tx-graph@ CLI and a future LSP can render a hyperlinked
 diagnostic.
 
-The T002 in-memory YAML parser uses @\<in-memory\>@ as the file path
-and @0@ as the line number — proper file/line tracking lands with the
-file-loader and validation slices (T003 / T009).
+The in-memory @parseRulesYamlText@ / @parseRulesTurtleText@ entry
+points (which take a 'ByteString' but no 'FilePath') use
+@\<in-memory\>@ as the source file. When a rules file is loaded via
+'Cardano.Tx.Graph.Rules.Load.loadRulesFile', the imports resolver
+threads the absolute file path through every parser error so the
+@tx-graph@ CLI and a future LSP can render hyperlinked diagnostics.
+
+Line numbers are 1-based, matching the convention every editor and
+LSP uses. The YAML parser extracts decode-failure lines from
+libyaml's 'Text.Libyaml.YamlMark' (whose @yamlLine@ field is 0-based
+and is incremented to 1-based at the producer site). For
+post-decode entity-level errors, the YAML parser pre-scans the raw
+text for each entity's @- name:@ line. The Turtle lexer tracks line
+numbers as it advances through the input and emits @(Token,
+lineNumber)@ pairs that the structural parser threads through to
+each error site.
 -}
 data RulesLoadError
     = -- | The file's extension is not @.ttl@, @.yaml@, or @.yml@.
@@ -100,7 +113,11 @@ data RulesLoadError
       ParserError !FilePath !Int !Text
     | -- | The entity declares no identifier shapes (no @from-address@,
       -- @script@, @asset@, @keys: + bytes:@, @pool:@, or @drep:@).
-      EntityZeroIdentifiers !Text
+      -- Carries the source file path and the 1-based line of the
+      -- offending entity's @- name:@ key so diagnostics can hyperlink
+      -- back to the YAML source (spec FR-009 + Q-001/A-001 extension:
+      -- name + line, not just name).
+      EntityZeroIdentifiers !FilePath !Int !Text
     | -- | A @from-address@ bech32 string failed to decode (bech32
       -- framing, ledger decode, or it is a Byron bootstrap address —
       -- Conway-only per constitution).
