@@ -12,9 +12,21 @@ identity surface), producing, per entity, one or more
 @(leafType, bytesHex)@ identifier pairs that the Turtle serializer
 folds into canonical @cardano:Identifier@ blank nodes.
 
-@imports:@, @blueprints:@, and @collapse:@ keys are ignored for now —
-the loader returns just the entity list and lets later slices wire
-them in.
+@imports:@ is ignored for now (composition lands with T007/T008).
+
+@blueprints:@ is **shape-validated** at the top level — each entry
+must be an object carrying a @script: \<name\>@ key whose value
+names an entity declared in the same file *and* using the
+@script:@ shape (i.e. that entity carries a 'PaymentScript'
+identifier). The @datum:@ field is a path string that the loader
+accepts verbatim; resolution against the filesystem lives in a
+later slice. A reference to an unknown or non-script entity name
+returns 'BlueprintRefsUnknownScript'.
+
+@collapse:@ is silently accepted — it is the view-collapse surface
+owned by #51 and the overlay serializer does not emit triples for
+it. The parser only verifies the value is a list (so a typed key
+is not misread as a different shape).
 
 The slug algorithm:
 
@@ -52,6 +64,7 @@ import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Char (isAsciiLower, isDigit)
+import Data.Foldable (traverse_)
 import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -95,8 +108,8 @@ parseRulesYamlText blob =
 walkTop :: Aeson.Value -> Either RulesLoadError [EntityDecl]
 walkTop = \case
     Aeson.Null -> Right []
-    Aeson.Object obj ->
-        case KeyMap.lookup (Key.fromText "entities") obj of
+    Aeson.Object obj -> do
+        entities <- case KeyMap.lookup (Key.fromText "entities") obj of
             Nothing -> Right []
             Just Aeson.Null -> Right []
             Just (Aeson.Array arr) ->
@@ -109,12 +122,118 @@ walkTop = \case
                         ( "entities: must be a list, got: "
                             <> typeName other
                         )
+        -- @blueprints:@ is shape-validated at parse time. Every
+        -- @script: \<name\>@ reference must resolve to an entity in
+        -- the same file whose shape is @script:@. The blueprint
+        -- entries themselves do not produce overlay triples (#51).
+        validateBlueprints entities obj
+        -- @collapse:@ is silently accepted (typed-list shape only;
+        -- triples are emitted by #51, not the overlay serializer).
+        validateCollapse obj
+        Right entities
     other ->
         Left $
             ParserError
                 inMemoryFile
                 inMemoryLine
                 ("top-level YAML must be an object, got: " <> typeName other)
+
+{- | Walk the top-level @blueprints:@ value (a list of objects) and
+verify every @script: \<name\>@ field names an entity in @entities@
+that carries a 'PaymentScript' identifier. Triggers
+'BlueprintRefsUnknownScript' on a dangling or non-script reference
+and a 'ParserError' on a structural shape error (non-list,
+non-object entry, missing @script:@ field, non-string @script:@
+value).
+-}
+validateBlueprints ::
+    [EntityDecl] -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError ()
+validateBlueprints entities obj =
+    case KeyMap.lookup (Key.fromText "blueprints") obj of
+        Nothing -> Right ()
+        Just Aeson.Null -> Right ()
+        Just (Aeson.Array arr) ->
+            traverse_ (validateBlueprintEntry entities) (foldr (:) [] arr)
+        Just other ->
+            Left $
+                ParserError
+                    inMemoryFile
+                    inMemoryLine
+                    ( "blueprints: must be a list, got: "
+                        <> typeName other
+                    )
+
+validateBlueprintEntry ::
+    [EntityDecl] -> Aeson.Value -> Either RulesLoadError ()
+validateBlueprintEntry entities = \case
+    Aeson.Object o -> case KeyMap.lookup (Key.fromText "script") o of
+        Nothing ->
+            Left $
+                ParserError
+                    inMemoryFile
+                    inMemoryLine
+                    "blueprints[]: entry is missing the 'script:' field"
+        Just (Aeson.String refName) ->
+            if scriptEntityKnown entities refName
+                then Right ()
+                else
+                    Left $
+                        BlueprintRefsUnknownScript
+                            inMemoryFile
+                            inMemoryLine
+                            refName
+        Just other ->
+            Left $
+                ParserError
+                    inMemoryFile
+                    inMemoryLine
+                    ( "blueprints[].script: must be a string, got: "
+                        <> typeName other
+                    )
+    other ->
+        Left $
+            ParserError
+                inMemoryFile
+                inMemoryLine
+                ( "blueprints[]: entry must be an object, got: "
+                    <> typeName other
+                )
+
+{- | True iff @entities@ contains a declaration with the given
+operator-typed name (matched against 'entityName' verbatim, not the
+slug) that carries at least one 'PaymentScript' identifier — i.e.
+the entity was declared with a @script:@ shape (or a compound-key
+shape that includes 'PaymentScript').
+-}
+scriptEntityKnown :: [EntityDecl] -> Text -> Bool
+scriptEntityKnown entities refName =
+    any matches entities
+  where
+    matches EntityDecl{entityName, entityIdentifiers} =
+        entityName == refName
+            && any
+                ((== PaymentScript) . entityIdLeafType)
+                entityIdentifiers
+
+{- | Walk the top-level @collapse:@ value. The view-collapse surface
+is owned by #51; the loader only enforces the list shape so a
+mistyped @collapse:@ value is caught at parse time rather than
+silently swallowed.
+-}
+validateCollapse :: KeyMap.KeyMap Aeson.Value -> Either RulesLoadError ()
+validateCollapse obj =
+    case KeyMap.lookup (Key.fromText "collapse") obj of
+        Nothing -> Right ()
+        Just Aeson.Null -> Right ()
+        Just (Aeson.Array _) -> Right ()
+        Just other ->
+            Left $
+                ParserError
+                    inMemoryFile
+                    inMemoryLine
+                    ( "collapse: must be a list, got: "
+                        <> typeName other
+                    )
 
 parseEntity :: Aeson.Value -> Either RulesLoadError EntityDecl
 parseEntity = \case

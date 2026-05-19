@@ -1,6 +1,6 @@
 entities:
   - name: mpfs.oracle
-    from-address: addr1x9zh2u6h7n9q3v8r0p4x5w7c8e9d2k4t6m1y3z5b8j2l4n6p8q1r3s5t7v9
+    from-address: addr1zx4c4tn2l5efcxs8zxrft28kc8uhykwt5h3ar3z9qh7tgh6avaqcquvquw4pmrz7xz3dj237afxu75hh6n5fhngxeywsvp6mlq
   - name: mpfs.oracle.script
     script: aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc
   - name: operator

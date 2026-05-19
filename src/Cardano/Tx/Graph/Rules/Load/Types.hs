@@ -112,4 +112,10 @@ data RulesLoadError
     | -- | The entity @name:@ slugifies to a value whose first character
       -- is a digit.
       EntityNameSlugLeadingDigit !FilePath !Int !Text
+    | -- | A top-level @blueprints:@ entry's @script: \<name\>@ field
+      -- references an entity that is not declared in the same file or
+      -- that is declared but does not use the @script:@ shape (i.e.
+      -- has no 'PaymentScript' identifier). The 'Text' payload is the
+      -- offending entity name.
+      BlueprintRefsUnknownScript !FilePath !Int !Text
     deriving stock (Eq, Show)

@@ -1,0 +1,55 @@
+@prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/01-amaru-treasury-swap#> .
+
+#
+# Operator-declared entities (from rules.yaml).
+#
+
+:amaru_treasury_network_compliance a cardano:Entity ;
+  rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
+
+_:amaru_treasury_network_compliance_paymentScript a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
+
+_:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
+  cardano:leafType "StakeScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
+
+:amaru_swap_order a cardano:Entity ;
+  rdfs:label "amaru.swap-order" ;
+  cardano:hasIdentifier _:amaru_swap_order_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
+
+_:amaru_swap_order_paymentScript a cardano:Identifier ;
+  cardano:leafType "PaymentScript" ;
+  cardano:bytesHex "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077" .
+
+:amaru_swap_v2 a cardano:Entity ;
+  rdfs:label "amaru.swap.v2" ;
+  cardano:hasIdentifier _:amaru_swap_order_paymentScript .
+
+:amaru_network_wallet a cardano:Entity ;
+  rdfs:label "amaru.network-wallet" ;
+  cardano:hasIdentifier _:amaru_network_wallet_paymentKey ;
+  cardano:hasIdentifier _:amaru_network_wallet_stakeKey .
+
+_:amaru_network_wallet_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "dea7197ac235d73e7f7b1a249bace6a833722415d88e91dec5d2626d" .
+
+_:amaru_network_wallet_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "bc1597ad71c55d2d009a9274b3831ded155118dd769f5376decc1369" .
+
+:usdm a cardano:Entity ;
+  rdfs:label "usdm" ;
+  cardano:hasIdentifier _:usdm_assetClass .
+
+_:usdm_assetClass a cardano:Identifier ;
+  cardano:leafType "AssetClass" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad5553444d" .
+

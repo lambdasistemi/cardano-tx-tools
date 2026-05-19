@@ -7,10 +7,11 @@ Drives the rules-loader against each of the 11 @rewrite-redesign@
 fixtures' @rules.yaml@ files and byte-compares the produced overlay
 bytes against the corresponding @expected.entities.ttl@ carve-out.
 
-T003 activates the seven basic-shape fixtures (02, 03, 05, 06, 07,
-08, 10); T004 activates fixture 04 (keys+bytes compound); the three
-remaining complex-shape fixtures (01, 09, 11) stay @pending@ for
-T005 (shared identity / blueprints / collapse).
+T003 activated the seven basic-shape fixtures (02, 03, 05, 06, 07,
+08, 10); T004 activated fixture 04 (keys+bytes compound); T005
+activates the three remaining complex-shape fixtures (01, 09, 11)
+that exercise shared identity, top-level @blueprints:@, and
+top-level @collapse:@.
 
 The carve-outs are authored by capturing the loader's stdout, not by
 hand — see the T003 task description for the three-step ritual.
@@ -42,7 +43,7 @@ data FixtureStatus = Active | Pending !String
 
 fixtures :: [(String, FixtureStatus)]
 fixtures =
-    [ ("01-amaru-treasury-swap", Pending "T005 — shared identity + blueprints")
+    [ ("01-amaru-treasury-swap", Active)
     , ("02-alice-bob-ada", Active)
     , ("03-multi-asset-transfer", Active)
     , ("04-mint-spend-script-overlap", Active)
@@ -50,9 +51,9 @@ fixtures =
     , ("06-stake-pool-delegation", Active)
     , ("07-vote-delegation", Active)
     , ("08-contingency-disburse", Active)
-    , ("09-mpfs-facts-request", Pending "T005 — shared identity + collapse")
+    , ("09-mpfs-facts-request", Active)
     , ("10-governance-treasury-withdrawal", Active)
-    , ("11-amaru-treasury-swap-real", Pending "T005 — shared identity (real)")
+    , ("11-amaru-treasury-swap-real", Active)
     ]
 
 fixturesRoot :: FilePath
