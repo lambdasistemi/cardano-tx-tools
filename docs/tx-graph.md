@@ -43,9 +43,8 @@ and joint-graph modes are functional but their emitted shape is
 partial today (reference inputs unsupported, output amounts /
 datums / scriptRefs not yet emitted); rich body emission and a
 joint-mode demonstration cast land as part of the
-[transaction-to-RDF epic
-#46](https://github.com/lambdasistemi/cardano-tx-tools/issues/46)
-— see the epic's *Completeness — non-negotiable* section for the
+[transaction-to-RDF epic #46](https://github.com/lambdasistemi/cardano-tx-tools/issues/46) —
+see the epic's *Completeness — non-negotiable* section for the
 open gates.
 
 ## Three modes by flag presence
