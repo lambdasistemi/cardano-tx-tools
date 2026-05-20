@@ -52,8 +52,8 @@
 
 ## Phase 2: Operator Follow-Up And Finalization
 
-- [ ] T003 Record the issue #61 live-mainnet smoke status in PR #62 using the command from `specs/061-seed-rewards-state/quickstart.md`
-- [ ] T004 Run final `./gate.sh`, update PR #62 with final verification and artifact links, then remove `gate.sh` in the ready-for-review commit
+- [x] T003 Record the issue #61 live-mainnet smoke status in PR #62 using the command from `specs/061-seed-rewards-state/quickstart.md`
+- [x] T004 Run final `./gate.sh`, update PR #62 with final verification and artifact links, then remove `gate.sh` in the ready-for-review commit
 
 ## Dependencies & Execution Order
 
