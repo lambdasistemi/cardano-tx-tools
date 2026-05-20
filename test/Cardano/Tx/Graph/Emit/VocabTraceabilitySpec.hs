@@ -23,8 +23,8 @@ parsing is out of scope; the point is per-emit invariant catching.
 The rule is "VocabTraceabilitySpec runs over every fixture
 GREEN in EmitGoldenSpec", so each new fixture flip in a future
 slice should add the fixture to 'enabledFixtures' below. T007
-covers 02 + 03 + 04 + 05 + 08; T008 adds 06 + 07; T009 will add
-09; T010 will add 01 + 10 + 11.
+covers 02 + 03 + 04 + 05 + 08; T008 adds 06 + 07; T009 adds 09;
+T010 will add 01 + 10 + 11.
 -}
 module Cardano.Tx.Graph.Emit.VocabTraceabilitySpec (spec) where
 
@@ -57,6 +57,7 @@ import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
 import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
 import Fixtures.RewriteRedesign.S07_VoteDelegation qualified as S07
 import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
+import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
 
 import Test.Hspec (
     Spec,
@@ -67,7 +68,7 @@ import Test.Hspec (
     shouldSatisfy,
  )
 
--- | Fixtures GREEN in 'EmitGoldenSpec' at end of T008.
+-- | Fixtures GREEN in 'EmitGoldenSpec' at end of T009.
 enabledFixtures :: [(String, ConwayTx)]
 enabledFixtures =
     [ ("02-alice-bob-ada", S02.tx)
@@ -77,6 +78,7 @@ enabledFixtures =
     , ("06-stake-pool-delegation", S06.tx)
     , ("07-vote-delegation", S07.tx)
     , ("08-contingency-disburse", S08.tx)
+    , ("09-mpfs-facts-request", S09.tx)
     ]
 
 spec :: Spec

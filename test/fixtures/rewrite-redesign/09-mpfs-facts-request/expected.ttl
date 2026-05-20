@@ -3,134 +3,152 @@
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/09-mpfs-facts-request#> .
 
 #
-# 044 Story 9: MPFS facts-request — 1 operator input, 10 oracle outputs
-# (each carrying an identical inline Fact datum with a `requester` field),
-# 1 operator change output. The future #47 emitter decodes the datum via
-# the mpfs-fact.cip57.json blueprint into a typed AST whose `requester`
-# leaf resolves to the operator entity. The harness's expected.ttl is the
-# un-inferred base graph: blueprint-decoded datum triples are NOT modelled
-# here (datum decode is #50's territory); cross-leaf identity at the
-# requester field is exercised semantically by #47 once the emitter mints
-# the typed-leaf triples under the OWL key.
+# Operator-declared entities (from rules.yaml).
 #
-
-#
-# Operator-declared entities (from rules.yaml). 'operator' shares its
-# bech32 (and hence its payment/stake key hashes) with the 'alice' entity
-# used elsewhere in the harness; the bytesHex values match
-# 02-alice-bob-ada/expected.ttl exactly.
-#
-
-:operator a cardano:Entity ;
-  rdfs:label "operator" ;
-  cardano:hasIdentifier _:operatorIdPayment ;
-  cardano:hasIdentifier _:operatorIdStake .
-
-_:operatorIdPayment a cardano:Identifier ;
-  cardano:leafType "PaymentKey" ;
-  cardano:bytesHex "601f58e4436698104adbbda7bc9d8f3f10e9e49652f9799d6c63aeda" .
-
-_:operatorIdStake a cardano:Identifier ;
-  cardano:leafType "StakeKey" ;
-  cardano:bytesHex "80226c84b26fe1a280649d819757ff2ffaec51adca5a3780356c05bf" .
 
 :mpfs_oracle a cardano:Entity ;
   rdfs:label "mpfs.oracle" ;
-  cardano:hasIdentifier _:mpfsOracleAddrPayment ;
-  cardano:hasIdentifier _:mpfsOracleAddrStake .
+  cardano:hasIdentifier _:mpfs_oracle_paymentScript ;
+  cardano:hasIdentifier _:mpfs_oracle_stakeKey .
 
-_:mpfsOracleAddrPayment a cardano:Identifier ;
+_:mpfs_oracle_paymentScript a cardano:Identifier ;
   cardano:leafType "PaymentScript" ;
   cardano:bytesHex "ab8aae6afd329c1a07118695a8f6c1f97259cba5e3d1c44505fcb45f" .
 
-_:mpfsOracleAddrStake a cardano:Identifier ;
+_:mpfs_oracle_stakeKey a cardano:Identifier ;
   cardano:leafType "StakeKey" ;
   cardano:bytesHex "5d6741807180e3aa1d8c5e30a2d92a3eea4dcf52f7d4e89bcd06c91d" .
 
 :mpfs_oracle_script a cardano:Entity ;
   rdfs:label "mpfs.oracle.script" ;
-  cardano:hasIdentifier _:mpfsScriptId .
+  cardano:hasIdentifier _:mpfs_oracle_script_paymentScript .
 
-_:mpfsScriptId a cardano:Identifier ;
+_:mpfs_oracle_script_paymentScript a cardano:Identifier ;
   cardano:leafType "PaymentScript" ;
   cardano:bytesHex "aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc" .
 
+:operator a cardano:Entity ;
+  rdfs:label "operator" ;
+  cardano:hasIdentifier _:operator_paymentKey ;
+  cardano:hasIdentifier _:operator_stakeKey .
+
+_:operator_paymentKey a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
+
+_:operator_stakeKey a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
+
 #
-# Transaction body — 1 input, 11 outputs (10 oracle facts + 1 operator
-# change), 0 certs/withdrawals/proposals/collateral/refs/mint.
+# Transaction body.
 #
 
 _:tx a cardano:Transaction ;
   cardano:hasInput _:input1 ;
-  cardano:hasOutput _:fact1 ;
-  cardano:hasOutput _:fact2 ;
-  cardano:hasOutput _:fact3 ;
-  cardano:hasOutput _:fact4 ;
-  cardano:hasOutput _:fact5 ;
-  cardano:hasOutput _:fact6 ;
-  cardano:hasOutput _:fact7 ;
-  cardano:hasOutput _:fact8 ;
-  cardano:hasOutput _:fact9 ;
-  cardano:hasOutput _:fact10 ;
-  cardano:hasOutput _:operatorChange ;
-  cardano:hasFee 175000 .
+  cardano:hasOutput _:output1 ;
+  cardano:hasOutput _:output2 ;
+  cardano:hasOutput _:output3 ;
+  cardano:hasOutput _:output4 ;
+  cardano:hasOutput _:output5 ;
+  cardano:hasOutput _:output6 ;
+  cardano:hasOutput _:output7 ;
+  cardano:hasOutput _:output8 ;
+  cardano:hasOutput _:output9 ;
+  cardano:hasOutput _:output10 ;
+  cardano:hasOutput _:output11 ;
+  cardano:hasFee 0 .
 
 #
-# Input — operator's 50 ADA UTxO.
+# Input 1
 #
 
-_:input1 a cardano:Input ;
-  cardano:resolvedTo _:resolvedInput1 .
-
-_:resolvedInput1 a cardano:Output ;
-  cardano:atAddress _:operatorAddr .
+_:input1 a cardano:Input .
 
 #
-# Ten oracle-fact outputs at mpfs.oracle. Each carries an identical inline
-# Fact datum referencing the operator's stake key; the harness models the
-# OUTPUT count structurally and leaves datum decode to #50.
+# Output 1
 #
 
-_:fact1 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact2 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact3 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact4 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact5 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact6 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact7 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact8 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact9 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
-_:fact10 a cardano:Output ; cardano:atAddress _:mpfsOracleAddr .
+_:output1 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
 #
-# Operator change output.
+# Output 2
 #
 
-_:operatorChange a cardano:Output ;
-  cardano:atAddress _:operatorAddr .
+_:output2 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
 #
-# Address decompositions.
+# Output 3
 #
 
-_:operatorAddr a cardano:Address ;
-  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
-  cardano:hasPaymentCredential _:operatorCredPayment ;
-  cardano:hasStakeCredential _:operatorCredStake .
+_:output3 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
-_:operatorCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:operatorIdPayment .
+#
+# Output 4
+#
 
-_:operatorCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:operatorIdStake .
+_:output4 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
-_:mpfsOracleAddr a cardano:Address ;
-  cardano:bech32 "addr1x9zh2u6h7n9q3v8r0p4x5w7c8e9d2k4t6m1y3z5b8j2l4n6p8q1r3s5t7v9" ;
-  cardano:hasPaymentCredential _:mpfsOracleCredPayment ;
-  cardano:hasStakeCredential _:mpfsOracleCredStake .
+#
+# Output 5
+#
 
-_:mpfsOracleCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:mpfsOracleAddrPayment .
+_:output5 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
-_:mpfsOracleCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:mpfsOracleAddrStake .
+#
+# Output 6
+#
+
+_:output6 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Output 7
+#
+
+_:output7 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Output 8
+#
+
+_:output8 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Output 9
+#
+
+_:output9 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Output 10
+#
+
+_:output10 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Output 11
+#
+
+_:output11 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Address decompositions — payment + stake credential per leaf.
+#
+
+_:cred_paymentkey_0000000000000000Addr a cardano:Address ;
+  cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
+  cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+
+_:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .
