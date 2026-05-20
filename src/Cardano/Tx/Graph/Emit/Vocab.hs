@@ -65,6 +65,10 @@ data VocabTerm
     | TermPolicy
     | TermAsset
     | TermWithdrawal
+    | TermStakeDelegation
+    | TermVoteDelegation
+    | TermPool
+    | TermDRep
     | -- Body predicates
       TermHasInput
     | TermHasOutput
@@ -81,6 +85,9 @@ data VocabTerm
     | TermHasWithdrawal
     | TermOnCredential
     | TermWithAmount
+    | TermHasCertificate
+    | TermToPool
+    | TermToDRep
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -100,6 +107,10 @@ vocabIri = \case
     TermPolicy -> cardanoPrefix <> "Policy"
     TermAsset -> cardanoPrefix <> "Asset"
     TermWithdrawal -> cardanoPrefix <> "Withdrawal"
+    TermStakeDelegation -> cardanoPrefix <> "StakeDelegation"
+    TermVoteDelegation -> cardanoPrefix <> "VoteDelegation"
+    TermPool -> cardanoPrefix <> "Pool"
+    TermDRep -> cardanoPrefix <> "DRep"
     TermHasInput -> cardanoPrefix <> "hasInput"
     TermHasOutput -> cardanoPrefix <> "hasOutput"
     TermHasFee -> cardanoPrefix <> "hasFee"
@@ -115,6 +126,9 @@ vocabIri = \case
     TermHasWithdrawal -> cardanoPrefix <> "hasWithdrawal"
     TermOnCredential -> cardanoPrefix <> "onCredential"
     TermWithAmount -> cardanoPrefix <> "withAmount"
+    TermHasCertificate -> cardanoPrefix <> "hasCertificate"
+    TermToPool -> cardanoPrefix <> "toPool"
+    TermToDRep -> cardanoPrefix <> "toDRep"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -133,6 +147,10 @@ vocabCurie = \case
     TermPolicy -> "cardano:Policy"
     TermAsset -> "cardano:Asset"
     TermWithdrawal -> "cardano:Withdrawal"
+    TermStakeDelegation -> "cardano:StakeDelegation"
+    TermVoteDelegation -> "cardano:VoteDelegation"
+    TermPool -> "cardano:Pool"
+    TermDRep -> "cardano:DRep"
     TermHasInput -> "cardano:hasInput"
     TermHasOutput -> "cardano:hasOutput"
     TermHasFee -> "cardano:hasFee"
@@ -148,6 +166,9 @@ vocabCurie = \case
     TermHasWithdrawal -> "cardano:hasWithdrawal"
     TermOnCredential -> "cardano:onCredential"
     TermWithAmount -> "cardano:withAmount"
+    TermHasCertificate -> "cardano:hasCertificate"
+    TermToPool -> "cardano:toPool"
+    TermToDRep -> "cardano:toDRep"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.
