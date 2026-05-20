@@ -270,6 +270,14 @@ The slice count is 13 (S0..S12). Slices S0/S1 are no-behavior-change
 "plumbing" slices; S2..S7 are the per-Conway-field coverage slices;
 S8..S12 are deliverables wire-up.
 
+**Note on commit order** (per analyzer L-003): S9a's table-row
+position is between S8 and S10 for readability, but its
+**commit-order** is BEFORE S2 — see `tasks.md` T110a "Sequencing"
+note. The recommended commit order is `S0 → S1 → S9a → S2 → S3 →
+S4 → S5 → S6 → S7 → S8 → S10 → S11 → S9b → S12`, so the strict
+canonical-vocab CI gate is satisfied on every behavior-changing
+slice from T103 onward.
+
 ## Test strategy
 
 ### RED/GREEN per slice (TDD with vertical bisect-safe commits)

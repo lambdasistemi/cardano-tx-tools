@@ -51,6 +51,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
   - `src/Cardano/Tx/Graph/Emit/Project.hs` (rewire `projectBody` to use the monad)
   - `cardano-tx-tools.cabal` (verify `mtl` dep is exposed — likely transitive already)
   - `test/Cardano/Tx/Graph/EmitMonadSpec.hs` (NEW — invariant: same `[Triple]` set as pre-refactor on fixture 02)
+  - `test/Cardano/Tx/Graph/Emit/SubjectDeDupSpec.hs` (NEW — per analyzer M-002: parses emitted Turtle, groups triples by subject, asserts no two distinct subject blocks share the same subject node; covers spec US2)
 - **RED**: `EmitMonadSpec` fails because `Emit.Monad` doesn't exist.
 - **GREEN**: module lands; spec passes; **every fixture's `expected.ttl` byte-diff stays GREEN** (no semantic change).
 - **Live-boundary**: Haskell module boundary — `groupBySubject` order
@@ -72,6 +73,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 - **RED**:
   1. `EmitGoldenSpec` invariant — every `_:inputK` carries `cardano:fromTxOutRef`.
   2. Fixture 11 emit returns `Right _` (no `PUnsupportedLeafType "ConwayReferenceInputValue"`).
+  3. **(per analyzer M-001)** Every spending input under the UTxO map carries `cardano:resolvedTo _:resolvedN`, and `_:resolvedN` is bound (the resolved-output payload fills out across T104+T105 — confirmed at coverage rather than re-stubbed here).
 - **GREEN**: emitter emits + reference-input probe relaxed; all 11
   `expected.ttl` regenerated.
 - **Live-boundary**: fixture 11 — real on-chain CBOR with reference
