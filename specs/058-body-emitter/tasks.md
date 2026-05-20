@@ -18,7 +18,7 @@ carries `Tasks: T###`.
 
 ## Phase 0 — orchestrator gate
 
-- [ ] **T000** *(orchestrator-owned; not a subagent slice)* — Analyzer
+- [X] **T000** *(orchestrator-owned; not a subagent slice)* — Analyzer
   dispatch via `speckit-analyze` against spec.md, plan.md, research.md,
   tasks.md. Address findings (or fail-fast back through speckit-plan/tasks)
   before T001 starts. Open Q-files for the design questions in plan.md
@@ -459,7 +459,7 @@ self-contained "this projection case + this fixture's regen".
 
   **Commit subject**: `docs(058): README + CHANGELOG for body emitter`
 
-- [ ] **T014** *(type=chore, orchestrator-owned; gate-script skill)*
+- [X] **T014** *(type=chore, orchestrator-owned; gate-script skill)*
   — Drop `gate.sh` in a dedicated commit, mark PR #60 ready for
   review.
 
