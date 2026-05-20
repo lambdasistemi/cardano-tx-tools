@@ -81,6 +81,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 - **Live-boundary**: fixture 11 — real on-chain CBOR with reference
   inputs. The strongest live-boundary smoke in the plan.
 - **Owner**: paired subagents.
+- **Status**: [X] complete — landed at this commit.
 
 ### T104 — S3: output `lovelace` + multi-asset RDF list (feat)
 

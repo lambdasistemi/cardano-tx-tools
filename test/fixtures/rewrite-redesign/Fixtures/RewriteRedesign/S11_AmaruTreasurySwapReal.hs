@@ -15,13 +15,12 @@ production DSL call shape (read-only — the harness does NOT depend on
 Body shape: 2 inputs (1 user wallet + 1 treasury), 5 outputs (2 swap
 orders at @amaru.swap.v2@ + 1 treasury leftover at
 @amaru-treasury.network_compliance@ + 2 user payments back to the
-@amaru.network-wallet@), 1 collateral input from the same user wallet.
-The on-chain tx additionally carries a zero-amount @withdraw@ redeemer
-and four reference inputs; the harness does NOT model these structurally
-because 'assertShape' counts only the body-shape fields enumerated in
-'ExpectedShape', and the rewrite-redesign rendering contract is
-exercised by the future @#47@ emitter against @rules.yaml@'s
-@entities:@ section, not by the @TxBuilder@ body.
+@amaru.network-wallet@), 1 collateral input from the same user wallet,
+4 reference inputs (mirroring the on-chain swap-validator + treasury
+script + network-compliance + amaru.swap.v2 reference scripts the
+real tx attaches). T103 adds the four 'reference' entries so the
+emitter's reference-input branch is exercised by a live-shape
+fixture; @ExpectedShape.esReferenceIns@ is bumped to 4 in step.
 
 The harness sister fixture @01-amaru-treasury-swap@ remains as the
 hypothetical 33-input stress example from the 044 spec narrative; this
@@ -53,7 +52,7 @@ import Fixtures.RewriteRedesign.Helpers (
     stubTxOut,
  )
 
-import Cardano.Tx.Build (collateral, output, spend)
+import Cardano.Tx.Build (collateral, output, reference, spend)
 import Cardano.Tx.Ledger (ConwayTx)
 
 -- | Story slug — kebab directory name under @test/fixtures/rewrite-redesign/@.
@@ -74,6 +73,10 @@ tx = mkTx . TxBuilder $ do
     _ <- output (stubTxOut 50_000_000) -- user payment 1
     _ <- output (stubTxOut 46_800_000) -- user payment 2 (residual change)
     collateral (stubTxIn 100)
+    reference (stubTxIn 200) -- swap-validator reference script
+    reference (stubTxIn 201) -- treasury-validator reference script
+    reference (stubTxIn 202) -- network-compliance reference script
+    reference (stubTxIn 203) -- amaru.swap.v2 reference script
 
 -- | Expected structural shape per the real on-chain tx.
 shape :: ExpectedShape
@@ -82,4 +85,5 @@ shape =
         { esInputs = 2
         , esOutputs = 5
         , esCollateral = 1
+        , esReferenceIns = 4
         }

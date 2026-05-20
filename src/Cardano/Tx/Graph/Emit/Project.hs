@@ -91,15 +91,17 @@ key vs base + stake script), the address bnodes would collide
 on @\<paymentId\>Addr@; that's a Q-file moment — file before
 introducing a stake-side disambiguator.
 
-== Tx-block predicate order (T010 / A-001)
+== Tx-block predicate order (T010 / A-001, extended at T103)
 
 The transaction subject block lists its @has*@ predicates in this
 fixed order:
 
-@hasInput, hasOutput, hasMint, hasWithdrawal, hasCertificate,
-hasCollateralInput, hasProposal, hasFee@
+@hasInput, hasReferenceInput, hasOutput, hasMint, hasWithdrawal,
+hasCertificate, hasCollateralInput, hasProposal, hasFee@
 
 The order follows the artisan @expected.ttl@ layout shipped by #45
+plus the T103 reference-input insertion (clustered next to
+@hasInput@ so all input-position predicates share the same anchor)
 and is byte-equal-critical: the Turtle serializer preserves
 predicate order verbatim. Future slices (T011+ JSON-LD, future
 leaves) MUST extend the list in place rather than re-shuffling.
@@ -153,6 +155,7 @@ import Cardano.Ledger.Api.Tx.Out (TxOut, addrTxOutL)
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet, Testnet),
     StrictMaybe (SJust, SNothing),
+    TxIx (..),
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
@@ -168,14 +171,14 @@ import Cardano.Ledger.Credential (
 import Cardano.Ledger.DRep (
     DRep (DRepAlwaysAbstain, DRepAlwaysNoConfidence, DRepKeyHash, DRepScriptHash),
  )
-import Cardano.Ledger.Hashes (KeyHash (..), ScriptHash (..))
+import Cardano.Ledger.Hashes (KeyHash (..), ScriptHash (..), extractHash)
 import Cardano.Ledger.Keys (KeyRole (..))
 import Cardano.Ledger.Mary.Value (
     AssetName (..),
     MultiAsset (..),
     PolicyID (..),
  )
-import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Data.Foldable (toList)
 
 import Cardano.Tx.Graph.Emit.Lookup (
@@ -234,6 +237,8 @@ projectBody entities lookupTbl tx utxo = do
     assertEmptyLeavesForT008 tx
     let body = tx ^. bodyTxL
         inputs = Set.toAscList (body ^. inputsTxBodyL)
+        refInputs =
+            Set.toAscList (body ^. referenceInputsTxBodyL)
         collateralIns =
             Set.toAscList (body ^. collateralInputsTxBodyL)
         outputs =
@@ -257,6 +262,7 @@ projectBody entities lookupTbl tx utxo = do
             buildOutputs entities lookupTbl outputs addrRegistry1
         (collateralData, addrRegistry3) =
             buildCollaterals entities lookupTbl utxo collateralIns addrRegistry2
+        refInputData = buildReferenceInputs refInputs
         addrEntries = addrRegistryEntries addrRegistry3
     -- Per-cert clusters (T008 — fixtures 06, 07).
     certClusters <-
@@ -274,6 +280,7 @@ projectBody entities lookupTbl tx utxo = do
             clusterBlocks $
                 emitTxBlock
                     (length inputData)
+                    (length refInputData)
                     (length outputData)
                     (length mintPairs)
                     (length withdrawalPairs)
@@ -292,6 +299,13 @@ projectBody entities lookupTbl tx utxo = do
                 , sectionBlocks = blocks
                 }
             | (k, blocks) <- zip [1 :: Int ..] inputData
+            ]
+        referenceInputSections =
+            [ BodySection
+                { sectionHeader = "Reference input " <> Text.pack (show k)
+                , sectionBlocks = blocks
+                }
+            | (k, blocks) <- zip [1 :: Int ..] refInputData
             ]
         outputSections =
             [ BodySection
@@ -358,6 +372,7 @@ projectBody entities lookupTbl tx utxo = do
     pure
         ( txSection
             : inputSections
+                <> referenceInputSections
                 <> outputSections
                 <> mintSections
                 <> withdrawalSections
@@ -390,18 +405,23 @@ clusterBlocks action =
 ----------------------------------------------------------------------
 
 {- | Probe the tx's leaves not yet covered by the projection
-walker for emptiness. T005+T007+T008+T010 cover @inputs@ +
+walker for emptiness. T005+T007+T008+T010+T103 cover @inputs@ +
 @outputs@ + @fee@ + @mint@ + @withdrawals@ + @certs@ +
-@collateralInputs@ + @proposalProcedures@. Anything else
-(reference inputs, required signers, total collateral) must be
+@collateralInputs@ + @proposalProcedures@ + @referenceInputs@.
+Anything else (required signers, total collateral) must be
 empty: a non-empty unhandled leaf surfaces as
 'PUnsupportedLeafType' so future slices extend coverage without
 silent drops (T008 D3 — fail loudly).
+
+T103 / S2 relaxes the @referenceInputs@ probe: reference inputs
+now decode and emit as @cardano:Input@ subject blocks bound to
+@_:tx@ via @cardano:hasReferenceInput@. Required-signers and
+total-collateral remain fail-loudly until a later slice covers
+them.
 -}
 assertEmptyLeavesForT008 :: ConwayTx -> Either ProjectError ()
 assertEmptyLeavesForT008 tx = do
     let body = tx ^. bodyTxL
-    chk "ConwayReferenceInputValue" (length (body ^. referenceInputsTxBodyL))
     chk "ConwayRequiredSignersValue" (length (body ^. reqSignerHashesTxBodyL))
     case body ^. totalCollateralTxBodyL of
         SNothing -> pure ()
@@ -462,6 +482,11 @@ idCollateralBnode :: Int -> BnodeName
 idCollateralBnode k =
     BnodeName ("collateral" <> Text.pack (show k))
 
+-- | Bnode name a reference input at position @k@ (1-based) gets.
+idReferenceInputBnode :: Int -> BnodeName
+idReferenceInputBnode k =
+    BnodeName ("refInput" <> Text.pack (show k))
+
 -- | Bnode name a resolved-collateral output at position @k@ gets.
 idResolvedCollateralBnode :: Int -> BnodeName
 idResolvedCollateralBnode k =
@@ -489,10 +514,12 @@ emitTxBlock ::
     Int ->
     Int ->
     Int ->
+    Int ->
     Integer ->
     Emit ()
 emitTxBlock
     nInputs
+    nReferenceInputs
     nOutputs
     nMints
     nWithdrawals
@@ -512,6 +539,7 @@ emitTxBlock
                     [1 .. n]
         tt PRdfType (OIri (vocabCurie TermTransaction))
         edges TermHasInput idInputBnode nInputs
+        edges TermHasReferenceInput idReferenceInputBnode nReferenceInputs
         edges TermHasOutput idOutputBnode nOutputs
         edges TermHasMint idMintBnode nMints
         edges TermHasWithdrawal idWithdrawalBnode nWithdrawals
@@ -705,7 +733,7 @@ buildInputs entities lookupTbl utxo = go [] emptyAddrRegistry . zip [1 ..]
         case Map.lookup txIn utxo of
             Nothing ->
                 let blocks =
-                        clusterBlocks (emitUnresolvedInput k)
+                        clusterBlocks (emitUnresolvedInput k txIn)
                  in go (blocks : acc) reg rest
             Just resolved ->
                 let (entry, reg') =
@@ -716,28 +744,45 @@ buildInputs entities lookupTbl utxo = go [] emptyAddrRegistry . zip [1 ..]
                             reg
                     blocks =
                         clusterBlocks
-                            (emitResolvedInput k (aeBnodeBase entry))
+                            (emitResolvedInput k txIn (aeBnodeBase entry))
                  in go (blocks : acc) reg' rest
 
--- | Emit triples for an input whose 'TxIn' is NOT resolved.
-emitUnresolvedInput :: Int -> Emit ()
-emitUnresolvedInput k =
+{- | Emit triples for an input whose 'TxIn' is NOT resolved
+under the operator-supplied UTxO map. T103: every input —
+resolved or not — carries @cardano:fromTxOutRef
+"\<txid\>#\<ix\>"@ as its first non-@rdf:type@ triple
+(spec FR-004).
+-}
+emitUnresolvedInput :: Int -> TxIn -> Emit ()
+emitUnresolvedInput k txIn = do
+    let inputSubj = SBnode (idInputBnode k)
+    tellTriple (Triple inputSubj PRdfType (OIri (vocabCurie TermInput)))
     tellTriple
         ( Triple
-            (SBnode (idInputBnode k))
-            PRdfType
-            (OIri (vocabCurie TermInput))
+            inputSubj
+            (PIri (vocabCurie TermFromTxOutRef))
+            (OStringLit (formatTxIn txIn))
         )
 
 {- | Emit triples for an input whose 'TxIn' IS resolved.
-The shared address bnode base is passed in (it comes from
-the 'AddrRegistry' first-occurrence-wins lookup).
+T103: the @cardano:fromTxOutRef@ literal sits between the
+@rdf:type@ triple and the @cardano:resolvedTo@ edge so the
+predicate order is uniform across resolved / unresolved
+inputs. The shared address bnode base is passed in (it
+comes from the 'AddrRegistry' first-occurrence-wins
+lookup).
 -}
-emitResolvedInput :: Int -> Text -> Emit ()
-emitResolvedInput k base = do
+emitResolvedInput :: Int -> TxIn -> Text -> Emit ()
+emitResolvedInput k txIn base = do
     let inputSubj = SBnode (idInputBnode k)
         resolvedSubj = SBnode (idResolvedInputBnode k)
     tellTriple (Triple inputSubj PRdfType (OIri (vocabCurie TermInput)))
+    tellTriple
+        ( Triple
+            inputSubj
+            (PIri (vocabCurie TermFromTxOutRef))
+            (OStringLit (formatTxIn txIn))
+        )
     tellTriple
         ( Triple
             inputSubj
@@ -751,6 +796,17 @@ emitResolvedInput k base = do
             (PIri (vocabCurie TermAtAddress))
             (OBnode (BnodeName (base <> "Addr")))
         )
+
+{- | Render a 'TxIn' as the @cardano:fromTxOutRef@ literal:
+@\<txid_hex\>#\<index\>@. The 'TxId' is the safe-hash of the
+producing transaction; the 'TxIx' is its output position
+(0-based, ledger semantics).
+-}
+formatTxIn :: TxIn -> Text
+formatTxIn (TxIn (TxId safeHash) (TxIx index)) =
+    hexText (hashToBytes (extractHash safeHash))
+        <> "#"
+        <> Text.pack (show index)
 
 ----------------------------------------------------------------------
 -- Outputs
@@ -1171,7 +1227,7 @@ buildCollaterals entities lookupTbl utxo txIns reg0 =
     go acc reg ((k, txIn) : rest) =
         case Map.lookup txIn utxo of
             Nothing ->
-                let blocks = clusterBlocks (emitUnresolvedCollateral k)
+                let blocks = clusterBlocks (emitUnresolvedCollateral k txIn)
                  in go (blocks : acc) reg rest
             Just resolved ->
                 let (entry, reg') =
@@ -1182,30 +1238,41 @@ buildCollaterals entities lookupTbl utxo txIns reg0 =
                             reg
                     blocks =
                         clusterBlocks
-                            (emitResolvedCollateral k (aeBnodeBase entry))
+                            (emitResolvedCollateral k txIn (aeBnodeBase entry))
                  in go (blocks : acc) reg' rest
 
 {- | Emit triples for a collateral input whose 'TxIn' is NOT
-resolved. Shape mirrors 'emitUnresolvedInput'.
+resolved. Shape mirrors 'emitUnresolvedInput' — T103 adds
+the @cardano:fromTxOutRef@ literal.
 -}
-emitUnresolvedCollateral :: Int -> Emit ()
-emitUnresolvedCollateral k =
+emitUnresolvedCollateral :: Int -> TxIn -> Emit ()
+emitUnresolvedCollateral k txIn = do
+    let collSubj = SBnode (idCollateralBnode k)
+    tellTriple (Triple collSubj PRdfType (OIri (vocabCurie TermInput)))
     tellTriple
         ( Triple
-            (SBnode (idCollateralBnode k))
-            PRdfType
-            (OIri (vocabCurie TermInput))
+            collSubj
+            (PIri (vocabCurie TermFromTxOutRef))
+            (OStringLit (formatTxIn txIn))
         )
 
 {- | Emit triples for a collateral input whose 'TxIn' IS
 resolved. Shape mirrors 'emitResolvedInput' with the
-collateral-specific @resolvedCollateralN@ bnode.
+collateral-specific @resolvedCollateralN@ bnode. T103 adds
+the @cardano:fromTxOutRef@ literal between the @rdf:type@
+triple and the @cardano:resolvedTo@ edge.
 -}
-emitResolvedCollateral :: Int -> Text -> Emit ()
-emitResolvedCollateral k base = do
+emitResolvedCollateral :: Int -> TxIn -> Text -> Emit ()
+emitResolvedCollateral k txIn base = do
     let collSubj = SBnode (idCollateralBnode k)
         resolvedSubj = SBnode (idResolvedCollateralBnode k)
     tellTriple (Triple collSubj PRdfType (OIri (vocabCurie TermInput)))
+    tellTriple
+        ( Triple
+            collSubj
+            (PIri (vocabCurie TermFromTxOutRef))
+            (OStringLit (formatTxIn txIn))
+        )
     tellTriple
         ( Triple
             collSubj
@@ -1218,6 +1285,37 @@ emitResolvedCollateral k base = do
             resolvedSubj
             (PIri (vocabCurie TermAtAddress))
             (OBnode (BnodeName (base <> "Addr")))
+        )
+
+----------------------------------------------------------------------
+-- Reference inputs (T103 — fixture 11)
+----------------------------------------------------------------------
+
+{- | Build per-reference-input cluster blocks. Each reference
+input renders as @_:refInputK a cardano:Input ;
+cardano:fromTxOutRef "\<txid\>#\<ix\>"@. The class is
+@cardano:Input@ — same as spending and collateral inputs
+(D-003); only the @_:tx@ binding predicate
+(@cardano:hasReferenceInput@) distinguishes the position.
+T103 does not surface @cardano:resolvedTo@ for reference
+inputs — the resolved-output payload arrives across T104+T105.
+-}
+buildReferenceInputs :: [TxIn] -> [[SubjectBlock]]
+buildReferenceInputs txIns =
+    [ clusterBlocks (emitReferenceInput k txIn)
+    | (k, txIn) <- zip [1 :: Int ..] txIns
+    ]
+
+-- | Emit triples for a reference input at position @k@.
+emitReferenceInput :: Int -> TxIn -> Emit ()
+emitReferenceInput k txIn = do
+    let refSubj = SBnode (idReferenceInputBnode k)
+    tellTriple (Triple refSubj PRdfType (OIri (vocabCurie TermInput)))
+    tellTriple
+        ( Triple
+            refSubj
+            (PIri (vocabCurie TermFromTxOutRef))
+            (OStringLit (formatTxIn txIn))
         )
 
 ----------------------------------------------------------------------

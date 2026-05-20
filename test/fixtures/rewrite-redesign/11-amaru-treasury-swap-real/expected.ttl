@@ -52,6 +52,10 @@ _:amaru_network_wallet_stakeKey a cardano:Identifier ;
 _:tx a cardano:Transaction ;
   cardano:hasInput _:input1 ;
   cardano:hasInput _:input2 ;
+  cardano:hasReferenceInput _:refInput1 ;
+  cardano:hasReferenceInput _:refInput2 ;
+  cardano:hasReferenceInput _:refInput3 ;
+  cardano:hasReferenceInput _:refInput4 ;
   cardano:hasOutput _:output1 ;
   cardano:hasOutput _:output2 ;
   cardano:hasOutput _:output3 ;
@@ -64,13 +68,43 @@ _:tx a cardano:Transaction ;
 # Input 1
 #
 
-_:input1 a cardano:Input .
+_:input1 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000001#0" .
 
 #
 # Input 2
 #
 
-_:input2 a cardano:Input .
+_:input2 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000002#0" .
+
+#
+# Reference input 1
+#
+
+_:refInput1 a cardano:Input ;
+  cardano:fromTxOutRef "00000000000000000000000000000000000000000000000000000000000000c8#0" .
+
+#
+# Reference input 2
+#
+
+_:refInput2 a cardano:Input ;
+  cardano:fromTxOutRef "00000000000000000000000000000000000000000000000000000000000000c9#0" .
+
+#
+# Reference input 3
+#
+
+_:refInput3 a cardano:Input ;
+  cardano:fromTxOutRef "00000000000000000000000000000000000000000000000000000000000000ca#0" .
+
+#
+# Reference input 4
+#
+
+_:refInput4 a cardano:Input ;
+  cardano:fromTxOutRef "00000000000000000000000000000000000000000000000000000000000000cb#0" .
 
 #
 # Output 1
@@ -111,7 +145,8 @@ _:output5 a cardano:Output ;
 # Collateral 1
 #
 
-_:collateral1 a cardano:Input .
+_:collateral1 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000064#0" .
 
 #
 # Address decompositions — payment + stake credential per leaf.

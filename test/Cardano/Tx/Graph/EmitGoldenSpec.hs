@@ -11,11 +11,22 @@ T005 enabled fixture 02; T006-T010 grew coverage one slice at a
 time; T010 closes the final three (01 collateral + multi-input,
 10 TreasuryWithdrawal proposal, 11 collateral on the real-shape
 mirror). All 11 fixtures are GREEN at end of T010 — SC-001 closed.
+
+== Regen mode
+
+When the environment variable @EMIT_GOLDEN_REGEN=1@ is set, each
+@it@ overwrites the on-disk @expected.ttl@ with the freshly
+emitted bytes (and reports success without a byte-diff). This is
+the regen path the slice-by-slice walk uses to update the
+fixtures when the emitter shape changes (T103 / S2 onwards). The
+default (env var unset) is the byte-diff golden assertion.
 -}
 module Cardano.Tx.Graph.EmitGoldenSpec (spec) where
 
+import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
+import System.Environment (lookupEnv)
 import System.FilePath ((</>))
 
 import Cardano.Tx.Graph.Emit (
@@ -31,8 +42,7 @@ import Cardano.Tx.Graph.Rules.Load (
     loadRulesFile,
     rulesEntities,
  )
-
-import Data.ByteString (ByteString)
+import Cardano.Tx.Ledger (ConwayTx)
 
 import Fixtures.RewriteRedesign.S01_AmaruTreasurySwap qualified as S01
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
@@ -56,336 +66,73 @@ import Test.Hspec (
 
 spec :: Spec
 spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
-    -- ---- fixture 02: enabled since T005 ----
-    do
-        let slug = "02-alice-bob-ada"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S02.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 03: enabled in T006 ----
-    do
-        let slug = "03-multi-asset-transfer"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S03.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 04: enabled in T007 ----
-    do
-        let slug = "04-mint-spend-script-overlap"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S04.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 05: enabled in T007 ----
-    do
-        let slug = "05-withdrawal-script-stake"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S05.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 08: enabled in T007 (regen-only) ----
-    do
-        let slug = "08-contingency-disburse"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S08.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 06: enabled in T008 ----
-    do
-        let slug = "06-stake-pool-delegation"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S06.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 07: enabled in T008 ----
-    do
-        let slug = "07-vote-delegation"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S07.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 09: enabled in T009 (regen-only) ----
-    do
-        let slug = "09-mpfs-facts-request"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S09.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 01: enabled in T010 ----
-    do
-        let slug = "01-amaru-treasury-swap"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S01.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 10: enabled in T010 ----
-    do
-        let slug = "10-governance-treasury-withdrawal"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S10.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
-    -- ---- fixture 11: enabled in T010 ----
-    do
-        let slug = "11-amaru-treasury-swap-real"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-            expectedPath = dir </> "expected.ttl"
-        (entities, overlay) <-
-            runIO (loadEntitiesAndOverlay rulesPath)
-        expected <- runIO (BS.readFile expectedPath)
-        it (slug <> " — emit + serialize matches expected.ttl") $ do
-            case emit S11.tx emptyUtxo entities of
-                Left err ->
-                    expectationFailure $
-                        "emit returned Left " <> show err
-                Right g ->
-                    let joint = g{graphOverlayTurtle = overlay}
-                        actual = serialize Turtle slug joint
-                     in if actual == expected
-                            then pure ()
-                            else
-                                expectationFailure $
-                                    "byte-diff: emit("
-                                        <> slug
-                                        <> ") /= "
-                                        <> expectedPath
-                                        <> " (lengths "
-                                        <> show (BS.length actual)
-                                        <> " vs "
-                                        <> show (BS.length expected)
-                                        <> ")"
+    regen <- runIO regenEnabled
+    mapM_ (fixtureGoldenItem regen) allFixtures
+
+{- | List of every fixture covered by the byte-diff golden suite.
+The slug is the directory name under
+@test/fixtures/rewrite-redesign/@; the @ConwayTx@ comes from the
+per-fixture @Sxx@ module. Adding a fixture is a one-line append.
+-}
+allFixtures :: [(String, ConwayTx)]
+allFixtures =
+    [ ("01-amaru-treasury-swap", S01.tx)
+    , ("02-alice-bob-ada", S02.tx)
+    , ("03-multi-asset-transfer", S03.tx)
+    , ("04-mint-spend-script-overlap", S04.tx)
+    , ("05-withdrawal-script-stake", S05.tx)
+    , ("06-stake-pool-delegation", S06.tx)
+    , ("07-vote-delegation", S07.tx)
+    , ("08-contingency-disburse", S08.tx)
+    , ("09-mpfs-facts-request", S09.tx)
+    , ("10-governance-treasury-withdrawal", S10.tx)
+    , ("11-amaru-treasury-swap-real", S11.tx)
+    ]
+
+{- | One Hspec @it@ per fixture: byte-diff the emitted Turtle
+against the committed @expected.ttl@, or overwrite the on-disk
+file when 'regen' is @True@. The rules YAML + overlay bytes
+are loaded once at @runIO@ time so the loader cost is paid
+before the test body runs.
+-}
+fixtureGoldenItem :: Bool -> (String, ConwayTx) -> Spec
+fixtureGoldenItem regen (slug, tx) = do
+    let dir = "test/fixtures/rewrite-redesign" </> slug
+        rulesPath = dir </> "rules.yaml"
+        expectedPath = dir </> "expected.ttl"
+    (entities, overlay) <-
+        runIO (loadEntitiesAndOverlay rulesPath)
+    expected <- runIO (BS.readFile expectedPath)
+    it (slug <> " — emit + serialize matches expected.ttl") $ do
+        case emit tx emptyUtxo entities of
+            Left err ->
+                expectationFailure $
+                    "emit returned Left " <> show err
+            Right g ->
+                let joint = g{graphOverlayTurtle = overlay}
+                    actual = serialize Turtle slug joint
+                 in if regen
+                        then BS.writeFile expectedPath actual
+                        else
+                            if actual == expected
+                                then pure ()
+                                else
+                                    expectationFailure $
+                                        "byte-diff: emit("
+                                            <> slug
+                                            <> ") /= "
+                                            <> expectedPath
+                                            <> " (lengths "
+                                            <> show (BS.length actual)
+                                            <> " vs "
+                                            <> show (BS.length expected)
+                                            <> ")"
+
+-- | @True@ when @EMIT_GOLDEN_REGEN=1@ is in the environment.
+regenEnabled :: IO Bool
+regenEnabled = do
+    mv <- lookupEnv "EMIT_GOLDEN_REGEN"
+    pure (mv == Just "1")
 
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty

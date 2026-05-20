@@ -90,8 +90,10 @@ data VocabTerm
     | TermToPool
     | TermToDRep
     | TermHasCollateralInput
+    | TermHasReferenceInput
     | TermHasProposal
     | TermDecodedAs
+    | TermFromTxOutRef
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -135,8 +137,10 @@ vocabIri = \case
     TermToPool -> cardanoPrefix <> "toPool"
     TermToDRep -> cardanoPrefix <> "toDRep"
     TermHasCollateralInput -> cardanoPrefix <> "hasCollateralInput"
+    TermHasReferenceInput -> cardanoPrefix <> "hasReferenceInput"
     TermHasProposal -> cardanoPrefix <> "hasProposal"
     TermDecodedAs -> cardanoPrefix <> "decodedAs"
+    TermFromTxOutRef -> cardanoPrefix <> "fromTxOutRef"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -179,8 +183,10 @@ vocabCurie = \case
     TermToPool -> "cardano:toPool"
     TermToDRep -> "cardano:toDRep"
     TermHasCollateralInput -> "cardano:hasCollateralInput"
+    TermHasReferenceInput -> "cardano:hasReferenceInput"
     TermHasProposal -> "cardano:hasProposal"
     TermDecodedAs -> "cardano:decodedAs"
+    TermFromTxOutRef -> "cardano:fromTxOutRef"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

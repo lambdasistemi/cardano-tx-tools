@@ -101,205 +101,239 @@ _:tx a cardano:Transaction ;
 # Input 1
 #
 
-_:input1 a cardano:Input .
+_:input1 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000001#0" .
 
 #
 # Input 2
 #
 
-_:input2 a cardano:Input .
+_:input2 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000002#0" .
 
 #
 # Input 3
 #
 
-_:input3 a cardano:Input .
+_:input3 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000003#0" .
 
 #
 # Input 4
 #
 
-_:input4 a cardano:Input .
+_:input4 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000004#0" .
 
 #
 # Input 5
 #
 
-_:input5 a cardano:Input .
+_:input5 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000005#0" .
 
 #
 # Input 6
 #
 
-_:input6 a cardano:Input .
+_:input6 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000006#0" .
 
 #
 # Input 7
 #
 
-_:input7 a cardano:Input .
+_:input7 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000007#0" .
 
 #
 # Input 8
 #
 
-_:input8 a cardano:Input .
+_:input8 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000008#0" .
 
 #
 # Input 9
 #
 
-_:input9 a cardano:Input .
+_:input9 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000009#0" .
 
 #
 # Input 10
 #
 
-_:input10 a cardano:Input .
+_:input10 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000000a#0" .
 
 #
 # Input 11
 #
 
-_:input11 a cardano:Input .
+_:input11 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000000b#0" .
 
 #
 # Input 12
 #
 
-_:input12 a cardano:Input .
+_:input12 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000000c#0" .
 
 #
 # Input 13
 #
 
-_:input13 a cardano:Input .
+_:input13 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000000d#0" .
 
 #
 # Input 14
 #
 
-_:input14 a cardano:Input .
+_:input14 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000000e#0" .
 
 #
 # Input 15
 #
 
-_:input15 a cardano:Input .
+_:input15 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000000f#0" .
 
 #
 # Input 16
 #
 
-_:input16 a cardano:Input .
+_:input16 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000010#0" .
 
 #
 # Input 17
 #
 
-_:input17 a cardano:Input .
+_:input17 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000011#0" .
 
 #
 # Input 18
 #
 
-_:input18 a cardano:Input .
+_:input18 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000012#0" .
 
 #
 # Input 19
 #
 
-_:input19 a cardano:Input .
+_:input19 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000013#0" .
 
 #
 # Input 20
 #
 
-_:input20 a cardano:Input .
+_:input20 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000014#0" .
 
 #
 # Input 21
 #
 
-_:input21 a cardano:Input .
+_:input21 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000015#0" .
 
 #
 # Input 22
 #
 
-_:input22 a cardano:Input .
+_:input22 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000016#0" .
 
 #
 # Input 23
 #
 
-_:input23 a cardano:Input .
+_:input23 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000017#0" .
 
 #
 # Input 24
 #
 
-_:input24 a cardano:Input .
+_:input24 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000018#0" .
 
 #
 # Input 25
 #
 
-_:input25 a cardano:Input .
+_:input25 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000019#0" .
 
 #
 # Input 26
 #
 
-_:input26 a cardano:Input .
+_:input26 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000001a#0" .
 
 #
 # Input 27
 #
 
-_:input27 a cardano:Input .
+_:input27 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000001b#0" .
 
 #
 # Input 28
 #
 
-_:input28 a cardano:Input .
+_:input28 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000001c#0" .
 
 #
 # Input 29
 #
 
-_:input29 a cardano:Input .
+_:input29 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000001d#0" .
 
 #
 # Input 30
 #
 
-_:input30 a cardano:Input .
+_:input30 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000001e#0" .
 
 #
 # Input 31
 #
 
-_:input31 a cardano:Input .
+_:input31 a cardano:Input ;
+  cardano:fromTxOutRef "000000000000000000000000000000000000000000000000000000000000001f#0" .
 
 #
 # Input 32
 #
 
-_:input32 a cardano:Input .
+_:input32 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000020#0" .
 
 #
 # Input 33
 #
 
-_:input33 a cardano:Input .
+_:input33 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000021#0" .
 
 #
 # Input 34
 #
 
-_:input34 a cardano:Input .
+_:input34 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000022#0" .
 
 #
 # Output 1
@@ -319,7 +353,8 @@ _:output2 a cardano:Output ;
 # Collateral 1
 #
 
-_:collateral1 a cardano:Input .
+_:collateral1 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000064#0" .
 
 #
 # Address decompositions — payment + stake credential per leaf.

@@ -41,7 +41,8 @@ _:tx a cardano:Transaction ;
 # Input 1
 #
 
-_:input1 a cardano:Input .
+_:input1 a cardano:Input ;
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000001#0" .
 
 #
 # Output 1
