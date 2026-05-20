@@ -96,6 +96,20 @@ below for the discovery that forced regeneration.
     (one regen broken = one fixture failing, not all 11). Concrete slice
     layout is decided in plan.md after the emitter scaffold + first
     fixture (02-alice-bob-ada, simplest) land.
+- Q: The artisan `expected.ttl` files carry substantial narrative comments
+    (story arcs, invariant explanations, cross-references — fixture 04 alone
+    has 111 comment lines). Where does this design memory live after the
+    regen drops it from the joint file?
+  → A: A new per-fixture `NOTES.md` file (`test/fixtures/rewrite-redesign/<NN>/NOTES.md`)
+    holds the narrative as markdown. The regenerated `expected.ttl` carries
+    only machine-emitted comments (uniform section headers per research R4);
+    `expected.txt` keeps its structured-YAML format (#51 cli-tree contract);
+    `NOTES.md` is documentation-only with no test assertion against it.
+    Each artifact stays single-purpose: byte-diff anchor (`expected.ttl`),
+    structured fixture data (`expected.txt`), design narrative (`NOTES.md`).
+    Migration lands in **T001a** as a single chore slice authoring 11 new
+    files before any emitter code touches the fixtures (T002+). **Source**:
+    Q-003 → `/tmp/epic-046/tx-58/{questions,answers}/Q-003-narrative-comment-migration.md`.
 
 ### Session 2026-05-20 (deferred to plan)
 
@@ -451,6 +465,14 @@ the emitter (which lists projection constructors).
   `UnsupportedLeafType <name>`.
 - **EmitFormat**: `Turtle | JsonLd`. Pinned at the CLI parse and threaded
   through to the serializer dispatcher.
+- **Design narrative (per-fixture `NOTES.md`)**: a non-code, non-test
+  documentation artifact per fixture. Holds the story-arc text, invariant
+  explanations, and cross-references that the artisan `expected.ttl` files
+  merged in #45 carried as comment-lines. Migrated to markdown in T001a
+  before any regen begins, keeping the three on-disk artifacts
+  single-purpose: `expected.ttl` is the joint byte-diff anchor (machine
+  output only), `expected.txt` is the #51 cli-tree structured-YAML
+  contract, `NOTES.md` is the design narrative.
 
 ## Success Criteria *(mandatory)*
 
@@ -530,6 +552,11 @@ the emitter (which lists projection constructors).
 - **Joint graph**: The union of operator-entity overlay (from #48's
   loader) and transaction body (from this PR's emitter) — the file
   this PR contracts on as `expected.ttl`.
+- **Design narrative (`NOTES.md`)**: Per-fixture markdown file holding
+  the artisan story-arc text, invariant explanations, and ticket
+  cross-references that the artisan `expected.ttl` carried as
+  comment-lines. Authoring artifact only — no test assertion runs
+  against it. Migration in T001a (Q-003 → A-003).
 - **Body section**: The triples derived from a transaction's structural
   shape (inputs, outputs, certs, mints, withdrawals, votes, fees) plus
   the resolved UTxO entries they reference.
