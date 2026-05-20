@@ -48,6 +48,7 @@ let
         test -e ${components.sublibs."n2c-resolver"}
         test -e ${components.sublibs."tx-generator-lib"}
         test -e ${components.exes.tx-diff}
+        test -e ${components.exes.tx-graph}
         test -e ${components.exes."cardano-tx-generator"}
         test -e ${components.tests."unit-tests"}
         test -e ${components.tests."tx-generator-tests"}
@@ -59,7 +60,14 @@ let
     unit = {
       name = "unit";
       runtimeInputs = [ components.tests.unit-tests ];
+      # LoadExeSpec spawns the tx-graph binary as a subprocess and
+      # reads its path from TX_GRAPH_EXE (with a `cabal list-bin`
+      # fallback for the dev shell). The nix-check sandbox has no
+      # cabal on PATH, so we set the env var to the haskell.nix
+      # store path here — the same way components.tests.unit-tests
+      # is wired in as a runtimeInput.
       text = ''
+        export TX_GRAPH_EXE=${components.exes.tx-graph}/bin/tx-graph
         unit-tests
       '';
     };
