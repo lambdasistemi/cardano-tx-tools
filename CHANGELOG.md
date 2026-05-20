@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Maintenance
+
+* **066:** `tx-graph` is now wired into the Linux release pipeline
+  alongside `tx-diff`, `tx-inspect`, `tx-sign`, and `cardano-tx-generator`
+  — AppImage / DEB / RPM bundles produced on every release and dev tag
+  via the same `nix/linux-release.nix` plumbing the peers use. Packaged
+  without a CA-bundle wrapper (matches the `tx-sign` shape) because
+  `tx-graph` does no HTTPS; if a future change adds a github-release-check
+  banner or other HTTPS call, mirror the `txInspect` wrapper. Closes the
+  vertical-deliverables gap left by #48 / #58.
+
 ## [0.1.6.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.5.0...v0.1.6.0) (2026-05-20)
 
 ### Features

@@ -72,6 +72,11 @@ jobs:
             dev-output: tx-inspect-linux-dev-release-artifacts
             usage-grep: "[--rules FILE]"
             dev-tag: dev-linux-tx-inspect
+          - name: tx-graph
+            release-output: tx-graph-linux-release-artifacts
+            dev-output: tx-graph-linux-dev-release-artifacts
+            usage-grep: "operator-entity overlay + body emitter"
+            dev-tag: dev-linux-tx-graph
     env:
       EXE: ${{ matrix.executable.name }}
       USAGE_GREP: ${{ matrix.executable.usage-grep }}
