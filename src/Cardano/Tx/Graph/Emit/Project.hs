@@ -133,6 +133,10 @@ import Cardano.Ledger.Address (
     Withdrawals (..),
     serialiseAddr,
  )
+import Cardano.Ledger.Api.Scripts.Data (
+    Datum (Datum, DatumHash, NoDatum),
+    hashBinaryData,
+ )
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
@@ -151,7 +155,13 @@ import Cardano.Ledger.Api.Tx.Cert (
     Delegatee (DelegStake, DelegStakeVote, DelegVote),
     pattern DelegTxCert,
  )
-import Cardano.Ledger.Api.Tx.Out (TxOut, addrTxOutL, valueTxOutL)
+import Cardano.Ledger.Api.Tx.Out (
+    TxOut,
+    addrTxOutL,
+    datumTxOutL,
+    referenceScriptTxOutL,
+    valueTxOutL,
+ )
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet, Testnet),
     StrictMaybe (SJust, SNothing),
@@ -163,7 +173,7 @@ import Cardano.Ledger.Conway.Governance (
     GovAction (TreasuryWithdrawals),
     ProposalProcedure (..),
  )
-import Cardano.Ledger.Core (TxCert)
+import Cardano.Ledger.Core (Script, TxCert, hashScript)
 import Cardano.Ledger.Credential (
     Credential (KeyHashObj, ScriptHashObj),
     StakeReference (StakeRefBase, StakeRefNull, StakeRefPtr),
@@ -171,7 +181,12 @@ import Cardano.Ledger.Credential (
 import Cardano.Ledger.DRep (
     DRep (DRepAlwaysAbstain, DRepAlwaysNoConfidence, DRepKeyHash, DRepScriptHash),
  )
-import Cardano.Ledger.Hashes (KeyHash (..), ScriptHash (..), extractHash)
+import Cardano.Ledger.Hashes (
+    KeyHash (..),
+    ScriptHash (..),
+    extractHash,
+    originalBytes,
+ )
 import Cardano.Ledger.Keys (KeyRole (..))
 import Cardano.Ledger.Mary.Value (
     AssetName (..),
@@ -443,6 +458,24 @@ idInputBnode k = BnodeName ("input" <> Text.pack (show k))
 -- | Bnode name a body output at position @k@ (1-based) gets.
 idOutputBnode :: Int -> BnodeName
 idOutputBnode k = BnodeName ("output" <> Text.pack (show k))
+
+{- | Bnode name the per-output datum sub-block at output position
+@k@ (1-based) gets. T105 / S4 attaches it to the output via
+'cardano:hasDatum' when the output carries either an inline
+datum or a datum hash.
+-}
+idOutputDatumBnode :: Int -> BnodeName
+idOutputDatumBnode k =
+    BnodeName ("outputDatum" <> Text.pack (show k))
+
+{- | Bnode name the per-output reference-script sub-block at output
+position @k@ (1-based) gets. T105 / S4 attaches it to the
+output via 'cardano:hasReferenceScript' when the output carries
+a reference script (inline or hash-only).
+-}
+idOutputRefScriptBnode :: Int -> BnodeName
+idOutputRefScriptBnode k =
+    BnodeName ("outputRefScript" <> Text.pack (show k))
 
 -- | Bnode name a resolved-input output at position @k@ gets.
 idResolvedInputBnode :: Int -> BnodeName
@@ -1014,23 +1047,27 @@ buildOutputs entities lookupTbl outputs reg0 =
                     reg
             blocks =
                 clusterBlocks
-                    ( emitOutput
-                        lookupTbl
-                        k
-                        (aeBnodeBase entry)
-                        (txOut ^. valueTxOutL)
-                    )
+                    (emitOutput lookupTbl k (aeBnodeBase entry) txOut)
          in go (blocks : acc) reg' rest
 
 {- | Emit triples for a body output at position @k@. T104 attaches
 the output's @cardano:lovelace@ literal and (when the
 multi-asset bundle is non-empty) the @cardano:hasAssetValue@
 edge to an RDF-list head, followed by the per-asset-entry
-blocks.
+blocks. T105 attaches a @cardano:hasDatum@ edge (with a
+@cardano:Datum@-typed sub-block carrying @cardano:hasHash@,
+plus @cardano:hasRawBytes@ for inline datums) when the output
+carries a datum, and a @cardano:hasReferenceScript@ edge (with
+a sub-block carrying @cardano:hasHash@ + @cardano:hasRawBytes@)
+when the output carries a reference script. Outputs with
+neither datum nor reference script keep their pre-T105 shape.
 -}
-emitOutput :: LookupTable -> Int -> Text -> MaryValue -> Emit ()
-emitOutput lookupTbl k base value = do
+emitOutput :: LookupTable -> Int -> Text -> TxOut ConwayEra -> Emit ()
+emitOutput lookupTbl k base txOut = do
     let outSubj = SBnode (idOutputBnode k)
+        value = txOut ^. valueTxOutL
+        datum = txOut ^. datumTxOutL
+        refScript = txOut ^. referenceScriptTxOutL
     tellTriple (Triple outSubj PRdfType (OIri (vocabCurie TermOutput)))
     tellTriple
         ( Triple
@@ -1039,6 +1076,95 @@ emitOutput lookupTbl k base value = do
             (OBnode (BnodeName (base <> "Addr")))
         )
     emitOutputValue lookupTbl (ValueAnchor "output" k) outSubj value
+    emitOutputDatum k outSubj datum
+    emitOutputReferenceScript k outSubj refScript
+
+{- | Emit the @cardano:hasDatum@ edge + per-datum sub-block for an
+output at position @k@ when the output carries a datum.
+@DatumHash@-only outputs emit @cardano:hasHash@ alone; inline
+@Datum@ outputs additionally emit @cardano:hasRawBytes@ — the
+presence of @hasRawBytes@ is the distinguisher between the two
+shapes (per D-002). Outputs with @NoDatum@ emit nothing.
+-}
+emitOutputDatum :: Int -> Subject -> Datum ConwayEra -> Emit ()
+emitOutputDatum _ _ NoDatum = pure ()
+emitOutputDatum k outSubj (DatumHash dh) = do
+    let datumBnode = idOutputDatumBnode k
+        datumSubj = SBnode datumBnode
+        hashBytes = hashToBytes (extractHash dh)
+    tellTriple
+        ( Triple
+            outSubj
+            (PIri (vocabCurie TermHasDatum))
+            (OBnode datumBnode)
+        )
+    tellTriple (Triple datumSubj PRdfType (OIri (vocabCurie TermDatum)))
+    tellTriple
+        ( Triple
+            datumSubj
+            (PIri (vocabCurie TermHasHash))
+            (OStringLit (hexText hashBytes))
+        )
+emitOutputDatum k outSubj (Datum binaryData) = do
+    let datumBnode = idOutputDatumBnode k
+        datumSubj = SBnode datumBnode
+        hashBytes = hashToBytes (extractHash (hashBinaryData binaryData))
+        rawBytes = originalBytes binaryData
+    tellTriple
+        ( Triple
+            outSubj
+            (PIri (vocabCurie TermHasDatum))
+            (OBnode datumBnode)
+        )
+    tellTriple (Triple datumSubj PRdfType (OIri (vocabCurie TermDatum)))
+    tellTriple
+        ( Triple
+            datumSubj
+            (PIri (vocabCurie TermHasHash))
+            (OStringLit (hexText hashBytes))
+        )
+    tellTriple
+        ( Triple
+            datumSubj
+            (PIri (vocabCurie TermHasRawBytes))
+            (OStringLit (hexText rawBytes))
+        )
+
+{- | Emit the @cardano:hasReferenceScript@ edge + per-script
+sub-block for an output at position @k@ when the output carries
+a reference script. The sub-block carries @cardano:hasHash@ +
+@cardano:hasRawBytes@; the script bnode is untyped (the
+canonical @cardano:Script@ class is declared in the kmaps pin
+but is not applied here — see the navigator brief literal
+shape). Outputs with no reference script emit nothing.
+-}
+emitOutputReferenceScript ::
+    Int -> Subject -> StrictMaybe (Script ConwayEra) -> Emit ()
+emitOutputReferenceScript _ _ SNothing = pure ()
+emitOutputReferenceScript k outSubj (SJust script) = do
+    let scriptBnode = idOutputRefScriptBnode k
+        scriptSubj = SBnode scriptBnode
+        ScriptHash hh = hashScript script
+        hashBytes = hashToBytes hh
+        rawBytes = originalBytes script
+    tellTriple
+        ( Triple
+            outSubj
+            (PIri (vocabCurie TermHasReferenceScript))
+            (OBnode scriptBnode)
+        )
+    tellTriple
+        ( Triple
+            scriptSubj
+            (PIri (vocabCurie TermHasHash))
+            (OStringLit (hexText hashBytes))
+        )
+    tellTriple
+        ( Triple
+            scriptSubj
+            (PIri (vocabCurie TermHasRawBytes))
+            (OStringLit (hexText rawBytes))
+        )
 
 ----------------------------------------------------------------------
 -- Address decomposition blocks
@@ -1601,7 +1727,11 @@ emitProposalTreasuryWithdrawals lookupTbl k returnAddr targets = do
             , let (lt, bytes) = accountStakeLeaf acct
             ]
         propSubj = SBnode (idProposalBnode k)
-    tellTriple (Triple propSubj PRdfType (OIri (vocabCurie TermDatum)))
+    -- T105 / S4 drops the @_:proposalN a cardano:Datum@ type
+    -- triple — the @cardano:Datum@ class declaration in the
+    -- canonical pin is retained, but the proposal subject is
+    -- left typeless here until T108 / S7 retypes it under the
+    -- D-006 fallback shape.
     tellTriple
         ( Triple
             propSubj

@@ -8,7 +8,9 @@ import Cardano.Tx.Graph.Emit.InputSemanticSpec qualified as GraphEmitInputSemant
 import Cardano.Tx.Graph.Emit.JsonLdEquivalenceSpec qualified as GraphEmitJsonLdEquivalenceSpec
 import Cardano.Tx.Graph.Emit.LookupSpec qualified as GraphEmitLookupSpec
 import Cardano.Tx.Graph.Emit.MultiAssetListSpec qualified as GraphEmitMultiAssetListSpec
+import Cardano.Tx.Graph.Emit.OutputDatumSpec qualified as GraphEmitOutputDatumSpec
 import Cardano.Tx.Graph.Emit.OutputLovelaceSpec qualified as GraphEmitOutputLovelaceSpec
+import Cardano.Tx.Graph.Emit.OutputScriptRefSpec qualified as GraphEmitOutputScriptRefSpec
 import Cardano.Tx.Graph.Emit.ReproducibilitySpec qualified as GraphEmitReproducibilitySpec
 import Cardano.Tx.Graph.Emit.SubjectDeDupSpec qualified as GraphEmitSubjectDeDupSpec
 import Cardano.Tx.Graph.Emit.VocabTraceabilitySpec qualified as GraphEmitVocabTraceabilitySpec
@@ -39,7 +41,9 @@ main = hspec $ do
     GraphEmitJsonLdEquivalenceSpec.spec
     GraphEmitLookupSpec.spec
     GraphEmitMultiAssetListSpec.spec
+    GraphEmitOutputDatumSpec.spec
     GraphEmitOutputLovelaceSpec.spec
+    GraphEmitOutputScriptRefSpec.spec
     GraphEmitReproducibilitySpec.spec
     GraphEmitSubjectDeDupSpec.spec
     GraphEmitVocabTraceabilitySpec.spec

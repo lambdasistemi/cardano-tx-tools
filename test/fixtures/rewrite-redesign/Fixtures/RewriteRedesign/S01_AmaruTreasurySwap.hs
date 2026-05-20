@@ -54,6 +54,7 @@ import Fixtures.RewriteRedesign.Helpers (
     mkTx,
     stubTxIn,
     stubTxOut,
+    stubTxOutDatumScript,
  )
 
 import Cardano.Tx.Build (collateral, output, spend)
@@ -74,7 +75,13 @@ swap-order coin amounts are not modelled here.
 tx :: ConwayTx
 tx = mkTx . TxBuilder $ do
     mapM_ (spend . stubTxIn) ([1 .. 34] :: [Int])
-    _ <- output (stubTxOut 1_500_000)
+    -- T105 / S4: the treasury output carries an inline datum
+    -- and a reference script so the per-output @cardano:hasDatum@
+    -- + @cardano:hasReferenceScript@ emission paths are
+    -- exercised by the rewrite-redesign goldens; the change
+    -- output retains its bare coin-only shape so the absent-on-
+    -- both-sides branch stays covered.
+    _ <- output (stubTxOutDatumScript 1_500_000)
     _ <- output (stubTxOut 850_000)
     collateral (stubTxIn 100)
 

@@ -139,18 +139,19 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T105 — S4: output `hasDatum` + `hasReferenceScript`; remove proposal `Datum` overload (feat)
 
+- **Status**: [X] complete — landed at this commit.
 - **Subject**: `feat(070): emit unified hasDatum sub-block + hasReferenceScript on outputs`
 - **Tasks trailer**: `Tasks: T105`
 - **Files**:
-  - `src/Cardano/Tx/Graph/Emit/Vocab.hs` (add `TermHasDatum`, `TermHasReferenceScript`, `TermHasHash`, `TermHasRawBytes`; remove `TermDatum` predicate reuse — class stays)
+  - `src/Cardano/Tx/Graph/Emit/Vocab.hs` (add `TermHasDatum`, `TermHasReferenceScript`, `TermHasHash`, `TermHasRawBytes`; `TermDatum` class entry preserved)
   - `src/Cardano/Tx/Graph/Emit/Project.hs` (per-output datum/ref-script emission; remove `cardano:Datum`-class overload from the proposal cluster — proposal cluster reshuffled in T108)
-  - `src/Cardano/Tx/Graph/Emit/Triple.hs` (`OHexLit` constructor if not added by T103)
   - `test/Cardano/Tx/Graph/Emit/OutputDatumSpec.hs` (NEW)
   - `test/Cardano/Tx/Graph/Emit/OutputScriptRefSpec.hs` (NEW)
-  - Fixture 01 (datum + scriptRef carrier), fixture 11 regenerated
-- **RED**: `OutputDatumSpec` + `OutputScriptRefSpec` fail.
-- **GREEN**: per-D-002 shape; presence of `hasRawBytes` distinguishes
-  inline-vs-hash; ref-script shape per spec.
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/Helpers.hs` (added `stubTxOutDatumScript` + `stubInlineDatum` + `stubRefScript`)
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S01_AmaruTreasurySwap.hs` (output 1 swapped to `stubTxOutDatumScript` to exercise both new paths)
+  - All 11 fixtures' `expected.ttl` regenerated (01 + 10 diff; the other 9 stay byte-identical)
+- **RED**: `OutputDatumSpec` + `OutputScriptRefSpec` failed on the pre-T105 emitter once fixture 01 grew a datum-bearing output; `EmitGoldenSpec` also byte-diffed on fixtures 01 + 10.
+- **GREEN**: per-D-002 shape; presence of `hasRawBytes` distinguishes inline-vs-hash; ref-script shape per spec; proposal subject typeless until T108.
 - **Owner**: paired subagents.
 
 ### T106 — S5: withdrawal canonical names + mint `mintsAsset` + signed `quantity` (feat)

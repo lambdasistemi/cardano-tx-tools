@@ -62,8 +62,7 @@ _:output1 a cardano:Output ;
 # Proposal 1
 #
 
-_:proposal1 a cardano:Datum ;
-  cardano:decodedAs "TreasuryWithdrawals" ;
+_:proposal1 cardano:decodedAs "TreasuryWithdrawals" ;
   cardano:hasIdentifier _:cred_stakekey_0000000000000000 ;
   cardano:hasIdentifier _:cred_stakekey_0000000000000000 .
 

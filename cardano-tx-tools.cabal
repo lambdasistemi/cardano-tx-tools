@@ -372,7 +372,9 @@ test-suite unit-tests
     Cardano.Tx.Graph.Emit.JsonLdEquivalenceSpec
     Cardano.Tx.Graph.Emit.LookupSpec
     Cardano.Tx.Graph.Emit.MultiAssetListSpec
+    Cardano.Tx.Graph.Emit.OutputDatumSpec
     Cardano.Tx.Graph.Emit.OutputLovelaceSpec
+    Cardano.Tx.Graph.Emit.OutputScriptRefSpec
     Cardano.Tx.Graph.Emit.ReproducibilitySpec
     Cardano.Tx.Graph.Emit.SubjectDeDupSpec
     Cardano.Tx.Graph.Emit.VocabTraceabilitySpec

@@ -107,6 +107,11 @@ data VocabTerm
     | TermHasAssetValue
     | TermMintsAsset
     | TermQuantity
+    | -- Datum + reference-script sub-block (T105 / S4)
+      TermHasDatum
+    | TermHasReferenceScript
+    | TermHasHash
+    | TermHasRawBytes
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -158,6 +163,10 @@ vocabIri = \case
     TermHasAssetValue -> cardanoPrefix <> "hasAssetValue"
     TermMintsAsset -> cardanoPrefix <> "mintsAsset"
     TermQuantity -> cardanoPrefix <> "quantity"
+    TermHasDatum -> cardanoPrefix <> "hasDatum"
+    TermHasReferenceScript -> cardanoPrefix <> "hasReferenceScript"
+    TermHasHash -> cardanoPrefix <> "hasHash"
+    TermHasRawBytes -> cardanoPrefix <> "hasRawBytes"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -208,6 +217,10 @@ vocabCurie = \case
     TermHasAssetValue -> "cardano:hasAssetValue"
     TermMintsAsset -> "cardano:mintsAsset"
     TermQuantity -> "cardano:quantity"
+    TermHasDatum -> "cardano:hasDatum"
+    TermHasReferenceScript -> "cardano:hasReferenceScript"
+    TermHasHash -> "cardano:hasHash"
+    TermHasRawBytes -> "cardano:hasRawBytes"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.
