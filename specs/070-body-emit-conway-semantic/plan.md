@@ -251,7 +251,7 @@ commit).
 
 | Slice | Subject | Conventional Commit prefix | Tasks |
 |---|---|---|---|
-| S0 | Vendor canonical-vocab pin (verbatim kmaps@8597fbd57) + PINNED.md | `chore(070):` | T101 |
+| S0 | Vendor canonical-vocab pin (verbatim kmaps@8597fbd57 — kmaps PR base) + PINNED.md citing [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55) | `chore(070):` | T101 |
 | S1 | Introduce `Emit` monad + `tellTriple` + `introduce` + `runEmit`; rewire `projectBody`; **no behavior change** (all fixtures byte-equal to S0) | `refactor(070):` | T102 |
 | S2 | Input: `cardano:fromTxOutRef "<txid>#<ix>"` on every input (spending + collateral); reference-input support (FR-011) | `feat(070):` | T103 |
 | S3 | Output: `cardano:lovelace` + multi-asset RDF list | `feat(070):` | T104 |
@@ -260,7 +260,8 @@ commit).
 | S6 | Body-root: `hasValidityInterval` (object-shape per D-001) + `networkId` + `scriptDataHash` + `auxiliaryDataHash` | `feat(070):` | T107 |
 | S7 | Proposal: D-006 fallback shape — inline-datum sub-block under `hasDatum` + preserve `decodedAs "TreasuryWithdrawals"` | `feat(070):` | T108 |
 | S8 | `views/no-stub-triples.rq` + extend `gate.sh` to invoke it; tighten harness `NoStubViewSpec` | `feat(070):` | T109 |
-| S9 | Refresh canonical-vocab pin to kmaps-PR draft branch (then again to merged kmaps SHA on the final pin-bump) | `chore(070):` | T110 |
+| S9a | Refresh canonical-vocab pin to [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55) branch tip (`phase-a1-tx-semantic-predicates` HEAD) so FR-013 strict CI passes against the proposed additions while the kmaps PR is still in draft | `chore(070):` | T110a |
+| S9b | Refresh canonical-vocab pin to merged kmaps `main` SHA once kmaps#55 lands — finalization-blocking; pin must match a merged SHA before PR #77 flips to ready | `chore(070):` | T110b |
 | S10 | Re-record asciinema cast against fixture 11; refresh `docs/tx-graph.md` / `README.md` examples if `--help` surface changed | `docs(070):` | T111 |
 | S11 | `CHANGELOG.md` entry | `docs(070):` | T112 |
 | S12 | Drop `gate.sh` (ready for review) | `chore(070):` | T113 |
@@ -350,9 +351,15 @@ is reworked, not bypassed.
   stays open until both #70 and #51 (SPARQL views) merge — the
   no-stub SPARQL gate + the now-rich graph make the views work
   unlock.
-- Parallel parent action: kmaps PR opened by parent using
-  `/tmp/epic-046/tx-70/transactions-additions.ttl` as the patch body.
-  S9 lands the canonical-vocab pin refresh once that PR merges.
+- Parallel parent action (DONE — kmaps#55 opened, draft):
+  [lambdasistemi/cardano-knowledge-maps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55)
+  on branch `phase-a1-tx-semantic-predicates`, base
+  kmaps@8597fbd57, body matches
+  `/tmp/epic-046/tx-70/transactions-additions.ttl` verbatim (+79
+  lines, 10 properties). S9a refreshes the vendored pin to that PR's
+  branch tip so FR-013 stays strict throughout implementation; S9b
+  refreshes again to the merged main SHA at finalization (per
+  A-004 Option A).
 - Follow-on tickets to file at #70 finalization (per A-001 / A-002):
   - "Expose monadic `traverseConwayDiff` from `Cardano.Tx.Diff` if/when
     #51 / #52 want a shared walker" (A-001).

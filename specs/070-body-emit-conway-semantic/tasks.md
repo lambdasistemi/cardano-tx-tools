@@ -171,22 +171,40 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
   CI gate of the entire ticket.
 - **Owner**: paired subagents.
 
-### T110 — S9: refresh canonical-vocab pin to kmaps SHA (chore)
+### T110a — S9a: refresh canonical-vocab pin to kmaps#55 branch tip (chore)
 
-- **Subject**: `chore(070): refresh canonical-vocab pin to kmaps@<merged-sha>`
-- **Tasks trailer**: `Tasks: T110`
+- **Subject**: `chore(070): refresh canonical-vocab pin to kmaps#55 branch tip`
+- **Tasks trailer**: `Tasks: T110a`
 - **Files**:
-  - `test/fixtures/canonical-vocab/transactions.ttl` (refresh)
-  - `test/fixtures/canonical-vocab/PINNED.md` (SHA + date update)
-- **RED**: vocab-traceability spec fails if the new pin doesn't
-  declare every predicate the regenerated `expected.ttl` files emit.
-- **GREEN**: pin matches; vocab-traceability spec passes against the
-  pin.
+  - `test/fixtures/canonical-vocab/transactions.ttl` (refresh — verbatim copy of `data/rdf/transactions.ttl` at `phase-a1-tx-semantic-predicates` HEAD of [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55))
+  - `test/fixtures/canonical-vocab/PINNED.md` (cite kmaps#55 + branch SHA + date; note "draft PR, not yet merged")
+- **RED**: vocab-traceability spec fails on slices S2..S7 if the pin
+  is still at kmaps@8597fbd57 (proposed predicates absent).
+- **GREEN**: pin includes the 10 Phase A.1 additions; FR-013 strict
+  check passes against the pin while the kmaps PR is still in draft.
 - **Live-boundary**: data refresh — verify by re-running the
   vocab-traceability spec.
-- **Owner**: sub-orchestrator (self-execute when the kmaps PR lands;
-  parent will write a NOTE-line answer or update PROTOCOL.md
-  pointing at the merged SHA).
+- **Sequencing**: lands **before** the first slice that emits a
+  Phase A.1 predicate (T103 — `fromTxOutRef`). Recommended position
+  in commit order: S0 → S1 → S9a → S2 → S3 … so the strict CI gate
+  is happy on every behavior-changing slice.
+- **Owner**: sub-orchestrator (self-execute; the kmaps PR is open
+  at draft, branch tip stable).
+
+### T110b — S9b: refresh canonical-vocab pin to merged kmaps `main` SHA (chore — finalization-blocking)
+
+- **Subject**: `chore(070): refresh canonical-vocab pin to kmaps@<merged-main-sha>`
+- **Tasks trailer**: `Tasks: T110b`
+- **Files**:
+  - `test/fixtures/canonical-vocab/transactions.ttl` (refresh to merged main)
+  - `test/fixtures/canonical-vocab/PINNED.md` (update SHA + date + drop "draft" note)
+- **RED**: none (pin refresh; vocab content unchanged from S9a).
+- **GREEN**: pin SHA matches a merged kmaps `main` commit.
+- **Sequencing**: blocks PR #77 finalization (T113). If kmaps#55
+  hasn't merged by the time S0..S12 are otherwise ready, file a
+  Q-file rather than flip the PR to ready.
+- **Owner**: sub-orchestrator (parent will surface the merged SHA on
+  STATUS.md / via NOTE-line; T110b lands as a single-line commit).
 
 ### T111 — S10: re-record asciinema cast + docs refresh (docs)
 
@@ -257,10 +275,14 @@ deleted, only extended:
 ## Parent-side parallel work (not a task this worker executes)
 
 - **K1** — Parent opens kmaps PR using
-  `/tmp/epic-046/tx-70/transactions-additions.ttl` as the body. The
-  worker's S9 pin-refresh depends on this merging.
-- **K2** — On merge, parent writes a STATUS-line or answer pointing
-  at the merged kmaps SHA so worker's S9 commit message is precise.
+  `/tmp/epic-046/tx-70/transactions-additions.ttl` as the body.
+  **DONE — A-004:** kmaps#55 opened on branch
+  `phase-a1-tx-semantic-predicates`, base kmaps@8597fbd57, body
+  matches the patch verbatim (+79 lines, 10 properties), state =
+  draft. Worker's T110a pin-refresh now targets the PR's branch tip.
+- **K2** — On merge, parent surfaces the merged kmaps `main` SHA
+  via STATUS / answer-file so worker's T110b commit message can
+  cite it precisely.
 
 ## Follow-on tickets (filed at #70 finalization, NOT during this PR)
 
