@@ -48,6 +48,16 @@ module Cardano.Tx.Graph.Emit (
     -- * Errors
     EmitError (..),
     renderEmitError,
+
+    -- * Credential lookup (T004)
+    -- $lookupSurface
+    BnodeName (..),
+    LookupTable,
+    buildLookup,
+    resolveCredential,
+    entityBnodeName,
+    rawBytesBnodeName,
+    rawBytesPrefixLength,
 ) where
 
 import Data.ByteString (ByteString)
@@ -59,8 +69,25 @@ import Cardano.Ledger.Api.Tx.Out (TxOut)
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.TxIn (TxIn)
 
+import Cardano.Tx.Graph.Emit.Lookup (
+    BnodeName (..),
+    LookupTable,
+    buildLookup,
+    entityBnodeName,
+    rawBytesBnodeName,
+    rawBytesPrefixLength,
+    resolveCredential,
+ )
 import Cardano.Tx.Graph.Rules.Load (EntityDecl)
 import Cardano.Tx.Ledger (ConwayTx)
+
+{- $lookupSurface
+The credential-lookup machinery introduced by T004. The submodule
+@Cardano.Tx.Graph.Emit.Lookup@ is private to the library; this
+re-export block exposes its types and functions to in-package
+test suites and to the future projection walker without
+publishing the module path itself.
+-}
 
 {- | The resolved-input map the emitter consumes alongside a
 'ConwayTx'.

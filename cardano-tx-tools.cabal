@@ -84,6 +84,7 @@ library
   other-modules:
     Cardano.Tx.Credentials
     Cardano.Tx.Deposits
+    Cardano.Tx.Graph.Emit.Lookup
     Cardano.Tx.Graph.Rules.Load.Bech32
     Cardano.Tx.Graph.Rules.Load.Emit.Overlay
     Cardano.Tx.Graph.Rules.Load.Naming
@@ -357,6 +358,7 @@ test-suite unit-tests
     Cardano.Tx.Diff.ResolverSpec
     Cardano.Tx.Diff.Web2Spec
     Cardano.Tx.DiffSpec
+    Cardano.Tx.Graph.Emit.LookupSpec
     Cardano.Tx.Graph.EmitSmokeSpec
     Cardano.Tx.Graph.Rules.LoadEntitiesSpec
     Cardano.Tx.Graph.Rules.LoadExeSpec

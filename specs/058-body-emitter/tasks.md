@@ -176,7 +176,7 @@ carries `Tasks: T###`.
 
 ## Phase 3 — credential lookup + raw-bytes naming
 
-- [ ] **T004** *(type=feat, subagent slice; plan slice 4 / FR-004 +
+- [X] **T004** *(type=feat, subagent slice; plan slice 4 / FR-004 +
   FR-005 + plan D3 + D4 + research R3)* — Credential lookup table
   (`Map (LeafType, ByteString) BnodeName`) + raw-bytes-named bnode
   scheme (`_:cred_<rolePrefix>_<bytes-prefix>` with `N = 16`). Unit
