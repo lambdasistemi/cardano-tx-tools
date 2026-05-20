@@ -83,6 +83,7 @@ import Cardano.Tx.Graph.Emit.Project (
     ProjectError (..),
     projectBody,
  )
+import Cardano.Tx.Graph.Emit.Serialize.JsonLd (renderJsonLd)
 import Cardano.Tx.Graph.Emit.Serialize.Turtle (renderTurtle)
 import Cardano.Tx.Graph.Emit.Triple (
     BodySection (..),
@@ -250,13 +251,18 @@ emit tx utxo entities =
 The fixture slug is the directory name under
 @test\/fixtures\/rewrite-redesign\/@ (e.g. @"02-alice-bob-ada"@);
 the serializer uses it as the local part of the @\@prefix :@
-declaration. 'serialize' is byte-stable: same inputs produce
-byte-equal output.
+declaration (Turtle) or the empty default in @\@context@
+(JSON-LD). For the Turtle path 'serialize' is byte-stable; for
+the JSON-LD path the acceptance contract is set-equality on the
+parsed triple set (spec FR-007 + SC-003), not byte-equality —
+the 'Cardano.Tx.Graph.Emit.JsonLdEquivalenceSpec' (T011) anchors
+this invariant.
 
-T005 implements the Turtle path; the JSON-LD path is left to
-T011 and currently errors. The 'EmitFormat' value distinguishes
-the two at the type level so the executable's @--format@ flag
-routes here without a string match.
+T005 implemented the Turtle path; T011 wires the JSON-LD path
+through 'Cardano.Tx.Graph.Emit.Serialize.JsonLd.renderJsonLd'.
+The 'EmitFormat' value distinguishes the two at the type level
+so the executable's @--format@ flag routes here without a string
+match.
 -}
 serialize :: EmitFormat -> FilePath -> EmittedGraph -> ByteString
 serialize fmt slug EmittedGraph{graphPrefixes, graphOverlayTurtle, graphBody} =
@@ -268,7 +274,8 @@ serialize fmt slug EmittedGraph{graphPrefixes, graphOverlayTurtle, graphBody} =
                 graphOverlayTurtle
                 graphBody
         JsonLd ->
-            error
-                ( "Cardano.Tx.Graph.Emit.serialize: JSON-LD path "
-                    <> "lands in T011 (FR-007 / SC-003)"
-                )
+            renderJsonLd
+                (Text.pack slug)
+                graphPrefixes
+                graphOverlayTurtle
+                graphBody
