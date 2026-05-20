@@ -290,7 +290,7 @@ self-contained "this projection case + this fixture's regen".
 
   **Commit subject**: `feat(graph): mint + policy + assetClass leaves; fixture 03`
 
-- [ ] **T007** *(type=feat, subagent slice; plan slice 7 / research R2
+- [X] **T007** *(type=feat, subagent slice; plan slice 7 / research R2
   + T006 audit)* — **Scope corrected per T006 audit**: harness
   builders elide script-witness/redeemer content; S04 carries a
   **mint** entry, S05 carries a **withdrawal** entry, S08 is

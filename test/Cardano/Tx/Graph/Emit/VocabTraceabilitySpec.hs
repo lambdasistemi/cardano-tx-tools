@@ -4,7 +4,8 @@ Description : Per-emit namespacing invariant (analyzer H1 / SC-005 / FR-009).
 License     : Apache-2.0
 
 Asserts the three vocab-traceability invariants on the joint
-Turtle output of a fixture-02 emit:
+Turtle output of every fixture currently enabled in
+'Cardano.Tx.Graph.EmitGoldenSpec':
 
 1. The emitter declares only the three known prefixes — @cardano:@,
    @rdfs:@, fixture-local empty prefix — and no others.
@@ -16,6 +17,14 @@ Turtle output of a fixture-02 emit:
 
 The traceability spec parses with a regex sweep — full Turtle
 parsing is out of scope; the point is per-emit invariant catching.
+
+== Per-A-002 (T007 follow-up)
+
+The rule is "VocabTraceabilitySpec runs over every fixture
+GREEN in EmitGoldenSpec", so each new fixture flip in a future
+slice should add the fixture to 'enabledFixtures' below. T007
+covers 02 + 03 + 04 + 05 + 08; T009 will add 09; T010 will add
+01 + 10 + 11.
 -}
 module Cardano.Tx.Graph.Emit.VocabTraceabilitySpec (spec) where
 
@@ -39,8 +48,13 @@ import Cardano.Tx.Graph.Rules.Load (
     loadRulesFile,
     rulesEntities,
  )
+import Cardano.Tx.Ledger (ConwayTx)
 
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
+import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
+import Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap qualified as S04
+import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
+import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 
 import Test.Hspec (
     Spec,
@@ -51,34 +65,49 @@ import Test.Hspec (
     shouldSatisfy,
  )
 
+-- | Fixtures GREEN in 'EmitGoldenSpec' at end of T007.
+enabledFixtures :: [(String, ConwayTx)]
+enabledFixtures =
+    [ ("02-alice-bob-ada", S02.tx)
+    , ("03-multi-asset-transfer", S03.tx)
+    , ("04-mint-spend-script-overlap", S04.tx)
+    , ("05-withdrawal-script-stake", S05.tx)
+    , ("08-contingency-disburse", S08.tx)
+    ]
+
 spec :: Spec
 spec =
-    describe "Cardano.Tx.Graph.Emit vocab traceability (T005 / H1 closer)" $ do
-        let slug = "02-alice-bob-ada"
-            dir = "test/fixtures/rewrite-redesign" </> slug
-            rulesPath = dir </> "rules.yaml"
-        entities <- runIO (loadEntities rulesPath)
-        let bytes = case emit S02.tx emptyUtxo entities of
-                Right g -> serialize Turtle slug g
-                Left _ -> BS.empty
-        runIO $
-            case emit S02.tx emptyUtxo entities of
-                Left err ->
-                    fail $
-                        "VocabTraceabilitySpec setup: emit returned Left "
-                            <> show err
-                Right _ -> pure ()
-        it "fixture 02: declared prefixes ⊆ {cardano, rdfs, :}" $ do
-            sort (extractDeclaredPrefixes bytes)
-                `shouldBe` sort ["", "cardano", "rdfs"]
-        it "fixture 02: every CURIE prefix in the body is one of the declared three" $ do
-            let usedPrefixes = nub (extractUsedPrefixes bytes)
-                ok p = p `elem` ["", "cardano", "rdfs"]
-                bad = filter (not . ok) usedPrefixes
-            bad `shouldBe` []
-        it "fixture 02: no '_internal:' substring leak" $ do
-            BS8.unpack bytes
-                `shouldSatisfy` notContaining "_internal:"
+    describe "Cardano.Tx.Graph.Emit vocab traceability (T005 / H1 closer)" $
+        mapM_ fixtureSpec enabledFixtures
+
+fixtureSpec :: (String, ConwayTx) -> Spec
+fixtureSpec (slug, tx) = describe slug $ do
+    let dir = "test/fixtures/rewrite-redesign" </> slug
+        rulesPath = dir </> "rules.yaml"
+    entities <- runIO (loadEntities rulesPath)
+    let bytes = case emit tx emptyUtxo entities of
+            Right g -> serialize Turtle slug g
+            Left _ -> BS.empty
+    runIO $
+        case emit tx emptyUtxo entities of
+            Left err ->
+                fail $
+                    "VocabTraceabilitySpec setup: "
+                        <> slug
+                        <> ": emit returned Left "
+                        <> show err
+            Right _ -> pure ()
+    it "declared prefixes ⊆ {cardano, rdfs, :}" $ do
+        sort (extractDeclaredPrefixes bytes)
+            `shouldBe` sort ["", "cardano", "rdfs"]
+    it "every CURIE prefix in the body is one of the declared three" $ do
+        let usedPrefixes = nub (extractUsedPrefixes bytes)
+            ok p = p `elem` ["", "cardano", "rdfs"]
+            bad = filter (not . ok) usedPrefixes
+        bad `shouldBe` []
+    it "no '_internal:' substring leak" $ do
+        BS8.unpack bytes
+            `shouldSatisfy` notContaining "_internal:"
 
 ----------------------------------------------------------------------
 -- Helpers

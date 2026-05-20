@@ -61,6 +61,10 @@ data VocabTerm
     | TermAddress
     | TermPaymentCredential
     | TermStakeCredential
+    | TermMint
+    | TermPolicy
+    | TermAsset
+    | TermWithdrawal
     | -- Body predicates
       TermHasInput
     | TermHasOutput
@@ -71,6 +75,12 @@ data VocabTerm
     | TermHasPaymentCredential
     | TermHasStakeCredential
     | TermHasIdentifier
+    | TermHasMint
+    | TermHasPolicy
+    | TermHasAsset
+    | TermHasWithdrawal
+    | TermOnCredential
+    | TermWithAmount
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -86,6 +96,10 @@ vocabIri = \case
     TermAddress -> cardanoPrefix <> "Address"
     TermPaymentCredential -> cardanoPrefix <> "PaymentCredential"
     TermStakeCredential -> cardanoPrefix <> "StakeCredential"
+    TermMint -> cardanoPrefix <> "Mint"
+    TermPolicy -> cardanoPrefix <> "Policy"
+    TermAsset -> cardanoPrefix <> "Asset"
+    TermWithdrawal -> cardanoPrefix <> "Withdrawal"
     TermHasInput -> cardanoPrefix <> "hasInput"
     TermHasOutput -> cardanoPrefix <> "hasOutput"
     TermHasFee -> cardanoPrefix <> "hasFee"
@@ -95,6 +109,12 @@ vocabIri = \case
     TermHasPaymentCredential -> cardanoPrefix <> "hasPaymentCredential"
     TermHasStakeCredential -> cardanoPrefix <> "hasStakeCredential"
     TermHasIdentifier -> cardanoPrefix <> "hasIdentifier"
+    TermHasMint -> cardanoPrefix <> "hasMint"
+    TermHasPolicy -> cardanoPrefix <> "hasPolicy"
+    TermHasAsset -> cardanoPrefix <> "hasAsset"
+    TermHasWithdrawal -> cardanoPrefix <> "hasWithdrawal"
+    TermOnCredential -> cardanoPrefix <> "onCredential"
+    TermWithAmount -> cardanoPrefix <> "withAmount"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -109,6 +129,10 @@ vocabCurie = \case
     TermAddress -> "cardano:Address"
     TermPaymentCredential -> "cardano:PaymentCredential"
     TermStakeCredential -> "cardano:StakeCredential"
+    TermMint -> "cardano:Mint"
+    TermPolicy -> "cardano:Policy"
+    TermAsset -> "cardano:Asset"
+    TermWithdrawal -> "cardano:Withdrawal"
     TermHasInput -> "cardano:hasInput"
     TermHasOutput -> "cardano:hasOutput"
     TermHasFee -> "cardano:hasFee"
@@ -118,6 +142,12 @@ vocabCurie = \case
     TermHasPaymentCredential -> "cardano:hasPaymentCredential"
     TermHasStakeCredential -> "cardano:hasStakeCredential"
     TermHasIdentifier -> "cardano:hasIdentifier"
+    TermHasMint -> "cardano:hasMint"
+    TermHasPolicy -> "cardano:hasPolicy"
+    TermHasAsset -> "cardano:hasAsset"
+    TermHasWithdrawal -> "cardano:hasWithdrawal"
+    TermOnCredential -> "cardano:onCredential"
+    TermWithAmount -> "cardano:withAmount"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.
