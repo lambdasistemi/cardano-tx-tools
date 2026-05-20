@@ -211,6 +211,64 @@ avoid that rework cost, T004 pins `N = 16` upfront and asserts the
 collision-free property by construction (a unit test enumerates all
 pairs and asserts the projection is injective).
 
+### Stub-data degeneracy at the bnode-name level (T010 finding)
+
+T004's injectivity property test passes for all 11 fixtures: it
+enumerates every `(LeafType, bytes)` pair derived from rules.yaml
+entities (loader output) and asserts no two distinct pairs collide
+at `N = 16`. **The property holds at the (LeafType, bytes) level
+because the entity-derived bytes come from real bech32 decodes and
+don't share long zero prefixes.**
+
+However, T010's regen of fixture 10 (`governance-treasury-withdrawal`)
+surfaced a separate concern at the **bnode-name level**:
+
+- The S10 builder uses `propose(stubTreasuryWithdrawalProposal 1)`
+  which embeds two reward-account credentials (return-addr +
+  withdrawal target). The two credentials have **distinct 28-byte
+  stake-key hashes** but both happen to start with 8 zero bytes
+  (`0000…01` and `0000…02` shape, padded to 28 bytes).
+- `rawBytesBnodeName` at `N = 16` takes the first 16 hex chars
+  (= 8 bytes) of the lowercase hex encoding. Both stub hashes
+  project to `cred_stakekey_0000000000000000`.
+- The emitter correctly emits two `cardano:hasIdentifier`
+  predicates for the proposal's distinct credentials; they
+  reference the **same bnode** because of the prefix collision.
+
+The duplicate `hasIdentifier _:cred_stakekey_0000000000000000`
+line in fixture 10's `expected.ttl` is **stub-data degeneracy, not
+an emitter bug**:
+
+- RDF semantics: duplicate triples dedupe at parse — the graph
+  carries one edge, not two.
+- Operational reality: real Conway transactions don't use
+  intentionally-degenerate stub data with long zero prefixes;
+  this collision would not occur in production.
+- T004's injectivity property test correctly passes because the
+  underlying `(LeafType, bytes)` pairs ARE distinct.
+
+The `+4 safety margin` in the original R3 sizing was anchored
+against entity-derived bytes (real bech32 decodes). It does NOT
+apply to harness stub data with long zero prefixes. **No change to
+`N = 16` is warranted** — bumping `N` would require an 11-fixture
+re-regen for a known-degenerate test artifact; the cost is not
+justified by a production-relevant risk.
+
+The downstream blueprint decoder (#50) will replace the
+opaque-`Datum` proposal block with a typed `TreasuryWithdrawal`
+cluster carrying `toAccount` + `withAmount` sub-triples per
+reward-account, which disambiguates by structure regardless of
+bnode-name collisions. T010's `Datum + decodedAs` envelope is
+forward-compatible with that future swap.
+
+**Documentation invariant** (orchestrator-owned, recorded here):
+when adding new fixtures that exercise raw-bytes-bnode naming
+through stub builders, the operator should spot-check the byte
+prefixes; intentional all-zero stubs are fine but may produce
+duplicate `hasIdentifier` lines that look like bugs to a
+reviewer. The duplicates are intentional projection of distinct
+credentials whose bytes happen to share a prefix.
+
 ## R4 — Joint Turtle byte-shape (section blocking + comment conventions)
 
 **Decision**: The joint `expected.ttl` reproduces the artisan

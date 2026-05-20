@@ -69,6 +69,7 @@ data VocabTerm
     | TermVoteDelegation
     | TermPool
     | TermDRep
+    | TermDatum
     | -- Body predicates
       TermHasInput
     | TermHasOutput
@@ -88,6 +89,9 @@ data VocabTerm
     | TermHasCertificate
     | TermToPool
     | TermToDRep
+    | TermHasCollateralInput
+    | TermHasProposal
+    | TermDecodedAs
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -111,6 +115,7 @@ vocabIri = \case
     TermVoteDelegation -> cardanoPrefix <> "VoteDelegation"
     TermPool -> cardanoPrefix <> "Pool"
     TermDRep -> cardanoPrefix <> "DRep"
+    TermDatum -> cardanoPrefix <> "Datum"
     TermHasInput -> cardanoPrefix <> "hasInput"
     TermHasOutput -> cardanoPrefix <> "hasOutput"
     TermHasFee -> cardanoPrefix <> "hasFee"
@@ -129,6 +134,9 @@ vocabIri = \case
     TermHasCertificate -> cardanoPrefix <> "hasCertificate"
     TermToPool -> cardanoPrefix <> "toPool"
     TermToDRep -> cardanoPrefix <> "toDRep"
+    TermHasCollateralInput -> cardanoPrefix <> "hasCollateralInput"
+    TermHasProposal -> cardanoPrefix <> "hasProposal"
+    TermDecodedAs -> cardanoPrefix <> "decodedAs"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -151,6 +159,7 @@ vocabCurie = \case
     TermVoteDelegation -> "cardano:VoteDelegation"
     TermPool -> "cardano:Pool"
     TermDRep -> "cardano:DRep"
+    TermDatum -> "cardano:Datum"
     TermHasInput -> "cardano:hasInput"
     TermHasOutput -> "cardano:hasOutput"
     TermHasFee -> "cardano:hasFee"
@@ -169,6 +178,9 @@ vocabCurie = \case
     TermHasCertificate -> "cardano:hasCertificate"
     TermToPool -> "cardano:toPool"
     TermToDRep -> "cardano:toDRep"
+    TermHasCollateralInput -> "cardano:hasCollateralInput"
+    TermHasProposal -> "cardano:hasProposal"
+    TermDecodedAs -> "cardano:decodedAs"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

@@ -362,7 +362,7 @@ self-contained "this projection case + this fixture's regen".
 
   **Commit subject**: `feat(graph): enable fixture 09 byte-diff (regen-only; no new leaves)`
 
-- [ ] **T010** *(type=feat, subagent slice; plan slice 10 / research R2
+- [X] **T010** *(type=feat, subagent slice; plan slice 10 / research R2
   + T006 audit)* — Largest + residual-leaf fixtures **01**
   (amaru-treasury-swap hypothetical), **10** (governance treasury
   withdrawal), and **11** (amaru-treasury-swap-real). **Scope
