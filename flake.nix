@@ -355,6 +355,27 @@
                   package = txInspect;
                   bundlers = inputs.bundlers;
                 };
+              # tx-graph does no HTTPS today (no github-release-check
+              # banner, no --resolve-web2-style remote calls), so it
+              # ships without the CA-bundle wrapper that txInspect /
+              # txDiff need. Mirrors the tx-sign pattern: expose
+              # components.exes.tx-graph directly. If tx-graph ever
+              # grows an HTTPS call, mirror the txInspect wrapper.
+              tx-graph-linux-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  executableName = "tx-graph";
+                  package = components.exes.tx-graph;
+                  bundlers = inputs.bundlers;
+                };
+              tx-graph-linux-dev-release-artifacts =
+                import ./nix/linux-release.nix {
+                  inherit pkgs system packageVersion;
+                  artifactVersion = devArtifactVersion;
+                  executableName = "tx-graph";
+                  package = components.exes.tx-graph;
+                  bundlers = inputs.bundlers;
+                };
               linux-artifact-smoke =
                 import ./nix/linux-artifact-smoke.nix {
                   inherit pkgs system;
@@ -386,6 +407,7 @@
             tx-inspect = txInspect;
             tx-sign = components.exes.tx-sign;
             tx-validate = txValidate;
+            tx-graph = components.exes.tx-graph;
             cardano-tx-generator =
               components.exes.cardano-tx-generator;
           } // darwinReleasePackages // linuxReleasePackages
@@ -410,6 +432,10 @@
             tx-inspect = {
               type = "app";
               program = "${txInspect}/bin/tx-inspect";
+            };
+            tx-graph = {
+              type = "app";
+              program = "${components.exes.tx-graph}/bin/tx-graph";
             };
             cardano-tx-generator = {
               type = "app";

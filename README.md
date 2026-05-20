@@ -85,9 +85,9 @@ nix run github:lambdasistemi/cardano-tx-tools#tx-validate -- --help
 ```
 
 Substitute the executable name (`tx-diff`, `tx-inspect`,
-`tx-sign`, `cardano-tx-generator`) as needed. Each CLI prints an upgrade
-banner on stderr when a newer release is available; silence it
-with `<EXE>_NO_UPDATE_CHECK=1`.
+`tx-sign`, `tx-graph`, `cardano-tx-generator`) as needed. Each CLI prints
+an upgrade banner on stderr when a newer release is available (currently
+`tx-diff` and `tx-inspect`); silence it with `<EXE>_NO_UPDATE_CHECK=1`.
 
 ## The library
 
