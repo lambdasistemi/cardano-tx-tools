@@ -19,6 +19,7 @@ import Data.Aeson.Encode.Pretty qualified as Aeson.Pretty
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as TextIO
@@ -56,17 +57,19 @@ import Cardano.Tx.Build (mkPParamsBound)
 import Cardano.Tx.Diff.Resolver (resolveChain, resolverName)
 import Cardano.Tx.Diff.Resolver.N2C (n2cResolver)
 import Cardano.Tx.Ledger (ConwayTx)
-import Cardano.Tx.Validate (validatePhase1)
+import Cardano.Tx.Validate (validatePhase1WithRewardAccounts)
 import Cardano.Tx.Validate.Cli (
     InputSource (..),
     N2cConfig (..),
     OutputFormat (..),
+    RewardAccountSource (..),
     Session (..),
     TxValidateCliOptions (..),
     buildVerdict,
     collectInputs,
+    collectWithdrawalAccounts,
     exitCodeOf,
-    mkSession,
+    mkSessionWithRewardAccounts,
     parseArgs,
     renderHuman,
     renderJson,
@@ -78,7 +81,7 @@ main = withCli banner id $ do
     options <- parseArgs banner argv
     txBytes <- readInput (txValidateCliInput options)
     tx <- decodeOrDie txBytes
-    withSession options $ \session ->
+    withSession options tx $ \session ->
         runValidation session tx options
 
 {- | Update-check banner bundle handed to
@@ -107,10 +110,11 @@ runValidation session tx options = do
         utxoSources = Map.map (const resolverTag) resolved
         utxo = Map.toList resolved
         result =
-            validatePhase1
+            validatePhase1WithRewardAccounts
                 (sessionNetwork session)
                 (mkPParamsBound (sessionPParams session))
                 utxo
+                (sessionRewardAccounts session)
                 (sessionSlot session)
                 tx
         verdict = buildVerdict session utxoSources result
@@ -122,8 +126,8 @@ runValidation session tx options = do
                 >> putStrLn ""
     exitWith (exitCodeOf verdict)
 
-withSession :: TxValidateCliOptions -> (Session -> IO a) -> IO a
-withSession options k = do
+withSession :: TxValidateCliOptions -> ConwayTx -> (Session -> IO a) -> IO a
+withSession options tx k = do
     let cfg = txValidateCliN2c options
         magic = NetworkMagic (n2cMagic cfg)
         network = networkFromMagic magic
@@ -141,12 +145,23 @@ withSession options k = do
             let provider = mkN2CProvider lsqCh
             pp <- queryProtocolParams provider
             snap <- queryLedgerSnapshot provider
+            let withdrawalAccounts = collectWithdrawalAccounts tx
+            rewardAccounts <-
+                if Set.null withdrawalAccounts
+                    then pure Map.empty
+                    else queryRewardAccounts provider withdrawalAccounts
+            let rewardAccountsSource =
+                    if Set.null withdrawalAccounts
+                        then RewardAccountsNotRequired
+                        else RewardAccountsN2C
             let session =
-                    mkSession
+                    mkSessionWithRewardAccounts
                         network
                         pp
                         (ledgerTipSlot snap)
                         [n2cResolver provider]
+                        rewardAccounts
+                        rewardAccountsSource
             k session
 
 networkFromMagic :: NetworkMagic -> Network

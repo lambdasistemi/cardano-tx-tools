@@ -35,7 +35,7 @@
 
 **Independent Test**: CLI-style tests with a stub provider show registered withdrawal accounts avoid the false CERTS failure, unregistered accounts still fail, no-withdrawal human output remains stable, and JSON contains `reward_accounts_source`.
 
-- [ ] T002 [US1] Wire N2C reward-account lookup, session/verdict provenance, and CLI tests in `app/tx-validate/Main.hs`, `src/Cardano/Tx/Validate/Cli.hs`, and `test/Cardano/Tx/Validate/CliSpec.hs`
+- [x] T002 [US1] Wire N2C reward-account lookup, session/verdict provenance, and CLI tests in `app/tx-validate/Main.hs`, `src/Cardano/Tx/Validate/Cli.hs`, and `test/Cardano/Tx/Validate/CliSpec.hs`
 
 **Subagent brief for T002**:
 

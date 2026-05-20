@@ -8,22 +8,35 @@ module Cardano.Tx.Validate.CliSpec (
 ) where
 
 import Control.Exception (ErrorCall (..), throwIO)
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
+import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Data.Text qualified as Text
+import Data.Text.IO qualified as TextIO
 import Data.Version (makeVersion)
 import GitHub.Release.Check (CliBanner (..), RepoSlug (..))
 import Lens.Micro ((&), (.~), (^.))
 import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Address (
+    AccountAddress (..),
+    AccountId (..),
+    Withdrawals (..),
+ )
 import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
 import Cardano.Ledger.Alonzo.TxBody (
     ScriptIntegrityHash,
     scriptIntegrityHashTxBodyL,
  )
-import Cardano.Ledger.Api.Tx.Body (vldtTxBodyL)
+import Cardano.Ledger.Api (PParams)
+import Cardano.Ledger.Api.Tx.Body (
+    outputsTxBodyL,
+    vldtTxBodyL,
+    withdrawalsTxBodyL,
+ )
 import Cardano.Ledger.Api.Tx.Out (TxOut)
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet),
@@ -31,38 +44,48 @@ import Cardano.Ledger.BaseTypes (
     StrictMaybe (..),
     TxIx (..),
  )
+import Cardano.Ledger.Binary (
+    Annotator,
+    Decoder,
+    decCBOR,
+    decodeFullAnnotatorFromHexText,
+    natVersion,
+ )
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure)
 import Cardano.Ledger.Core (bodyTxL)
+import Cardano.Ledger.Credential (Credential (KeyHashObj))
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
+import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Staking))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Node.Client.Provider (Provider (..))
 import System.Exit (ExitCode (..))
 
 import Cardano.Tx.Build (mkPParamsBound)
-import Cardano.Tx.BuildSpec (loadBody, loadPParams)
 import Cardano.Tx.Diff.Resolver (Resolver (..), resolveChain)
 import Cardano.Tx.Diff.Resolver.N2C (n2cResolver)
 import Cardano.Tx.Ledger (ConwayTx)
-import Cardano.Tx.Validate (validatePhase1)
+import Cardano.Tx.Validate (validatePhase1WithRewardAccounts)
 import Cardano.Tx.Validate.Cli (
     InputSource (..),
     N2cConfig (..),
     OutputFormat (..),
+    RewardAccountSource (..),
     Session (..),
     TxValidateCliOptions (..),
     Verdict (..),
     VerdictStatus (..),
     buildVerdict,
     collectInputs,
+    collectWithdrawalAccounts,
     exitCodeOf,
     mkSession,
+    mkSessionWithRewardAccounts,
     parseArgs,
     renderHuman,
     renderJson,
  )
-
-import Cardano.Tx.Validate.LoadUtxo (loadUtxo)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Aeson
 import Data.Aeson.KeyMap qualified as Aeson.KeyMap
@@ -119,6 +142,72 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
 
     describe "end-to-end validation" $ do
         it
+            ( "registered withdrawal reward account from the provider "
+                <> "suppresses WithdrawalsNotInRewardsCERTS"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                buggy <- loadBody bodyPath
+                utxos <- loadUtxo producerTxDir issue8TxIns
+                calls <- newIORef []
+                let tx = withWithdrawal (postFix buggy)
+                    provider =
+                        stubProviderWithRewardAccounts
+                            utxos
+                            (Map.singleton withdrawalRewardAccount (Coin 0))
+                            calls
+                verdict <- driveVerdictWithProvider pp provider tx
+                readIORef calls
+                    >>= (`shouldBe` [Set.singleton withdrawalRewardAccount])
+                verdictStructuralFailures verdict
+                    `shouldSatisfy` (not . any isWithdrawalsNotInRewardsFailure)
+
+        it
+            ( "unregistered withdrawal reward account still surfaces "
+                <> "WithdrawalsNotInRewardsCERTS"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                buggy <- loadBody bodyPath
+                utxos <- loadUtxo producerTxDir issue8TxIns
+                calls <- newIORef []
+                let tx = withWithdrawal (postFix buggy)
+                    provider =
+                        stubProviderWithRewardAccounts
+                            utxos
+                            Map.empty
+                            calls
+                verdict <- driveVerdictWithProvider pp provider tx
+                readIORef calls
+                    >>= (`shouldBe` [Set.singleton withdrawalRewardAccount])
+                verdictStructuralFailures verdict
+                    `shouldSatisfy` any isWithdrawalsNotInRewardsFailure
+
+        it
+            ( "no-withdrawal transaction keeps the human render and "
+                <> "does not query reward accounts"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                buggy <- loadBody bodyPath
+                utxos <- loadUtxo producerTxDir issue8TxIns
+                calls <- newIORef []
+                let tx = postFix buggy
+                    provider =
+                        stubProviderWithRewardAccounts
+                            utxos
+                            Map.empty
+                            calls
+                verdict <- driveVerdictWithProvider pp provider tx
+                readIORef calls >>= (`shouldBe` [])
+                renderHuman verdict
+                    `shouldBe` Text.unlines
+                        [ "structurally clean: "
+                            <> Text.pack (show (verdictWitnessNoiseCount verdict))
+                            <> " witness-completeness failures filtered"
+                        ]
+
+        it
             ( "post-fix issue-#8 body validates structurally clean "
                 <> "(verdict + exit code + human render)"
             )
@@ -170,6 +259,36 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
                                     )
 
     describe "renderJson" $ do
+        it "emits reward account provenance for withdrawal lookup" $ do
+            pp <- loadPParams ppPath
+            buggy <- loadBody bodyPath
+            utxos <- loadUtxo producerTxDir issue8TxIns
+            calls <- newIORef []
+            let tx = withWithdrawal (postFix buggy)
+                provider =
+                    stubProviderWithRewardAccounts
+                        utxos
+                        (Map.singleton withdrawalRewardAccount (Coin 0))
+                        calls
+            verdict <- driveVerdictWithProvider pp provider tx
+            jsonString (renderJson verdict) ["reward_accounts_source"]
+                `shouldBe` Just "n2c"
+
+        it "emits not_required when no reward lookup was needed" $ do
+            pp <- loadPParams ppPath
+            buggy <- loadBody bodyPath
+            utxos <- loadUtxo producerTxDir issue8TxIns
+            calls <- newIORef []
+            let tx = postFix buggy
+                provider =
+                    stubProviderWithRewardAccounts
+                        utxos
+                        Map.empty
+                        calls
+            verdict <- driveVerdictWithProvider pp provider tx
+            jsonString (renderJson verdict) ["reward_accounts_source"]
+                `shouldBe` Just "not_required"
+
         it "emits the structurally-clean envelope per contract" $ do
             pp <- loadPParams ppPath
             buggy <- loadBody bodyPath
@@ -278,16 +397,68 @@ driveVerdict session tx = do
     let utxoSources = Map.map (const "n2c") resolved
         utxo = Map.toList resolved
         result =
-            validatePhase1
+            validatePhase1WithRewardAccounts
                 (sessionNetwork session)
                 (mkPParamsBound (sessionPParams session))
                 utxo
+                (sessionRewardAccounts session)
                 (sessionSlot session)
                 tx
     pure (buildVerdict session utxoSources result)
 
+driveVerdictWithProvider ::
+    PParams ConwayEra ->
+    Provider IO ->
+    ConwayTx ->
+    IO Verdict
+driveVerdictWithProvider pp provider tx = do
+    let withdrawalAccounts = collectWithdrawalAccounts tx
+    rewardAccounts <-
+        if Set.null withdrawalAccounts
+            then pure Map.empty
+            else queryRewardAccounts provider withdrawalAccounts
+    let rewardAccountsSource =
+            if Set.null withdrawalAccounts
+                then RewardAccountsNotRequired
+                else RewardAccountsN2C
+        session =
+            mkSessionWithRewardAccounts
+                Mainnet
+                pp
+                (inRangeSlot tx)
+                [n2cResolver provider]
+                rewardAccounts
+                rewardAccountsSource
+    sessionRewardAccounts session `shouldBe` rewardAccounts
+    driveVerdict session tx
+
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
+
+{- | Load a Conway-era @PParams@ snapshot from a
+@cardano-cli@-shaped JSON file.
+-}
+loadPParams :: FilePath -> IO (PParams ConwayEra)
+loadPParams path = do
+    r <- Aeson.eitherDecodeFileStrict path
+    case r of
+        Right pp -> pure pp
+        Left err -> fail ("loadPParams " <> path <> ": " <> err)
+
+{- | Load a Conway transaction from a @.cbor.hex@ file
+used by the committed mainnet txbuild fixtures.
+-}
+loadBody :: FilePath -> IO ConwayTx
+loadBody path = do
+    hex <- Text.strip <$> TextIO.readFile path
+    case decodeFullAnnotatorFromHexText
+        (natVersion @11)
+        (Text.pack ("swap-cancel body " <> path))
+        (decCBOR :: forall s. Decoder s (Annotator ConwayTx))
+        hex of
+        Right tx -> pure tx
+        Left err ->
+            fail ("loadBody " <> path <> ": " <> show err)
 
 bodyPath :: FilePath
 bodyPath =
@@ -296,6 +467,51 @@ bodyPath =
 producerTxDir :: FilePath
 producerTxDir =
     "test/fixtures/mainnet-txbuild/swap-cancel-issue-8/producer-txs"
+
+loadUtxo ::
+    FilePath ->
+    [TxIn] ->
+    IO [(TxIn, TxOut ConwayEra)]
+loadUtxo dir txIns = do
+    producers <-
+        traverse
+            ( \(txid, fileStem) -> do
+                tx <- loadBody (producerPath fileStem)
+                pure (txid, tx)
+            )
+            (Map.toList issue8ProducerFiles)
+    let producerMap = Map.fromList producers
+    pure (map (resolve producerMap) txIns)
+  where
+    producerPath fileStem =
+        dir <> "/" <> fileStem <> ".cbor.hex"
+
+    resolve ::
+        Map.Map TxId ConwayTx ->
+        TxIn ->
+        (TxIn, TxOut ConwayEra)
+    resolve producers txIn@(TxIn txid (TxIx ix)) =
+        case Map.lookup txid producers of
+            Nothing ->
+                error ("CliSpec.loadUtxo: no producer tx for " <> show txid)
+            Just producer ->
+                let outs = producer ^. bodyTxL . outputsTxBodyL
+                 in case StrictSeq.lookup (fromIntegral ix) outs of
+                        Just out -> (txIn, out)
+                        Nothing ->
+                            error
+                                ( "CliSpec.loadUtxo: TxIx "
+                                    <> show ix
+                                    <> " out of range for producer "
+                                    <> show txid
+                                )
+
+issue8ProducerFiles :: Map.Map TxId String
+issue8ProducerFiles =
+    Map.fromList
+        [ (txIdFromHex txId59e10, txId59e10)
+        , (txIdFromHex txIdF5f1b, txIdF5f1b)
+        ]
 
 issue8TxIns :: [TxIn]
 issue8TxIns =
@@ -399,3 +615,43 @@ stubProvider utxos =
             ( ErrorCall
                 ("stubProvider." <> field <> " called by an unprepared test")
             )
+
+stubProviderWithRewardAccounts ::
+    [(TxIn, TxOut ConwayEra)] ->
+    Map.Map AccountAddress Coin ->
+    IORef [Set.Set AccountAddress] ->
+    Provider IO
+stubProviderWithRewardAccounts utxos rewardAccounts calls =
+    (stubProvider utxos)
+        { queryRewardAccounts = \needed -> do
+            modifyIORef' calls (<> [needed])
+            pure (Map.restrictKeys rewardAccounts needed)
+        }
+
+withWithdrawal :: ConwayTx -> ConwayTx
+withWithdrawal tx =
+    tx
+        & bodyTxL
+            . withdrawalsTxBodyL
+            .~ Withdrawals
+                (Map.singleton withdrawalRewardAccount (Coin 0))
+
+withdrawalRewardAccount :: AccountAddress
+withdrawalRewardAccount = stubRewardAccount Mainnet 1
+
+stubRewardAccount :: Network -> Int -> AccountAddress
+stubRewardAccount network n =
+    AccountAddress
+        network
+        (AccountId (KeyHashObj (KeyHash hash :: KeyHash Staking)))
+  where
+    hex = replicate 52 '0' ++ hexByte (n `div` 256) ++ hexByte (n `mod` 256)
+    hexByte x = [d (x `div` 16), d (x `mod` 16)]
+    d k = "0123456789abcdef" !! k
+    hash = fromJust (hashFromStringAsHex hex)
+
+isWithdrawalsNotInRewardsFailure ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isWithdrawalsNotInRewardsFailure failure =
+    "WithdrawalsNotInRewardsCERTS"
+        `Text.isInfixOf` Text.pack (show failure)
