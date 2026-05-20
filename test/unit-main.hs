@@ -5,6 +5,8 @@ import Test.Hspec (hspec)
 import Cardano.Tx.BuildSpec qualified as BuildSpec
 import Cardano.Tx.DiffSpec qualified as DiffSpec
 import Cardano.Tx.Graph.Emit.LookupSpec qualified as GraphEmitLookupSpec
+import Cardano.Tx.Graph.Emit.VocabTraceabilitySpec qualified as GraphEmitVocabTraceabilitySpec
+import Cardano.Tx.Graph.EmitGoldenSpec qualified as GraphEmitGoldenSpec
 import Cardano.Tx.Graph.EmitSmokeSpec qualified as GraphEmitSmokeSpec
 import Cardano.Tx.Graph.Rules.LoadEntitiesSpec qualified as GraphRulesLoadEntitiesSpec
 import Cardano.Tx.Graph.Rules.LoadExeSpec qualified as GraphRulesLoadExeSpec
@@ -27,6 +29,8 @@ main = hspec $ do
     DiffSpec.spec
     BuildSpec.spec
     GraphEmitLookupSpec.spec
+    GraphEmitVocabTraceabilitySpec.spec
+    GraphEmitGoldenSpec.spec
     GraphEmitSmokeSpec.spec
     GraphRulesLoadEntitiesSpec.spec
     GraphRulesLoadExeSpec.spec

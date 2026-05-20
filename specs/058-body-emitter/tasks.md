@@ -210,7 +210,7 @@ carries `Tasks: T###`.
 
 ## Phase 4 — projection walker + first fixture GREEN
 
-- [ ] **T005** *(type=feat, subagent slice; plan slice 5 / FR-002 +
+- [X] **T005** *(type=feat, subagent slice; plan slice 5 / FR-002 +
   FR-003 + research R2 + R4)* — Body-section projection walker
   covering the leaves needed for fixture 02 (`Tx`, `Input`, `Output`,
   `Address`, `Credential PaymentKey`, `Credential StakeKey`, fee).

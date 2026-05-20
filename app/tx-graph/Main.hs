@@ -44,9 +44,11 @@ module Main (main) where
 import Cardano.Tx.Graph.Emit (
     EmitError (..),
     EmitFormat (..),
+    EmittedGraph (..),
     ResolvedUTxO,
     emit,
     renderEmitError,
+    serialize,
  )
 import Cardano.Tx.Graph.Rules.Load (
     EntityDecl,
@@ -190,7 +192,7 @@ main = do
 * @(--rules, _, _)@ with @--tx@ absent — overlay-only (the
   existing #48 path).
 * @--tx@ present (regardless of @--rules@ / @--utxo@) —
-  body-emitting; short-circuits on 'NoSerializerYet' until T005.
+  body-emitting; routes through the real serializer (T005).
 * neither @--rules@ nor @--tx@ — usage error.
 -}
 dispatch :: Options -> IO ()
@@ -201,17 +203,17 @@ dispatch
         , optUtxoFile
         , optOutFile
         , optFormat
-        } = do
-        -- @--out@ is parsed but inert in T003 (every
-        -- body-emitting mode short-circuits before consulting
-        -- it); referenced here so @-Wunused-top-binds@ stays
-        -- silent until T005 wires the destination.
-        let _ = (optOutFile :: Maybe FilePath)
+        } =
         case (optRulesFile, optTxFile) of
             (Just rulesPath, Nothing) ->
                 overlayOnly rulesPath
             (_, Just txPath) ->
-                bodyEmit optRulesFile txPath optUtxoFile optFormat
+                bodyEmit
+                    optRulesFile
+                    txPath
+                    optUtxoFile
+                    optOutFile
+                    optFormat
             (Nothing, Nothing) -> do
                 hPutStrLn
                     stderr
@@ -237,32 +239,56 @@ overlayOnly rulesPath = do
 
 {- | Body-emitting modes (plan D8 rows 2–5). Decodes the tx +
 optional UTxO + optional rules file, validates the @--format@
-argument, and calls 'Cardano.Tx.Graph.Emit.emit'. Until T005
-wires the Turtle serializer the dispatcher short-circuits on
-'NoSerializerYet' after every input is decoded — that way the
-decode-error variants ('MalformedTxCbor' / 'MalformedUtxoJson'
-/ 'UnknownFormat') already exercise their real code paths in
-T003.
+argument, and calls 'Cardano.Tx.Graph.Emit.emit' followed by
+'serialize' for the chosen 'EmitFormat'.
+
+When @--rules@ is present, the overlay bytes from the loader are
+threaded into the emitted graph's @graphOverlayTurtle@ field so
+the serializer produces the joint Turtle output (overlay +
+body). When @--rules@ is absent, the body emits without an
+overlay section — body-only / body-with-utxo modes.
+
+The fixture slug used in the @\@prefix :@ declaration defaults
+to @\"tx\"@; the operator-facing surface will grow a @--slug@
+flag in a later slice when the executable picks up multi-fixture
+batch emission.
 -}
 bodyEmit ::
     Maybe FilePath ->
     FilePath ->
     Maybe FilePath ->
+    Maybe FilePath ->
     String ->
     IO ()
-bodyEmit mRules txPath mUtxo fmt = do
+bodyEmit mRules txPath mUtxo mOut fmt = do
     fmtChecked <- exitOnEmitError (parseFormat fmt)
     tx <- exitOnEmitError =<< loadTxCbor txPath
     utxo <- case mUtxo of
         Nothing -> pure (Map.empty :: ResolvedUTxO)
         Just p -> exitOnEmitError =<< loadUtxoJson p
-    entities <- case mRules of
-        Nothing -> pure []
-        Just p -> loadEntitiesOrExit p
-    let _ = (fmtChecked :: EmitFormat)
-    case emit tx utxo entities of
-        Right _ -> exitOnEmitError (Left NoSerializerYet)
-        Left e -> exitOnEmitError (Left e)
+    (entities, overlay) <- case mRules of
+        Nothing -> pure ([], BS.empty)
+        Just p -> loadOverlayAndEntitiesOrExit p
+    g <- exitOnEmitError (emit tx utxo entities)
+    let joint = g{graphOverlayTurtle = overlay}
+        rendered = serialize fmtChecked defaultSlug joint
+    writeOutput mOut rendered
+
+{- | Slug used in the @\@prefix :@ declaration when the
+executable's body emitter doesn't otherwise know the fixture
+name. T005 hardcodes it; a later operator-surface slice can
+promote it to a @--slug@ flag.
+-}
+defaultSlug :: FilePath
+defaultSlug = "tx"
+
+{- | Write the serialized graph to @--out@ if set; otherwise to
+stdout.
+-}
+writeOutput :: Maybe FilePath -> BS.ByteString -> IO ()
+writeOutput mOut bytes = case mOut of
+    Nothing -> BS.hPut stdout bytes
+    Just p -> BS.writeFile p bytes
 
 {- | Parse the @--format@ argument to an 'EmitFormat'. Unknown
 values surface as 'UnknownFormat' (T003 enforces the contract;
@@ -324,18 +350,23 @@ loadUtxoJson path = do
                             (Text.pack parseErr)
                         )
 
-{- | Load the operator-entity list from a rules file. A rules
-load failure exits with the rules loader's structured renderer
+{- | Load the operator-entity list AND the overlay Turtle bytes
+from a rules file. The overlay bytes are inlined verbatim into
+the joint Turtle output by the serializer; the entity list
+drives the credential lookup.
+
+A rules load failure exits with the loader's structured renderer
 (exit 1) so the operator sees the same diagnostic the
 overlay-only mode would print.
 -}
-loadEntitiesOrExit :: FilePath -> IO [EntityDecl]
-loadEntitiesOrExit path = do
+loadOverlayAndEntitiesOrExit ::
+    FilePath -> IO ([EntityDecl], BS.ByteString)
+loadOverlayAndEntitiesOrExit path = do
     result <- loadRulesFile path
     case result of
-        Right res@RulesLoadResult{rulesWarnings} -> do
+        Right res@RulesLoadResult{rulesOverlayTurtle, rulesWarnings} -> do
             mapM_ (hPutStrLn stderr . renderRulesLoadWarning) rulesWarnings
-            pure (rulesEntities res)
+            pure (rulesEntities res, rulesOverlayTurtle)
         Left err -> do
             hPutStrLn stderr (renderRulesLoadError err)
             exitWith (ExitFailure 1)

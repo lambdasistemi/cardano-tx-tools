@@ -1,6 +1,6 @@
 {- |
 Module      : Cardano.Tx.Graph.Emit
-Description : Body emitter for Cardano (Conway) transactions — public surface (scaffold).
+Description : Body emitter for Cardano (Conway) transactions — public surface.
 License     : Apache-2.0
 
 Public surface of the joint-graph body emitter introduced by
@@ -10,34 +10,34 @@ to vocab-typed RDF triples, looks up entity-named blank-nodes
 against an operator-declared @[EntityDecl]@, and renders the
 result as canonical Turtle (T005) or JSON-LD (T011).
 
-This module is the **scaffold** slice (T002, plan slice 2 /
-FR-001 + FR-003). It ships the public types and the top-level
-'emit' entry-point. The projection walker
-(@Cardano.Tx.Graph.Emit.Project@), credential lookup table
-(@Cardano.Tx.Graph.Emit.Lookup@), Turtle / JSON-LD serializers
-(@Cardano.Tx.Graph.Emit.Serialize.*@), and vocab registry
-(@Cardano.Tx.Graph.Emit.Vocab@) land in T004 + T005 + T011 as
-private modules under the @Cardano.Tx.Graph.Emit.*@ subtree.
-
-The scaffold's 'emit' returns the empty 'EmittedGraph' on any
-input. T005 wires the real projection walk + serializer; the
-smoke test (@Cardano.Tx.Graph.EmitSmokeSpec@) is the pre-T005
-regression guard on this public surface.
+T005 ships the projection walker + Turtle serializer for the
+fixture-02 leaf coverage (@Transaction@, @Input@, @Output@,
+@Address@, payment / stake credentials, fee). Future slices
+(T006-T010) extend the walker to mint entries, certificates,
+datums, redeemers, withdrawals, governance proposals, and
+collateral inputs without changing this public surface.
 
 The 'EmittedGraph' value carries the prefix declarations, the
 operator-entity overlay bytes (passed through verbatim from the
-loader's @rulesOverlayTurtle@), and the body-section triples in
-deterministic emit order. T005's projection walker populates
-'graphBodyTriples'; T011's JSON-LD serializer consumes the same
-value.
+loader's @rulesOverlayTurtle@), and the body-section structure in
+deterministic emit order. 'serialize' renders the value to the
+requested 'EmitFormat'.
 -}
 module Cardano.Tx.Graph.Emit (
     -- * Entry point
     emit,
+    serialize,
 
     -- * Result
     EmittedGraph (..),
+
+    -- * Triple IR (T005)
     Triple (..),
+    Subject (..),
+    Predicate (..),
+    Object (..),
+    SubjectBlock (..),
+    BodySection (..),
 
     -- * Inputs
     ResolvedUTxO,
@@ -61,6 +61,7 @@ module Cardano.Tx.Graph.Emit (
 ) where
 
 import Data.ByteString (ByteString)
+import Data.ByteString qualified as BS
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -78,6 +79,19 @@ import Cardano.Tx.Graph.Emit.Lookup (
     rawBytesPrefixLength,
     resolveCredential,
  )
+import Cardano.Tx.Graph.Emit.Project (
+    ProjectError (..),
+    projectBody,
+ )
+import Cardano.Tx.Graph.Emit.Serialize.Turtle (renderTurtle)
+import Cardano.Tx.Graph.Emit.Triple (
+    BodySection (..),
+    Object (..),
+    Predicate (..),
+    Subject (..),
+    SubjectBlock (..),
+    Triple (..),
+ )
 import Cardano.Tx.Graph.Rules.Load (EntityDecl)
 import Cardano.Tx.Ledger (ConwayTx)
 
@@ -85,8 +99,8 @@ import Cardano.Tx.Ledger (ConwayTx)
 The credential-lookup machinery introduced by T004. The submodule
 @Cardano.Tx.Graph.Emit.Lookup@ is private to the library; this
 re-export block exposes its types and functions to in-package
-test suites and to the future projection walker without
-publishing the module path itself.
+test suites and to the projection walker without publishing the
+module path itself.
 -}
 
 {- | The resolved-input map the emitter consumes alongside a
@@ -100,49 +114,39 @@ than a raw container.
 -}
 type ResolvedUTxO = Map TxIn (TxOut ConwayEra)
 
-{- | One RDF triple in the emitted graph.
-
-The placeholder constructor carries subject + predicate + object
-as text. T005 may refine this representation once the
-projection-walker / Turtle serializer settle on a concrete shape
-for blank-node references and typed literals; this slice ships
-the minimum the smoke test needs to construct an empty triple
-list.
--}
-data Triple = Triple !Text !Text !Text
-    deriving stock (Eq, Show)
-
 {- | The in-memory graph the body emitter produces.
 
 Carries three pieces of state:
 
 * 'graphPrefixes' — prefix declarations in canonical emit order
-  (T005 fixes the order; this scaffold ships an empty list).
+  (T005 fixes the order; the serializer can also derive the
+  default block from the fixture slug, so the field is left
+  empty in the T005 emit path and used only by downstream
+  consumers that want to override).
 * 'graphOverlayTurtle' — operator-entity overlay bytes (verbatim
-  from 'Cardano.Tx.Graph.Rules.Load.rulesOverlayTurtle' when an
-  overlay is in scope; empty for body-only mode).
-* 'graphBodyTriples' — body-section triples in deterministic
-  emit order. Empty in this scaffold; populated by T005's
-  projection walker.
+  passthrough from 'Cardano.Tx.Graph.Rules.Load.rulesOverlayTurtle'
+  when an overlay is in scope; empty for body-only mode).
+* 'graphBody' — the structured body sections in deterministic
+  emit order produced by the projection walker.
 -}
 data EmittedGraph = EmittedGraph
     { graphPrefixes :: ![(Text, Text)]
-    -- ^ Prefix declarations in canonical emit order
-    -- (e.g. @[("cardano", "https://…"), ("rdfs", "http://…")]@).
+    -- ^ Prefix declarations in canonical emit order; empty when
+    -- the serializer derives them from the fixture slug.
     , graphOverlayTurtle :: !ByteString
-    -- ^ Operator-entity overlay bytes (verbatim passthrough
-    -- from the rules loader). Empty for body-only mode.
-    , graphBodyTriples :: ![Triple]
-    -- ^ Body-section triples in deterministic emit order.
+    -- ^ Operator-entity overlay bytes (verbatim passthrough from
+    -- the rules loader). Empty for body-only mode.
+    , graphBody :: ![BodySection]
+    -- ^ Body sections in deterministic emit order, each
+    -- introduced by a uniform comment header research R4 pins.
     }
     deriving stock (Eq, Show)
 
-{- | Which serializer to dispatch in
-@Cardano.Tx.Graph.Emit.Serialize@.
+{- | Which serializer to dispatch in 'serialize'.
 
-Turtle is the byte-diff anchor (plan D5); JSON-LD is acceptance-tested
-on set-equal triple sets, not byte-equality (plan D6 / spec
-FR-007 + SC-003).
+Turtle is the byte-diff anchor (plan D5); JSON-LD is
+acceptance-tested on set-equal triple sets, not byte-equality
+(plan D6 / spec FR-007 + SC-003 — landing in T011).
 -}
 data EmitFormat
     = -- | Canonical Turtle output (plan D5; T005 owns the serializer).
@@ -169,9 +173,7 @@ Constructors:
   known 'EmitFormat' value.
 * 'UnsupportedLeafType' — a 'Cardano.Tx.Diff.conwayDiffProjection'
   leaf appeared that the projection walker does not yet handle;
-  T010 closes the last residual leaves.
-* 'NoSerializerYet' — pre-T005 transitional variant; see the
-  per-constructor Haddock below.
+  T006-T010 close the last residual leaves.
 -}
 data EmitError
     = UtxoRequired !Int
@@ -180,12 +182,6 @@ data EmitError
     | MalformedUtxoJson !FilePath !Text
     | UnknownFormat !Text
     | UnsupportedLeafType !Text
-    | -- | Bridges the pre-T005 gap between the body-emit
-      -- dispatcher (T003) and the Turtle serializer (T005).
-      -- The library never produces this value; the executable
-      -- returns it on stderr in body-only / joint modes until
-      -- T005 wires the real serializer.
-      NoSerializerYet
     deriving stock (Eq, Show)
 
 {- | Single-line human-readable rendering of an 'EmitError'.
@@ -211,22 +207,68 @@ renderEmitError = \case
         "UnknownFormat: " <> Text.unpack fmt
     UnsupportedLeafType leaf ->
         "UnsupportedLeafType: " <> Text.unpack leaf
-    NoSerializerYet ->
-        "NoSerializerYet: body-emitter serializer lands in T005; "
-            <> "body-only / joint modes are gated until then"
 
 {- | Walk a 'ConwayTx' against a resolved-UTxO map and an
 operator-declared entity list, producing an 'EmittedGraph'.
 
-Scaffold stub: returns 'Right' of the empty 'EmittedGraph' on any
-input. T004 wires the credential lookup table; T005 wires the
-projection walker + Turtle serializer; T011 wires the JSON-LD
-serializer. Callers may rely on the public signature shape from
-this slice forward.
+T005 wires the credential lookup (T004) + projection walker
+(@Cardano.Tx.Graph.Emit.Project@). On a non-fixture-02 leaf the
+walker raises @UnsupportedLeafType@; T006-T010 add coverage as
+each leaf class lands.
+
+The returned 'EmittedGraph' has an empty 'graphPrefixes' field
+(the serializer derives the prefix block from the fixture slug
+it's called with) and 'graphOverlayTurtle' populated by the
+caller via 'rulesOverlayTurtle' if joint emission is desired —
+the public 'emit' entry leaves the overlay bytes empty so the
+projection-only contract stays orthogonal to the rules loader.
+Callers that want the joint Turtle output ('serialize' Turtle)
+should populate 'graphOverlayTurtle' via
+'Cardano.Tx.Graph.Rules.Load.rulesOverlayTurtle' before calling
+'serialize'.
 -}
 emit ::
     ConwayTx ->
     ResolvedUTxO ->
     [EntityDecl] ->
     Either EmitError EmittedGraph
-emit _ _ _ = Right (EmittedGraph [] mempty [])
+emit tx utxo entities =
+    case projectBody entities (buildLookup entities) tx utxo of
+        Left (PUnsupportedLeafType leaf) ->
+            Left (UnsupportedLeafType leaf)
+        Right body ->
+            Right
+                EmittedGraph
+                    { graphPrefixes = []
+                    , graphOverlayTurtle = BS.empty
+                    , graphBody = body
+                    }
+
+{- | Render an 'EmittedGraph' to a 'ByteString' in the requested
+'EmitFormat'.
+
+The fixture slug is the directory name under
+@test\/fixtures\/rewrite-redesign\/@ (e.g. @"02-alice-bob-ada"@);
+the serializer uses it as the local part of the @\@prefix :@
+declaration. 'serialize' is byte-stable: same inputs produce
+byte-equal output.
+
+T005 implements the Turtle path; the JSON-LD path is left to
+T011 and currently errors. The 'EmitFormat' value distinguishes
+the two at the type level so the executable's @--format@ flag
+routes here without a string match.
+-}
+serialize :: EmitFormat -> FilePath -> EmittedGraph -> ByteString
+serialize fmt slug EmittedGraph{graphPrefixes, graphOverlayTurtle, graphBody} =
+    case fmt of
+        Turtle ->
+            renderTurtle
+                (Text.pack slug)
+                graphPrefixes
+                graphOverlayTurtle
+                graphBody
+        JsonLd ->
+            error
+                ( "Cardano.Tx.Graph.Emit.serialize: JSON-LD path "
+                    <> "lands in T011 (FR-007 / SC-003)"
+                )

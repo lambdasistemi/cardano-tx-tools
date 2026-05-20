@@ -24,10 +24,13 @@ minimal hand-built 'ConwayTx'; the resolved-UTxO map is empty
 module Cardano.Tx.Graph.EmitSmokeSpec (spec) where
 
 import Cardano.Tx.Graph.Emit (
+    BnodeName (..),
     EmitError (..),
     EmitFormat (..),
-    EmittedGraph (..),
+    Object (..),
+    Predicate (..),
     ResolvedUTxO,
+    Subject (..),
     Triple (..),
     emit,
  )
@@ -35,20 +38,24 @@ import Cardano.Tx.Graph.Emit (
 import Data.Map.Strict qualified as Map
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 
-import Test.Hspec (Spec, describe, it, shouldBe)
+import Test.Hspec (Spec, describe, it, shouldSatisfy)
 
--- | Empty resolved-UTxO map (the stub ignores it).
+-- | Empty resolved-UTxO map.
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty
 
 spec :: Spec
 spec =
-    describe "Cardano.Tx.Graph.Emit.emit (T002 scaffold)" $ do
-        it "returns Right empty-graph on a minimal ConwayTx + empty UTxO + no entities" $ do
+    describe "Cardano.Tx.Graph.Emit.emit (post-T005 wiring)" $ do
+        it "returns Right on the minimal fixture-02 builder + empty UTxO + no entities" $ do
             let result = emit S02.tx emptyUtxo []
-            result `shouldBe` Right (EmittedGraph [] mempty [])
+            result
+                `shouldSatisfy` ( \case
+                                    Right _ -> True
+                                    Left _ -> False
+                                )
 
-        it "EmitError + EmitFormat + Triple constructors are in scope" $ do
+        it "EmitError + EmitFormat + Triple IR constructors are in scope" $ do
             -- compile-only assertions on the public surface; any
             -- value matching the constructor proves the type exists.
             let _e1 = UtxoRequired 1
@@ -59,5 +66,19 @@ spec =
                 _e6 = UnsupportedLeafType "Foo"
                 _fmtTtl = Turtle
                 _fmtJsonLd = JsonLd
-                _t = Triple "_:s" "cardano:p" "_:o"
-            True `shouldBe` True
+                _t =
+                    Triple
+                        (SBnode (BnodeName "tx"))
+                        PRdfType
+                        (OIri "cardano:Transaction")
+                _tStrLit =
+                    Triple
+                        (SBnode (BnodeName "aliceAddr"))
+                        (PIri "cardano:bech32")
+                        (OStringLit "addr1...")
+                _tIntLit =
+                    Triple
+                        (SBnode (BnodeName "tx"))
+                        (PIri "cardano:hasFee")
+                        (OIntLit 175000)
+            True `shouldSatisfy` id
