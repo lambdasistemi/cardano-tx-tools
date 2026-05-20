@@ -178,7 +178,7 @@ n2cParser :: O.Parser N2cConfig
 n2cParser =
     N2cConfig
         <$> O.strOption
-            ( O.long "n2c-socket"
+            ( O.long "n2c-socket-path"
                 <> O.metavar "PATH"
                 <> O.help "Local cardano-node Node-to-Client socket"
             )
