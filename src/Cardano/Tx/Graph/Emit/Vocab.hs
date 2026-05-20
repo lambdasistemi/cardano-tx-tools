@@ -18,6 +18,7 @@ module Cardano.Tx.Graph.Emit.Vocab (
     -- * Prefix bases
     cardanoPrefix,
     rdfsPrefix,
+    rdfPrefix,
     fixturePrefixBase,
 
     -- * Vocab term registry
@@ -37,6 +38,13 @@ cardanoPrefix =
 -- | The RDF Schema namespace.
 rdfsPrefix :: Text
 rdfsPrefix = "http://www.w3.org/2000/01/rdf-schema#"
+
+{- | The core RDF namespace. Carries 'rdf:first', 'rdf:rest', and
+'rdf:nil' — the list-cell primitives T104 emits when an output
+carries a non-empty multi-asset value.
+-}
+rdfPrefix :: Text
+rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 
 {- | The fixture-local prefix base. The full @\@prefix :@ IRI is
 @\<fixturePrefixBase\>\<slug\>#@ for a given fixture slug.
@@ -94,6 +102,11 @@ data VocabTerm
     | TermHasProposal
     | TermDecodedAs
     | TermFromTxOutRef
+    | -- Value semantics (T104 / S3 — output ADA + multi-asset)
+      TermLovelace
+    | TermHasAssetValue
+    | TermMintsAsset
+    | TermQuantity
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -141,6 +154,10 @@ vocabIri = \case
     TermHasProposal -> cardanoPrefix <> "hasProposal"
     TermDecodedAs -> cardanoPrefix <> "decodedAs"
     TermFromTxOutRef -> cardanoPrefix <> "fromTxOutRef"
+    TermLovelace -> cardanoPrefix <> "lovelace"
+    TermHasAssetValue -> cardanoPrefix <> "hasAssetValue"
+    TermMintsAsset -> cardanoPrefix <> "mintsAsset"
+    TermQuantity -> cardanoPrefix <> "quantity"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -187,6 +204,10 @@ vocabCurie = \case
     TermHasProposal -> "cardano:hasProposal"
     TermDecodedAs -> "cardano:decodedAs"
     TermFromTxOutRef -> "cardano:fromTxOutRef"
+    TermLovelace -> "cardano:lovelace"
+    TermHasAssetValue -> "cardano:hasAssetValue"
+    TermMintsAsset -> "cardano:mintsAsset"
+    TermQuantity -> "cardano:quantity"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

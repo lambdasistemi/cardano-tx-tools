@@ -1,4 +1,5 @@
 @prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/03-multi-asset-transfer#> .
 
@@ -70,14 +71,46 @@ _:input1 a cardano:Input ;
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 50000000 ;
+  cardano:hasAssetValue _:outputMultiAsset1 .
+
+_:outputMultiAsset1 rdf:first _:assetEntry_output1_1 ;
+  rdf:rest _:outputMultiAsset1_tail1 .
+
+_:assetEntry_output1_1 a cardano:Asset ;
+  cardano:hasIdentifier _:meme_assetClass ;
+  cardano:quantity 1000000 .
+
+_:outputMultiAsset1_tail1 rdf:first _:assetEntry_output1_2 ;
+  rdf:rest rdf:nil .
+
+_:assetEntry_output1_2 a cardano:Asset ;
+  cardano:hasIdentifier _:usdm_assetClass ;
+  cardano:quantity 100 .
 
 #
 # Output 2
 #
 
 _:output2 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 149825000 ;
+  cardano:hasAssetValue _:outputMultiAsset2 .
+
+_:outputMultiAsset2 rdf:first _:assetEntry_output2_1 ;
+  rdf:rest _:outputMultiAsset2_tail1 .
+
+_:assetEntry_output2_1 a cardano:Asset ;
+  cardano:hasIdentifier _:meme_assetClass ;
+  cardano:quantity 4000000 .
+
+_:outputMultiAsset2_tail1 rdf:first _:assetEntry_output2_2 ;
+  rdf:rest rdf:nil .
+
+_:assetEntry_output2_2 a cardano:Asset ;
+  cardano:hasIdentifier _:usdm_assetClass ;
+  cardano:quantity 400 .
 
 #
 # Address decompositions — payment + stake credential per leaf.

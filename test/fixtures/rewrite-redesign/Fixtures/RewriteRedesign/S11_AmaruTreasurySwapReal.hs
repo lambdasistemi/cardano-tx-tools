@@ -40,7 +40,19 @@ module Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal (
     storyId,
     tx,
     shape,
+    swapUsdmPolicy,
+    swapUsdmName,
 ) where
+
+import Data.ByteString.Short qualified as SBS
+import Data.Maybe (fromJust)
+
+import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Hashes (ScriptHash (..))
+import Cardano.Ledger.Mary.Value (
+    AssetName (..),
+    PolicyID (..),
+ )
 
 import Fixtures.RewriteRedesign.Helpers (
     ExpectedShape (..),
@@ -50,6 +62,7 @@ import Fixtures.RewriteRedesign.Helpers (
     mkTx,
     stubTxIn,
     stubTxOut,
+    stubTxOutMA,
  )
 
 import Cardano.Tx.Build (collateral, output, reference, spend)
@@ -62,12 +75,23 @@ storyId = StoryId "11-amaru-treasury-swap-real"
 {- | Conway tx body: 2 inputs (user fuel + treasury), 5 outputs (2 swap-order
 chunks + 1 treasury leftover + 2 user payments), 1 collateral input.
 Values from the on-chain @expected.txt@ render; illustrative only.
+
+T104 / S3 lifts the first swap-order chunk to a multi-asset output
+carrying the @usdm-control@ × USDM bundle the real on-chain swap
+order settles. The remaining outputs stay coin-only — the
+single multi-asset entry is enough to exercise the output-side
+list emission on this real-shape fixture.
 -}
 tx :: ConwayTx
 tx = mkTx . TxBuilder $ do
     _ <- spend (stubTxIn 1) -- user-wallet input (96.8 ADA, also collateral source)
     _ <- spend (stubTxIn 2) -- treasury input (1_137_000 ADA)
-    _ <- output (stubTxOut 39_306_821_250) -- swap-order chunk 1
+    _ <-
+        output
+            ( stubTxOutMA
+                39_306_821_250
+                [(swapUsdmPolicy, swapUsdmName, 1_500_000_000)]
+            ) -- swap-order chunk 1 (USDM-bearing)
     _ <- output (stubTxOut 39_306_821_249) -- swap-order chunk 2
     _ <- output (stubTxOut 1_058_730_000_000) -- treasury leftover
     _ <- output (stubTxOut 50_000_000) -- user payment 1
@@ -77,6 +101,29 @@ tx = mkTx . TxBuilder $ do
     reference (stubTxIn 201) -- treasury-validator reference script
     reference (stubTxIn 202) -- network-compliance reference script
     reference (stubTxIn 203) -- amaru.swap.v2 reference script
+
+----------------------------------------------------------------------
+-- Asset constants — same USDM policy as fixtures 03 + 04
+----------------------------------------------------------------------
+
+{- | USDM policy-id used by the on-chain Amaru swap. Re-exported so
+'Cardano.Tx.Graph.EmitGoldenSpec' can construct the resolved-UTxO
+entry that surfaces the resolved-input multi-asset path.
+-}
+swapUsdmPolicy :: PolicyID
+swapUsdmPolicy =
+    PolicyID
+        ( ScriptHash
+            ( fromJust
+                ( hashFromStringAsHex
+                    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
+                )
+            )
+        )
+
+-- | USDM asset-name — same as fixtures 03 + 04.
+swapUsdmName :: AssetName
+swapUsdmName = AssetName (SBS.toShort "USDM")
 
 -- | Expected structural shape per the real on-chain tx.
 shape :: ExpectedShape

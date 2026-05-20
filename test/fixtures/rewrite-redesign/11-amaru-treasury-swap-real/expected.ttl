@@ -1,4 +1,5 @@
 @prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/11-amaru-treasury-swap-real#> .
 
@@ -76,7 +77,20 @@ _:input1 a cardano:Input ;
 #
 
 _:input2 a cardano:Input ;
-  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000002#0" .
+  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000002#0" ;
+  cardano:resolvedTo _:resolvedInput2 .
+
+_:resolvedInput2 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 1137000000000 ;
+  cardano:hasAssetValue _:resolvedInputMultiAsset2 .
+
+_:resolvedInputMultiAsset2 rdf:first _:assetEntry_resolvedInput2_1 ;
+  rdf:rest rdf:nil .
+
+_:assetEntry_resolvedInput2_1 a cardano:Asset ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:quantity 2500000000 .
 
 #
 # Reference input 1
@@ -111,35 +125,48 @@ _:refInput4 a cardano:Input ;
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 39306821250 ;
+  cardano:hasAssetValue _:outputMultiAsset1 .
+
+_:outputMultiAsset1 rdf:first _:assetEntry_output1_1 ;
+  rdf:rest rdf:nil .
+
+_:assetEntry_output1_1 a cardano:Asset ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:quantity 1500000000 .
 
 #
 # Output 2
 #
 
 _:output2 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 39306821249 .
 
 #
 # Output 3
 #
 
 _:output3 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 1058730000000 .
 
 #
 # Output 4
 #
 
 _:output4 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 50000000 .
 
 #
 # Output 5
 #
 
 _:output5 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 46800000 .
 
 #
 # Collateral 1

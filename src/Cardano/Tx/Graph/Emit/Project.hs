@@ -151,7 +151,7 @@ import Cardano.Ledger.Api.Tx.Cert (
     Delegatee (DelegStake, DelegStakeVote, DelegVote),
     pattern DelegTxCert,
  )
-import Cardano.Ledger.Api.Tx.Out (TxOut, addrTxOutL)
+import Cardano.Ledger.Api.Tx.Out (TxOut, addrTxOutL, valueTxOutL)
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet, Testnet),
     StrictMaybe (SJust, SNothing),
@@ -175,6 +175,7 @@ import Cardano.Ledger.Hashes (KeyHash (..), ScriptHash (..), extractHash)
 import Cardano.Ledger.Keys (KeyRole (..))
 import Cardano.Ledger.Mary.Value (
     AssetName (..),
+    MaryValue (..),
     MultiAsset (..),
     PolicyID (..),
  )
@@ -498,6 +499,173 @@ idProposalBnode k =
     BnodeName ("proposal" <> Text.pack (show k))
 
 ----------------------------------------------------------------------
+-- Multi-asset value anchor + bnode naming (T104)
+----------------------------------------------------------------------
+
+{- | An anchor for naming the per-subject multi-asset list-cell and
+asset-entry bnodes T104 emits. The 'vaBase' string is the
+subject's bnode-name prefix (@"output"@, @"resolvedInput"@,
+@"resolvedCollateral"@) and 'vaIndex' is the 1-based position
+within that role.
+
+The produced bnode-name shape (per A-001 + the brief's D-005
+example):
+
+* list head: @\<base\>MultiAsset\<index\>@
+* tail cell at position @m@ (1-based): @\<base\>MultiAsset\<index\>_tail\<m\>@
+* asset-entry at position @m@ (1-based): @assetEntry_\<base\>\<index\>_\<m\>@
+
+Resolved-input + resolved-collateral subjects (T103's payload)
+reuse the same scheme with @"resolvedInput"@ / @"resolvedCollateral"@
+bases so the multi-asset cells never collide across the input
+and output sides of the same fixture.
+-}
+data ValueAnchor = ValueAnchor
+    { vaBase :: !Text
+    , vaIndex :: !Int
+    }
+
+-- | Bnode name of the multi-asset list head for an anchor.
+valueListHead :: ValueAnchor -> BnodeName
+valueListHead va =
+    BnodeName
+        ( vaBase va
+            <> "MultiAsset"
+            <> Text.pack (show (vaIndex va))
+        )
+
+-- | Bnode name of the @m@-th list tail cell (1-based).
+valueListTail :: ValueAnchor -> Int -> BnodeName
+valueListTail va m =
+    BnodeName
+        ( vaBase va
+            <> "MultiAsset"
+            <> Text.pack (show (vaIndex va))
+            <> "_tail"
+            <> Text.pack (show m)
+        )
+
+-- | Bnode name of the @m@-th asset entry (1-based).
+valueAssetEntry :: ValueAnchor -> Int -> BnodeName
+valueAssetEntry va m =
+    BnodeName
+        ( "assetEntry_"
+            <> vaBase va
+            <> Text.pack (show (vaIndex va))
+            <> "_"
+            <> Text.pack (show m)
+        )
+
+{- | Flatten a 'MultiAsset' into a deterministically-ordered list of
+@(policy, asset-name, quantity)@ triples. Outer 'PolicyID' keys
+are walked in ascending order; per-policy 'AssetName' keys are
+walked in ascending order. Matches the order
+@Cardano.Ledger.Mary.Value@'s on-wire serializer enforces.
+-}
+flattenMultiAsset :: MultiAsset -> [(PolicyID, AssetName, Integer)]
+flattenMultiAsset (MultiAsset m) =
+    [ (policy, name, q)
+    | (policy, assets) <- Map.toAscList m
+    , (name, q) <- Map.toAscList assets
+    ]
+
+{- | Emit the value triples that hang off a value-bearing subject:
+the @cardano:lovelace@ literal always, plus — when the
+multi-asset map is non-empty — a @cardano:hasAssetValue@ link to
+an RDF-list head and the list-cell + per-asset-entry blocks
+that decode the bundle.
+
+The list cells use the RDF core terms @rdf:first@ / @rdf:rest@,
+terminating in @rdf:nil@. Each asset entry is a
+@cardano:Asset@-typed bnode carrying a @cardano:hasIdentifier@
+link (resolved through the operator-rules lookup so entity
+slugs win when declared) plus a @cardano:quantity@ integer.
+
+The anchor names the multi-asset list head + tail cells + asset
+entries (see 'ValueAnchor'); the @subj@ is the value-bearing
+subject that gets the @cardano:hasAssetValue@ edge. Pass an
+empty multi-asset map (@MultiAsset mempty@) to emit lovelace
+only — no list head, no @rdf:nil@ orphan.
+-}
+emitOutputValue ::
+    LookupTable -> ValueAnchor -> Subject -> MaryValue -> Emit ()
+emitOutputValue lookupTbl va subj (MaryValue (Coin lovelace) ma) = do
+    tellTriple
+        ( Triple
+            subj
+            (PIri (vocabCurie TermLovelace))
+            (OIntLit (fromIntegral lovelace))
+        )
+    case flattenMultiAsset ma of
+        [] -> pure ()
+        entries -> do
+            let headBnode = valueListHead va
+            tellTriple
+                ( Triple
+                    subj
+                    (PIri (vocabCurie TermHasAssetValue))
+                    (OBnode headBnode)
+                )
+            emitAssetList lookupTbl va entries
+
+{- | Emit the RDF list cells + per-asset-entry blocks for a
+non-empty multi-asset bundle.
+-}
+emitAssetList ::
+    LookupTable ->
+    ValueAnchor ->
+    [(PolicyID, AssetName, Integer)] ->
+    Emit ()
+emitAssetList lookupTbl va entries =
+    let total = length entries
+     in mapM_
+            (emitAssetListCell lookupTbl va total)
+            (zip [1 ..] entries)
+
+{- | Emit one (list cell, asset-entry) pair. The list-cell subject
+is the head bnode on @m == 1@ and a tail bnode on @m > 1@; the
+@rdf:rest@ target points at the next tail cell or @rdf:nil@ on
+the last entry.
+-}
+emitAssetListCell ::
+    LookupTable ->
+    ValueAnchor ->
+    Int ->
+    (Int, (PolicyID, AssetName, Integer)) ->
+    Emit ()
+emitAssetListCell lookupTbl va total (m, (policy, assetName, qty)) = do
+    let cellSubj
+            | m == 1 = SBnode (valueListHead va)
+            | otherwise = SBnode (valueListTail va (m - 1))
+        nextObj
+            | m == total = OIri "rdf:nil"
+            | otherwise = OBnode (valueListTail va m)
+        entryBnode = valueAssetEntry va m
+        entrySubj = SBnode entryBnode
+        policyBytes = policyIdBytes policy
+        assetBytes = policyBytes <> assetClassNameBytes assetName
+        assetIdBnode =
+            resolveCredential lookupTbl AssetClass assetBytes
+    tellTriple
+        (Triple cellSubj (PIri "rdf:first") (OBnode entryBnode))
+    tellTriple
+        (Triple cellSubj (PIri "rdf:rest") nextObj)
+    tellTriple
+        (Triple entrySubj PRdfType (OIri (vocabCurie TermAsset)))
+    tellTriple
+        ( Triple
+            entrySubj
+            (PIri (vocabCurie TermHasIdentifier))
+            (OBnode assetIdBnode)
+        )
+    tellTriple
+        ( Triple
+            entrySubj
+            (PIri (vocabCurie TermQuantity))
+            (OIntLit qty)
+        )
+
+----------------------------------------------------------------------
 -- Tx-block emission.
 ----------------------------------------------------------------------
 
@@ -744,7 +912,13 @@ buildInputs entities lookupTbl utxo = go [] emptyAddrRegistry . zip [1 ..]
                             reg
                     blocks =
                         clusterBlocks
-                            (emitResolvedInput k txIn (aeBnodeBase entry))
+                            ( emitResolvedInput
+                                lookupTbl
+                                k
+                                txIn
+                                (aeBnodeBase entry)
+                                (resolved ^. valueTxOutL)
+                            )
                  in go (blocks : acc) reg' rest
 
 {- | Emit triples for an input whose 'TxIn' is NOT resolved
@@ -770,10 +944,13 @@ T103: the @cardano:fromTxOutRef@ literal sits between the
 predicate order is uniform across resolved / unresolved
 inputs. The shared address bnode base is passed in (it
 comes from the 'AddrRegistry' first-occurrence-wins
-lookup).
+lookup). T104 threads the resolved 'TxOut' value through so
+the resolved-output subject carries @cardano:lovelace@ and
+(when non-empty) the multi-asset RDF list.
 -}
-emitResolvedInput :: Int -> TxIn -> Text -> Emit ()
-emitResolvedInput k txIn base = do
+emitResolvedInput ::
+    LookupTable -> Int -> TxIn -> Text -> MaryValue -> Emit ()
+emitResolvedInput lookupTbl k txIn base value = do
     let inputSubj = SBnode (idInputBnode k)
         resolvedSubj = SBnode (idResolvedInputBnode k)
     tellTriple (Triple inputSubj PRdfType (OIri (vocabCurie TermInput)))
@@ -796,6 +973,11 @@ emitResolvedInput k txIn base = do
             (PIri (vocabCurie TermAtAddress))
             (OBnode (BnodeName (base <> "Addr")))
         )
+    emitOutputValue
+        lookupTbl
+        (ValueAnchor "resolvedInput" k)
+        resolvedSubj
+        value
 
 {- | Render a 'TxIn' as the @cardano:fromTxOutRef@ literal:
 @\<txid_hex\>#\<index\>@. The 'TxId' is the safe-hash of the
@@ -830,12 +1012,24 @@ buildOutputs entities lookupTbl outputs reg0 =
                     lookupTbl
                     (txOut ^. addrTxOutL)
                     reg
-            blocks = clusterBlocks (emitOutput k (aeBnodeBase entry))
+            blocks =
+                clusterBlocks
+                    ( emitOutput
+                        lookupTbl
+                        k
+                        (aeBnodeBase entry)
+                        (txOut ^. valueTxOutL)
+                    )
          in go (blocks : acc) reg' rest
 
--- | Emit triples for a body output at position @k@.
-emitOutput :: Int -> Text -> Emit ()
-emitOutput k base = do
+{- | Emit triples for a body output at position @k@. T104 attaches
+the output's @cardano:lovelace@ literal and (when the
+multi-asset bundle is non-empty) the @cardano:hasAssetValue@
+edge to an RDF-list head, followed by the per-asset-entry
+blocks.
+-}
+emitOutput :: LookupTable -> Int -> Text -> MaryValue -> Emit ()
+emitOutput lookupTbl k base value = do
     let outSubj = SBnode (idOutputBnode k)
     tellTriple (Triple outSubj PRdfType (OIri (vocabCurie TermOutput)))
     tellTriple
@@ -844,6 +1038,7 @@ emitOutput k base = do
             (PIri (vocabCurie TermAtAddress))
             (OBnode (BnodeName (base <> "Addr")))
         )
+    emitOutputValue lookupTbl (ValueAnchor "output" k) outSubj value
 
 ----------------------------------------------------------------------
 -- Address decomposition blocks
@@ -1238,7 +1433,13 @@ buildCollaterals entities lookupTbl utxo txIns reg0 =
                             reg
                     blocks =
                         clusterBlocks
-                            (emitResolvedCollateral k txIn (aeBnodeBase entry))
+                            ( emitResolvedCollateral
+                                lookupTbl
+                                k
+                                txIn
+                                (aeBnodeBase entry)
+                                (resolved ^. valueTxOutL)
+                            )
                  in go (blocks : acc) reg' rest
 
 {- | Emit triples for a collateral input whose 'TxIn' is NOT
@@ -1260,10 +1461,12 @@ emitUnresolvedCollateral k txIn = do
 resolved. Shape mirrors 'emitResolvedInput' with the
 collateral-specific @resolvedCollateralN@ bnode. T103 adds
 the @cardano:fromTxOutRef@ literal between the @rdf:type@
-triple and the @cardano:resolvedTo@ edge.
+triple and the @cardano:resolvedTo@ edge; T104 attaches the
+resolved-output value triples (lovelace + optional MA list).
 -}
-emitResolvedCollateral :: Int -> TxIn -> Text -> Emit ()
-emitResolvedCollateral k txIn base = do
+emitResolvedCollateral ::
+    LookupTable -> Int -> TxIn -> Text -> MaryValue -> Emit ()
+emitResolvedCollateral lookupTbl k txIn base value = do
     let collSubj = SBnode (idCollateralBnode k)
         resolvedSubj = SBnode (idResolvedCollateralBnode k)
     tellTriple (Triple collSubj PRdfType (OIri (vocabCurie TermInput)))
@@ -1286,6 +1489,11 @@ emitResolvedCollateral k txIn base = do
             (PIri (vocabCurie TermAtAddress))
             (OBnode (BnodeName (base <> "Addr")))
         )
+    emitOutputValue
+        lookupTbl
+        (ValueAnchor "resolvedCollateral" k)
+        resolvedSubj
+        value
 
 ----------------------------------------------------------------------
 -- Reference inputs (T103 — fixture 11)

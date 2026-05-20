@@ -87,20 +87,54 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 - **Subject**: `feat(070): emit cardano:lovelace + multi-asset RDF list on every output`
 - **Tasks trailer**: `Tasks: T104`
+- **Status**: [X] complete — landed at this commit.
 - **Files**:
-  - `src/Cardano/Tx/Graph/Emit/Vocab.hs` (add `TermLovelace`, `TermMintsAsset`, `TermQuantity`)
-  - `src/Cardano/Tx/Graph/Emit/Lookup.hs` (asset-class bnode naming for output-side multi-asset values)
-  - `src/Cardano/Tx/Graph/Emit/Project.hs` (extend `buildOutputs` to emit lovelace + multi-asset list)
-  - `src/Cardano/Tx/Graph/Emit/Serialize/Turtle.hs` (only if a new RDF-list shape needs rendering)
+  - `src/Cardano/Tx/Graph/Emit/Vocab.hs` (added `TermLovelace`,
+    `TermHasAssetValue`, `TermMintsAsset`, `TermQuantity`; added
+    `rdfPrefix` for the RDF-list cell primitives)
+  - `src/Cardano/Tx/Graph/Emit/Serialize/Turtle.hs` (added the
+    `@prefix rdf:` declaration to the prefix block)
+  - `src/Cardano/Tx/Graph/Emit/Project.hs` (added `ValueAnchor`
+    + `emitOutputValue` + `emitAssetList`; threaded the resolved
+    `TxOut` value through `emitResolvedInput` /
+    `emitResolvedCollateral` so resolved-output subjects also
+    carry value triples)
+  - `test/Cardano/Tx/Graph/Emit/VocabTraceabilitySpec.hs` —
+    4-prefix assertion now includes `rdf:`
+  - `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` — per-fixture
+    `fixtureUtxo` so fixture 11 surfaces a resolved-input
+    multi-asset entry (per A-002)
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/Helpers.hs`
+    (added `stubTxOutMA` per A-002 authorization)
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S03_MultiAssetTransfer.hs`
+    + `S04_MintSpendScriptOverlap.hs` + `S11_AmaruTreasurySwapReal.hs`
+    (outputs now carry the multi-asset values the 044 narratives
+    declared but the pre-T104 stub omitted)
   - `test/Cardano/Tx/Graph/Emit/OutputLovelaceSpec.hs` (NEW)
   - `test/Cardano/Tx/Graph/Emit/MultiAssetListSpec.hs` (NEW)
+  - `test/fixtures/canonical-vocab/transactions.ttl` +
+    `PINNED.md` refreshed to kmaps@5536df0f9f6 (added
+    `cardano:hasAssetValue` per A-001)
   - All 11 fixtures' `expected.ttl` regenerated
-- **RED**: `OutputLovelaceSpec` + `MultiAssetListSpec` fail on the
-  current emitter.
-- **GREEN**: per-output lovelace + multi-asset list emit; regen.
+- **RED**: `OutputLovelaceSpec` + `MultiAssetListSpec` failed on
+  the pre-T104 emitter; all 11 `EmitGoldenSpec` fixtures
+  byte-diffed against the stale committed bytes.
+- **GREEN**: per-output lovelace + multi-asset list emit; regen
+  applied; vocab traceability extended to include `rdf:`;
+  380 examples / 0 failures across the unit suite.
 - **Live-boundary**: fixtures 03 (multi-asset transfer), 04 (mint),
   11 (real on-chain multi-asset) — three independent multi-asset
-  exercises.
+  exercises. S11 additionally surfaces a resolved-input
+  multi-asset entry under the new per-slug UTxO map.
+- **Q-files resolved**:
+  - A-001-output-asset-predicate — `cardano:hasAssetValue`
+    (new kmaps@5536df0f predicate, domain `cardano:Output`)
+    used as the binding from output to multi-asset list head;
+    `cardano:mintsAsset` (kmaps domain `cardano:Mint`) left
+    for T106's mint cluster.
+  - A-002-fixture-multi-asset-coverage — extended fixture
+    builders S03/S04/S11 + `Helpers.stubTxOutMA`; per-fixture
+    UTxO map for fixture 11 exercises resolved-input MA.
 - **Owner**: paired subagents.
 
 ### T105 — S4: output `hasDatum` + `hasReferenceScript`; remove proposal `Datum` overload (feat)

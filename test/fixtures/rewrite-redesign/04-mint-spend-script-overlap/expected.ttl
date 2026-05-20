@@ -1,4 +1,5 @@
 @prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/04-mint-spend-script-overlap#> .
 
@@ -62,7 +63,16 @@ _:input1 a cardano:Input ;
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 4500000 ;
+  cardano:hasAssetValue _:outputMultiAsset1 .
+
+_:outputMultiAsset1 rdf:first _:assetEntry_output1_1 ;
+  rdf:rest rdf:nil .
+
+_:assetEntry_output1_1 a cardano:Asset ;
+  cardano:hasIdentifier _:usdm_assetClass ;
+  cardano:quantity 1000 .
 
 #
 # Mint 1

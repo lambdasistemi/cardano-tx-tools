@@ -33,6 +33,16 @@ module Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap (
     shape,
 ) where
 
+import Data.ByteString.Short qualified as SBS
+import Data.Maybe (fromJust)
+
+import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Hashes (ScriptHash (..))
+import Cardano.Ledger.Mary.Value (
+    AssetName (..),
+    PolicyID (..),
+ )
+
 import Fixtures.RewriteRedesign.Helpers (
     ExpectedShape (..),
     StoryId (..),
@@ -41,7 +51,7 @@ import Fixtures.RewriteRedesign.Helpers (
     mkTx,
     stubMintEntry,
     stubTxIn,
-    stubTxOut,
+    stubTxOutMA,
  )
 
 import Cardano.Tx.Build (mint, output, spend)
@@ -54,13 +64,36 @@ storyId = StoryId "04-mint-spend-script-overlap"
 {- | Conway tx body: 1 input under the @usdm-control@ script (5 ADA),
 1 output to alice (4.5 ADA carrying 1000 USDM), 1 mint entry
 (@usdm-control@ × USDM, +1000).
+
+T104 / S3 binds the minted 1000 USDM onto the output via
+'stubTxOutMA'; mint + send-to-output is the typical Cardano shape and
+gives the output-side multi-asset emission path real coverage on the
+overlap fixture in addition to S03's pure transfer.
 -}
 tx :: ConwayTx
 tx = mkTx . TxBuilder $ do
     _ <- spend (stubTxIn 1)
-    _ <- output (stubTxOut 4_500_000)
+    _ <- output (stubTxOutMA 4_500_000 [(usdmControlPolicy, usdmName, 1000)])
     let (policyID, assetMap) = stubMintEntry 1 1000
     mint policyID assetMap ()
+
+----------------------------------------------------------------------
+-- Asset constants — match @rules.yaml@ entity declarations
+----------------------------------------------------------------------
+
+usdmControlPolicy :: PolicyID
+usdmControlPolicy =
+    PolicyID
+        ( ScriptHash
+            ( fromJust
+                ( hashFromStringAsHex
+                    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
+                )
+            )
+        )
+
+usdmName :: AssetName
+usdmName = AssetName (SBS.toShort "USDM")
 
 -- | Expected structural shape per 044 Story 4.
 shape :: ExpectedShape

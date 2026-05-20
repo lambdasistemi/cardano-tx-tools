@@ -7,10 +7,10 @@ body emitter.
 
 ## Current pin
 
-- **File**: [`transactions.ttl`](./transactions.ttl) (382 lines)
+- **File**: [`transactions.ttl`](./transactions.ttl)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `8ed218cf6dc905c7e3139b9f5a418d278b0acf9c` (branch
+- **SHA**: `5536df0f9f660877ca4bb6b35cfddc70dae7fdd7` (branch
   `phase-a1-tx-semantic-predicates` HEAD on 2026-05-20)
 - **Branch state**: draft PR
   [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55),
@@ -18,11 +18,17 @@ body emitter.
   `8597fbd571188b42999ee0b24a8247bda7e717b9`.
 - **Version label** declared in the file: `0.1.0-phaseA` (with
   Phase A.1 additions appended at the tail: `fromTxOutRef`,
-  `lovelace`, `quantity`, `mintsAsset`, `withdrawalAccount`,
-  `networkId`, `scriptDataHash`, `auxiliaryDataHash`,
-  `intervalStart`, `intervalEnd`).
-- **History** (previous pins): kmaps@`8597fbd571188b42999ee0b24a8247bda7e717b9`
-  (303 lines, vendored at T101 / S0).
+  `lovelace`, `quantity`, `mintsAsset`, `hasAssetValue`,
+  `withdrawalAccount`, `networkId`, `scriptDataHash`,
+  `auxiliaryDataHash`, `intervalStart`, `intervalEnd`).
+  T104 added `hasAssetValue` (Output-domain) to disambiguate the
+  output-side multi-asset binding from the Mint-domain `mintsAsset`
+  (per A-001-output-asset-predicate).
+- **History** (previous pins):
+  kmaps@`8ed218cf6dc905c7e3139b9f5a418d278b0acf9c` (382 lines,
+  pre-`hasAssetValue` tip refreshed at T103);
+  kmaps@`8597fbd571188b42999ee0b24a8247bda7e717b9` (303 lines,
+  vendored at T101 / S0).
 
 ## Why pin?
 

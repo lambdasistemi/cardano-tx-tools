@@ -7,11 +7,16 @@ Asserts the three vocab-traceability invariants on the joint
 Turtle output of every fixture currently enabled in
 'Cardano.Tx.Graph.EmitGoldenSpec':
 
-1. The emitter declares only the three known prefixes — @cardano:@,
-   @rdfs:@, fixture-local empty prefix — and no others.
+1. The emitter declares only the four known prefixes — @cardano:@,
+   @rdf:@, @rdfs:@, fixture-local empty prefix — and no others.
+   The @rdf:@ prefix was added at T104 to carry the RDF-list
+   primitives ('rdf:first', 'rdf:rest', 'rdf:nil') that bind an
+   output's multi-asset value list cells.
 2. No body line references a prefix outside that set (no
-   @ex:foo@, no @owl:Class@, no stray @rdf:type@ — Turtle's @a@
-   keyword covers the latter).
+   @ex:foo@, no @owl:Class@, etc. Turtle's @a@ keyword covers
+   the bare @rdf:type@ subject-predicate; the @rdf:@ prefix
+   surfaces only as the multi-asset list-cell predicates and
+   the @rdf:nil@ list terminator).
 3. No @_internal:@ substring leaks into the bytes. This catches
    accidental leaks of internal vocabulary draft IRIs.
 
@@ -109,12 +114,12 @@ fixtureSpec (slug, tx) = describe slug $ do
                         <> ": emit returned Left "
                         <> show err
             Right _ -> pure ()
-    it "declared prefixes ⊆ {cardano, rdfs, :}" $ do
+    it "declared prefixes ⊆ {cardano, rdf, rdfs, :}" $ do
         sort (extractDeclaredPrefixes bytes)
-            `shouldBe` sort ["", "cardano", "rdfs"]
-    it "every CURIE prefix in the body is one of the declared three" $ do
+            `shouldBe` sort ["", "cardano", "rdf", "rdfs"]
+    it "every CURIE prefix in the body is one of the declared four" $ do
         let usedPrefixes = nub (extractUsedPrefixes bytes)
-            ok p = p `elem` ["", "cardano", "rdfs"]
+            ok p = p `elem` ["", "cardano", "rdf", "rdfs"]
             bad = filter (not . ok) usedPrefixes
         bad `shouldBe` []
     it "no '_internal:' substring leak" $ do

@@ -62,6 +62,7 @@ module Fixtures.RewriteRedesign.Helpers (
     -- * Smart constructors for body-leaf values
     stubTxIn,
     stubTxOut,
+    stubTxOutMA,
     stubRewardAccount,
     stubStakeDelegationCert,
     stubVoteDelegationCert,
@@ -344,6 +345,30 @@ this slice.
 -}
 stubTxOut :: Integer -> TxOut ConwayEra
 stubTxOut coin = mkBasicTxOut stubAddr (MaryValue (Coin coin) (MultiAsset mempty))
+
+{- | A 'TxOut' carrying ADA plus a non-empty multi-asset value. T104 / S3
+introduced this so fixtures 03, 04, 11 can exercise the output-side
+multi-asset RDF-list emission path. The 'AssetClass'-style triple list
+@(policy, asset-name, quantity)@ is folded into a 'MultiAsset' map;
+zero-quantity entries are emitted verbatim (the harness does not enforce
+the ledger's positivity rule — that's the emitter's downstream concern).
+The address reuses 'stubAddr' so the address-decomposition section stays
+byte-stable across coin-only and multi-asset stubs.
+-}
+stubTxOutMA ::
+    Integer ->
+    [(PolicyID, AssetName, Integer)] ->
+    TxOut ConwayEra
+stubTxOutMA coin assets =
+    mkBasicTxOut stubAddr (MaryValue (Coin coin) multiAsset)
+  where
+    multiAsset =
+        MultiAsset $
+            Map.unionsWith
+                (Map.unionWith (+))
+                [ Map.singleton policy (Map.singleton name qty)
+                | (policy, name, qty) <- assets
+                ]
 
 stubAddr :: Addr
 stubAddr =

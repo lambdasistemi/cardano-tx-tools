@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 {- |
 Module      : Cardano.Tx.Graph.EmitGoldenSpec
 Description : Byte-diff golden spec for the joint Turtle output (T005).
@@ -44,6 +46,7 @@ import Cardano.Tx.Graph.Rules.Load (
  )
 import Cardano.Tx.Ledger (ConwayTx)
 
+import Fixtures.RewriteRedesign.Helpers (stubTxIn, stubTxOutMA)
 import Fixtures.RewriteRedesign.S01_AmaruTreasurySwap qualified as S01
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
@@ -104,7 +107,7 @@ fixtureGoldenItem regen (slug, tx) = do
         runIO (loadEntitiesAndOverlay rulesPath)
     expected <- runIO (BS.readFile expectedPath)
     it (slug <> " — emit + serialize matches expected.ttl") $ do
-        case emit tx emptyUtxo entities of
+        case emit tx (fixtureUtxo slug) entities of
             Left err ->
                 expectationFailure $
                     "emit returned Left " <> show err
@@ -136,6 +139,32 @@ regenEnabled = do
 
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty
+
+{- | Per-fixture resolved-UTxO. Almost every fixture passes an empty
+map (its inputs are not resolved against any operator-supplied
+UTxO context). Fixture @11-amaru-treasury-swap-real@ ships a
+single resolved entry so the T103 + T104 resolved-input value
+emission path (the @_:resolvedInputK@ block carrying
+@cardano:lovelace@ + the multi-asset RDF list) is exercised in
+the golden bytes — keeps the slice's live-boundary diagnostic
+honest per A-002-fixture-multi-asset-coverage.
+
+The resolved entry maps @stubTxIn 2@ (the treasury input) onto
+a multi-asset 'TxOut' carrying ADA + USDM under the same
+@usdm-control@ policy fixtures 03 + 04 use. The USDM identifier
+appears as a raw-bytes bnode here (fixture 11's @rules.yaml@
+does not declare a USDM entity).
+-}
+fixtureUtxo :: String -> ResolvedUTxO
+fixtureUtxo = \case
+    "11-amaru-treasury-swap-real" ->
+        Map.singleton
+            (stubTxIn 2)
+            ( stubTxOutMA
+                1_137_000_000_000
+                [(S11.swapUsdmPolicy, S11.swapUsdmName, 2_500_000_000)]
+            )
+    _ -> emptyUtxo
 
 loadEntitiesAndOverlay ::
     FilePath -> IO ([EntityDecl], ByteString)
