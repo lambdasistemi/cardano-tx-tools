@@ -36,6 +36,9 @@ import Data.ByteString (ByteString)
 
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
+import Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap qualified as S04
+import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
+import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 
 import Test.Hspec (
     Spec,
@@ -108,16 +111,100 @@ spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
                                         <> " vs "
                                         <> show (BS.length expected)
                                         <> ")"
+    -- ---- fixture 04: enabled in T007 ----
+    do
+        let slug = "04-mint-spend-script-overlap"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S04.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
+    -- ---- fixture 05: enabled in T007 ----
+    do
+        let slug = "05-withdrawal-script-stake"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S05.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
+    -- ---- fixture 08: enabled in T007 (regen-only) ----
+    do
+        let slug = "08-contingency-disburse"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S08.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
     -- ---- pending entries ----
     pendingFixture
         "01-amaru-treasury-swap"
         "T010: collateral input + multi-input (33 swap orders)"
-    pendingFixture
-        "04-mint-spend-script-overlap"
-        "T006/T007: mint entry + script witness"
-    pendingFixture
-        "05-withdrawal-script-stake"
-        "T008: withdrawal entry + script stake credential"
     pendingFixture
         "06-stake-pool-delegation"
         "T008: stake-delegation certificate + PoolId leaf"
@@ -125,11 +212,8 @@ spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
         "07-vote-delegation"
         "T008: vote-delegation certificate + DRep leaf"
     pendingFixture
-        "08-contingency-disburse"
-        "T010: collateral input"
-    pendingFixture
         "09-mpfs-facts-request"
-        "T007: inline datum + 10 oracle outputs"
+        "T009: 10-output structural-only (regen)"
     pendingFixture
         "10-governance-treasury-withdrawal"
         "T009: proposal + treasury withdrawal action"

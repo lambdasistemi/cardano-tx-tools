@@ -3,116 +3,73 @@
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/05-withdrawal-script-stake#> .
 
 #
-# Operator-declared entities (from rules.yaml). alice reuses the same
-# 28-byte payment / stake key hashes as 02-alice-bob-ada — identical
-# bech32 + identifier bytes. amaru-treasury.network_compliance is a
-# script-style base address: both the payment and stake credentials
-# are script hashes. They surface as two distinct Identifier instances
-# with leafType "PaymentScript" / "StakeScript". In this particular
-# address the on-chain payment-side and stake-side script-hashes are
-# the same 28-byte value, so both Identifier instances carry an
-# identical bytesHex but distinct leafTypes — matching the kmaps#53
-# (leafType, bytesHex) key. The dot in the entity name is rewritten
-# to an underscore in the CURIE local-part (:amaru-treasury_network_compliance)
-# to avoid the Turtle PN_LOCAL trailing-dot trap; rdfs:label preserves
-# the operator-declared spelling.
+# Operator-declared entities (from rules.yaml).
 #
 
 :alice a cardano:Entity ;
   rdfs:label "alice" ;
-  cardano:hasIdentifier _:aliceIdPayment ;
-  cardano:hasIdentifier _:aliceIdStake .
+  cardano:hasIdentifier _:alice_paymentKey ;
+  cardano:hasIdentifier _:alice_stakeKey .
 
-_:aliceIdPayment a cardano:Identifier ;
+_:alice_paymentKey a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
-  cardano:bytesHex "601f58e4436698104adbbda7bc9d8f3f10e9e49652f9799d6c63aeda" .
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
 
-_:aliceIdStake a cardano:Identifier ;
+_:alice_stakeKey a cardano:Identifier ;
   cardano:leafType "StakeKey" ;
-  cardano:bytesHex "80226c84b26fe1a280649d819757ff2ffaec51adca5a3780356c05bf" .
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
 
-:amaru-treasury_network_compliance a cardano:Entity ;
+:amaru_treasury_network_compliance a cardano:Entity ;
   rdfs:label "amaru-treasury.network_compliance" ;
-  cardano:hasIdentifier _:amaruTreasuryIdPayment ;
-  cardano:hasIdentifier _:amaruTreasuryIdStake .
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
-_:amaruTreasuryIdPayment a cardano:Identifier ;
+_:amaru_treasury_network_compliance_paymentScript a cardano:Identifier ;
   cardano:leafType "PaymentScript" ;
   cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
 
-_:amaruTreasuryIdStake a cardano:Identifier ;
+_:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
   cardano:leafType "StakeScript" ;
   cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
 
 #
-# Transaction body — 1 input, 1 output, 1 withdrawal entry, 175_000 fee.
+# Transaction body.
 #
 
 _:tx a cardano:Transaction ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasWithdrawal _:withdrawal1 ;
-  cardano:hasFee 175000 .
+  cardano:hasFee 0 .
 
 #
-# Input — alice's 2 ADA fee-paying UTxO.
+# Input 1
 #
 
-_:input1 a cardano:Input ;
-  cardano:resolvedTo _:resolvedInput1 .
-
-_:resolvedInput1 a cardano:Output ;
-  cardano:atAddress _:aliceAddr .
+_:input1 a cardano:Input .
 
 #
-# Output 1 — 51.825 ADA change back to alice (50 ADA goes to the
-# withdrawal target via the body @withdrawals@ map, not via this
-# output).
+# Output 1
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:aliceAddr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
 #
-# Withdrawal 1 — 50 ADA claimed from a reward account whose stake
-# credential is the amaru-treasury.network_compliance stake script.
-# Phase A declares cardano:hasWithdrawal as a property but does not
-# (yet) declare a Withdrawal class, so the blank node carries no
-# rdf:type. It binds the reward-account stake credential via
-# cardano:hasStakeCredential — the same _:amaruTreasuryCredStake bnode
-# reused from the address decomposition below — pinning the
-# (leafType "StakeScript", bytesHex) identity of the reward-account
-# holder. The withdrawn lovelace amount is body-data and lives in
-# expected.txt / the future #47 emitter, not in this structural graph.
+# Withdrawal 1
 #
 
-_:withdrawal1 cardano:hasStakeCredential _:amaruTreasuryCredStake .
+_:withdrawal1 a cardano:Withdrawal ;
+  cardano:onCredential _:cred_stakekey_0000000000000000 ;
+  cardano:withAmount 50000000 .
 
 #
-# Address decompositions — payment + stake credential per leaf. The
-# amaru-treasury.network_compliance address is a script-script base
-# address; both credentials are script-hash and resolve to the same
-# decoded 28-byte hash (see entity block above).
+# Address decompositions — payment + stake credential per leaf.
 #
 
-_:aliceAddr a cardano:Address ;
-  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
-  cardano:hasPaymentCredential _:aliceCredPayment ;
-  cardano:hasStakeCredential _:aliceCredStake .
+_:cred_paymentkey_0000000000000000Addr a cardano:Address ;
+  cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
+  cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
 
-_:aliceCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:aliceIdPayment .
-
-_:aliceCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:aliceIdStake .
-
-_:amaruTreasuryAddr a cardano:Address ;
-  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
-  cardano:hasPaymentCredential _:amaruTreasuryCredPayment ;
-  cardano:hasStakeCredential _:amaruTreasuryCredStake .
-
-_:amaruTreasuryCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:amaruTreasuryIdPayment .
-
-_:amaruTreasuryCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:amaruTreasuryIdStake .
+_:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .

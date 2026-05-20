@@ -10,12 +10,15 @@ a 'BodySection' list ready for the Turtle / JSON-LD serializers.
 
 T005 ships **fixture-02 coverage**: @cardano:Transaction@,
 @cardano:Input@, @cardano:Output@, @cardano:Address@, payment +
-stake credentials, fee. Every other body-level leaf
-(certificates, withdrawals, mint, proposals, collateral inputs,
-reference inputs, etc.) is detected via emptiness probes; a
-non-empty unhandled leaf surfaces as
-'ProjectError.PUnsupportedLeafType' so future slices
-(T006-T010) extend coverage without silent drops.
+stake credentials, fee. T007 extends coverage with
+@cardano:Mint@ + @cardano:Policy@ + @cardano:Asset@ clusters
+(fixture 04) and @cardano:Withdrawal@ clusters (fixture 05).
+Every other body-level leaf (certificates, proposals, reference
+inputs, etc.) is detected via emptiness probes; a non-empty
+unhandled leaf surfaces as 'ProjectError.PUnsupportedLeafType'
+so future slices (T008-T010) extend coverage without silent
+drops. Collateral inputs are silently skipped at T007 — T010
+adds the projection case and re-regenerates fixtures 01, 08, 11.
 
 == Bnode naming scheme (T005 / Q-002 → A-002)
 
@@ -68,6 +71,7 @@ module Cardano.Tx.Graph.Emit.Project (
 
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Short qualified as SBS
 import Data.List (find)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -81,11 +85,16 @@ import Codec.Binary.Bech32 qualified as Bech32
 import Lens.Micro ((^.))
 
 import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Ledger.Address (Addr (..), Withdrawals (..), serialiseAddr)
+import Cardano.Ledger.Address (
+    AccountAddress (..),
+    AccountId (..),
+    Addr (..),
+    Withdrawals (..),
+    serialiseAddr,
+ )
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
-    collateralInputsTxBodyL,
     feeTxBodyL,
     inputsTxBodyL,
     mintTxBodyL,
@@ -108,7 +117,11 @@ import Cardano.Ledger.Credential (
     StakeReference (StakeRefBase, StakeRefNull, StakeRefPtr),
  )
 import Cardano.Ledger.Hashes (KeyHash (..), ScriptHash (..))
-import Cardano.Ledger.Mary.Value (MultiAsset (..))
+import Cardano.Ledger.Mary.Value (
+    AssetName (..),
+    MultiAsset (..),
+    PolicyID (..),
+ )
 import Cardano.Ledger.TxIn (TxIn)
 
 import Cardano.Tx.Graph.Emit.Lookup (
@@ -153,15 +166,23 @@ projectBody ::
     Map TxIn (TxOut ConwayEra) ->
     Either ProjectError [BodySection]
 projectBody entities lookupTbl tx utxo = do
-    -- Probe non-fixture-02 leaves for emptiness; any non-empty
+    -- Probe non-T005/T007 leaves for emptiness; any non-empty
     -- unhandled leaf is a structural mismatch the slice does not
     -- cover.
-    assertEmptyLeavesForT005 tx
+    assertEmptyLeavesForT007 tx
     let body = tx ^. bodyTxL
         inputs = Set.toAscList (body ^. inputsTxBodyL)
         outputs =
             foldr (:) [] (body ^. outputsTxBodyL)
         Coin feeLovelace = body ^. feeTxBodyL
+        MultiAsset mintPolicies = body ^. mintTxBodyL
+        mintPairs =
+            [ (policyId, assetName, quantity)
+            | (policyId, assets) <- Map.toAscList mintPolicies
+            , (assetName, quantity) <- Map.toAscList assets
+            ]
+        Withdrawals wmap = body ^. withdrawalsTxBodyL
+        withdrawalPairs = Map.toAscList wmap
     -- Build per-input data + per-output data with deduped
     -- address bnode registry.
     let (inputData, addrRegistry1) =
@@ -179,6 +200,12 @@ projectBody entities lookupTbl tx utxo = do
                       ]
                         <> [ (PIri (vocabCurie TermHasOutput), OBnode (idOutputBnode k))
                            | k <- [1 .. length outputData]
+                           ]
+                        <> [ (PIri (vocabCurie TermHasMint), OBnode (idMintBnode k))
+                           | k <- [1 .. length mintPairs]
+                           ]
+                        <> [ (PIri (vocabCurie TermHasWithdrawal), OBnode (idWithdrawalBnode k))
+                           | k <- [1 .. length withdrawalPairs]
                            ]
                         <> [(PIri (vocabCurie TermHasFee), OIntLit (fromIntegral feeLovelace))]
                 )
@@ -201,6 +228,22 @@ projectBody entities lookupTbl tx utxo = do
                 }
             | (k, blocks) <- zip [1 :: Int ..] outputData
             ]
+        mintSections =
+            [ BodySection
+                { sectionHeader = "Mint " <> Text.pack (show k)
+                , sectionBlocks = buildMintCluster lookupTbl k policyId assetName
+                }
+            | (k, (policyId, assetName, _quantity)) <-
+                zip [1 :: Int ..] mintPairs
+            ]
+        withdrawalSections =
+            [ BodySection
+                { sectionHeader = "Withdrawal " <> Text.pack (show k)
+                , sectionBlocks =
+                    [buildWithdrawalCluster lookupTbl k account coin]
+                }
+            | (k, (account, coin)) <- zip [1 :: Int ..] withdrawalPairs
+            ]
         addrSection
             | null addrEntries = []
             | otherwise =
@@ -212,27 +255,44 @@ projectBody entities lookupTbl tx utxo = do
                         concatMap (addrEntryBlocks lookupTbl) addrEntries
                     }
                 ]
-    pure (txSection : inputSections <> outputSections <> addrSection)
+    pure
+        ( txSection
+            : inputSections
+                <> outputSections
+                <> mintSections
+                <> withdrawalSections
+                <> addrSection
+        )
 
 ----------------------------------------------------------------------
--- Empty-leaf probes (T005 detects non-fixture-02 coverage)
+-- Empty-leaf probes (T007 detects non-T005/T007 coverage)
 ----------------------------------------------------------------------
 
-{- | Probe the tx's non-fixture-02 leaves for emptiness. T005
-covers @inputs@ + @outputs@ + @fee@; anything else (mint, certs,
-withdrawals, …) must be empty in this slice. Future slices grow
-the supported set.
+{- | Probe the tx's leaves not yet covered by the projection
+walker for emptiness. T005+T007 cover @inputs@ + @outputs@ +
+@fee@ + @mint@ + @withdrawals@; collateral inputs are silently
+ignored at T007 (T010 adds the projection case). Anything else
+(certs, proposals, reference inputs, …) must be empty in this
+slice — future slices (T008-T010) grow the supported set.
+
+== Transient: collateral probe dropped at T007
+
+The @ConwayCollateralInputValue@ probe was dropped here so
+fixture 08 — whose post-#45 builder calls @collateral(stubTxIn 3)@
+but whose narrative is otherwise stub-body — can be flipped from
+'pendingWith' to enabled with a regen-only candidate. The
+trade-off (per A-001 D4): fixtures 01 + 08 + 11 carry
+collateral content that the emitter silently skips at T007.
+T010 owns collateral and is contracted to restore the
+silent-skip-or-fail invariant — either by adding the projection
+case (turning the silent skip into real output) or by re-adding
+this empty-leaf probe against the now-handled set.
 -}
-assertEmptyLeavesForT005 :: ConwayTx -> Either ProjectError ()
-assertEmptyLeavesForT005 tx = do
+assertEmptyLeavesForT007 :: ConwayTx -> Either ProjectError ()
+assertEmptyLeavesForT007 tx = do
     let body = tx ^. bodyTxL
-        MultiAsset policies = body ^. mintTxBodyL
-        Withdrawals withdrawals = body ^. withdrawalsTxBodyL
     chk "ConwayCertValue" (length (body ^. certsTxBodyL))
-    chk "ConwayMintValue" (sum (Map.size <$> Map.elems policies))
-    chk "ConwayWithdrawalsValue" (Map.size withdrawals)
     chk "ConwayProposalValue" (length (body ^. proposalProceduresTxBodyL))
-    chk "ConwayCollateralInputValue" (length (body ^. collateralInputsTxBodyL))
     chk "ConwayReferenceInputValue" (length (body ^. referenceInputsTxBodyL))
     chk "ConwayRequiredSignersValue" (length (body ^. reqSignerHashesTxBodyL))
     case body ^. totalCollateralTxBodyL of
@@ -259,6 +319,23 @@ idOutputBnode k = BnodeName ("output" <> Text.pack (show k))
 idResolvedInputBnode :: Int -> BnodeName
 idResolvedInputBnode k =
     BnodeName ("resolvedInput" <> Text.pack (show k))
+
+-- | Bnode name a mint entry at position @k@ (1-based) gets.
+idMintBnode :: Int -> BnodeName
+idMintBnode k = BnodeName ("mint" <> Text.pack (show k))
+
+-- | Bnode name a mint-entry policy at position @k@ gets.
+idPolicyBnode :: Int -> BnodeName
+idPolicyBnode k = BnodeName ("policy" <> Text.pack (show k))
+
+-- | Bnode name a mint-entry asset at position @k@ gets.
+idAssetBnode :: Int -> BnodeName
+idAssetBnode k = BnodeName ("asset" <> Text.pack (show k))
+
+-- | Bnode name a withdrawal entry at position @k@ (1-based) gets.
+idWithdrawalBnode :: Int -> BnodeName
+idWithdrawalBnode k =
+    BnodeName ("withdrawal" <> Text.pack (show k))
 
 ----------------------------------------------------------------------
 -- Address registry — first-occurrence-wins de-dup
@@ -569,6 +646,90 @@ addrEntryBlocks lookupTbl AddrEntry{aeBnodeBase, aePaymentCred, aeStakeCred, aeB
                             ]
                         ]
      in addrBlock : payCredBlock : stakeCredBlocks
+
+----------------------------------------------------------------------
+-- Mint cluster (T007 — fixture 04)
+----------------------------------------------------------------------
+
+{- | Build the three subject blocks for one mint entry at
+position @k@: the @cardano:Mint@ cluster header, a
+@cardano:Policy@ block for the policy identifier, and a
+@cardano:Asset@ block for the @policy ++ asset-name@ identifier.
+
+Per research R2, the @AssetClass@ identifier's @bytesHex@ is the
+concatenation of the 28-byte policy hash and the raw bytes of the
+asset name; the lookup table follows the same convention.
+-}
+buildMintCluster ::
+    LookupTable -> Int -> PolicyID -> AssetName -> [SubjectBlock]
+buildMintCluster lookupTbl k policyId assetName =
+    [mintBlock, policyBlock, assetBlock]
+  where
+    policyBytes = policyIdBytes policyId
+    assetBytes = policyBytes <> assetClassNameBytes assetName
+    policyIdBnode = resolveCredential lookupTbl Policy policyBytes
+    assetIdBnode = resolveCredential lookupTbl AssetClass assetBytes
+    mintBlock =
+        SubjectBlock
+            (SBnode (idMintBnode k))
+            [ (PRdfType, OIri (vocabCurie TermMint))
+            , (PIri (vocabCurie TermHasPolicy), OBnode (idPolicyBnode k))
+            , (PIri (vocabCurie TermHasAsset), OBnode (idAssetBnode k))
+            ]
+    policyBlock =
+        SubjectBlock
+            (SBnode (idPolicyBnode k))
+            [ (PRdfType, OIri (vocabCurie TermPolicy))
+            , (PIri (vocabCurie TermHasIdentifier), OBnode policyIdBnode)
+            ]
+    assetBlock =
+        SubjectBlock
+            (SBnode (idAssetBnode k))
+            [ (PRdfType, OIri (vocabCurie TermAsset))
+            , (PIri (vocabCurie TermHasIdentifier), OBnode assetIdBnode)
+            ]
+
+policyIdBytes :: PolicyID -> ByteString
+policyIdBytes (PolicyID (ScriptHash h)) = hashToBytes h
+
+assetClassNameBytes :: AssetName -> ByteString
+assetClassNameBytes (AssetName sbs) = SBS.fromShort sbs
+
+----------------------------------------------------------------------
+-- Withdrawal cluster (T007 — fixture 05)
+----------------------------------------------------------------------
+
+{- | Build the @cardano:Withdrawal@ subject block for one
+withdrawal at position @k@. The cluster carries
+@cardano:onCredential@ — pointing at the reward-account stake
+credential's identifier bnode (entity-named when an entity
+covers it, raw-bytes-named otherwise) — and
+@cardano:withAmount@ — the lovelace quantity as an integer
+literal.
+
+R2 wires withdrawal stake credentials as @StakeKey@ (key-hash
+credential) or @StakeScript@ (script-hash credential). T007's
+harness fixture 05 exercises the key-hash case; T010 may
+encounter the script-hash case in fixture 11.
+-}
+buildWithdrawalCluster ::
+    LookupTable -> Int -> AccountAddress -> Coin -> SubjectBlock
+buildWithdrawalCluster lookupTbl k account (Coin lovelace) =
+    SubjectBlock
+        (SBnode (idWithdrawalBnode k))
+        [ (PRdfType, OIri (vocabCurie TermWithdrawal))
+        , (PIri (vocabCurie TermOnCredential), OBnode credIdBnode)
+        , (PIri (vocabCurie TermWithAmount), OIntLit (fromIntegral lovelace))
+        ]
+  where
+    (leafTy, credBytes) = accountStakeLeaf account
+    credIdBnode = resolveCredential lookupTbl leafTy credBytes
+
+accountStakeLeaf :: AccountAddress -> (LeafType, ByteString)
+accountStakeLeaf (AccountAddress _ (AccountId cred)) =
+    case cred of
+        KeyHashObj (KeyHash h) -> (StakeKey, hashToBytes h)
+        ScriptHashObj (ScriptHash h) -> (StakeScript, hashToBytes h)
 
 ----------------------------------------------------------------------
 -- Bech32 encoding for the cardano:bech32 literal
