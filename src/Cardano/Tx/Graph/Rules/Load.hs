@@ -65,12 +65,16 @@ import Data.Text qualified as Text
 import System.FilePath (takeBaseName, takeDirectory, takeExtension)
 
 {- | Successful loader result. Carries the in-memory triple set, the
-serialized operator-entity overlay (canonical Turtle bytes), and any
-non-fatal warnings accumulated during the load.
+serialized operator-entity overlay (canonical Turtle bytes), the
+deduped in-memory entity list, and any non-fatal warnings accumulated
+during the load.
 
-Later slices populate the fields; the scaffold is uninhabited from the
-outside in this slice (constructors not exposed yet beyond the public
-type).
+The 'rulesEntities' field exposes the same @['EntityDecl']@ value the
+loader feeds into the overlay serializer ('emitOverlay'), so a
+downstream consumer (e.g. the body emitter introduced by #58 / spec
+FR-010) can build a credential lookup table directly from typed
+entity declarations without re-parsing the @rulesOverlayTurtle@
+bytes.
 -}
 data RulesLoadResult = RulesLoadResult
     { rulesOverlayTurtle :: !ByteString
@@ -78,6 +82,12 @@ data RulesLoadResult = RulesLoadResult
     -- against @expected.entities.ttl@.
     , rulesWarnings :: ![RulesLoadWarning]
     -- ^ Non-fatal warnings (e.g. cross-file duplicate entity URIs).
+    , rulesEntities :: ![EntityDecl]
+    -- ^ Deduped operator-declared entities in source order across the
+    -- imports closure, the same list serialized into
+    -- 'rulesOverlayTurtle'. Downstream consumers (body emitter #58)
+    -- use this typed view to build credential → entity lookups
+    -- without re-parsing the overlay Turtle.
     }
     deriving stock (Eq, Show)
 
@@ -133,6 +143,7 @@ loadWithResolver path = do
                     RulesLoadResult
                         { rulesOverlayTurtle = bytes
                         , rulesWarnings = warnings
+                        , rulesEntities = deduped
                         }
 
 ----------------------------------------------------------------------

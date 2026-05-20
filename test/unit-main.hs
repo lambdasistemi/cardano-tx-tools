@@ -4,6 +4,7 @@ import Test.Hspec (hspec)
 
 import Cardano.Tx.BuildSpec qualified as BuildSpec
 import Cardano.Tx.DiffSpec qualified as DiffSpec
+import Cardano.Tx.Graph.Rules.LoadEntitiesSpec qualified as GraphRulesLoadEntitiesSpec
 import Cardano.Tx.Graph.Rules.LoadExeSpec qualified as GraphRulesLoadExeSpec
 import Cardano.Tx.Graph.Rules.LoadGoldenSpec qualified as GraphRulesLoadGoldenSpec
 import Cardano.Tx.Graph.Rules.LoadImportsSpec qualified as GraphRulesLoadImportsSpec
@@ -22,6 +23,7 @@ main :: IO ()
 main = hspec $ do
     DiffSpec.spec
     BuildSpec.spec
+    GraphRulesLoadEntitiesSpec.spec
     GraphRulesLoadExeSpec.spec
     GraphRulesLoadGoldenSpec.spec
     GraphRulesLoadImportsSpec.spec
