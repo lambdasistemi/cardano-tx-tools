@@ -24,7 +24,7 @@ The rule is "VocabTraceabilitySpec runs over every fixture
 GREEN in EmitGoldenSpec", so each new fixture flip in a future
 slice should add the fixture to 'enabledFixtures' below. T007
 covers 02 + 03 + 04 + 05 + 08; T008 adds 06 + 07; T009 adds 09;
-T010 will add 01 + 10 + 11.
+T010 adds 01 + 10 + 11 (11/11 fixtures = 33/33 invariants).
 -}
 module Cardano.Tx.Graph.Emit.VocabTraceabilitySpec (spec) where
 
@@ -50,6 +50,7 @@ import Cardano.Tx.Graph.Rules.Load (
  )
 import Cardano.Tx.Ledger (ConwayTx)
 
+import Fixtures.RewriteRedesign.S01_AmaruTreasurySwap qualified as S01
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
 import Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap qualified as S04
@@ -58,6 +59,8 @@ import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
 import Fixtures.RewriteRedesign.S07_VoteDelegation qualified as S07
 import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
+import Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal qualified as S10
+import Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal qualified as S11
 
 import Test.Hspec (
     Spec,
@@ -68,10 +71,11 @@ import Test.Hspec (
     shouldSatisfy,
  )
 
--- | Fixtures GREEN in 'EmitGoldenSpec' at end of T009.
+-- | Fixtures GREEN in 'EmitGoldenSpec' at end of T010 (all 11).
 enabledFixtures :: [(String, ConwayTx)]
 enabledFixtures =
-    [ ("02-alice-bob-ada", S02.tx)
+    [ ("01-amaru-treasury-swap", S01.tx)
+    , ("02-alice-bob-ada", S02.tx)
     , ("03-multi-asset-transfer", S03.tx)
     , ("04-mint-spend-script-overlap", S04.tx)
     , ("05-withdrawal-script-stake", S05.tx)
@@ -79,6 +83,8 @@ enabledFixtures =
     , ("07-vote-delegation", S07.tx)
     , ("08-contingency-disburse", S08.tx)
     , ("09-mpfs-facts-request", S09.tx)
+    , ("10-governance-treasury-withdrawal", S10.tx)
+    , ("11-amaru-treasury-swap-real", S11.tx)
     ]
 
 spec :: Spec

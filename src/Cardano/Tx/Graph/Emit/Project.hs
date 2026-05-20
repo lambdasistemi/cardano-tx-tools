@@ -13,12 +13,20 @@ T005 ships **fixture-02 coverage**: @cardano:Transaction@,
 stake credentials, fee. T007 extends coverage with
 @cardano:Mint@ + @cardano:Policy@ + @cardano:Asset@ clusters
 (fixture 04) and @cardano:Withdrawal@ clusters (fixture 05).
-Every other body-level leaf (certificates, proposals, reference
-inputs, etc.) is detected via emptiness probes; a non-empty
-unhandled leaf surfaces as 'ProjectError.PUnsupportedLeafType'
-so future slices (T008-T010) extend coverage without silent
-drops. Collateral inputs are silently skipped at T007 — T010
-adds the projection case and re-regenerates fixtures 01, 08, 11.
+T008 adds @cardano:StakeDelegation@ + @cardano:VoteDelegation@
+cert clusters (fixtures 06, 07). T010 adds collateral inputs
+(fixtures 01, 08, 11 — reusing @cardano:Input@ off the new
+@cardano:hasCollateralInput@ predicate) and the Conway
+TreasuryWithdrawals proposal cluster (fixture 10 — typed
+@cardano:Datum@ with @cardano:decodedAs "TreasuryWithdrawals"@
+plus per-stake-credential @cardano:hasIdentifier@ links for the
+proposer's returnAddr and the withdrawal targets, mirroring the
+artisan layout shipped by #45). Every remaining body-level leaf
+(reference inputs, required signers, total-collateral, non-
+TreasuryWithdrawal proposal varieties, non-delegation cert
+varieties) is detected via emptiness probes / fail-loudly case
+arms; a non-empty unhandled leaf surfaces as
+'ProjectError.PUnsupportedLeafType'.
 
 == Bnode naming scheme (T005 / Q-002 → A-002)
 
@@ -63,6 +71,19 @@ addresses share the same payment credential (e.g. base + stake
 key vs base + stake script), the address bnodes would collide
 on @\<paymentId\>Addr@; that's a Q-file moment — file before
 introducing a stake-side disambiguator.
+
+== Tx-block predicate order (T010 / A-001)
+
+The transaction subject block lists its @has*@ predicates in this
+fixed order:
+
+@hasInput, hasOutput, hasMint, hasWithdrawal, hasCertificate,
+hasCollateralInput, hasProposal, hasFee@
+
+The order follows the artisan @expected.ttl@ layout shipped by #45
+and is byte-equal-critical: the Turtle serializer preserves
+predicate order verbatim. Future slices (T011+ JSON-LD, future
+leaves) MUST extend the list in place rather than re-shuffling.
 -}
 module Cardano.Tx.Graph.Emit.Project (
     ProjectError (..),
@@ -95,6 +116,7 @@ import Cardano.Ledger.Address (
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
+    collateralInputsTxBodyL,
     feeTxBodyL,
     inputsTxBodyL,
     mintTxBodyL,
@@ -116,6 +138,10 @@ import Cardano.Ledger.BaseTypes (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.Governance (
+    GovAction (TreasuryWithdrawals),
+    ProposalProcedure (..),
+ )
 import Cardano.Ledger.Core (TxCert)
 import Cardano.Ledger.Credential (
     Credential (KeyHashObj, ScriptHashObj),
@@ -176,12 +202,14 @@ projectBody ::
     Map TxIn (TxOut ConwayEra) ->
     Either ProjectError [BodySection]
 projectBody entities lookupTbl tx utxo = do
-    -- Probe non-T005/T007/T008 leaves for emptiness; any non-empty
-    -- unhandled leaf is a structural mismatch the slice does not
-    -- cover.
+    -- Probe leaves not covered by any projection case for
+    -- emptiness; any non-empty unhandled leaf is a structural
+    -- mismatch the slice does not cover.
     assertEmptyLeavesForT008 tx
     let body = tx ^. bodyTxL
         inputs = Set.toAscList (body ^. inputsTxBodyL)
+        collateralIns =
+            Set.toAscList (body ^. collateralInputsTxBodyL)
         outputs =
             foldr (:) [] (body ^. outputsTxBodyL)
         Coin feeLovelace = body ^. feeTxBodyL
@@ -194,16 +222,24 @@ projectBody entities lookupTbl tx utxo = do
         Withdrawals wmap = body ^. withdrawalsTxBodyL
         withdrawalPairs = Map.toAscList wmap
         certs = toList (body ^. certsTxBodyL)
-    -- Build per-input data + per-output data with deduped
-    -- address bnode registry.
+        proposals = toList (body ^. proposalProceduresTxBodyL)
+    -- Build per-input data + per-output data + per-collateral
+    -- data with a single deduped address bnode registry.
     let (inputData, addrRegistry1) =
             buildInputs entities lookupTbl utxo inputs
         (outputData, addrRegistry2) =
             buildOutputs entities lookupTbl outputs addrRegistry1
-        addrEntries = addrRegistryEntries addrRegistry2
+        (collateralData, addrRegistry3) =
+            buildCollaterals entities lookupTbl utxo collateralIns addrRegistry2
+        addrEntries = addrRegistryEntries addrRegistry3
     -- Per-cert clusters (T008 — fixtures 06, 07).
     certClusters <-
         traverse (uncurry (buildCertCluster lookupTbl)) (zip [1 ..] certs)
+    -- Per-proposal clusters (T010 — fixture 10).
+    proposalBlocks <-
+        traverse
+            (uncurry (buildProposalCluster lookupTbl))
+            (zip [1 ..] proposals)
     -- Assemble the tx subject block.
     let txBlock =
             SubjectBlock
@@ -223,6 +259,14 @@ projectBody entities lookupTbl tx utxo = do
                            ]
                         <> [ (PIri (vocabCurie TermHasCertificate), OBnode (idCertBnode k))
                            | k <- [1 .. length certs]
+                           ]
+                        <> [ ( PIri (vocabCurie TermHasCollateralInput)
+                             , OBnode (idCollateralBnode k)
+                             )
+                           | k <- [1 .. length collateralData]
+                           ]
+                        <> [ (PIri (vocabCurie TermHasProposal), OBnode (idProposalBnode k))
+                           | k <- [1 .. length proposals]
                            ]
                         <> [(PIri (vocabCurie TermHasFee), OIntLit (fromIntegral feeLovelace))]
                 )
@@ -268,6 +312,20 @@ projectBody entities lookupTbl tx utxo = do
                 }
             | (k, blocks) <- zip [1 :: Int ..] certClusters
             ]
+        collateralSections =
+            [ BodySection
+                { sectionHeader = "Collateral " <> Text.pack (show k)
+                , sectionBlocks = blocks
+                }
+            | (k, blocks) <- zip [1 :: Int ..] collateralData
+            ]
+        proposalSections =
+            [ BodySection
+                { sectionHeader = "Proposal " <> Text.pack (show k)
+                , sectionBlocks = [block]
+                }
+            | (k, block) <- zip [1 :: Int ..] proposalBlocks
+            ]
         addrSection
             | null addrEntries = []
             | otherwise =
@@ -286,6 +344,8 @@ projectBody entities lookupTbl tx utxo = do
                 <> mintSections
                 <> withdrawalSections
                 <> certSections
+                <> collateralSections
+                <> proposalSections
                 <> addrSection
         )
 
@@ -294,29 +354,17 @@ projectBody entities lookupTbl tx utxo = do
 ----------------------------------------------------------------------
 
 {- | Probe the tx's leaves not yet covered by the projection
-walker for emptiness. T005+T007+T008 cover @inputs@ + @outputs@ +
-@fee@ + @mint@ + @withdrawals@ + @certs@; collateral inputs are
-silently ignored at T007 (T010 adds the projection case). Anything
-else (proposals, reference inputs, …) must be empty in this slice
-— future slices (T009-T010) grow the supported set.
-
-== Transient: collateral probe dropped at T007
-
-The @ConwayCollateralInputValue@ probe was dropped here so
-fixture 08 — whose post-#45 builder calls @collateral(stubTxIn 3)@
-but whose narrative is otherwise stub-body — can be flipped from
-'pendingWith' to enabled with a regen-only candidate. The
-trade-off (per A-001 D4): fixtures 01 + 08 + 11 carry
-collateral content that the emitter silently skips at T007.
-T010 owns collateral and is contracted to restore the
-silent-skip-or-fail invariant — either by adding the projection
-case (turning the silent skip into real output) or by re-adding
-this empty-leaf probe against the now-handled set.
+walker for emptiness. T005+T007+T008+T010 cover @inputs@ +
+@outputs@ + @fee@ + @mint@ + @withdrawals@ + @certs@ +
+@collateralInputs@ + @proposalProcedures@. Anything else
+(reference inputs, required signers, total collateral) must be
+empty: a non-empty unhandled leaf surfaces as
+'PUnsupportedLeafType' so future slices extend coverage without
+silent drops (T008 D3 — fail loudly).
 -}
 assertEmptyLeavesForT008 :: ConwayTx -> Either ProjectError ()
 assertEmptyLeavesForT008 tx = do
     let body = tx ^. bodyTxL
-    chk "ConwayProposalValue" (length (body ^. proposalProceduresTxBodyL))
     chk "ConwayReferenceInputValue" (length (body ^. referenceInputsTxBodyL))
     chk "ConwayRequiredSignersValue" (length (body ^. reqSignerHashesTxBodyL))
     case body ^. totalCollateralTxBodyL of
@@ -372,6 +420,21 @@ idPoolBnode k = BnodeName ("pool" <> Text.pack (show k))
 -- | Bnode name a vote-delegation DRep target at position @k@ gets.
 idDRepBnode :: Int -> BnodeName
 idDRepBnode k = BnodeName ("drep" <> Text.pack (show k))
+
+-- | Bnode name a collateral input at position @k@ (1-based) gets.
+idCollateralBnode :: Int -> BnodeName
+idCollateralBnode k =
+    BnodeName ("collateral" <> Text.pack (show k))
+
+-- | Bnode name a resolved-collateral output at position @k@ gets.
+idResolvedCollateralBnode :: Int -> BnodeName
+idResolvedCollateralBnode k =
+    BnodeName ("resolvedCollateral" <> Text.pack (show k))
+
+-- | Bnode name a proposal entry at position @k@ (1-based) gets.
+idProposalBnode :: Int -> BnodeName
+idProposalBnode k =
+    BnodeName ("proposal" <> Text.pack (show k))
 
 ----------------------------------------------------------------------
 -- Address registry — first-occurrence-wins de-dup
@@ -895,6 +958,138 @@ stakeCredLeaf :: Credential Staking -> (LeafType, ByteString)
 stakeCredLeaf = \case
     KeyHashObj (KeyHash h) -> (StakeKey, hashToBytes h)
     ScriptHashObj (ScriptHash h) -> (StakeScript, hashToBytes h)
+
+----------------------------------------------------------------------
+-- Collateral inputs (T010 — fixtures 01, 08, 11)
+----------------------------------------------------------------------
+
+{- | Build per-collateral-input cluster blocks. Each collateral
+input renders as @_:collateralK a cardano:Input .@ plus, when the
+input's 'TxIn' resolves under @utxo@, a @cardano:resolvedTo@
+predicate pointing at a resolved-output block whose
+@cardano:atAddress@ target reuses the shared address registry.
+
+Collateral inputs reuse the @cardano:Input@ class (rather than
+introducing a separate @cardano:CollateralInput@); only the
+@_:tx@ binding predicate is collateral-specific
+(@cardano:hasCollateralInput@), matching the artisan layout
+shipped by #45 for fixtures 01 + 11.
+-}
+buildCollaterals ::
+    [EntityDecl] ->
+    LookupTable ->
+    Map TxIn (TxOut ConwayEra) ->
+    [TxIn] ->
+    AddrRegistry ->
+    ([[SubjectBlock]], AddrRegistry)
+buildCollaterals entities lookupTbl utxo txIns reg0 =
+    go [] reg0 (zip [1 ..] txIns)
+  where
+    go acc reg [] = (reverse acc, reg)
+    go acc reg ((k, txIn) : rest) =
+        case Map.lookup txIn utxo of
+            Nothing ->
+                let block =
+                        SubjectBlock
+                            (SBnode (idCollateralBnode k))
+                            [(PRdfType, OIri (vocabCurie TermInput))]
+                 in go ([block] : acc) reg rest
+            Just resolved ->
+                let (entry, reg') =
+                        insertAddr
+                            entities
+                            lookupTbl
+                            (resolved ^. addrTxOutL)
+                            reg
+                    collBlock =
+                        SubjectBlock
+                            (SBnode (idCollateralBnode k))
+                            [ (PRdfType, OIri (vocabCurie TermInput))
+                            ,
+                                ( PIri (vocabCurie TermResolvedTo)
+                                , OBnode (idResolvedCollateralBnode k)
+                                )
+                            ]
+                    resolvedBlock =
+                        SubjectBlock
+                            (SBnode (idResolvedCollateralBnode k))
+                            [ (PRdfType, OIri (vocabCurie TermOutput))
+                            ,
+                                ( PIri (vocabCurie TermAtAddress)
+                                , OBnode (BnodeName (aeBnodeBase entry <> "Addr"))
+                                )
+                            ]
+                 in go ([collBlock, resolvedBlock] : acc) reg' rest
+
+----------------------------------------------------------------------
+-- Proposal cluster (T010 — fixture 10)
+----------------------------------------------------------------------
+
+{- | Build the subject block for one proposal at position @k@.
+
+T010 ships the @TreasuryWithdrawals@ variety only, which is the
+sole proposal the post-#45 harness exercises (S10 via
+@stubTreasuryWithdrawalProposal@). The cluster pins the proposal
+under @cardano:Datum@ (a deliberate reuse of the datum vocab,
+matching the artisan layout from #45 — Phase A declares
+@cardano:hasProposal@ as the body binding but does not (yet)
+declare a @ProposalProcedure@ class or per-variety subclasses)
+plus @cardano:decodedAs "TreasuryWithdrawals"@ to label the
+variant. The proposer's @returnAddr@ stake credential surfaces
+as a @cardano:hasIdentifier@ link, followed by one
+@cardano:hasIdentifier@ per @TreasuryWithdrawals@ target
+reward-account (in 'Map' ascending order — the same order the
+ledger enforces on the wire).
+
+== Policy: fail-loudly on unsupported proposal varieties (T008 D3)
+
+Conway @GovAction@ constructors other than @TreasuryWithdrawals@
+(@ParameterChange@, @HardForkInitiation@, @NoConfidence@,
+@UpdateCommittee@, @NewConstitution@, @InfoAction@) raise
+'PUnsupportedLeafType' rather than silently emitting partial
+triples. Future slices that need a variant extend this function
+explicitly.
+-}
+buildProposalCluster ::
+    LookupTable ->
+    Int ->
+    ProposalProcedure ConwayEra ->
+    Either ProjectError SubjectBlock
+buildProposalCluster lookupTbl k (ProposalProcedure _ returnAddr action _) =
+    case action of
+        TreasuryWithdrawals targets _ ->
+            let (returnLT, returnBytes) = accountStakeLeaf returnAddr
+                returnIdBnode =
+                    resolveCredential lookupTbl returnLT returnBytes
+                targetIdBnodes =
+                    [ resolveCredential lookupTbl lt bytes
+                    | acct <- Map.keys targets
+                    , let (lt, bytes) = accountStakeLeaf acct
+                    ]
+             in Right $
+                    SubjectBlock
+                        (SBnode (idProposalBnode k))
+                        ( [ (PRdfType, OIri (vocabCurie TermDatum))
+                          ,
+                              ( PIri (vocabCurie TermDecodedAs)
+                              , OStringLit "TreasuryWithdrawals"
+                              )
+                          ,
+                              ( PIri (vocabCurie TermHasIdentifier)
+                              , OBnode returnIdBnode
+                              )
+                          ]
+                            <> [ ( PIri (vocabCurie TermHasIdentifier)
+                                 , OBnode bn
+                                 )
+                               | bn <- targetIdBnodes
+                               ]
+                        )
+        _ ->
+            Left
+                ( PUnsupportedLeafType
+                    "ConwayProposalValue (non-TreasuryWithdrawals)"
+                )
 
 ----------------------------------------------------------------------
 -- Bech32 encoding for the cardano:bech32 literal

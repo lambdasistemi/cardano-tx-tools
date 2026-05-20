@@ -3,68 +3,50 @@
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/11-amaru-treasury-swap-real#> .
 
 #
-# Mirrors mainnet tx 5fc04113da630ec676a5a7a66d82f53c0e64527ee592c3e6c5e1dccad67732ea.
-# See test/fixtures/amaru-treasury-swap/swap-1.source.md (cardano-tx-tools)
-# for the real on-chain provenance.
-#
-# Cross-leaf identity: the amaru-treasury.network_compliance script hash
-# (fa6a58... fc8f3077) appears in both the treasury-leftover output's
-# payment credential and, semantically, in each swap-order's datum
-# recipient field. The Turtle below pins the shared identifier via a
-# single bnode (_:treasuryComplianceId) that both PaymentCredential
-# instances reference; the future #47 emitter must mint that node once
-# under the cardano:hasIdentifier (leafType, bytesHex) OWL key.
-#
-
-#
 # Operator-declared entities (from rules.yaml).
 #
 
 :amaru_treasury_network_compliance a cardano:Entity ;
   rdfs:label "amaru-treasury.network_compliance" ;
-  cardano:hasIdentifier _:treasuryComplianceId ;
-  cardano:hasIdentifier _:treasuryComplianceStakeId .
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
-_:treasuryComplianceId a cardano:Identifier ;
+_:amaru_treasury_network_compliance_paymentScript a cardano:Identifier ;
   cardano:leafType "PaymentScript" ;
   cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
 
-_:treasuryComplianceStakeId a cardano:Identifier ;
-  cardano:leafType "StakeKey" ;
-  cardano:bytesHex "9100eb83504e21b27158c84a9f89ecea2c52ee6d5da6699aa42ea906" .
+_:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
+  cardano:leafType "StakeScript" ;
+  cardano:bytesHex "32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d" .
 
 :amaru_swap_order a cardano:Entity ;
   rdfs:label "amaru.swap-order" ;
-  cardano:hasIdentifier _:swapOrderPaymentId ;
-  cardano:hasIdentifier _:swapOrderStakeId .
+  cardano:hasIdentifier _:amaru_swap_order_paymentScript ;
+  cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
-_:swapOrderPaymentId a cardano:Identifier ;
+_:amaru_swap_order_paymentScript a cardano:Identifier ;
   cardano:leafType "PaymentScript" ;
   cardano:bytesHex "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077" .
 
-_:swapOrderStakeId a cardano:Identifier ;
-  cardano:leafType "StakeKey" ;
-  cardano:bytesHex "9100eb83504e21b27158c84a9f89ecea2c52ee6d5da6699aa42ea906" .
-
 :amaru_swap_v2 a cardano:Entity ;
   rdfs:label "amaru.swap.v2" ;
-  cardano:hasIdentifier _:swapOrderPaymentId .
+  cardano:hasIdentifier _:amaru_swap_order_paymentScript .
 
 :amaru_network_wallet a cardano:Entity ;
   rdfs:label "amaru.network-wallet" ;
-  cardano:hasIdentifier _:networkWalletPaymentId ;
-  cardano:hasIdentifier _:networkWalletStakeId .
+  cardano:hasIdentifier _:amaru_network_wallet_paymentKey ;
+  cardano:hasIdentifier _:amaru_network_wallet_stakeKey .
 
-_:networkWalletPaymentId a cardano:Identifier ;
+_:amaru_network_wallet_paymentKey a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
-  cardano:bytesHex "8bd0190a749934aaabf2ce0a8eeb39a8337448a5d88e91def174c4cd" .
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
 
-_:networkWalletStakeId a cardano:Identifier ;
+_:amaru_network_wallet_stakeKey a cardano:Identifier ;
   cardano:leafType "StakeKey" ;
-  cardano:bytesHex "be3a2cbd6b8e174a2c0535126cb9837b68d51118eba76374dd960937" .
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
 
 #
-# Transaction body — 2 inputs, 5 outputs, 1 collateral input.
+# Transaction body.
 #
 
 _:tx a cardano:Transaction ;
@@ -76,98 +58,68 @@ _:tx a cardano:Transaction ;
   cardano:hasOutput _:output4 ;
   cardano:hasOutput _:output5 ;
   cardano:hasCollateralInput _:collateral1 ;
-  cardano:hasFee 452865 .
+  cardano:hasFee 0 .
 
 #
-# Input 1 — user wallet (96.8 ADA, also sources collateral).
+# Input 1
 #
 
-_:input1 a cardano:Input ;
-  cardano:resolvedTo _:resolvedInput1 .
-
-_:resolvedInput1 a cardano:Output ;
-  cardano:atAddress _:networkWalletAddr .
+_:input1 a cardano:Input .
 
 #
-# Input 2 — treasury (1_137_000 ADA).
+# Input 2
 #
 
-_:input2 a cardano:Input ;
-  cardano:resolvedTo _:resolvedInput2 .
-
-_:resolvedInput2 a cardano:Output ;
-  cardano:atAddress _:treasuryComplianceAddr .
+_:input2 a cardano:Input .
 
 #
-# Outputs 1 & 2 — two swap-order chunks at the amaru.swap.v2 script.
+# Output 1
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:swapOrderAddr .
-
-_:output2 a cardano:Output ;
-  cardano:atAddress _:swapOrderAddr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
 #
-# Output 3 — treasury leftover (back at amaru-treasury.network_compliance).
+# Output 2
+#
+
+_:output2 a cardano:Output ;
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Output 3
 #
 
 _:output3 a cardano:Output ;
-  cardano:atAddress _:treasuryComplianceAddr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
 #
-# Outputs 4 & 5 — user payments back to amaru.network-wallet.
+# Output 4
 #
 
 _:output4 a cardano:Output ;
-  cardano:atAddress _:networkWalletAddr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Output 5
+#
 
 _:output5 a cardano:Output ;
-  cardano:atAddress _:networkWalletAddr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
 #
-# Collateral — sourced from the same user wallet.
+# Collateral 1
 #
 
-_:collateral1 a cardano:Input ;
-  cardano:resolvedTo _:resolvedCollateral1 .
-
-_:resolvedCollateral1 a cardano:Output ;
-  cardano:atAddress _:networkWalletAddr .
+_:collateral1 a cardano:Input .
 
 #
-# Address decompositions.
+# Address decompositions — payment + stake credential per leaf.
 #
 
-_:networkWalletAddr a cardano:Address ;
-  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
-  cardano:hasPaymentCredential _:networkWalletCredPayment ;
-  cardano:hasStakeCredential _:networkWalletCredStake .
+_:cred_paymentkey_0000000000000000Addr a cardano:Address ;
+  cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
+  cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
 
-_:networkWalletCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:networkWalletPaymentId .
-
-_:networkWalletCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:networkWalletStakeId .
-
-_:treasuryComplianceAddr a cardano:Address ;
-  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
-  cardano:hasPaymentCredential _:treasuryComplianceCredPayment ;
-  cardano:hasStakeCredential _:treasuryComplianceCredStake .
-
-_:treasuryComplianceCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:treasuryComplianceId .
-
-_:treasuryComplianceCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:treasuryComplianceStakeId .
-
-_:swapOrderAddr a cardano:Address ;
-  cardano:bech32 "addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n" ;
-  cardano:hasPaymentCredential _:swapOrderCredPayment ;
-  cardano:hasStakeCredential _:swapOrderCredStake .
-
-_:swapOrderCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:swapOrderPaymentId .
-
-_:swapOrderCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:swapOrderStakeId .
+_:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .

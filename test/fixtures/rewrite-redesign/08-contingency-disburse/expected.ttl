@@ -54,6 +54,7 @@ _:tx a cardano:Transaction ;
   cardano:hasInput _:input2 ;
   cardano:hasOutput _:output1 ;
   cardano:hasOutput _:output2 ;
+  cardano:hasCollateralInput _:collateral1 ;
   cardano:hasFee 0 .
 
 #
@@ -81,6 +82,12 @@ _:output1 a cardano:Output ;
 
 _:output2 a cardano:Output ;
   cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+
+#
+# Collateral 1
+#
+
+_:collateral1 a cardano:Input .
 
 #
 # Address decompositions — payment + stake credential per leaf.

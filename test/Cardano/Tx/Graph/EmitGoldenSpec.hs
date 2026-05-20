@@ -7,10 +7,10 @@ Per-fixture byte-equality check: the Turtle bytes 'emit' produces
 for a fixture's @(ConwayTx, ResolvedUTxO, [EntityDecl])@ tuple
 must equal the committed @expected.ttl@.
 
-T005 enables fixture 02 only; the other 10 entries are
-'pendingWith' messages naming the future slice that activates each
-one (T006 mint, T007 datum/redeemer, T008 cert, T009 governance,
-T010 collateral / leftovers).
+T005 enabled fixture 02; T006-T010 grew coverage one slice at a
+time; T010 closes the final three (01 collateral + multi-input,
+10 TreasuryWithdrawal proposal, 11 collateral on the real-shape
+mirror). All 11 fixtures are GREEN at end of T010 — SC-001 closed.
 -}
 module Cardano.Tx.Graph.EmitGoldenSpec (spec) where
 
@@ -34,6 +34,7 @@ import Cardano.Tx.Graph.Rules.Load (
 
 import Data.ByteString (ByteString)
 
+import Fixtures.RewriteRedesign.S01_AmaruTreasurySwap qualified as S01
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
 import Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap qualified as S04
@@ -42,13 +43,14 @@ import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
 import Fixtures.RewriteRedesign.S07_VoteDelegation qualified as S07
 import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
+import Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal qualified as S10
+import Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal qualified as S11
 
 import Test.Hspec (
     Spec,
     describe,
     expectationFailure,
     it,
-    pendingWith,
     runIO,
  )
 
@@ -294,21 +296,96 @@ spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
                                         <> " vs "
                                         <> show (BS.length expected)
                                         <> ")"
-    -- ---- pending entries ----
-    pendingFixture
-        "01-amaru-treasury-swap"
-        "T010: collateral input + multi-input (33 swap orders)"
-    pendingFixture
-        "10-governance-treasury-withdrawal"
-        "T010: proposal + treasury withdrawal action"
-    pendingFixture
-        "11-amaru-treasury-swap-real"
-        "T010: real-bytes mainnet mirror; collateral + inline datum"
-
-pendingFixture :: FilePath -> String -> Spec
-pendingFixture slug reason =
-    it (slug <> " — emit + serialize matches expected.ttl") $
-        pendingWith reason
+    -- ---- fixture 01: enabled in T010 ----
+    do
+        let slug = "01-amaru-treasury-swap"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S01.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
+    -- ---- fixture 10: enabled in T010 ----
+    do
+        let slug = "10-governance-treasury-withdrawal"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S10.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
+    -- ---- fixture 11: enabled in T010 ----
+    do
+        let slug = "11-amaru-treasury-swap-real"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S11.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
 
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty
