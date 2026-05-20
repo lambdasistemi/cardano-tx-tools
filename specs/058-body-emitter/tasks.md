@@ -401,7 +401,7 @@ self-contained "this projection case + this fixture's regen".
 
 ## Phase 6 — JSON-LD serializer + reproducibility
 
-- [ ] **T011** *(type=feat, subagent slice; plan slice 11 / FR-007 +
+- [X] **T011** *(type=feat, subagent slice; plan slice 11 / FR-007 +
   SC-003 + research R1)* — JSON-LD serializer in
   `Cardano.Tx.Graph.Emit.Serialize.JsonLd`. `JsonLdEquivalenceSpec`
   parses both Turtle + JSON-LD outputs per fixture and asserts

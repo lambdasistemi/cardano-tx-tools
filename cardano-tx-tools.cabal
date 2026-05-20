@@ -86,6 +86,7 @@ library
     Cardano.Tx.Deposits
     Cardano.Tx.Graph.Emit.Lookup
     Cardano.Tx.Graph.Emit.Project
+    Cardano.Tx.Graph.Emit.Serialize.JsonLd
     Cardano.Tx.Graph.Emit.Serialize.Turtle
     Cardano.Tx.Graph.Emit.Triple
     Cardano.Tx.Graph.Emit.Vocab
@@ -362,6 +363,7 @@ test-suite unit-tests
     Cardano.Tx.Diff.ResolverSpec
     Cardano.Tx.Diff.Web2Spec
     Cardano.Tx.DiffSpec
+    Cardano.Tx.Graph.Emit.JsonLdEquivalenceSpec
     Cardano.Tx.Graph.Emit.LookupSpec
     Cardano.Tx.Graph.Emit.VocabTraceabilitySpec
     Cardano.Tx.Graph.EmitGoldenSpec
