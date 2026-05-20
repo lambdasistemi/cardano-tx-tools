@@ -274,7 +274,7 @@ the regenerated `expected.ttl` files for the fixtures the new cases
 unblock. Per-slice scope is fixture-driven so each commit is a
 self-contained "this projection case + this fixture's regen".
 
-- [ ] **T006** *(type=feat, subagent slice; plan slice 6 / research R2)*
+- [X] **T006** *(type=feat, subagent slice; plan slice 6 / research R2)*
   — Mint section + `Policy` + `AssetClass` leaves. Regenerate fixture
   **03** (multi-asset transfer). Fixture 10 moves to T010 (analyzer
   H2 fix) because its `Vote` + `TreasuryWithdrawal` leaves are

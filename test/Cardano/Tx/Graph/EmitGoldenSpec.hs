@@ -35,6 +35,7 @@ import Cardano.Tx.Graph.Rules.Load (
 import Data.ByteString (ByteString)
 
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
+import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
 
 import Test.Hspec (
     Spec,
@@ -47,7 +48,7 @@ import Test.Hspec (
 
 spec :: Spec
 spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
-    -- ---- fixture 02: the only GREEN entry in T005 ----
+    -- ---- fixture 02: enabled since T005 ----
     do
         let slug = "02-alice-bob-ada"
             dir = "test/fixtures/rewrite-redesign" </> slug
@@ -77,13 +78,40 @@ spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
                                         <> " vs "
                                         <> show (BS.length expected)
                                         <> ")"
+    -- ---- fixture 03: enabled in T006 ----
+    do
+        let slug = "03-multi-asset-transfer"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S03.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
     -- ---- pending entries ----
     pendingFixture
         "01-amaru-treasury-swap"
         "T010: collateral input + multi-input (33 swap orders)"
-    pendingFixture
-        "03-multi-asset-transfer"
-        "T006: multi-asset Value rendering"
     pendingFixture
         "04-mint-spend-script-overlap"
         "T006/T007: mint entry + script witness"
