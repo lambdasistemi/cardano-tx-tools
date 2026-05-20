@@ -62,10 +62,11 @@
 │                 -> Either EmitError EmittedGraph                 │
 │      serialize  :: EmitFormat -> EmittedGraph -> ByteString      │
 │    private (other-modules under Cardano.Tx.Graph.Emit.*):        │
-│      Lookup     -- (LeafType, bytesHex) → BnodeName via overlay  │
-│      Project    -- projection-walker, leaf → triples             │
-│      Serialize.Turtle  -- canonical-form Turtle of EmittedGraph  │
-│      Serialize.JsonLd  -- JSON-LD projection of EmittedGraph     │
+│      Vocab     -- single-source-of-truth `cardano:` IRI registry │
+│      Lookup    -- (LeafType, bytesHex) → BnodeName via overlay   │
+│      Project   -- projection-walker, leaf → triples              │
+│      Serialize.Turtle -- canonical-form Turtle of EmittedGraph   │
+│      Serialize.JsonLd -- JSON-LD projection of EmittedGraph      │
 │                                                                  │
 │  src/Cardano/Tx/Graph/Rules/Load.hs  (extended)                  │
 │    RulesLoadResult gains: rulesEntities :: [EntityDecl]          │
@@ -368,12 +369,12 @@ production code and tests.
 | 2 | Body emitter scaffold: `Cardano.Tx.Graph.Emit` module + `EmitError`, `EmittedGraph`, `EmitFormat` types + `emit` stub returning empty graph + smoke test asserting the stub compiles and returns an empty graph for an empty Tx | ~120 LOC | `src/Cardano/Tx/Graph/Emit.hs`, cabal, smoke test |
 | 3 | `tx-graph` CLI extension: `--tx`, `--utxo`, `--out`, `--format` flags + flag-presence dispatcher (D8) + structured error rendering for missing files / decode failures | ~150 LOC | `app/tx-graph/Main.hs`, +exe-level smoke test |
 | 4 | Credential lookup + raw-bytes-named bnode scheme (D3, D4) + unit tests for entity-named, raw-bytes-named, and shared-identity cases | ~120 LOC | `src/Cardano/Tx/Graph/Emit/Lookup.hs`, +unit tests |
-| 5 | Body-section Turtle serializer skeleton (Tx + Input + Output + Address + Fee) + first fixture (02-alice-bob-ada) byte-diff GREEN against a freshly-regenerated `expected.ttl` | ~250 LOC | `src/Cardano/Tx/Graph/Emit/Project.hs`, `src/Cardano/Tx/Graph/Emit/Serialize/Turtle.hs`, `test/Cardano/Tx/Graph/EmitGoldenSpec.hs`, **regenerated** `test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.ttl` |
-| 6 | Mint + asset-class leaves; fixtures **03, 10** GREEN (multi-asset transfer + governance treasury withdrawal) — regenerated `expected.ttl` for both | ~150 LOC | `Project.hs`, +2 regenerated `expected.ttl` |
+| 5 | Body-section Turtle serializer skeleton (Tx + Input + Output + Address + Fee) + `Vocab.hs` IRI registry + `VocabTraceabilitySpec` + first fixture (02-alice-bob-ada) byte-diff GREEN against a freshly-regenerated `expected.ttl` | ~320 LOC | `src/Cardano/Tx/Graph/Emit/Project.hs`, `src/Cardano/Tx/Graph/Emit/Serialize/Turtle.hs`, `src/Cardano/Tx/Graph/Emit/Vocab.hs`, `test/Cardano/Tx/Graph/EmitGoldenSpec.hs`, `test/Cardano/Tx/Graph/Emit/VocabTraceabilitySpec.hs`, **regenerated** `test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.ttl` |
+| 6 | Mint + asset-class leaves; fixture **03** GREEN (multi-asset transfer) — regenerated `expected.ttl` (fixture 10 moved to slice 10 per analyzer H2) | ~120 LOC | `Project.hs`, +1 regenerated `expected.ttl` |
 | 7 | Script witness + redeemer leaves; fixtures **04, 05, 08** GREEN (mint-spend script overlap, withdrawal-script-stake, contingency disburse) — regenerated `expected.ttl` for all three | ~200 LOC | `Project.hs`, +3 regenerated `expected.ttl` |
 | 8 | Stake/pool/drep cert leaves; fixtures **06, 07** GREEN (stake-pool delegation, vote delegation) — regenerated `expected.ttl` for both | ~150 LOC | `Project.hs`, +2 regenerated `expected.ttl` |
 | 9 | MPFS facts + complex-multi-feature leaves; fixture **09** (mpfs-facts-request) GREEN — regenerated `expected.ttl` | ~80 LOC | `Project.hs`, +1 regenerated `expected.ttl` |
-| 10 | Largest fixtures **01, 11** (amaru-treasury-swap hypothetical + real) GREEN — regenerated `expected.ttl` for both. By this slice the emitter must handle every leaf type used by any fixture; this slice is the last byte-diff slice | ~100 LOC | `Project.hs` (if any tail-end leaves), +2 regenerated `expected.ttl` |
+| 10 | Largest + governance-action fixtures **01, 10, 11** (amaru-treasury-swap hypothetical + governance treasury withdrawal + amaru-treasury-swap-real) GREEN — regenerated `expected.ttl` for all three; emits `Vote` + `TreasuryWithdrawal` governance-action leaves unique to fixture 10. By this slice the emitter must handle every leaf type used by any fixture; this slice is the last byte-diff slice (fixture 10 moved here from slice 6 per analyzer H2) | ~150 LOC | `Project.hs` (governance-action + any tail-end leaves), +3 regenerated `expected.ttl` |
 | 11 | JSON-LD serializer + `JsonLdEquivalenceSpec` (parse JSON-LD, assert set-equal triple set to Turtle output) | ~200 LOC | `src/Cardano/Tx/Graph/Emit/Serialize/JsonLd.hs`, +unit tests |
 | 12 | Reproducibility spec: `ReproducibilitySpec` runs emit twice on each fixture and asserts byte-equality | ~50 LOC | new test module |
 | 13 | README + CHANGELOG + executable docs entries for the new flags | ~80 LOC | `README.md`, `CHANGELOG.md`, `docs/` if applicable |
