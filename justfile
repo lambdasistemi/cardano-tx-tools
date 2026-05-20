@@ -14,6 +14,8 @@ build:
 unit match="":
     #!/usr/bin/env bash
     set -euo pipefail
+    cabal build exe:tx-graph -O0 >/dev/null
+    export TX_GRAPH_EXE="$(cabal list-bin exe:tx-graph -O0)"
     if [[ '{{ match }}' == "" ]]; then
         cabal test cardano-tx-tools:unit-tests -O0 --test-show-details=direct
     else

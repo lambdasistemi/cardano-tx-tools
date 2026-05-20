@@ -17,11 +17,12 @@ the three CLI surfaces called out by US7:
   payload that mentions @--rules@ — the @optparse-applicative@
   default usage message.
 
-The binary is located via @cabal list-bin@ inside an @hspec@
-@beforeAll_@ hook so the spec is self-locating regardless of GHC
-version or build profile. The gate script (./gate.sh) runs
-@just build@ before @just unit@, so the binary is always present
-when this spec runs.
+The binary is located via the @TX_GRAPH_EXE@ environment variable
+when set (the @nix flake check@ sandbox and the @just unit@ recipe
+both export it), or via @cabal list-bin -O0 exe:tx-graph@ as a
+fallback for bare @cabal test@ invocations in the dev shell. The
+env-var path keeps the spec usable inside the @nix@ check sandbox,
+which has no @cabal@ on @PATH@.
 -}
 module Cardano.Tx.Graph.Rules.LoadExeSpec (spec) where
 
@@ -30,6 +31,7 @@ import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List (isInfixOf)
+import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.IO (hClose)
@@ -123,29 +125,45 @@ spec = describe "tx-graph executable (T011, US7)" $ do
 -- Subprocess helpers
 ----------------------------------------------------------------------
 
-{- | Locate the freshly-built @tx-graph@ binary via @cabal list-bin@.
-The gate script builds the executable before the unit suite runs, so
-the binary is always present in @dist-newstyle@. Fails loudly with
-the captured @cabal@ stderr if the binary cannot be located so a
-regression in the cabal stanza surfaces as an actionable test
-failure rather than a confusing @no such file@ from
+{- | Locate the freshly-built @tx-graph@ binary.
+
+If the @TX_GRAPH_EXE@ environment variable is set, use it directly.
+This is the path the @nix flake check@ sandbox takes — the @unit@
+gate exports it pointing at the haskell.nix-built executable's store
+path before invoking @unit-tests@. The @just unit@ recipe takes the
+same path so the dev shell never needs @cabal@ as a runtime tool of
+the test suite.
+
+If unset, fall back to @cabal list-bin -O0 exe:tx-graph@ so a bare
+@cabal test cardano-tx-tools:unit-tests@ in the dev shell still
+self-locates the binary. The nix-check sandbox has no @cabal@ on
+@PATH@; using only the env-var path there keeps the suite working
+without making @cabal@ a runtime dep of the check derivation.
+
+Fails loudly with the captured @cabal@ stderr if neither route
+resolves so a regression in the cabal stanza surfaces as an
+actionable test failure rather than a confusing @no such file@ from
 'runExe'.
 -}
 locateTxGraph :: IO FilePath
 locateTxGraph = do
-    (code, out, err) <-
-        runExe
-            "cabal"
-            [ "list-bin"
-            , "-O0"
-            , "exe:tx-graph"
-            ]
-    case code of
-        ExitSuccess ->
-            pure (trimTrailingNewline (BS8.unpack out))
-        _ ->
-            fail $
-                "cabal list-bin exe:tx-graph failed: " <> BS8.unpack err
+    mEnvPath <- lookupEnv "TX_GRAPH_EXE"
+    case mEnvPath of
+        Just p | not (null p) -> pure p
+        _ -> do
+            (code, out, err) <-
+                runExe
+                    "cabal"
+                    [ "list-bin"
+                    , "-O0"
+                    , "exe:tx-graph"
+                    ]
+            case code of
+                ExitSuccess ->
+                    pure (trimTrailingNewline (BS8.unpack out))
+                _ ->
+                    fail $
+                        "cabal list-bin exe:tx-graph failed: " <> BS8.unpack err
 
 -- | Spawn an external program, capture stdout + stderr, return exit code.
 runExe :: FilePath -> [String] -> IO (ExitCode, ByteString, ByteString)

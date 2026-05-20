@@ -576,6 +576,29 @@ carries `Tasks: T###`.
   runs the finalization audit (per the `gate-script` skill) before
   removing.
 
+- [X] **T014** *(type=fix, post-finalization)* — Refactor
+  `LoadExeSpec` to locate the `tx-graph` binary via a
+  `TX_GRAPH_EXE` env var (with a `cabal list-bin` fallback for the
+  dev shell). Wire the env var through the `nix/checks.nix` `unit`
+  gate using `components.exes.tx-graph`, add `tx-graph` to the
+  `build` gate's realized-output list, and update the `justfile`
+  `unit` recipe so dev-shell `just unit` exports it.
+
+  **Owned files**:
+  - `test/Cardano/Tx/Graph/Rules/LoadExeSpec.hs`
+  - `nix/checks.nix`
+  - `justfile`
+
+  **Commit subject**:
+  `fix(048): refactor unit test to read tx-graph path via env var (nix-check sandbox compatibility)`
+
+  **Notes**: T011's spec called `cabal list-bin` unconditionally,
+  which works in the dev shell (gate.sh) but fails in the
+  `nix flake check` sandbox where `cabal` is not on `PATH`. The
+  env-var pattern matches the established repo convention used by
+  `smoke-sign`, `smoke-inspect`, and `smoke-diff` for in-tree smoke
+  scripts.
+
 ---
 
 ## Slice ordering and dependencies
