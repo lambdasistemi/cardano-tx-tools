@@ -108,22 +108,23 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                     code `shouldBe` ExitSuccess
 
             it
-                ( "(2) body-only mode (--tx only) — non-zero exit, stderr"
-                    <> " contains NoSerializerYet"
+                ( "(2) body-only mode (--tx only) — exit 0, stdout"
+                    <> " carries the # Transaction body. section"
                 )
                 $ withSystemTempDirectory "tx-graph-body"
                 $ \dir -> do
                     let txPath = dir </> "tx.cbor"
                     BS.writeFile txPath s02CborBytes
-                    (code, _out, err) <-
+                    (code, out, _err) <-
                         runExe txGraphPath ["--tx", txPath]
-                    code `shouldSatisfy` isFailure
-                    BS8.unpack err
-                        `shouldSatisfy` ("NoSerializerYet" `isInfixOf`)
+                    code `shouldBe` ExitSuccess
+                    BS8.unpack out
+                        `shouldSatisfy` ("# Transaction body." `isInfixOf`)
 
             it
-                ( "(3) joint mode (--rules + --tx + --utxo) — non-zero"
-                    <> " exit, stderr contains NoSerializerYet"
+                ( "(3) joint mode (--rules + --tx + --utxo) — exit 0,"
+                    <> " stdout carries both the entities overlay and the"
+                    <> " transaction body"
                 )
                 $ withSystemTempDirectory "tx-graph-joint"
                 $ \dir -> do
@@ -135,7 +136,7 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                                 </> "rules.yaml"
                     BS.writeFile txPath s02CborBytes
                     BS.writeFile utxoPath "{}"
-                    (code, _out, err) <-
+                    (code, out, _err) <-
                         runExe
                             txGraphPath
                             [ "--rules"
@@ -145,9 +146,13 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                             , "--utxo"
                             , utxoPath
                             ]
-                    code `shouldSatisfy` isFailure
-                    BS8.unpack err
-                        `shouldSatisfy` ("NoSerializerYet" `isInfixOf`)
+                    code `shouldBe` ExitSuccess
+                    BS8.unpack out
+                        `shouldSatisfy` ( "Operator-declared entities"
+                                            `isInfixOf`
+                                        )
+                    BS8.unpack out
+                        `shouldSatisfy` ("# Transaction body." `isInfixOf`)
 
             it
                 ( "(4) missing --tx file — non-zero exit, stderr contains"
