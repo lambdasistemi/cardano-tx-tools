@@ -30,7 +30,7 @@ carries `Tasks: T###`.
 
 ## Phase 1 — loader API extension (chore-shaped against #48's surface)
 
-- [ ] **T001** *(type=refactor, subagent slice; FR-010 / plan D7 / research R5)*
+- [X] **T001** *(type=refactor, subagent slice; FR-010 / plan D7 / research R5)*
   — Extend `Cardano.Tx.Graph.Rules.Load.RulesLoadResult` with a new
   field `rulesEntities :: [EntityDecl]` carrying the in-memory entity
   list. The data is already computed by the loader internally; this
