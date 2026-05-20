@@ -290,69 +290,112 @@ self-contained "this projection case + this fixture's regen".
 
   **Commit subject**: `feat(graph): mint + policy + assetClass leaves; fixture 03`
 
-- [ ] **T007** *(type=feat, subagent slice; plan slice 7 / research R2)*
-  — Script-witness leaves: `Credential PaymentScript`,
-  `Credential StakeScript`, `Redeemer`, inline-datum / datum-hash /
-  script-ref triples. Regenerate fixtures **04** (mint-spend script
-  overlap), **05** (withdrawal-script-stake), **08** (contingency
-  disburse).
+- [ ] **T007** *(type=feat, subagent slice; plan slice 7 / research R2
+  + T006 audit)* — **Scope corrected per T006 audit**: harness
+  builders elide script-witness/redeemer content; S04 carries a
+  **mint** entry, S05 carries a **withdrawal** entry, S08 is
+  structural-only with a **collateral input** added (collateral
+  scope deferred to T010 alongside S01/S11). T007's emitter leaves:
+  **Mint + Policy + AssetClass** (S04) and **Withdrawal** (S05).
+  S08 ships as regen-only (T009-pattern) — its only non-stub
+  content is the collateral input which T010 owns.
 
-  **Owned files**: `Project.hs` (script-witness cases),
-  `test/fixtures/rewrite-redesign/0{4,5,8}-*/expected.ttl` (three
-  regenerated files).
+  Per the audit: no script-witness/redeemer DSL is invoked by any
+  fixture builder; the R2 attribution was aspirational. The
+  research R2 "Harness reality audit" subsection records the
+  discovery.
 
-  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02, 03, 04, 05,
-  08. `./gate.sh` exits 0.
+  **Owned files**: `src/Cardano/Tx/Graph/Emit/Project.hs` (Mint +
+  Policy + AssetClass + Withdrawal projection cases),
+  `src/Cardano/Tx/Graph/Emit/Vocab.hs` (new vocab terms for
+  Mint/Policy/Asset/Withdrawal predicate cluster — exact names per
+  fixture 04 + 05 candidate inspection),
+  `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` (flip 04, 05, 08 to
+  enabled),
+  `test/fixtures/rewrite-redesign/04-mint-spend-script-overlap/expected.ttl`,
+  `test/fixtures/rewrite-redesign/05-withdrawal-script-stake/expected.ttl`,
+  `test/fixtures/rewrite-redesign/08-contingency-disburse/expected.ttl`.
 
-  **Commit subject**: `feat(graph): script-witness leaves; fixtures 04, 05, 08`
+  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02, 03, 04,
+  05, 08. `./gate.sh` exits 0. `VocabTraceabilitySpec` extended to
+  cover the new emitter outputs OR stays scoped to fixture 02 —
+  worker may file Q-file on the spec-coverage choice.
 
-- [ ] **T008** *(type=feat, subagent slice; plan slice 8 / research R2)*
-  — Cert leaves (`StakeRegistration`, `StakeDelegation`,
-  `VoteDelegation`) + `PoolId` + `DRep` target leaves. Regenerate
-  fixtures **06** (stake-pool delegation) and **07** (vote-delegation).
+  **Commit subject**: `feat(graph): mint + withdrawal leaves; fixtures 04, 05, 08`
 
-  **Owned files**: `Project.hs` (cert + pool + drep cases),
-  `test/fixtures/rewrite-redesign/0{6,7}-*/expected.ttl` (two
-  regenerated files).
+- [ ] **T008** *(type=feat, subagent slice; plan slice 8 / research R2
+  + T006 audit)* — Cert leaves (`StakeRegistration`,
+  `StakeDelegation`, `VoteDelegation`) + `PoolId` + `DRep` target
+  leaves. Per the T006 audit, S06 + S07 both use `PubKeyCert`
+  variants — no redeemer / script-witness for the cert
+  credentials. Regenerate fixtures **06** (stake-pool delegation)
+  and **07** (vote-delegation).
+
+  **Owned files**: `src/Cardano/Tx/Graph/Emit/Project.hs` (cert +
+  pool + drep cases),
+  `src/Cardano/Tx/Graph/Emit/Vocab.hs` (new vocab terms for
+  StakeRegistration / StakeDelegation / VoteDelegation /
+  Pool / DRep / onCredential / toPool / toDRep),
+  `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` (flip 06, 07),
+  `test/fixtures/rewrite-redesign/06-stake-pool-delegation/expected.ttl`,
+  `test/fixtures/rewrite-redesign/07-vote-delegation/expected.ttl`.
 
   **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02-08.
   `./gate.sh` exits 0.
 
   **Commit subject**: `feat(graph): cert + pool + drep leaves; fixtures 06, 07`
 
-- [ ] **T009** *(type=feat, subagent slice; plan slice 9 / research R2)*
-  — MPFS-facts + ad-hoc complex leaves needed by fixture 09. Regenerate
-  fixture **09** (mpfs-facts-request).
+- [ ] **T009** *(type=feat, subagent slice; plan slice 9 / research R2
+  + T006 audit)* — **Scope corrected per T006 audit**: S09's
+  harness builder is **structural-only** (`spend(1) + 11×output`,
+  no mint / cert / withdrawal / proposal / script-witness DSL).
+  T009 is regen-only — flip `pendingWith` to enabled, copy the
+  candidate `expected.ttl`. No `Project.hs` or `Vocab.hs` changes.
 
-  **Owned files**: `Project.hs` (residual leaves),
-  `test/fixtures/rewrite-redesign/09-mpfs-facts-request/expected.ttl`.
+  **Owned files**: `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` (flip
+  09),
+  `test/fixtures/rewrite-redesign/09-mpfs-facts-request/expected.ttl`
+  (regenerated).
 
   **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02-09 (8
   fixtures). `./gate.sh` exits 0.
 
-  **Commit subject**: `feat(graph): mpfs-facts leaves; fixture 09`
+  **Commit subject**: `feat(graph): enable fixture 09 byte-diff (regen-only; no new leaves)`
 
-- [ ] **T010** *(type=feat, subagent slice; plan slice 10 / research R2)*
-  — Largest + residual-leaf fixtures **01** (amaru-treasury-swap
-  hypothetical), **10** (governance treasury withdrawal — moved from
-  T006 per analyzer H2), and **11** (amaru-treasury-swap-real). By
-  this slice the emitter must handle every leaf type used by any
-  fixture, including the `Vote` + `TreasuryWithdrawal` governance-action
-  leaves unique to fixture 10. This is the final byte-diff slice;
-  SC-001 closes here.
+- [ ] **T010** *(type=feat, subagent slice; plan slice 10 / research R2
+  + T006 audit)* — Largest + residual-leaf fixtures **01**
+  (amaru-treasury-swap hypothetical), **10** (governance treasury
+  withdrawal), and **11** (amaru-treasury-swap-real). **Scope
+  corrected per T006 audit**: S01, S08, S11 use **collateral
+  inputs** (a leaf class not in the original R2 table); S10 uses
+  `propose(stubTreasuryWithdrawalProposal)` — a **TreasuryWithdrawal
+  proposal** leaf, not the `Vote` leaf analyzer-H2 originally
+  named (no fixture invokes the Vote DSL). T010 owns the
+  collateral + TreasuryWithdrawal-proposal projection cases.
+  S08's collateral was a follow-up from T007 (S08 regen-only there
+  except for its collateral input); T010 closes that gap by
+  emitting the collateral cluster across all of S01/S08/S11
+  consistently. This is the final byte-diff slice; SC-001 closes
+  here.
 
-  **Owned files**: `Project.hs` (governance-action leaves
-  + any residual leaves for 01 + 11),
+  **Owned files**: `src/Cardano/Tx/Graph/Emit/Project.hs`
+  (collateral + TreasuryWithdrawal proposal + any tail-end leaves
+  for 01 + 11),
+  `src/Cardano/Tx/Graph/Emit/Vocab.hs` (new vocab terms for
+  Collateral / TreasuryWithdrawal proposal cluster),
+  `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` (flip 01, 10, 11; S08
+  may need re-regen if its collateral was elided by T007),
   `test/fixtures/rewrite-redesign/01-amaru-treasury-swap/expected.ttl`,
   `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/expected.ttl`,
-  `test/fixtures/rewrite-redesign/11-amaru-treasury-swap-real/expected.ttl`
-  (three regenerated files).
+  `test/fixtures/rewrite-redesign/11-amaru-treasury-swap-real/expected.ttl`,
+  optionally `test/fixtures/rewrite-redesign/08-contingency-disburse/expected.ttl`
+  (re-regen if T007 emitted without collateral).
 
   **GREEN proof**: `EmitGoldenSpec` GREEN for all 11 fixtures (no
   `pendingWith` remaining). SC-001 closed. `VocabTraceabilitySpec`
   stays GREEN across all 11. `./gate.sh` exits 0.
 
-  **Commit subject**: `feat(graph): governance-action leaves; fixtures 01, 10, 11`
+  **Commit subject**: `feat(graph): collateral + treasury-withdrawal proposal leaves; fixtures 01, 10, 11`
 
 ---
 

@@ -116,6 +116,58 @@ the trace from the artisan `expected.ttl`. Predicates are kmaps Phase A
   `Reward`; `Vote` and `Propose` need confirmation against the merged
   vocab.
 
+### Harness reality audit (T006 — 2026-05-20)
+
+The "Source fixture(s)" attributions above were drafted before the
+#45 harness restack to `Cardano.Tx.Build`'s TxBuild DSL. T006's
+worker audited every S<NN>_*.hs builder against the leaf-shape
+table and found a load-bearing deviation: **the restacked builders
+emit narrower body content than the 044-era artisan
+`expected.ttl` files anticipated.**
+
+Per-fixture audit results (T006 STATUS.md, archived at
+`/tmp/epic-046/tx-58/subagents/.archived/T006/STATUS.md`):
+
+| Fixture | Builder body content (post-#45)                                           | Body-section leaves actually emitted |
+|---------|---------------------------------------------------------------------------|--------------------------------------|
+| S01     | `spend(1) + output(2) + collateral(stubTxIn 100)`                          | Tx, Input, Output, Address, Credential, fee, **Collateral** |
+| S02     | `spend(1) + output(2)`                                                     | Tx, Input, Output, Address, Credential, fee (T005 base coverage) |
+| S03     | `spend(1) + output(2)` (`stubTxOut` with `MultiAsset mempty`)              | Same as S02 (T006 confirmed regen-only) |
+| S04     | `spend(1) + output(1) + mint(stubMintEntry)`                               | Plus **Mint, Policy, AssetClass** |
+| S05     | `spend(1) + output(2) + withdraw(stubRewardAccount, 50M)`                  | Plus **Withdrawal** (PubKey credential, no script) |
+| S06     | `spend(1) + output(1) + certify(stubStakeDelegationCert)` (PubKeyCert)     | Plus **StakeRegistration + StakeDelegation cert + PoolId** (no redeemer) |
+| S07     | `spend(1) + output(1) + certify(stubVoteDelegationCert)` (PubKeyCert)      | Plus **VoteDelegation cert + DRep** (no redeemer) |
+| S08     | `spend(1) + output(2) + collateral(stubTxIn 3)`                            | Plus **Collateral** (regen-only otherwise) |
+| S09     | `spend(1) + 11×output` (structural-only)                                   | Same as S02 — regen-only |
+| S10     | `spend(1) + output(1) + propose(stubTreasuryWithdrawalProposal)` (NoProposalScript) | Plus **TreasuryWithdrawal proposal** (no Vote DSL) |
+| S11     | `spend(1) + outputs + collateral(stubTxIn 100)`                            | Plus **Collateral**; inline-datum + script-ref narrative is NOT structurally modeled |
+
+**Deviations from the R2 attribution table**:
+
+- **No script-witness / redeemer DSL** is called by any fixture
+  builder. The R2 table's `Credential PaymentScript`, `Credential
+  StakeScript`, `Redeemer` leaves are not exercised by the
+  rewrite-redesign harness as it stands. The tasks.md T007 brief
+  is rewritten to drop the script-witness scope.
+- **No Vote DSL call** in any builder. Only `propose(...)` (S10).
+  T010's analyzer-H2 framing about Vote + TreasuryWithdrawal
+  collapses to TreasuryWithdrawal only.
+- **No inline-datum / script-ref / datum-hash** is emitted by S11
+  (the artisan `expected.ttl` carries them as narrative; the
+  builder elides them per S11's docstring "does NOT model these
+  structurally").
+- **Collateral inputs** appear in S01, S08, S11 — a leaf class not
+  enumerated in the R2 table. T010 owns the collateral projection
+  case.
+- **S03 + S09 are structural-only** — T006 + T009 are regen-only
+  slices that just flip `pendingWith` and emit the same fixture-02
+  body shape.
+
+The R2 "Source fixture(s)" column is preserved above for the
+artisan-layout cross-reference; **the per-slice scope** for
+T006-T010 follows this audit, not the R2 attribution. T007-T010
+briefs are corrected in `tasks.md` to match.
+
 ## R3 — Raw-bytes-bnode prefix length N
 
 **Decision**: Pin `N = 16` (eight bytes of hex) as the default
