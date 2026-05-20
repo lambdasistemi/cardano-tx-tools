@@ -100,7 +100,7 @@ carries `Tasks: T###`.
 
 ## Phase 2 — body emitter scaffold + CLI extension
 
-- [ ] **T002** *(type=feat, subagent slice; plan slice 2 / FR-001 +
+- [X] **T002** *(type=feat, subagent slice; plan slice 2 / FR-001 +
   FR-003)* — Scaffold `Cardano.Tx.Graph.Emit` module: public types
   (`EmitError`, `EmittedGraph`, `EmitFormat`), top-level `emit`
   function stub that accepts a `ConwayTx` + `ResolvedUTxO` +
