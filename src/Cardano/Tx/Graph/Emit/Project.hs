@@ -105,6 +105,10 @@ import Cardano.Ledger.Api.Tx.Body (
     totalCollateralTxBodyL,
     withdrawalsTxBodyL,
  )
+import Cardano.Ledger.Api.Tx.Cert (
+    Delegatee (DelegStake, DelegStakeVote, DelegVote),
+    pattern DelegTxCert,
+ )
 import Cardano.Ledger.Api.Tx.Out (TxOut, addrTxOutL)
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet, Testnet),
@@ -112,17 +116,23 @@ import Cardano.Ledger.BaseTypes (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Core (TxCert)
 import Cardano.Ledger.Credential (
     Credential (KeyHashObj, ScriptHashObj),
     StakeReference (StakeRefBase, StakeRefNull, StakeRefPtr),
  )
+import Cardano.Ledger.DRep (
+    DRep (DRepAlwaysAbstain, DRepAlwaysNoConfidence, DRepKeyHash, DRepScriptHash),
+ )
 import Cardano.Ledger.Hashes (KeyHash (..), ScriptHash (..))
+import Cardano.Ledger.Keys (KeyRole (..))
 import Cardano.Ledger.Mary.Value (
     AssetName (..),
     MultiAsset (..),
     PolicyID (..),
  )
 import Cardano.Ledger.TxIn (TxIn)
+import Data.Foldable (toList)
 
 import Cardano.Tx.Graph.Emit.Lookup (
     BnodeName (..),
@@ -166,10 +176,10 @@ projectBody ::
     Map TxIn (TxOut ConwayEra) ->
     Either ProjectError [BodySection]
 projectBody entities lookupTbl tx utxo = do
-    -- Probe non-T005/T007 leaves for emptiness; any non-empty
+    -- Probe non-T005/T007/T008 leaves for emptiness; any non-empty
     -- unhandled leaf is a structural mismatch the slice does not
     -- cover.
-    assertEmptyLeavesForT007 tx
+    assertEmptyLeavesForT008 tx
     let body = tx ^. bodyTxL
         inputs = Set.toAscList (body ^. inputsTxBodyL)
         outputs =
@@ -183,6 +193,7 @@ projectBody entities lookupTbl tx utxo = do
             ]
         Withdrawals wmap = body ^. withdrawalsTxBodyL
         withdrawalPairs = Map.toAscList wmap
+        certs = toList (body ^. certsTxBodyL)
     -- Build per-input data + per-output data with deduped
     -- address bnode registry.
     let (inputData, addrRegistry1) =
@@ -190,6 +201,9 @@ projectBody entities lookupTbl tx utxo = do
         (outputData, addrRegistry2) =
             buildOutputs entities lookupTbl outputs addrRegistry1
         addrEntries = addrRegistryEntries addrRegistry2
+    -- Per-cert clusters (T008 — fixtures 06, 07).
+    certClusters <-
+        traverse (uncurry (buildCertCluster lookupTbl)) (zip [1 ..] certs)
     -- Assemble the tx subject block.
     let txBlock =
             SubjectBlock
@@ -206,6 +220,9 @@ projectBody entities lookupTbl tx utxo = do
                            ]
                         <> [ (PIri (vocabCurie TermHasWithdrawal), OBnode (idWithdrawalBnode k))
                            | k <- [1 .. length withdrawalPairs]
+                           ]
+                        <> [ (PIri (vocabCurie TermHasCertificate), OBnode (idCertBnode k))
+                           | k <- [1 .. length certs]
                            ]
                         <> [(PIri (vocabCurie TermHasFee), OIntLit (fromIntegral feeLovelace))]
                 )
@@ -244,6 +261,13 @@ projectBody entities lookupTbl tx utxo = do
                 }
             | (k, (account, coin)) <- zip [1 :: Int ..] withdrawalPairs
             ]
+        certSections =
+            [ BodySection
+                { sectionHeader = "Certificate " <> Text.pack (show k)
+                , sectionBlocks = blocks
+                }
+            | (k, blocks) <- zip [1 :: Int ..] certClusters
+            ]
         addrSection
             | null addrEntries = []
             | otherwise =
@@ -261,6 +285,7 @@ projectBody entities lookupTbl tx utxo = do
                 <> outputSections
                 <> mintSections
                 <> withdrawalSections
+                <> certSections
                 <> addrSection
         )
 
@@ -269,11 +294,11 @@ projectBody entities lookupTbl tx utxo = do
 ----------------------------------------------------------------------
 
 {- | Probe the tx's leaves not yet covered by the projection
-walker for emptiness. T005+T007 cover @inputs@ + @outputs@ +
-@fee@ + @mint@ + @withdrawals@; collateral inputs are silently
-ignored at T007 (T010 adds the projection case). Anything else
-(certs, proposals, reference inputs, …) must be empty in this
-slice — future slices (T008-T010) grow the supported set.
+walker for emptiness. T005+T007+T008 cover @inputs@ + @outputs@ +
+@fee@ + @mint@ + @withdrawals@ + @certs@; collateral inputs are
+silently ignored at T007 (T010 adds the projection case). Anything
+else (proposals, reference inputs, …) must be empty in this slice
+— future slices (T009-T010) grow the supported set.
 
 == Transient: collateral probe dropped at T007
 
@@ -288,10 +313,9 @@ silent-skip-or-fail invariant — either by adding the projection
 case (turning the silent skip into real output) or by re-adding
 this empty-leaf probe against the now-handled set.
 -}
-assertEmptyLeavesForT007 :: ConwayTx -> Either ProjectError ()
-assertEmptyLeavesForT007 tx = do
+assertEmptyLeavesForT008 :: ConwayTx -> Either ProjectError ()
+assertEmptyLeavesForT008 tx = do
     let body = tx ^. bodyTxL
-    chk "ConwayCertValue" (length (body ^. certsTxBodyL))
     chk "ConwayProposalValue" (length (body ^. proposalProceduresTxBodyL))
     chk "ConwayReferenceInputValue" (length (body ^. referenceInputsTxBodyL))
     chk "ConwayRequiredSignersValue" (length (body ^. reqSignerHashesTxBodyL))
@@ -336,6 +360,18 @@ idAssetBnode k = BnodeName ("asset" <> Text.pack (show k))
 idWithdrawalBnode :: Int -> BnodeName
 idWithdrawalBnode k =
     BnodeName ("withdrawal" <> Text.pack (show k))
+
+-- | Bnode name a certificate entry at position @k@ (1-based) gets.
+idCertBnode :: Int -> BnodeName
+idCertBnode k = BnodeName ("cert" <> Text.pack (show k))
+
+-- | Bnode name a stake-delegation pool target at position @k@ gets.
+idPoolBnode :: Int -> BnodeName
+idPoolBnode k = BnodeName ("pool" <> Text.pack (show k))
+
+-- | Bnode name a vote-delegation DRep target at position @k@ gets.
+idDRepBnode :: Int -> BnodeName
+idDRepBnode k = BnodeName ("drep" <> Text.pack (show k))
 
 ----------------------------------------------------------------------
 -- Address registry — first-occurrence-wins de-dup
@@ -730,6 +766,135 @@ accountStakeLeaf (AccountAddress _ (AccountId cred)) =
     case cred of
         KeyHashObj (KeyHash h) -> (StakeKey, hashToBytes h)
         ScriptHashObj (ScriptHash h) -> (StakeScript, hashToBytes h)
+
+----------------------------------------------------------------------
+-- Certificate cluster (T008 — fixtures 06, 07)
+----------------------------------------------------------------------
+
+{- | Build the subject blocks for one certificate at position @k@.
+
+T008 ships the @StakeDelegation@ + @VoteDelegation@ variants the
+harness exercises via @stubStakeDelegationCert@ (S06) and
+@stubVoteDelegationCert@ (S07): each renders the cert cluster
+plus a target-leaf block (@cardano:Pool@ for stake delegation,
+@cardano:DRep@ for vote delegation).
+
+== Policy: fail-loudly on unsupported cert variants (T008 A-001 D3)
+
+Cert variants not exercised by the post-#45 harness raise
+'PUnsupportedLeafType' rather than silently emitting partial
+triples. Future slices that need a variant extend this function
+explicitly.
+
+Unsupported as of T008:
+
+* @DelegTxCert _ (DelegVote DRepAlwaysAbstain)@ — no @hasIdentifier@ link.
+* @DelegTxCert _ (DelegVote DRepAlwaysNoConfidence)@ — no @hasIdentifier@ link.
+* @DelegTxCert _ DelegStakeVote{}@ — combined stake + vote delegation.
+* All non-@DelegTxCert@ variants (@RegCert@, @UnRegCert@,
+  @RegDepositTxCert@, @UnRegDepositTxCert@, @RegDepositDelegTxCert@,
+  pool certs (@RegPoolCert@ / @RetirePoolCert@), governance /
+  committee / DRep registration certs).
+
+The @DRepScriptHash@ DRep variant is supported (handled identically
+to @DRepKeyHash@ via the 'DRepScript' leaf type) even though no
+current fixture exercises it — the branch is trivial and keeps the
+DRep case symmetric with the on-credential side.
+-}
+buildCertCluster ::
+    LookupTable ->
+    Int ->
+    TxCert ConwayEra ->
+    Either ProjectError [SubjectBlock]
+buildCertCluster lookupTbl k = \case
+    DelegTxCert cred (DelegStake (KeyHash poolHash)) ->
+        Right (stakeDelegationBlocks lookupTbl k cred (hashToBytes poolHash))
+    DelegTxCert cred (DelegVote (DRepKeyHash (KeyHash drepHash))) ->
+        Right
+            ( voteDelegationBlocks
+                lookupTbl
+                k
+                cred
+                DRepKey
+                (hashToBytes drepHash)
+            )
+    DelegTxCert cred (DelegVote (DRepScriptHash (ScriptHash drepHash))) ->
+        Right
+            ( voteDelegationBlocks
+                lookupTbl
+                k
+                cred
+                DRepScript
+                (hashToBytes drepHash)
+            )
+    DelegTxCert _ (DelegVote DRepAlwaysAbstain) ->
+        Left (PUnsupportedLeafType "ConwayCertValue DelegVote DRepAlwaysAbstain")
+    DelegTxCert _ (DelegVote DRepAlwaysNoConfidence) ->
+        Left
+            ( PUnsupportedLeafType
+                "ConwayCertValue DelegVote DRepAlwaysNoConfidence"
+            )
+    DelegTxCert _ DelegStakeVote{} ->
+        Left (PUnsupportedLeafType "ConwayCertValue DelegStakeVote")
+    _ -> Left (PUnsupportedLeafType "ConwayCertValue (non-delegation)")
+
+stakeDelegationBlocks ::
+    LookupTable ->
+    Int ->
+    Credential Staking ->
+    ByteString ->
+    [SubjectBlock]
+stakeDelegationBlocks lookupTbl k stakeCred poolBytes =
+    [certBlock, poolBlock]
+  where
+    (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
+    stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
+    poolIdBnode = resolveCredential lookupTbl PoolId poolBytes
+    certBlock =
+        SubjectBlock
+            (SBnode (idCertBnode k))
+            [ (PRdfType, OIri (vocabCurie TermStakeDelegation))
+            , (PIri (vocabCurie TermOnCredential), OBnode stakeIdBnode)
+            , (PIri (vocabCurie TermToPool), OBnode (idPoolBnode k))
+            ]
+    poolBlock =
+        SubjectBlock
+            (SBnode (idPoolBnode k))
+            [ (PRdfType, OIri (vocabCurie TermPool))
+            , (PIri (vocabCurie TermHasIdentifier), OBnode poolIdBnode)
+            ]
+
+voteDelegationBlocks ::
+    LookupTable ->
+    Int ->
+    Credential Staking ->
+    LeafType ->
+    ByteString ->
+    [SubjectBlock]
+voteDelegationBlocks lookupTbl k stakeCred drepLT drepBytes =
+    [certBlock, drepBlock]
+  where
+    (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
+    stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
+    drepIdBnode = resolveCredential lookupTbl drepLT drepBytes
+    certBlock =
+        SubjectBlock
+            (SBnode (idCertBnode k))
+            [ (PRdfType, OIri (vocabCurie TermVoteDelegation))
+            , (PIri (vocabCurie TermOnCredential), OBnode stakeIdBnode)
+            , (PIri (vocabCurie TermToDRep), OBnode (idDRepBnode k))
+            ]
+    drepBlock =
+        SubjectBlock
+            (SBnode (idDRepBnode k))
+            [ (PRdfType, OIri (vocabCurie TermDRep))
+            , (PIri (vocabCurie TermHasIdentifier), OBnode drepIdBnode)
+            ]
+
+stakeCredLeaf :: Credential Staking -> (LeafType, ByteString)
+stakeCredLeaf = \case
+    KeyHashObj (KeyHash h) -> (StakeKey, hashToBytes h)
+    ScriptHashObj (ScriptHash h) -> (StakeScript, hashToBytes h)
 
 ----------------------------------------------------------------------
 -- Bech32 encoding for the cardano:bech32 literal

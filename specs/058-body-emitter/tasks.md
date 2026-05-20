@@ -323,7 +323,7 @@ self-contained "this projection case + this fixture's regen".
 
   **Commit subject**: `feat(graph): mint + withdrawal leaves; fixtures 04, 05, 08`
 
-- [ ] **T008** *(type=feat, subagent slice; plan slice 8 / research R2
+- [X] **T008** *(type=feat, subagent slice; plan slice 8 / research R2
   + T006 audit)* — Cert leaves (`StakeRegistration`,
   `StakeDelegation`, `VoteDelegation`) + `PoolId` + `DRep` target
   leaves. Per the T006 audit, S06 + S07 both use `PubKeyCert`

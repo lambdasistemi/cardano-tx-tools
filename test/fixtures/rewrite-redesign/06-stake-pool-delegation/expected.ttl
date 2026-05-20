@@ -3,102 +3,71 @@
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/06-stake-pool-delegation#> .
 
 #
-# Operator-declared entities (from rules.yaml). alice reuses the same
-# 28-byte payment / stake key hashes as 02-alice-bob-ada. iog-pool-1 is
-# a single-leaf entity — a stake pool identified by its 28-byte
-# pool-key-hash, the lenient bech32 decoding of
-# pool1z22x50lqsrwent6en0llzzs32wadml78v300fl6yrqlqp9q5e07. Phase A
-# vocab has no PoolCredential class, so the pool surfaces as a bare
-# Identifier with leafType "PoolId" — a new leaf-type code alongside
-# "PaymentKey"/"StakeKey"/"PaymentScript"/"StakeScript"/"AssetClass"
-# already used by T015..T017.
+# Operator-declared entities (from rules.yaml).
 #
 
 :alice a cardano:Entity ;
   rdfs:label "alice" ;
-  cardano:hasIdentifier _:aliceIdPayment ;
-  cardano:hasIdentifier _:aliceIdStake .
+  cardano:hasIdentifier _:alice_paymentKey ;
+  cardano:hasIdentifier _:alice_stakeKey .
 
-_:aliceIdPayment a cardano:Identifier ;
+_:alice_paymentKey a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
-  cardano:bytesHex "601f58e4436698104adbbda7bc9d8f3f10e9e49652f9799d6c63aeda" .
+  cardano:bytesHex "8bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c1" .
 
-_:aliceIdStake a cardano:Identifier ;
+_:alice_stakeKey a cardano:Identifier ;
   cardano:leafType "StakeKey" ;
-  cardano:bytesHex "80226c84b26fe1a280649d819757ff2ffaec51adca5a3780356c05bf" .
+  cardano:bytesHex "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3" .
 
-:iog-pool-1 a cardano:Entity ;
+:iog_pool_1 a cardano:Entity ;
   rdfs:label "iog-pool-1" ;
-  cardano:hasIdentifier _:iogPool1Id .
+  cardano:hasIdentifier _:iog_pool_1_poolId .
 
-_:iogPool1Id a cardano:Identifier ;
+_:iog_pool_1_poolId a cardano:Identifier ;
   cardano:leafType "PoolId" ;
   cardano:bytesHex "12946a3fe080dd99af599bfff10a1153baddffc7645ef4ff44183e00" .
 
 #
-# Transaction body — 1 input, 1 output, 1 certificate, 175_000 fee.
+# Transaction body.
 #
 
 _:tx a cardano:Transaction ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasCertificate _:cert1 ;
-  cardano:hasFee 175000 .
+  cardano:hasFee 0 .
 
 #
-# Input — alice's 5 ADA fee-paying UTxO.
+# Input 1
 #
 
-_:input1 a cardano:Input ;
-  cardano:resolvedTo _:resolvedInput1 .
-
-_:resolvedInput1 a cardano:Output ;
-  cardano:atAddress _:aliceAddr .
+_:input1 a cardano:Input .
 
 #
-# Output 1 — 4.825 ADA change back to alice (5 ADA in minus 0.175 ADA
-# fee).
+# Output 1
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:aliceAddr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
 
 #
-# Certificate 1 — StakeDelegation. Phase A declares
-# cardano:hasCertificate as the body→cert property but does not (yet)
-# declare a Certificate class, so the blank node carries no rdf:type —
-# matching T017's hasWithdrawal pattern. The cert binds two leaves
-# structurally:
-#
-#   * the delegator's stake credential (alice's stake-key) via
-#     cardano:hasStakeCredential, reusing the same _:aliceCredStake
-#     bnode emitted by the address decomposition below;
-#   * the target pool's 28-byte pool-key-hash, surfaced as a bare
-#     cardano:hasIdentifier link to _:iogPool1Id — Phase A has no
-#     PoolCredential class and the (leafType "PoolId", bytesHex) pair
-#     is sufficient to pin the pool identity.
-#
-# T019 (vote-delegation) follows the same convention with a DRep leaf
-# in place of the pool leaf.
+# Certificate 1
 #
 
-_:cert1 cardano:hasStakeCredential _:aliceCredStake ;
-  cardano:hasIdentifier _:iogPool1Id .
+_:cert1 a cardano:StakeDelegation ;
+  cardano:onCredential _:cred_stakekey_0000000000000000 ;
+  cardano:toPool _:pool1 .
+
+_:pool1 a cardano:Pool ;
+  cardano:hasIdentifier _:cred_poolid_0000000000000000 .
 
 #
-# Address decompositions — payment + stake credential per leaf. Same
-# bech32 + same identifier targets as 02-alice-bob-ada / 03 / 05. The
-# delegator's stake credential bnode (_:aliceCredStake) is the same
-# one bound by the certificate above.
+# Address decompositions — payment + stake credential per leaf.
 #
 
-_:aliceAddr a cardano:Address ;
-  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
-  cardano:hasPaymentCredential _:aliceCredPayment ;
-  cardano:hasStakeCredential _:aliceCredStake .
+_:cred_paymentkey_0000000000000000Addr a cardano:Address ;
+  cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
+  cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
 
-_:aliceCredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:aliceIdPayment .
-
-_:aliceCredStake a cardano:StakeCredential ;
-  cardano:hasIdentifier _:aliceIdStake .
+_:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
+  cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .

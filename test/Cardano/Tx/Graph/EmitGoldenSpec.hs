@@ -38,6 +38,8 @@ import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
 import Fixtures.RewriteRedesign.S03_MultiAssetTransfer qualified as S03
 import Fixtures.RewriteRedesign.S04_MintSpendScriptOverlap qualified as S04
 import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
+import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
+import Fixtures.RewriteRedesign.S07_VoteDelegation qualified as S07
 import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 
 import Test.Hspec (
@@ -201,16 +203,70 @@ spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
                                         <> " vs "
                                         <> show (BS.length expected)
                                         <> ")"
+    -- ---- fixture 06: enabled in T008 ----
+    do
+        let slug = "06-stake-pool-delegation"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S06.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
+    -- ---- fixture 07: enabled in T008 ----
+    do
+        let slug = "07-vote-delegation"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S07.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
     -- ---- pending entries ----
     pendingFixture
         "01-amaru-treasury-swap"
         "T010: collateral input + multi-input (33 swap orders)"
-    pendingFixture
-        "06-stake-pool-delegation"
-        "T008: stake-delegation certificate + PoolId leaf"
-    pendingFixture
-        "07-vote-delegation"
-        "T008: vote-delegation certificate + DRep leaf"
     pendingFixture
         "09-mpfs-facts-request"
         "T009: 10-output structural-only (regen)"
