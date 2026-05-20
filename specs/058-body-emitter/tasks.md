@@ -417,7 +417,7 @@ self-contained "this projection case + this fixture's regen".
 
   **Commit subject**: `feat(graph): JSON-LD serializer + equivalence spec`
 
-- [ ] **T012** *(type=test, subagent slice; plan slice 12 / FR-006 +
+- [X] **T012** *(type=test, subagent slice; plan slice 12 / FR-006 +
   SC-004)* — `ReproducibilitySpec` runs `emit` twice on each fixture
   and asserts byte-equality of the two outputs. Catches Set/Map
   iteration-order leaks and other non-determinism sources.
