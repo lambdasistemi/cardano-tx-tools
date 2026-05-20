@@ -59,6 +59,43 @@ carries `Tasks: T###`.
 
   **Commit subject**: `feat(graph): expose rulesEntities on RulesLoadResult`
 
+- [ ] **T001a** *(type=docs, orchestrator-owned or subagent slice;
+  Q-003 → A-003 / research R4 Q-003 discovery)* — Migrate artisan
+  narrative comments from each fixture's current `expected.ttl` to a
+  new per-fixture `NOTES.md` markdown file. Pure documentation slice;
+  no behaviour change; no `expected.ttl` regen yet (that begins in
+  T005+). The migration is mechanical: extract every `#`-prefixed
+  line, group adjacent runs into markdown sections, drop redundant
+  section-header comments (`# Input N`, `# Operator-declared entities`)
+  which the regen re-emits uniformly, preserve narrative content
+  (story arcs, invariant explanations, ticket cross-references) as
+  markdown. Editorial cleanup is fine where it improves readability
+  (`#` headers → `##` headers, `*` lists → `-` lists); no new content
+  added.
+
+  **Owned files**:
+  - `test/fixtures/rewrite-redesign/<NN>-*/NOTES.md` — 11 new files,
+    one per fixture (02, 03, 04, 05, 06, 07, 08, 09, 10 plus 01, 11).
+
+  **Forbidden scope**: anything else. No edits to `expected.ttl`,
+  `expected.txt`, `expected.entities.ttl`, `rules.yaml`, builder
+  modules, library code, gate.sh.
+
+  **GREEN proof**: 11 new files committed; `./gate.sh` exits 0 (no
+  behaviour change so build + unit + lint + cabal-fmt + cabal check +
+  haddock all stay GREEN as before). Spot-check via `wc -l` shows
+  reasonable content density per fixture (fixture 04's `NOTES.md`
+  should be the heaviest given its 111-line narrative; fixture 02's
+  should be minimal).
+
+  **Strategy hint** (one bulk commit recommended): A-003 approved one
+  bulk commit for mechanical extraction. If a single fixture's
+  narrative needs non-trivial editorial cleanup (e.g., a tangled
+  cross-reference to a closed ticket), escalate via a Q-file and ship
+  that fixture's `NOTES.md` in a follow-up commit.
+
+  **Commit subject**: `docs(058): migrate artisan narrative to NOTES.md per fixture`
+
 ---
 
 ## Phase 2 — body emitter scaffold + CLI extension
@@ -360,12 +397,11 @@ self-contained "this projection case + this fixture's regen".
 
 - **Behaviour-changing slices**: T001 + T002 + T003 + T004 + T005 + T006
   + T007 + T008 + T009 + T010 + T011 + T012 = 12.
-- **Docs/chore slices**: T013 + T014 = 2.
-- **Total subagent dispatches**: 12-14 depending on whether T013 is
-  orchestrator-owned (likely yes for the CHANGELOG; subagent-owned if
-  the README needs a non-trivial example walkthrough).
-- **Acceptance pivots**: T005 (first fixture GREEN) → T010 (all 11
-  GREEN) → T014 (ready-for-review).
+- **Docs/chore slices**: T001a + T013 + T014 = 3.
+- **Total slices**: 15 (12 behaviour-changing + 3 docs/chore).
+- **Acceptance pivots**: T001a (narrative migration; pre-regen gate) →
+  T005 (first fixture GREEN) → T010 (all 11 GREEN) → T014
+  (ready-for-review).
 
 ## Cross-PR contract
 
@@ -383,3 +419,11 @@ self-contained "this projection case + this fixture's regen".
 - **Q-001** → A-001 (2026-05-20): cross-PR contract = Option A
   (regenerate `expected.ttl` for 11/11 in-PR). Encoded in spec.md
   Clarifications + this tasks.md.
+- **Q-002** → A-002 (2026-05-20): 6 design choices approved
+  (loader API extension, library/exe boundary, raw-bytes-bnode scheme,
+  CLI dispatch, per-fixture regen, uniform Turtle byte-shape); analyzer
+  dispatch authorized after the Q-003 fold-in.
+- **Q-003** → A-003 (2026-05-20): artisan narrative comments migrate to
+  per-fixture `NOTES.md` markdown files (Option B over A/C/D). Encoded
+  in spec.md Clarifications + Key Entities + Glossary, plan.md D5,
+  research.md R4, and tasks.md T001a.

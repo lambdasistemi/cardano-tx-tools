@@ -251,8 +251,11 @@ unchanged):
 - After the overlay section, a single blank line, then comment
   `# Transaction body.`, then a blank line, then the `_:tx` block.
 - Inputs / outputs / certs / mints / withdrawals are each blocked by a
-  preceding comment line `# <Section> N — <one-line description>.` to
-  match the artisan reference layout for readability.
+  preceding **uniform** comment line `# Input N` / `# Output N` /
+  `# Cert N` / etc. — no per-fixture descriptive prose. The artisan
+  narrative migrates to `NOTES.md` per fixture in T001a (Q-003 → A-003);
+  the joint `expected.ttl` carries only machine-emitted comments so the
+  emitter contract stays narrative-free.
 - Each leaf gets exactly the artisan-reference predicate cluster (e.g.
   an `Address` leaf gets 4 triples: `a cardano:Address ;`,
   `cardano:bech32 "..." ;`, `cardano:hasPaymentCredential _:... ;`,

@@ -203,8 +203,11 @@ Rules (rules in addition to #48 D4):
   (e.g. `# Input — alice's 100 ADA UTxO.`) is **NOT emitted** by the
   emitter. The artisan fixtures carried descriptive comments authored
   by hand; the regenerated files emit a uniform `# Input N` /
-  `# Output N` form. The artisan descriptions live in `expected.txt`
-  alongside the fixture (still the human-readable cli-tree shape).
+  `# Output N` form. Per-fixture narrative content (story arcs,
+  invariants, cross-references) migrates to a new `NOTES.md` markdown
+  file per fixture in T001a (Q-003 → A-003 discovery section below);
+  the structured-YAML `expected.txt` keeps its #51 cli-tree contract
+  unchanged.
 - **Address decompositions**: emitted once per address, regardless of
   how many inputs/outputs reference the address. The first occurrence
   wins; later inputs/outputs reference the same bnode.
@@ -216,6 +219,34 @@ elaborate `#-block` headers than 02). The regenerated files emit the
 **uniform** version above; the artisan elaborations are obsoleted as
 authoring artifacts. The orchestrator confirms this at PR-review time
 (see plan R-7).
+
+**Q-003 discovery (2026-05-20)**: An audit of comment-line density per
+fixture showed substantial design narrative buried inside the artisan
+`expected.ttl` files — fixture 04 alone carries 111 comment-lines of
+story arc + invariant explanations + ticket cross-references. The
+artisan content cannot fit `expected.txt`'s structured-YAML format
+without breaking #51's cli-tree contract. Per A-003 the narrative
+migrates to a new per-fixture `NOTES.md` markdown file. The audit
+breakdown:
+
+```
+01-amaru-treasury-swap:           72  comment-lines
+02-alice-bob-ada:                 18
+03-multi-asset-transfer:          28
+04-mint-spend-script-overlap:    111
+05-withdrawal-script-stake:       44
+06-stake-pool-delegation:         45
+07-vote-delegation:               50
+08-contingency-disburse:          69
+09-mpfs-facts-request:            35
+11-amaru-treasury-swap-real:      40
+```
+
+T001a is the migration slice: 11 new `NOTES.md` files authored before
+any emitter code touches the fixtures. Rationale: pure machine output
+from the emitter side, pure documentation in `NOTES.md`, structured
+data in `expected.txt`. Three artifacts, three single-purpose
+contracts.
 
 ## R5 — Loader API extension (FR-010): new field vs separate function
 
