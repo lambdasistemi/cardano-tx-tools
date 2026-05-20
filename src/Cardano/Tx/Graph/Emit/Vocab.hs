@@ -93,7 +93,7 @@ data VocabTerm
     | TermHasAsset
     | TermHasWithdrawal
     | TermOnCredential
-    | TermWithAmount
+    | TermWithdrawalAccount
     | TermHasCertificate
     | TermToPool
     | TermToDRep
@@ -150,7 +150,7 @@ vocabIri = \case
     TermHasAsset -> cardanoPrefix <> "hasAsset"
     TermHasWithdrawal -> cardanoPrefix <> "hasWithdrawal"
     TermOnCredential -> cardanoPrefix <> "onCredential"
-    TermWithAmount -> cardanoPrefix <> "withAmount"
+    TermWithdrawalAccount -> cardanoPrefix <> "withdrawalAccount"
     TermHasCertificate -> cardanoPrefix <> "hasCertificate"
     TermToPool -> cardanoPrefix <> "toPool"
     TermToDRep -> cardanoPrefix <> "toDRep"
@@ -204,7 +204,7 @@ vocabCurie = \case
     TermHasAsset -> "cardano:hasAsset"
     TermHasWithdrawal -> "cardano:hasWithdrawal"
     TermOnCredential -> "cardano:onCredential"
-    TermWithAmount -> "cardano:withAmount"
+    TermWithdrawalAccount -> "cardano:withdrawalAccount"
     TermHasCertificate -> "cardano:hasCertificate"
     TermToPool -> "cardano:toPool"
     TermToDRep -> "cardano:toDRep"

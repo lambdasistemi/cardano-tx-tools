@@ -79,11 +79,8 @@ _:assetEntry_output1_1 a cardano:Asset ;
 #
 
 _:mint1 a cardano:Mint ;
-  cardano:hasPolicy _:policy1 ;
-  cardano:hasAsset _:asset1 .
-
-_:policy1 a cardano:Policy ;
-  cardano:hasIdentifier _:cred_policy_0000000000000000 .
+  cardano:mintsAsset _:asset1 ;
+  cardano:quantity 1000 .
 
 _:asset1 a cardano:Asset ;
   cardano:hasIdentifier _:cred_assetclass_0000000000000000 .

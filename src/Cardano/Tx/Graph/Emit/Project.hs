@@ -335,9 +335,9 @@ projectBody entities lookupTbl tx utxo = do
                 { sectionHeader = "Mint " <> Text.pack (show k)
                 , sectionBlocks =
                     clusterBlocks
-                        (emitMintCluster lookupTbl k policyId assetName)
+                        (emitMintCluster lookupTbl k policyId assetName quantity)
                 }
-            | (k, (policyId, assetName, _quantity)) <-
+            | (k, (policyId, assetName, quantity)) <-
                 zip [1 :: Int ..] mintPairs
             ]
         withdrawalSections =
@@ -485,10 +485,6 @@ idResolvedInputBnode k =
 -- | Bnode name a mint entry at position @k@ (1-based) gets.
 idMintBnode :: Int -> BnodeName
 idMintBnode k = BnodeName ("mint" <> Text.pack (show k))
-
--- | Bnode name a mint-entry policy at position @k@ gets.
-idPolicyBnode :: Int -> BnodeName
-idPolicyBnode k = BnodeName ("policy" <> Text.pack (show k))
 
 -- | Bnode name a mint-entry asset at position @k@ gets.
 idAssetBnode :: Int -> BnodeName
@@ -1261,45 +1257,41 @@ emitAddrEntry
 -- Mint cluster (T007 — fixture 04)
 ----------------------------------------------------------------------
 
-{- | Emit the three subject blocks for one mint entry at
-position @k@: the @cardano:Mint@ cluster header, a
-@cardano:Policy@ block for the policy identifier, and a
-@cardano:Asset@ block for the @policy ++ asset-name@
-identifier.
+{- | Emit the two subject blocks for one mint entry at position
+@k@: the @cardano:Mint@ cluster header carrying
+@cardano:mintsAsset _:assetN@ + @cardano:quantity \<signed-integer\>@,
+plus a @cardano:Asset@ block for the @policy ++ asset-name@
+identifier. The signed-integer literal mirrors the ledger
+@MultiAsset@ quantity — negative values denote burns and render
+as e.g. @-5@.
 
 Per research R2, the @AssetClass@ identifier's @bytesHex@ is the
 concatenation of the 28-byte policy hash and the raw bytes of the
-asset name; the lookup table follows the same convention.
+asset name; the lookup table follows the same convention. The
+policy identifier itself is implicit in the asset identifier's
+leading 28 bytes, so the T106 / D-004 shape no longer emits a
+standalone @cardano:Policy@ block.
 -}
 emitMintCluster ::
-    LookupTable -> Int -> PolicyID -> AssetName -> Emit ()
-emitMintCluster lookupTbl k policyId assetName = do
+    LookupTable -> Int -> PolicyID -> AssetName -> Integer -> Emit ()
+emitMintCluster lookupTbl k policyId assetName quantity = do
     let policyBytes = policyIdBytes policyId
         assetBytes = policyBytes <> assetClassNameBytes assetName
-        policyIdBnode = resolveCredential lookupTbl Policy policyBytes
         assetIdBnode = resolveCredential lookupTbl AssetClass assetBytes
         mintSubj = SBnode (idMintBnode k)
-        policySubj = SBnode (idPolicyBnode k)
         assetSubj = SBnode (idAssetBnode k)
     tellTriple (Triple mintSubj PRdfType (OIri (vocabCurie TermMint)))
     tellTriple
         ( Triple
             mintSubj
-            (PIri (vocabCurie TermHasPolicy))
-            (OBnode (idPolicyBnode k))
+            (PIri (vocabCurie TermMintsAsset))
+            (OBnode (idAssetBnode k))
         )
     tellTriple
         ( Triple
             mintSubj
-            (PIri (vocabCurie TermHasAsset))
-            (OBnode (idAssetBnode k))
-        )
-    tellTriple (Triple policySubj PRdfType (OIri (vocabCurie TermPolicy)))
-    tellTriple
-        ( Triple
-            policySubj
-            (PIri (vocabCurie TermHasIdentifier))
-            (OBnode policyIdBnode)
+            (PIri (vocabCurie TermQuantity))
+            (OIntLit quantity)
         )
     tellTriple (Triple assetSubj PRdfType (OIri (vocabCurie TermAsset)))
     tellTriple
@@ -1321,11 +1313,16 @@ assetClassNameBytes (AssetName sbs) = SBS.fromShort sbs
 
 {- | Emit the @cardano:Withdrawal@ subject block for one
 withdrawal at position @k@. The cluster carries
-@cardano:onCredential@ — pointing at the reward-account stake
-credential's identifier bnode (entity-named when an entity
-covers it, raw-bytes-named otherwise) — and
-@cardano:withAmount@ — the lovelace quantity as an integer
-literal.
+@cardano:withdrawalAccount@ — pointing at the reward-account
+stake credential's identifier bnode (entity-named when an entity
+covers it, raw-bytes-named otherwise) — and @cardano:lovelace@ —
+the withdrawn amount as an integer literal.
+
+T106 / D-005 replaces the #58-inherited @cardano:onCredential@ +
+@cardano:withAmount@ pair with the canonical kmaps names; the
+identifier-bnode lookup logic is unchanged so an operator-entity
+overlay continues to redirect raw-bytes bnodes into the
+entity-named reward-account identifier when one is declared.
 
 R2 wires withdrawal stake credentials as @StakeKey@ (key-hash
 credential) or @StakeScript@ (script-hash credential). T007's
@@ -1342,13 +1339,13 @@ emitWithdrawalCluster lookupTbl k account (Coin lovelace) = do
     tellTriple
         ( Triple
             wSubj
-            (PIri (vocabCurie TermOnCredential))
+            (PIri (vocabCurie TermWithdrawalAccount))
             (OBnode credIdBnode)
         )
     tellTriple
         ( Triple
             wSubj
-            (PIri (vocabCurie TermWithAmount))
+            (PIri (vocabCurie TermLovelace))
             (OIntLit (fromIntegral lovelace))
         )
 

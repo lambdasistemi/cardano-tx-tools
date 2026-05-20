@@ -63,8 +63,8 @@ _:output1 a cardano:Output ;
 #
 
 _:withdrawal1 a cardano:Withdrawal ;
-  cardano:onCredential _:cred_stakekey_0000000000000000 ;
-  cardano:withAmount 50000000 .
+  cardano:withdrawalAccount _:cred_stakekey_0000000000000000 ;
+  cardano:lovelace 50000000 .
 
 #
 # Address decompositions — payment + stake credential per leaf.

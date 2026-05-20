@@ -168,6 +168,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 - **GREEN**: canonical-aligned predicates + signed integer literal for
   burns.
 - **Owner**: paired subagents.
+- **Status**: [X] complete — landed at this commit. Per A-001 (driver-confirmed): `TermOnCredential` remains in the registry because cert clusters (T107) still emit it; the F2 follow-up will rename its CURIE once a canonical cert-side name is decided. `TermWithAmount` removed (only used by withdrawal). `idPolicyBnode` removed (unreferenced after the policy block was dropped). Fixtures 04 + 05 regenerated; 08 carries no mint / withdrawal so was unchanged. 452/452 unit GREEN.
 
 ### T107 — S6: body-root `hasValidityInterval` + `networkId` + `scriptDataHash` + `auxiliaryDataHash` (feat)
 
