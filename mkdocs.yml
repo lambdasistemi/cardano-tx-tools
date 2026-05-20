@@ -1,5 +1,5 @@
 site_name: cardano-tx-tools
-site_url: https://lambdasistemi.github.io/cardano-tx-tools/
+site_url: !ENV [MKDOCS_SITE_URL, "https://lambdasistemi.github.io/cardano-tx-tools/"]
 repo_url: https://github.com/lambdasistemi/cardano-tx-tools
 repo_name: lambdasistemi/cardano-tx-tools
 
