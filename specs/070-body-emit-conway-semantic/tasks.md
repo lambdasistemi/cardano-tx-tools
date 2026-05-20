@@ -32,6 +32,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T101 — S0: vendor canonical-vocab pin (chore)
 
+- **Status**: [X] complete — landed at this commit.
 - **Subject**: `chore(070): vendor canonical-vocab pin at kmaps@8597fbd57`
 - **Tasks trailer**: `Tasks: T101`
 - **Files**:
