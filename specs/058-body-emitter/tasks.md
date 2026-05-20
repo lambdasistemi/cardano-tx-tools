@@ -127,7 +127,7 @@ carries `Tasks: T###`.
 
   **Commit subject**: `feat(graph): scaffold Cardano.Tx.Graph.Emit module`
 
-- [ ] **T003** *(type=feat, subagent slice; plan slice 3 / FR-008 +
+- [X] **T003** *(type=feat, subagent slice; plan slice 3 / FR-008 +
   FR-012)* — Extend `tx-graph` executable with `--tx`, `--utxo`,
   `--out`, `--format` flags + flag-presence dispatcher (plan D8 /
   research R6) + structured error rendering for missing files /
