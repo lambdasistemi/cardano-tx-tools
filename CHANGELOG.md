@@ -2,28 +2,26 @@
 
 ## Unreleased
 
+## [0.2.0.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.6.0...v0.2.0.0) (2026-05-20)
+
+### Breaking Changes
+
+* tx-graph N2C parity + cross-tool --n2c-socket-path rename ([7813a3b](https://github.com/lambdasistemi/cardano-tx-tools/commit/7813a3b0da678a961d5e224717a683aa17698d27))
+
 ### Features
 
-* **tx-graph:** read Conway tx CBOR from stdin via `--tx -`; resolve
-  UTxO live against a local `cardano-node` over Node-to-Client via
-  `--n2c-socket-path` / `--network-magic` (same seam `tx-inspect` and
-  `tx-validate` expose); accept hex / hex-envelope / raw CBOR via the
-  shared polymorphic decoder. `--utxo` and `--n2c-socket-path` are
-  mutually exclusive.
-* **tx-validate!** rename `--n2c-socket` to `--n2c-socket-path` for
-  consistency with `tx-inspect` and `tx-graph`. **Breaking** — scripts
-  pinning the old flag name must be updated.
+* **release:** ship tx-graph in Linux release pipeline ([3730dee](https://github.com/lambdasistemi/cardano-tx-tools/commit/3730dee939824b373ee1a5541370b1cac4c81778))
+* **docs:** asciinema casts for tx-graph, tx-validate, tx-inspect ([ea9b854](https://github.com/lambdasistemi/cardano-tx-tools/commit/ea9b854bcd7af77608e56cc740e6e13e873d2d8d))
+* **release:** ship tx-graph on Darwin aarch64 + dev Homebrew tap ([77d9e94](https://github.com/lambdasistemi/cardano-tx-tools/commit/77d9e940b9cdca1903872b091e510092e2b531e6))
+* **release:** harmonize CD across all 6 exes — factor + extend, in one matrix ([543a2c7](https://github.com/lambdasistemi/cardano-tx-tools/commit/543a2c7b06df4769b5be1ca62437f10dd7515146))
 
-### Maintenance
+### Bug Fixes
 
-* **066:** `tx-graph` is now wired into the Linux release pipeline
-  alongside `tx-diff`, `tx-inspect`, `tx-sign`, and `cardano-tx-generator`
-  — AppImage / DEB / RPM bundles produced on every release and dev tag
-  via the same `nix/linux-release.nix` plumbing the peers use. Packaged
-  without a CA-bundle wrapper (matches the `tx-sign` shape) because
-  `tx-graph` does no HTTPS; if a future change adds a github-release-check
-  banner or other HTTPS call, mirror the `txInspect` wrapper. Closes the
-  vertical-deliverables gap left by #48 / #58.
+* **docs:** use env-overridable site_url so asciinema casts resolve on PR previews ([ebd54e0](https://github.com/lambdasistemi/cardano-tx-tools/commit/ebd54e081eb166eab684dac3ed474ad3ea587f51))
+* **ci:** clean site/ after docs build to prevent self-hosted runner contamination ([b6ee495](https://github.com/lambdasistemi/cardano-tx-tools/commit/b6ee4957a7be412c05e711a6876e0942a7cb7ab5))
+* **docs:** re-record tx-graph cast — overlay-only, no truncation ([acea368](https://github.com/lambdasistemi/cardano-tx-tools/commit/acea368842394e4b15423359b429a6889538eb5d))
+* **docs:** keep epic link on one line so Markdown doesn't parse '#46' as a heading ([651d11a](https://github.com/lambdasistemi/cardano-tx-tools/commit/651d11ad6eef55c0cfd668d0e6d0c2c8f2dcd363))
+* **release:** Darwin bundle for the wrapped-Linux-exes group, BSD-grep -- ([7eaebb8](https://github.com/lambdasistemi/cardano-tx-tools/commit/7eaebb898f64b8ca9219cfa1e9aff3b0291dbb3f))
 
 ## [0.1.6.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.5.0...v0.1.6.0) (2026-05-20)
 
