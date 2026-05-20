@@ -13,6 +13,20 @@ Usage: tx-validate --input PATH | - --n2c-socket-path PATH [--network-magic WORD
                    [--output human|json] [--version]
 ```
 
+```asciinema-player
+{
+  "file": "assets/asciinema/tx-validate.cast",
+  "idle_time_limit": 2,
+  "theme": "monokai",
+  "poster": "npt:0:3"
+}
+```
+
+The cast above demonstrates the help surface and the
+structural-failure exit path. A happy-path verdict recording is
+tracked in
+[lambdasistemi/cardano-tx-tools#69](https://github.com/lambdasistemi/cardano-tx-tools/issues/69).
+
 ## Exit codes
 
 | Code | Meaning |

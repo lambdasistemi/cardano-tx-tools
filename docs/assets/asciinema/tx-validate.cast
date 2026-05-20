@@ -1,0 +1,13 @@
+{"version": 2, "width": 100, "height": 35, "timestamp": 1779296469, "env": {"SHELL": "/nix/store/rlq03x4cwf8zn73hxaxnx0zn5q9kifls-bash-5.3p3/bin/bash", "TERM": "tmux-256color"}}
+[0.009534, "o", "\u001b[H\u001b[J\u001b[3J"]
+[0.009995, "o", "\u001b[1;32m$\u001b[0m tx-validate --help\r\n"]
+[0.624431, "o", "Usage: tx-validate --input PATH | - --n2c-socket-path PATH \r\n                   [--network-magic WORD32] [--output human|json] [--version]\r\n\r\n  tx-validate: Conway Phase-1 pre-flight against a local cardano-node (see\r\n  <https://github.com/lambdasistemi/cardano-tx-tools>)\r\n\r\nAvailable options:\r\n  --input PATH | -         Conway tx CBOR hex file, or '-' for stdin\r\n  --n2c-socket-path PATH   Local cardano-node Node-to-Client socket\r\n  --network-magic WORD32   Network magic for the supplied socket\r\n"]
+[0.624654, "o", "                           (default: 764824073)\r\n  --output human|json      Verdict format (default: human)\r\n  -h,--help                Show this help text\r\n  --version                Show the version and exit\r\n"]
+[2.632103, "o", "\u001b[1;32m$\u001b[0m # Assumes $CARDANO_NODE_SOCKET_PATH points at a Conway-era cardano-node.\r\n"]
+[3.242141, "o", "\u001b[1;32m$\u001b[0m # Structural-failure path: input rejected before the N2C session opens.\r\n"]
+[3.849726, "o", "\u001b[1;32m$\u001b[0m tx-validate --input .../treasury-withdrawal.cbor.hex \\\r\n"]
+[4.455984, "o", "\u001b[1;32m$\u001b[0m             --n2c-socket-path \"$CARDANO_NODE_SOCKET_PATH\" \\\r\n"]
+[5.065631, "o", "\u001b[1;32m$\u001b[0m             --network-magic 764824073\r\n"]
+[5.993771, "o", "tx-validate: failed to decode input: DecoderErrorDeserialiseFailure \"tx-validate input\" (DeserialiseFailure 1 \"expected map len or indef\")"]
+[5.993797, "o", "\r\n"]
+[5.995007, "o", "exit: 3\r\n"]

@@ -28,6 +28,15 @@ Usage: tx-graph [--rules FILE] [--tx PATH | -]
   --format turtle|json-ld   Output format (defaults to turtle).
 ```
 
+```asciinema-player
+{
+  "file": "assets/asciinema/tx-graph.cast",
+  "idle_time_limit": 2,
+  "theme": "monokai",
+  "poster": "npt:0:3"
+}
+```
+
 ## Three modes by flag presence
 
 | `--rules` | `--tx` | UTxO source | Behaviour |

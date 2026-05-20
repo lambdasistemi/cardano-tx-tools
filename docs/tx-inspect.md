@@ -17,6 +17,15 @@ Usage: tx-inspect [TX_FILE] [--in PATH] [--rules FILE]
                   [--web2-api-key-file PATH] [--version]
 ```
 
+```asciinema-player
+{
+  "file": "assets/asciinema/tx-inspect.cast",
+  "idle_time_limit": 2,
+  "theme": "monokai",
+  "poster": "npt:0:3"
+}
+```
+
 ## Input
 
 `tx-inspect` accepts a Conway transaction in the same forms
