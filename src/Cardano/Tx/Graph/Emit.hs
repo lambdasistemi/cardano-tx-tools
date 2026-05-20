@@ -47,11 +47,13 @@ module Cardano.Tx.Graph.Emit (
 
     -- * Errors
     EmitError (..),
+    renderEmitError,
 ) where
 
 import Data.ByteString (ByteString)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import Data.Text qualified as Text
 
 import Cardano.Ledger.Api.Tx.Out (TxOut)
 import Cardano.Ledger.Conway (ConwayEra)
@@ -141,10 +143,8 @@ Constructors:
 * 'UnsupportedLeafType' — a 'Cardano.Tx.Diff.conwayDiffProjection'
   leaf appeared that the projection walker does not yet handle;
   T010 closes the last residual leaves.
-
-The @NoSerializerYet@ variant lands in T003 (the executable slice
-adds it to bridge the pre-T005 gap where the dispatcher is wired
-but the Turtle serializer doesn't exist yet); T005 removes it.
+* 'NoSerializerYet' — pre-T005 transitional variant; see the
+  per-constructor Haddock below.
 -}
 data EmitError
     = UtxoRequired !Int
@@ -153,7 +153,40 @@ data EmitError
     | MalformedUtxoJson !FilePath !Text
     | UnknownFormat !Text
     | UnsupportedLeafType !Text
+    | -- | Bridges the pre-T005 gap between the body-emit
+      -- dispatcher (T003) and the Turtle serializer (T005).
+      -- The library never produces this value; the executable
+      -- returns it on stderr in body-only / joint modes until
+      -- T005 wires the real serializer.
+      NoSerializerYet
     deriving stock (Eq, Show)
+
+{- | Single-line human-readable rendering of an 'EmitError'.
+
+Shape matches 'Cardano.Tx.Graph.Rules.Load.renderRulesLoadError':
+every variant produces exactly one line, leading with the
+constructor tag so operators can grep stderr for a specific
+failure class.
+-}
+renderEmitError :: EmitError -> String
+renderEmitError = \case
+    UtxoRequired n ->
+        "UtxoRequired: transaction has "
+            <> show n
+            <> " input(s) but no resolved UTxO map was provided"
+    UtxoMissing k ->
+        "UtxoMissing: " <> Text.unpack k
+    MalformedTxCbor path msg ->
+        "MalformedTxCbor: " <> path <> ": " <> Text.unpack msg
+    MalformedUtxoJson path msg ->
+        "MalformedUtxoJson: " <> path <> ": " <> Text.unpack msg
+    UnknownFormat fmt ->
+        "UnknownFormat: " <> Text.unpack fmt
+    UnsupportedLeafType leaf ->
+        "UnsupportedLeafType: " <> Text.unpack leaf
+    NoSerializerYet ->
+        "NoSerializerYet: body-emitter serializer lands in T005; "
+            <> "body-only / joint modes are gated until then"
 
 {- | Walk a 'ConwayTx' against a resolved-UTxO map and an
 operator-declared entity list, producing an 'EmittedGraph'.

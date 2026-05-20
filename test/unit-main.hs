@@ -13,6 +13,7 @@ import Cardano.Tx.Graph.Rules.LoadSmokeSpec qualified as GraphRulesLoadSmokeSpec
 import Cardano.Tx.Graph.Rules.LoadTurtleSpec qualified as GraphRulesLoadTurtleSpec
 import Cardano.Tx.Graph.Rules.LoadValidationSpec qualified as GraphRulesLoadValidationSpec
 import Cardano.Tx.Graph.Rules.LoadYamlSpec qualified as GraphRulesLoadYamlSpec
+import Cardano.Tx.Graph.TxGraphExeSpec qualified as GraphTxGraphExeSpec
 import Cardano.Tx.InspectSpec qualified as InspectSpec
 import Cardano.Tx.Rewrite.ApplySpec qualified as RewriteApplySpec
 import Cardano.Tx.Rewrite.LoadSpec qualified as RewriteLoadSpec
@@ -33,6 +34,7 @@ main = hspec $ do
     GraphRulesLoadTurtleSpec.spec
     GraphRulesLoadValidationSpec.spec
     GraphRulesLoadYamlSpec.spec
+    GraphTxGraphExeSpec.spec
     InspectSpec.spec
     LoadUtxoSpec.spec
     RewriteApplySpec.spec
