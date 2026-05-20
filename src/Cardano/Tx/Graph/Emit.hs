@@ -39,6 +39,14 @@ module Cardano.Tx.Graph.Emit (
     SubjectBlock (..),
     BodySection (..),
 
+    -- * Body-walker monad (T102)
+    -- $monadSurface
+    Emit,
+    tellTriple,
+    introduce,
+    runEmit,
+    groupBySubject,
+
     -- * Inputs
     ResolvedUTxO,
 
@@ -79,6 +87,13 @@ import Cardano.Tx.Graph.Emit.Lookup (
     rawBytesPrefixLength,
     resolveCredential,
  )
+import Cardano.Tx.Graph.Emit.Monad (
+    Emit,
+    groupBySubject,
+    introduce,
+    runEmit,
+    tellTriple,
+ )
 import Cardano.Tx.Graph.Emit.Project (
     ProjectError (..),
     projectBody,
@@ -102,6 +117,24 @@ The credential-lookup machinery introduced by T004. The submodule
 re-export block exposes its types and functions to in-package
 test suites and to the projection walker without publishing the
 module path itself.
+-}
+
+{- $monadSurface
+The body-walker monad seam introduced by T102. The submodule
+@Cardano.Tx.Graph.Emit.Monad@ is private to the library; this
+re-export block exposes the @Emit@ monad alongside the
+@tellTriple@ / @introduce@ / @runEmit@ / @groupBySubject@
+helpers so in-package test suites and the projection walker can
+use them without publishing the module path itself.
+
+The seam is @WriterT [Triple] (State (Set Subject))@ — a writer
+over the typed triple stream plus a state-tracked seen-subject
+set used by @introduce@ to dedup subjects reached more than once
+during the walk (shared addresses, asset classes, DReps).
+@groupBySubject@ rebuilds the @[SubjectBlock]@ list from the
+flat triple stream preserving first-occurrence order so the
+Turtle serializer's byte layout stays byte-identical to the
+pre-T102 walker.
 -}
 
 {- | The resolved-input map the emitter consumes alongside a

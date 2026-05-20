@@ -51,7 +51,7 @@ import Cardano.Tx.Graph.Emit.Lookup (BnodeName)
 data Subject
     = SBnode !BnodeName
     | SIri !Text
-    deriving stock (Eq, Show)
+    deriving stock (Eq, Ord, Show)
 
 {- | The predicate position of a Turtle statement.
 

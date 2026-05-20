@@ -7,8 +7,10 @@ import Cardano.Tx.DiffSpec qualified as DiffSpec
 import Cardano.Tx.Graph.Emit.JsonLdEquivalenceSpec qualified as GraphEmitJsonLdEquivalenceSpec
 import Cardano.Tx.Graph.Emit.LookupSpec qualified as GraphEmitLookupSpec
 import Cardano.Tx.Graph.Emit.ReproducibilitySpec qualified as GraphEmitReproducibilitySpec
+import Cardano.Tx.Graph.Emit.SubjectDeDupSpec qualified as GraphEmitSubjectDeDupSpec
 import Cardano.Tx.Graph.Emit.VocabTraceabilitySpec qualified as GraphEmitVocabTraceabilitySpec
 import Cardano.Tx.Graph.EmitGoldenSpec qualified as GraphEmitGoldenSpec
+import Cardano.Tx.Graph.EmitMonadSpec qualified as GraphEmitMonadSpec
 import Cardano.Tx.Graph.EmitSmokeSpec qualified as GraphEmitSmokeSpec
 import Cardano.Tx.Graph.Rules.LoadEntitiesSpec qualified as GraphRulesLoadEntitiesSpec
 import Cardano.Tx.Graph.Rules.LoadExeSpec qualified as GraphRulesLoadExeSpec
@@ -33,8 +35,10 @@ main = hspec $ do
     GraphEmitJsonLdEquivalenceSpec.spec
     GraphEmitLookupSpec.spec
     GraphEmitReproducibilitySpec.spec
+    GraphEmitSubjectDeDupSpec.spec
     GraphEmitVocabTraceabilitySpec.spec
     GraphEmitGoldenSpec.spec
+    GraphEmitMonadSpec.spec
     GraphEmitSmokeSpec.spec
     GraphRulesLoadEntitiesSpec.spec
     GraphRulesLoadExeSpec.spec

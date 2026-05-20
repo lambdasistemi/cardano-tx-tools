@@ -28,6 +28,25 @@ varieties) is detected via emptiness probes / fail-loudly case
 arms; a non-empty unhandled leaf surfaces as
 'ProjectError.PUnsupportedLeafType'.
 
+== T102 — monadic seam
+
+The per-cluster block lists are now built via the
+'Cardano.Tx.Graph.Emit.Monad.Emit' monad: each
+@emit*Cluster@ helper is an @Emit ()@ action that 'tellTriple's
+its triples in the order the pre-T102 walker produced
+@[SubjectBlock]@; the local 'clusterBlocks' helper
+@runEmit@s + @groupBySubject@s to recover the 'SubjectBlock'
+list. The address-decomposition section uses
+'Cardano.Tx.Graph.Emit.Monad.introduce' so each unique address
+emits its address + payment-credential + stake-credential
+blocks exactly once even when a fixture reaches the same
+address from multiple inputs/outputs/collaterals.
+
+The byte output of the Turtle serializer is unchanged by the
+T102 refactor: every fixture's @expected.ttl@ is
+byte-identical pre- and post-T102 (see
+'Cardano.Tx.Graph.EmitGoldenSpec').
+
 == Bnode naming scheme (T005 / Q-002 → A-002)
 
 The address-decomposition section emits one block per unique
@@ -96,7 +115,6 @@ import Data.ByteString.Short qualified as SBS
 import Data.List (find)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (maybeToList)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -165,12 +183,20 @@ import Cardano.Tx.Graph.Emit.Lookup (
     LookupTable,
     resolveCredential,
  )
+import Cardano.Tx.Graph.Emit.Monad (
+    Emit,
+    groupBySubject,
+    introduce,
+    runEmit,
+    tellTriple,
+ )
 import Cardano.Tx.Graph.Emit.Triple (
     BodySection (..),
     Object (..),
     Predicate (..),
     Subject (..),
     SubjectBlock (..),
+    Triple (..),
  )
 import Cardano.Tx.Graph.Emit.Vocab (VocabTerm (..), vocabCurie)
 import Cardano.Tx.Graph.Rules.Load (
@@ -240,40 +266,25 @@ projectBody entities lookupTbl tx utxo = do
         traverse
             (uncurry (buildProposalCluster lookupTbl))
             (zip [1 ..] proposals)
-    -- Assemble the tx subject block.
-    let txBlock =
-            SubjectBlock
-                (SBnode (BnodeName "tx"))
-                ( (PRdfType, OIri (vocabCurie TermTransaction))
-                    : [ (PIri (vocabCurie TermHasInput), OBnode (idInputBnode k))
-                      | k <- [1 .. length inputData]
-                      ]
-                        <> [ (PIri (vocabCurie TermHasOutput), OBnode (idOutputBnode k))
-                           | k <- [1 .. length outputData]
-                           ]
-                        <> [ (PIri (vocabCurie TermHasMint), OBnode (idMintBnode k))
-                           | k <- [1 .. length mintPairs]
-                           ]
-                        <> [ (PIri (vocabCurie TermHasWithdrawal), OBnode (idWithdrawalBnode k))
-                           | k <- [1 .. length withdrawalPairs]
-                           ]
-                        <> [ (PIri (vocabCurie TermHasCertificate), OBnode (idCertBnode k))
-                           | k <- [1 .. length certs]
-                           ]
-                        <> [ ( PIri (vocabCurie TermHasCollateralInput)
-                             , OBnode (idCollateralBnode k)
-                             )
-                           | k <- [1 .. length collateralData]
-                           ]
-                        <> [ (PIri (vocabCurie TermHasProposal), OBnode (idProposalBnode k))
-                           | k <- [1 .. length proposals]
-                           ]
-                        <> [(PIri (vocabCurie TermHasFee), OIntLit (fromIntegral feeLovelace))]
-                )
+    -- Assemble the tx subject block via the Emit monad — the
+    -- per-predicate @tellTriple@ sequence preserves the
+    -- pre-T102 byte order (see the module-header note on
+    -- tx-block predicate order).
+    let txBlocks =
+            clusterBlocks $
+                emitTxBlock
+                    (length inputData)
+                    (length outputData)
+                    (length mintPairs)
+                    (length withdrawalPairs)
+                    (length certs)
+                    (length collateralData)
+                    (length proposals)
+                    feeLovelace
         txSection =
             BodySection
                 { sectionHeader = "Transaction body."
-                , sectionBlocks = [txBlock]
+                , sectionBlocks = txBlocks
                 }
         inputSections =
             [ BodySection
@@ -292,7 +303,9 @@ projectBody entities lookupTbl tx utxo = do
         mintSections =
             [ BodySection
                 { sectionHeader = "Mint " <> Text.pack (show k)
-                , sectionBlocks = buildMintCluster lookupTbl k policyId assetName
+                , sectionBlocks =
+                    clusterBlocks
+                        (emitMintCluster lookupTbl k policyId assetName)
                 }
             | (k, (policyId, assetName, _quantity)) <-
                 zip [1 :: Int ..] mintPairs
@@ -301,7 +314,8 @@ projectBody entities lookupTbl tx utxo = do
             [ BodySection
                 { sectionHeader = "Withdrawal " <> Text.pack (show k)
                 , sectionBlocks =
-                    [buildWithdrawalCluster lookupTbl k account coin]
+                    clusterBlocks
+                        (emitWithdrawalCluster lookupTbl k account coin)
                 }
             | (k, (account, coin)) <- zip [1 :: Int ..] withdrawalPairs
             ]
@@ -334,7 +348,11 @@ projectBody entities lookupTbl tx utxo = do
                         "Address decompositions — payment + "
                             <> "stake credential per leaf."
                     , sectionBlocks =
-                        concatMap (addrEntryBlocks lookupTbl) addrEntries
+                        clusterBlocks
+                            ( mapM_
+                                (emitAddrEntry lookupTbl)
+                                addrEntries
+                            )
                     }
                 ]
     pure
@@ -348,6 +366,24 @@ projectBody entities lookupTbl tx utxo = do
                 <> proposalSections
                 <> addrSection
         )
+
+----------------------------------------------------------------------
+-- Monadic seam: run + group.
+----------------------------------------------------------------------
+
+{- | Run an 'Emit' action and re-shape its triple stream into
+the 'SubjectBlock' list the serializer consumes.
+
+The seen-subject state is discarded — each cluster is run with
+its own fresh state so per-cluster 'introduce' calls don't
+leak across cluster boundaries. The address-decomposition
+section is the one place that calls 'introduce' meaningfully
+(dedup within a single cluster), so that's fine.
+-}
+clusterBlocks :: Emit () -> [SubjectBlock]
+clusterBlocks action =
+    let (triples, _seen) = runEmit action
+     in groupBySubject triples
 
 ----------------------------------------------------------------------
 -- Empty-leaf probes (T007 detects non-T005/T007 coverage)
@@ -435,6 +471,56 @@ idResolvedCollateralBnode k =
 idProposalBnode :: Int -> BnodeName
 idProposalBnode k =
     BnodeName ("proposal" <> Text.pack (show k))
+
+----------------------------------------------------------------------
+-- Tx-block emission.
+----------------------------------------------------------------------
+
+{- | Emit the @_:tx@ subject block. Predicate order is fixed
+(see the module-header note); the @hasFee@ predicate always
+sits at the end so the byte layout matches the artisan
+@expected.ttl@ shape.
+-}
+emitTxBlock ::
+    Int ->
+    Int ->
+    Int ->
+    Int ->
+    Int ->
+    Int ->
+    Int ->
+    Integer ->
+    Emit ()
+emitTxBlock
+    nInputs
+    nOutputs
+    nMints
+    nWithdrawals
+    nCerts
+    nCollaterals
+    nProposals
+    feeLovelace = do
+        let txSubj = SBnode (BnodeName "tx")
+            tt p o = tellTriple (Triple txSubj p o)
+            -- Emit one @cardano:hasX _:xK@ edge per k in
+            -- @[1..n]@. Sequenced via 'mapM_' over the range so
+            -- the writer accumulates them in ascending order.
+            edges term mkBnode n =
+                mapM_
+                    ( tt (PIri (vocabCurie term)) . OBnode . mkBnode
+                    )
+                    [1 .. n]
+        tt PRdfType (OIri (vocabCurie TermTransaction))
+        edges TermHasInput idInputBnode nInputs
+        edges TermHasOutput idOutputBnode nOutputs
+        edges TermHasMint idMintBnode nMints
+        edges TermHasWithdrawal idWithdrawalBnode nWithdrawals
+        edges TermHasCertificate idCertBnode nCerts
+        edges TermHasCollateralInput idCollateralBnode nCollaterals
+        edges TermHasProposal idProposalBnode nProposals
+        tt
+            (PIri (vocabCurie TermHasFee))
+            (OIntLit (fromIntegral feeLovelace))
 
 ----------------------------------------------------------------------
 -- Address registry — first-occurrence-wins de-dup
@@ -618,11 +704,9 @@ buildInputs entities lookupTbl utxo = go [] emptyAddrRegistry . zip [1 ..]
     go acc reg ((k, txIn) : rest) =
         case Map.lookup txIn utxo of
             Nothing ->
-                let block =
-                        SubjectBlock
-                            (SBnode (idInputBnode k))
-                            [(PRdfType, OIri (vocabCurie TermInput))]
-                 in go ([block] : acc) reg rest
+                let blocks =
+                        clusterBlocks (emitUnresolvedInput k)
+                 in go (blocks : acc) reg rest
             Just resolved ->
                 let (entry, reg') =
                         insertAddr
@@ -630,25 +714,43 @@ buildInputs entities lookupTbl utxo = go [] emptyAddrRegistry . zip [1 ..]
                             lookupTbl
                             (resolved ^. addrTxOutL)
                             reg
-                    inputBlock =
-                        SubjectBlock
-                            (SBnode (idInputBnode k))
-                            [ (PRdfType, OIri (vocabCurie TermInput))
-                            ,
-                                ( PIri (vocabCurie TermResolvedTo)
-                                , OBnode (idResolvedInputBnode k)
-                                )
-                            ]
-                    resolvedBlock =
-                        SubjectBlock
-                            (SBnode (idResolvedInputBnode k))
-                            [ (PRdfType, OIri (vocabCurie TermOutput))
-                            ,
-                                ( PIri (vocabCurie TermAtAddress)
-                                , OBnode (BnodeName (aeBnodeBase entry <> "Addr"))
-                                )
-                            ]
-                 in go ([inputBlock, resolvedBlock] : acc) reg' rest
+                    blocks =
+                        clusterBlocks
+                            (emitResolvedInput k (aeBnodeBase entry))
+                 in go (blocks : acc) reg' rest
+
+-- | Emit triples for an input whose 'TxIn' is NOT resolved.
+emitUnresolvedInput :: Int -> Emit ()
+emitUnresolvedInput k =
+    tellTriple
+        ( Triple
+            (SBnode (idInputBnode k))
+            PRdfType
+            (OIri (vocabCurie TermInput))
+        )
+
+{- | Emit triples for an input whose 'TxIn' IS resolved.
+The shared address bnode base is passed in (it comes from
+the 'AddrRegistry' first-occurrence-wins lookup).
+-}
+emitResolvedInput :: Int -> Text -> Emit ()
+emitResolvedInput k base = do
+    let inputSubj = SBnode (idInputBnode k)
+        resolvedSubj = SBnode (idResolvedInputBnode k)
+    tellTriple (Triple inputSubj PRdfType (OIri (vocabCurie TermInput)))
+    tellTriple
+        ( Triple
+            inputSubj
+            (PIri (vocabCurie TermResolvedTo))
+            (OBnode (idResolvedInputBnode k))
+        )
+    tellTriple (Triple resolvedSubj PRdfType (OIri (vocabCurie TermOutput)))
+    tellTriple
+        ( Triple
+            resolvedSubj
+            (PIri (vocabCurie TermAtAddress))
+            (OBnode (BnodeName (base <> "Addr")))
+        )
 
 ----------------------------------------------------------------------
 -- Outputs
@@ -672,121 +774,163 @@ buildOutputs entities lookupTbl outputs reg0 =
                     lookupTbl
                     (txOut ^. addrTxOutL)
                     reg
-            block =
-                SubjectBlock
-                    (SBnode (idOutputBnode k))
-                    [ (PRdfType, OIri (vocabCurie TermOutput))
-                    ,
-                        ( PIri (vocabCurie TermAtAddress)
-                        , OBnode (BnodeName (aeBnodeBase entry <> "Addr"))
-                        )
-                    ]
-         in go ([block] : acc) reg' rest
+            blocks = clusterBlocks (emitOutput k (aeBnodeBase entry))
+         in go (blocks : acc) reg' rest
+
+-- | Emit triples for a body output at position @k@.
+emitOutput :: Int -> Text -> Emit ()
+emitOutput k base = do
+    let outSubj = SBnode (idOutputBnode k)
+    tellTriple (Triple outSubj PRdfType (OIri (vocabCurie TermOutput)))
+    tellTriple
+        ( Triple
+            outSubj
+            (PIri (vocabCurie TermAtAddress))
+            (OBnode (BnodeName (base <> "Addr")))
+        )
 
 ----------------------------------------------------------------------
 -- Address decomposition blocks
 ----------------------------------------------------------------------
 
-{- | Render an 'AddrEntry' as the @[address-block, payment-cred-block,
-stake-cred-block]@ trio (stake-cred-block omitted when the
-address has no stake credential).
+{- | Emit triples for an 'AddrEntry' — one address block plus
+its payment credential block plus (optionally) its stake
+credential block.
+
+The address subject is wrapped in 'introduce' so re-walking
+the same registry entry never re-emits the block. The
+address-decomposition section is the canonical home of the
+T102 dedup invariant: when fixtures with shared addresses
+(01, 11) flow through, each unique address bnode appears
+exactly once.
 -}
-addrEntryBlocks :: LookupTable -> AddrEntry -> [SubjectBlock]
-addrEntryBlocks lookupTbl AddrEntry{aeBnodeBase, aePaymentCred, aeStakeCred, aeBech32} =
-    let addrBnode = BnodeName (aeBnodeBase <> "Addr")
-        payCredBnode = BnodeName (aeBnodeBase <> "CredPayment")
-        stakeCredBnode = BnodeName (aeBnodeBase <> "CredStake")
-        addrBlock =
-            SubjectBlock
-                (SBnode addrBnode)
-                ( [ (PRdfType, OIri (vocabCurie TermAddress))
-                  , (PIri (vocabCurie TermBech32), OStringLit aeBech32)
-                  ,
-                      ( PIri (vocabCurie TermHasPaymentCredential)
-                      , OBnode payCredBnode
-                      )
-                  ]
-                    <> [ ( PIri (vocabCurie TermHasStakeCredential)
-                         , OBnode stakeCredBnode
-                         )
-                       | _ <- maybeToList aeStakeCred
-                       ]
+emitAddrEntry :: LookupTable -> AddrEntry -> Emit ()
+emitAddrEntry
+    lookupTbl
+    AddrEntry{aeBnodeBase, aePaymentCred, aeStakeCred, aeBech32} = do
+        let addrBnode = BnodeName (aeBnodeBase <> "Addr")
+            payCredBnode = BnodeName (aeBnodeBase <> "CredPayment")
+            stakeCredBnode = BnodeName (aeBnodeBase <> "CredStake")
+            addrSubj = SBnode addrBnode
+            payCredSubj = SBnode payCredBnode
+            stakeCredSubj = SBnode stakeCredBnode
+        introduce addrSubj $ do
+            tellTriple
+                (Triple addrSubj PRdfType (OIri (vocabCurie TermAddress)))
+            tellTriple
+                ( Triple
+                    addrSubj
+                    (PIri (vocabCurie TermBech32))
+                    (OStringLit aeBech32)
                 )
-        payIdBnode =
-            resolveCredential
-                lookupTbl
-                (plLeafType aePaymentCred)
-                (plBytes aePaymentCred)
-        payCredBlock =
-            SubjectBlock
-                (SBnode payCredBnode)
-                [ (PRdfType, OIri (vocabCurie TermPaymentCredential))
-                ,
-                    ( PIri (vocabCurie TermHasIdentifier)
-                    , OBnode payIdBnode
-                    )
-                ]
-        stakeCredBlocks =
+            tellTriple
+                ( Triple
+                    addrSubj
+                    (PIri (vocabCurie TermHasPaymentCredential))
+                    (OBnode payCredBnode)
+                )
+            -- Emit the @hasStakeCredential@ edge only when the
+            -- address carries a stake credential — Maybe-driven.
             case aeStakeCred of
-                Nothing -> []
-                Just sl ->
-                    let stakeIdBnode =
-                            resolveCredential
-                                lookupTbl
-                                (slLeafType sl)
-                                (slBytes sl)
-                     in [ SubjectBlock
-                            (SBnode stakeCredBnode)
-                            [ (PRdfType, OIri (vocabCurie TermStakeCredential))
-                            ,
-                                ( PIri (vocabCurie TermHasIdentifier)
-                                , OBnode stakeIdBnode
-                                )
-                            ]
-                        ]
-     in addrBlock : payCredBlock : stakeCredBlocks
+                Nothing -> pure ()
+                Just _ ->
+                    tellTriple
+                        ( Triple
+                            addrSubj
+                            (PIri (vocabCurie TermHasStakeCredential))
+                            (OBnode stakeCredBnode)
+                        )
+        let payIdBnode =
+                resolveCredential
+                    lookupTbl
+                    (plLeafType aePaymentCred)
+                    (plBytes aePaymentCred)
+        introduce payCredSubj $ do
+            tellTriple
+                ( Triple
+                    payCredSubj
+                    PRdfType
+                    (OIri (vocabCurie TermPaymentCredential))
+                )
+            tellTriple
+                ( Triple
+                    payCredSubj
+                    (PIri (vocabCurie TermHasIdentifier))
+                    (OBnode payIdBnode)
+                )
+        case aeStakeCred of
+            Nothing -> pure ()
+            Just sl -> do
+                let stakeIdBnode =
+                        resolveCredential
+                            lookupTbl
+                            (slLeafType sl)
+                            (slBytes sl)
+                introduce stakeCredSubj $ do
+                    tellTriple
+                        ( Triple
+                            stakeCredSubj
+                            PRdfType
+                            (OIri (vocabCurie TermStakeCredential))
+                        )
+                    tellTriple
+                        ( Triple
+                            stakeCredSubj
+                            (PIri (vocabCurie TermHasIdentifier))
+                            (OBnode stakeIdBnode)
+                        )
 
 ----------------------------------------------------------------------
 -- Mint cluster (T007 — fixture 04)
 ----------------------------------------------------------------------
 
-{- | Build the three subject blocks for one mint entry at
+{- | Emit the three subject blocks for one mint entry at
 position @k@: the @cardano:Mint@ cluster header, a
 @cardano:Policy@ block for the policy identifier, and a
-@cardano:Asset@ block for the @policy ++ asset-name@ identifier.
+@cardano:Asset@ block for the @policy ++ asset-name@
+identifier.
 
 Per research R2, the @AssetClass@ identifier's @bytesHex@ is the
 concatenation of the 28-byte policy hash and the raw bytes of the
 asset name; the lookup table follows the same convention.
 -}
-buildMintCluster ::
-    LookupTable -> Int -> PolicyID -> AssetName -> [SubjectBlock]
-buildMintCluster lookupTbl k policyId assetName =
-    [mintBlock, policyBlock, assetBlock]
-  where
-    policyBytes = policyIdBytes policyId
-    assetBytes = policyBytes <> assetClassNameBytes assetName
-    policyIdBnode = resolveCredential lookupTbl Policy policyBytes
-    assetIdBnode = resolveCredential lookupTbl AssetClass assetBytes
-    mintBlock =
-        SubjectBlock
-            (SBnode (idMintBnode k))
-            [ (PRdfType, OIri (vocabCurie TermMint))
-            , (PIri (vocabCurie TermHasPolicy), OBnode (idPolicyBnode k))
-            , (PIri (vocabCurie TermHasAsset), OBnode (idAssetBnode k))
-            ]
-    policyBlock =
-        SubjectBlock
-            (SBnode (idPolicyBnode k))
-            [ (PRdfType, OIri (vocabCurie TermPolicy))
-            , (PIri (vocabCurie TermHasIdentifier), OBnode policyIdBnode)
-            ]
-    assetBlock =
-        SubjectBlock
-            (SBnode (idAssetBnode k))
-            [ (PRdfType, OIri (vocabCurie TermAsset))
-            , (PIri (vocabCurie TermHasIdentifier), OBnode assetIdBnode)
-            ]
+emitMintCluster ::
+    LookupTable -> Int -> PolicyID -> AssetName -> Emit ()
+emitMintCluster lookupTbl k policyId assetName = do
+    let policyBytes = policyIdBytes policyId
+        assetBytes = policyBytes <> assetClassNameBytes assetName
+        policyIdBnode = resolveCredential lookupTbl Policy policyBytes
+        assetIdBnode = resolveCredential lookupTbl AssetClass assetBytes
+        mintSubj = SBnode (idMintBnode k)
+        policySubj = SBnode (idPolicyBnode k)
+        assetSubj = SBnode (idAssetBnode k)
+    tellTriple (Triple mintSubj PRdfType (OIri (vocabCurie TermMint)))
+    tellTriple
+        ( Triple
+            mintSubj
+            (PIri (vocabCurie TermHasPolicy))
+            (OBnode (idPolicyBnode k))
+        )
+    tellTriple
+        ( Triple
+            mintSubj
+            (PIri (vocabCurie TermHasAsset))
+            (OBnode (idAssetBnode k))
+        )
+    tellTriple (Triple policySubj PRdfType (OIri (vocabCurie TermPolicy)))
+    tellTriple
+        ( Triple
+            policySubj
+            (PIri (vocabCurie TermHasIdentifier))
+            (OBnode policyIdBnode)
+        )
+    tellTriple (Triple assetSubj PRdfType (OIri (vocabCurie TermAsset)))
+    tellTriple
+        ( Triple
+            assetSubj
+            (PIri (vocabCurie TermHasIdentifier))
+            (OBnode assetIdBnode)
+        )
 
 policyIdBytes :: PolicyID -> ByteString
 policyIdBytes (PolicyID (ScriptHash h)) = hashToBytes h
@@ -798,7 +942,7 @@ assetClassNameBytes (AssetName sbs) = SBS.fromShort sbs
 -- Withdrawal cluster (T007 — fixture 05)
 ----------------------------------------------------------------------
 
-{- | Build the @cardano:Withdrawal@ subject block for one
+{- | Emit the @cardano:Withdrawal@ subject block for one
 withdrawal at position @k@. The cluster carries
 @cardano:onCredential@ — pointing at the reward-account stake
 credential's identifier bnode (entity-named when an entity
@@ -811,18 +955,25 @@ credential) or @StakeScript@ (script-hash credential). T007's
 harness fixture 05 exercises the key-hash case; T010 may
 encounter the script-hash case in fixture 11.
 -}
-buildWithdrawalCluster ::
-    LookupTable -> Int -> AccountAddress -> Coin -> SubjectBlock
-buildWithdrawalCluster lookupTbl k account (Coin lovelace) =
-    SubjectBlock
-        (SBnode (idWithdrawalBnode k))
-        [ (PRdfType, OIri (vocabCurie TermWithdrawal))
-        , (PIri (vocabCurie TermOnCredential), OBnode credIdBnode)
-        , (PIri (vocabCurie TermWithAmount), OIntLit (fromIntegral lovelace))
-        ]
-  where
-    (leafTy, credBytes) = accountStakeLeaf account
-    credIdBnode = resolveCredential lookupTbl leafTy credBytes
+emitWithdrawalCluster ::
+    LookupTable -> Int -> AccountAddress -> Coin -> Emit ()
+emitWithdrawalCluster lookupTbl k account (Coin lovelace) = do
+    let (leafTy, credBytes) = accountStakeLeaf account
+        credIdBnode = resolveCredential lookupTbl leafTy credBytes
+        wSubj = SBnode (idWithdrawalBnode k)
+    tellTriple (Triple wSubj PRdfType (OIri (vocabCurie TermWithdrawal)))
+    tellTriple
+        ( Triple
+            wSubj
+            (PIri (vocabCurie TermOnCredential))
+            (OBnode credIdBnode)
+        )
+    tellTriple
+        ( Triple
+            wSubj
+            (PIri (vocabCurie TermWithAmount))
+            (OIntLit (fromIntegral lovelace))
+        )
 
 accountStakeLeaf :: AccountAddress -> (LeafType, ByteString)
 accountStakeLeaf (AccountAddress _ (AccountId cred)) =
@@ -871,24 +1022,31 @@ buildCertCluster ::
     Either ProjectError [SubjectBlock]
 buildCertCluster lookupTbl k = \case
     DelegTxCert cred (DelegStake (KeyHash poolHash)) ->
-        Right (stakeDelegationBlocks lookupTbl k cred (hashToBytes poolHash))
+        Right
+            ( clusterBlocks
+                (emitStakeDelegation lookupTbl k cred (hashToBytes poolHash))
+            )
     DelegTxCert cred (DelegVote (DRepKeyHash (KeyHash drepHash))) ->
         Right
-            ( voteDelegationBlocks
-                lookupTbl
-                k
-                cred
-                DRepKey
-                (hashToBytes drepHash)
+            ( clusterBlocks
+                ( emitVoteDelegation
+                    lookupTbl
+                    k
+                    cred
+                    DRepKey
+                    (hashToBytes drepHash)
+                )
             )
     DelegTxCert cred (DelegVote (DRepScriptHash (ScriptHash drepHash))) ->
         Right
-            ( voteDelegationBlocks
-                lookupTbl
-                k
-                cred
-                DRepScript
-                (hashToBytes drepHash)
+            ( clusterBlocks
+                ( emitVoteDelegation
+                    lookupTbl
+                    k
+                    cred
+                    DRepScript
+                    (hashToBytes drepHash)
+                )
             )
     DelegTxCert _ (DelegVote DRepAlwaysAbstain) ->
         Left (PUnsupportedLeafType "ConwayCertValue DelegVote DRepAlwaysAbstain")
@@ -901,58 +1059,82 @@ buildCertCluster lookupTbl k = \case
         Left (PUnsupportedLeafType "ConwayCertValue DelegStakeVote")
     _ -> Left (PUnsupportedLeafType "ConwayCertValue (non-delegation)")
 
-stakeDelegationBlocks ::
+emitStakeDelegation ::
     LookupTable ->
     Int ->
     Credential Staking ->
     ByteString ->
-    [SubjectBlock]
-stakeDelegationBlocks lookupTbl k stakeCred poolBytes =
-    [certBlock, poolBlock]
-  where
-    (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
-    stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
-    poolIdBnode = resolveCredential lookupTbl PoolId poolBytes
-    certBlock =
-        SubjectBlock
-            (SBnode (idCertBnode k))
-            [ (PRdfType, OIri (vocabCurie TermStakeDelegation))
-            , (PIri (vocabCurie TermOnCredential), OBnode stakeIdBnode)
-            , (PIri (vocabCurie TermToPool), OBnode (idPoolBnode k))
-            ]
-    poolBlock =
-        SubjectBlock
-            (SBnode (idPoolBnode k))
-            [ (PRdfType, OIri (vocabCurie TermPool))
-            , (PIri (vocabCurie TermHasIdentifier), OBnode poolIdBnode)
-            ]
+    Emit ()
+emitStakeDelegation lookupTbl k stakeCred poolBytes = do
+    let (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
+        stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
+        poolIdBnode = resolveCredential lookupTbl PoolId poolBytes
+        certSubj = SBnode (idCertBnode k)
+        poolSubj = SBnode (idPoolBnode k)
+    tellTriple
+        ( Triple
+            certSubj
+            PRdfType
+            (OIri (vocabCurie TermStakeDelegation))
+        )
+    tellTriple
+        ( Triple
+            certSubj
+            (PIri (vocabCurie TermOnCredential))
+            (OBnode stakeIdBnode)
+        )
+    tellTriple
+        ( Triple
+            certSubj
+            (PIri (vocabCurie TermToPool))
+            (OBnode (idPoolBnode k))
+        )
+    tellTriple (Triple poolSubj PRdfType (OIri (vocabCurie TermPool)))
+    tellTriple
+        ( Triple
+            poolSubj
+            (PIri (vocabCurie TermHasIdentifier))
+            (OBnode poolIdBnode)
+        )
 
-voteDelegationBlocks ::
+emitVoteDelegation ::
     LookupTable ->
     Int ->
     Credential Staking ->
     LeafType ->
     ByteString ->
-    [SubjectBlock]
-voteDelegationBlocks lookupTbl k stakeCred drepLT drepBytes =
-    [certBlock, drepBlock]
-  where
-    (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
-    stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
-    drepIdBnode = resolveCredential lookupTbl drepLT drepBytes
-    certBlock =
-        SubjectBlock
-            (SBnode (idCertBnode k))
-            [ (PRdfType, OIri (vocabCurie TermVoteDelegation))
-            , (PIri (vocabCurie TermOnCredential), OBnode stakeIdBnode)
-            , (PIri (vocabCurie TermToDRep), OBnode (idDRepBnode k))
-            ]
-    drepBlock =
-        SubjectBlock
-            (SBnode (idDRepBnode k))
-            [ (PRdfType, OIri (vocabCurie TermDRep))
-            , (PIri (vocabCurie TermHasIdentifier), OBnode drepIdBnode)
-            ]
+    Emit ()
+emitVoteDelegation lookupTbl k stakeCred drepLT drepBytes = do
+    let (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
+        stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
+        drepIdBnode = resolveCredential lookupTbl drepLT drepBytes
+        certSubj = SBnode (idCertBnode k)
+        drepSubj = SBnode (idDRepBnode k)
+    tellTriple
+        ( Triple
+            certSubj
+            PRdfType
+            (OIri (vocabCurie TermVoteDelegation))
+        )
+    tellTriple
+        ( Triple
+            certSubj
+            (PIri (vocabCurie TermOnCredential))
+            (OBnode stakeIdBnode)
+        )
+    tellTriple
+        ( Triple
+            certSubj
+            (PIri (vocabCurie TermToDRep))
+            (OBnode (idDRepBnode k))
+        )
+    tellTriple (Triple drepSubj PRdfType (OIri (vocabCurie TermDRep)))
+    tellTriple
+        ( Triple
+            drepSubj
+            (PIri (vocabCurie TermHasIdentifier))
+            (OBnode drepIdBnode)
+        )
 
 stakeCredLeaf :: Credential Staking -> (LeafType, ByteString)
 stakeCredLeaf = \case
@@ -989,11 +1171,8 @@ buildCollaterals entities lookupTbl utxo txIns reg0 =
     go acc reg ((k, txIn) : rest) =
         case Map.lookup txIn utxo of
             Nothing ->
-                let block =
-                        SubjectBlock
-                            (SBnode (idCollateralBnode k))
-                            [(PRdfType, OIri (vocabCurie TermInput))]
-                 in go ([block] : acc) reg rest
+                let blocks = clusterBlocks (emitUnresolvedCollateral k)
+                 in go (blocks : acc) reg rest
             Just resolved ->
                 let (entry, reg') =
                         insertAddr
@@ -1001,25 +1180,45 @@ buildCollaterals entities lookupTbl utxo txIns reg0 =
                             lookupTbl
                             (resolved ^. addrTxOutL)
                             reg
-                    collBlock =
-                        SubjectBlock
-                            (SBnode (idCollateralBnode k))
-                            [ (PRdfType, OIri (vocabCurie TermInput))
-                            ,
-                                ( PIri (vocabCurie TermResolvedTo)
-                                , OBnode (idResolvedCollateralBnode k)
-                                )
-                            ]
-                    resolvedBlock =
-                        SubjectBlock
-                            (SBnode (idResolvedCollateralBnode k))
-                            [ (PRdfType, OIri (vocabCurie TermOutput))
-                            ,
-                                ( PIri (vocabCurie TermAtAddress)
-                                , OBnode (BnodeName (aeBnodeBase entry <> "Addr"))
-                                )
-                            ]
-                 in go ([collBlock, resolvedBlock] : acc) reg' rest
+                    blocks =
+                        clusterBlocks
+                            (emitResolvedCollateral k (aeBnodeBase entry))
+                 in go (blocks : acc) reg' rest
+
+{- | Emit triples for a collateral input whose 'TxIn' is NOT
+resolved. Shape mirrors 'emitUnresolvedInput'.
+-}
+emitUnresolvedCollateral :: Int -> Emit ()
+emitUnresolvedCollateral k =
+    tellTriple
+        ( Triple
+            (SBnode (idCollateralBnode k))
+            PRdfType
+            (OIri (vocabCurie TermInput))
+        )
+
+{- | Emit triples for a collateral input whose 'TxIn' IS
+resolved. Shape mirrors 'emitResolvedInput' with the
+collateral-specific @resolvedCollateralN@ bnode.
+-}
+emitResolvedCollateral :: Int -> Text -> Emit ()
+emitResolvedCollateral k base = do
+    let collSubj = SBnode (idCollateralBnode k)
+        resolvedSubj = SBnode (idResolvedCollateralBnode k)
+    tellTriple (Triple collSubj PRdfType (OIri (vocabCurie TermInput)))
+    tellTriple
+        ( Triple
+            collSubj
+            (PIri (vocabCurie TermResolvedTo))
+            (OBnode (idResolvedCollateralBnode k))
+        )
+    tellTriple (Triple resolvedSubj PRdfType (OIri (vocabCurie TermOutput)))
+    tellTriple
+        ( Triple
+            resolvedSubj
+            (PIri (vocabCurie TermAtAddress))
+            (OBnode (BnodeName (base <> "Addr")))
+        )
 
 ----------------------------------------------------------------------
 -- Proposal cluster (T010 — fixture 10)
@@ -1058,38 +1257,63 @@ buildProposalCluster ::
 buildProposalCluster lookupTbl k (ProposalProcedure _ returnAddr action _) =
     case action of
         TreasuryWithdrawals targets _ ->
-            let (returnLT, returnBytes) = accountStakeLeaf returnAddr
-                returnIdBnode =
-                    resolveCredential lookupTbl returnLT returnBytes
-                targetIdBnodes =
-                    [ resolveCredential lookupTbl lt bytes
-                    | acct <- Map.keys targets
-                    , let (lt, bytes) = accountStakeLeaf acct
-                    ]
-             in Right $
-                    SubjectBlock
-                        (SBnode (idProposalBnode k))
-                        ( [ (PRdfType, OIri (vocabCurie TermDatum))
-                          ,
-                              ( PIri (vocabCurie TermDecodedAs)
-                              , OStringLit "TreasuryWithdrawals"
-                              )
-                          ,
-                              ( PIri (vocabCurie TermHasIdentifier)
-                              , OBnode returnIdBnode
-                              )
-                          ]
-                            <> [ ( PIri (vocabCurie TermHasIdentifier)
-                                 , OBnode bn
-                                 )
-                               | bn <- targetIdBnodes
-                               ]
-                        )
+            let blocks =
+                    clusterBlocks
+                        (emitProposalTreasuryWithdrawals lookupTbl k returnAddr targets)
+             in case blocks of
+                    [b] -> Right b
+                    _ ->
+                        -- T102 invariant: emitProposalTreasuryWithdrawals
+                        -- emits triples for a single subject, so
+                        -- groupBySubject must return exactly one block.
+                        -- This arm is unreachable; the explicit
+                        -- pattern guards against silent regression
+                        -- if a future slice adds extra subjects.
+                        Left
+                            ( PUnsupportedLeafType
+                                "ConwayProposalValue TreasuryWithdrawals (unexpected multi-subject)"
+                            )
         _ ->
             Left
                 ( PUnsupportedLeafType
                     "ConwayProposalValue (non-TreasuryWithdrawals)"
                 )
+
+emitProposalTreasuryWithdrawals ::
+    LookupTable ->
+    Int ->
+    AccountAddress ->
+    Map AccountAddress Coin ->
+    Emit ()
+emitProposalTreasuryWithdrawals lookupTbl k returnAddr targets = do
+    let (returnLT, returnBytes) = accountStakeLeaf returnAddr
+        returnIdBnode =
+            resolveCredential lookupTbl returnLT returnBytes
+        targetIdBnodes =
+            [ resolveCredential lookupTbl lt bytes
+            | acct <- Map.keys targets
+            , let (lt, bytes) = accountStakeLeaf acct
+            ]
+        propSubj = SBnode (idProposalBnode k)
+    tellTriple (Triple propSubj PRdfType (OIri (vocabCurie TermDatum)))
+    tellTriple
+        ( Triple
+            propSubj
+            (PIri (vocabCurie TermDecodedAs))
+            (OStringLit "TreasuryWithdrawals")
+        )
+    tellTriple
+        ( Triple
+            propSubj
+            (PIri (vocabCurie TermHasIdentifier))
+            (OBnode returnIdBnode)
+        )
+    mapM_
+        ( tellTriple
+            . Triple propSubj (PIri (vocabCurie TermHasIdentifier))
+            . OBnode
+        )
+        targetIdBnodes
 
 ----------------------------------------------------------------------
 -- Bech32 encoding for the cardano:bech32 literal
