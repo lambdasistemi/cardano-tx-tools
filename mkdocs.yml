@@ -31,6 +31,7 @@ theme:
 
 plugins:
   - search
+  - asciinema-player
 
 markdown_extensions:
   - admonition

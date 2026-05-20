@@ -117,6 +117,7 @@
                 pkgs.lmdb
                 pkgs.liburing
                 mkdocs.packages.${system}.from-nixpkgs
+                mkdocs.packages.${system}.asciinema-plugin
               ];
               shellHook = ''
                 export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
