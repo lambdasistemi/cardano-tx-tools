@@ -254,6 +254,36 @@
                 ''
               ];
             } // args);
+          txGraphDarwinFormulaTest = ''
+            output = shell_output("#{bin}/tx-graph 2>&1", 1)
+            assert_match "operator-entity overlay + body emitter", output
+          '';
+          mkTxGraphDarwinHomebrewBundle = args:
+            mkDarwinHomebrewBundle ({
+              pname = "tx-graph";
+              version = packageVersion;
+              owner = "lambdasistemi";
+              repo = "cardano-tx-tools";
+              desc =
+                "Emit Conway transactions and operator-entity overlays as RDF";
+              formulaClass = "TxGraph";
+              executables = {
+                tx-graph = components.exes.tx-graph;
+              };
+              executableNames = [ "tx-graph" ];
+              formulaTest = txGraphDarwinFormulaTest;
+              smokeCommands = [
+                ''
+                  set +e
+                  tx-graph >/tmp/tx-graph.out 2>&1
+                  status="$?"
+                  set -e
+                  test "$status" -ne 0
+                  grep -F "Usage:" /tmp/tx-graph.out >/dev/null
+                  grep -F "operator-entity overlay + body emitter" /tmp/tx-graph.out >/dev/null
+                ''
+              ];
+            } // args);
           darwinReleasePackages = lib.optionalAttrs
             pkgs.stdenv.isDarwin
             {
@@ -275,6 +305,16 @@
                   releaseTag = "dev-homebrew";
                   formulaName = "tx-validate-dev";
                   formulaClass = "TxValidateDev";
+                  formulaVersion = devArtifactVersion;
+                };
+              tx-graph-darwin-release-artifacts =
+                mkTxGraphDarwinHomebrewBundle { };
+              tx-graph-darwin-dev-homebrew-artifacts =
+                mkTxGraphDarwinHomebrewBundle {
+                  artifactVersion = devArtifactVersion;
+                  releaseTag = "dev-homebrew-tx-graph";
+                  formulaName = "tx-graph-dev";
+                  formulaClass = "TxGraphDev";
                   formulaVersion = devArtifactVersion;
                 };
             };
