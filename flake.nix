@@ -195,233 +195,196 @@
           devArtifactVersion = "${packageVersion}-${sourceRevision}";
           mkDarwinHomebrewBundle =
             inputs.dev-assets.lib.mkDarwinHomebrewBundle { inherit pkgs; };
-          txDiffDarwinFormulaTest = ''
-            output = shell_output("#{bin}/tx-diff 2>&1", 1)
-            assert_match "Usage:", output
-          '';
-          mkTxDiffDarwinHomebrewBundle = args:
-            mkDarwinHomebrewBundle ({
-              pname = "tx-diff";
-              version = packageVersion;
-              owner = "lambdasistemi";
-              repo = "cardano-tx-tools";
+          # Single source of truth for every release-shipped exe.
+          # Adding a new exe is one row here; the Linux + Darwin
+          # outputs and both workflow matrices read from this list.
+          exeSpecs = [
+            {
+              name = "tx-diff";
+              package = txDiff;
               desc =
                 "Compare Conway transactions with blueprint-aware data diffs";
               formulaClass = "TxDiff";
-              executables = {
-                tx-diff = txDiff;
-              };
-              executableNames = [ "tx-diff" ];
-              formulaTest = txDiffDarwinFormulaTest;
-              smokeCommands = [
-                ''
-                  set +e
-                  tx-diff >/tmp/tx-diff.out 2>&1
-                  status="$?"
-                  set -e
-                  test "$status" -ne 0
-                  grep -F "Usage:" /tmp/tx-diff.out >/dev/null
-                  grep -F "[--blueprint FILE ...]" /tmp/tx-diff.out >/dev/null
-                ''
-              ];
-            } // args);
-          txValidateDarwinFormulaTest = ''
-            output = shell_output("#{bin}/tx-validate 2>&1", 2)
-            assert_match "tx-validate", output
-          '';
-          mkTxValidateDarwinHomebrewBundle = args:
-            mkDarwinHomebrewBundle ({
-              pname = "tx-validate";
-              version = packageVersion;
-              owner = "lambdasistemi";
-              repo = "cardano-tx-tools";
+              formulaTest = ''
+                output = shell_output("#{bin}/tx-diff 2>&1", 1)
+                assert_match "Usage:", output
+              '';
+              usageGreps = [ "Usage:" "[--blueprint FILE ...]" ];
+            }
+            {
+              name = "tx-validate";
+              package = txValidate;
               desc =
                 "Conway Phase-1 pre-flight against a local cardano-node";
               formulaClass = "TxValidate";
-              executables = {
-                tx-validate = txValidate;
-              };
-              executableNames = [ "tx-validate" ];
-              formulaTest = txValidateDarwinFormulaTest;
-              smokeCommands = [
-                ''
-                  set +e
-                  tx-validate >/tmp/tx-validate.out 2>&1
-                  status="$?"
-                  set -e
-                  test "$status" -eq 2
-                  grep -F "tx-validate" /tmp/tx-validate.out >/dev/null
-                ''
-              ];
-            } // args);
-          txGraphDarwinFormulaTest = ''
-            output = shell_output("#{bin}/tx-graph 2>&1", 1)
-            assert_match "operator-entity overlay + body emitter", output
-          '';
-          mkTxGraphDarwinHomebrewBundle = args:
-            mkDarwinHomebrewBundle ({
-              pname = "tx-graph";
-              version = packageVersion;
-              owner = "lambdasistemi";
-              repo = "cardano-tx-tools";
+              formulaTest = ''
+                output = shell_output("#{bin}/tx-validate 2>&1", 1)
+                assert_match "tx-validate", output
+              '';
+              usageGreps = [ "tx-validate" "--n2c-socket-path PATH" ];
+            }
+            {
+              name = "tx-inspect";
+              package = txInspect;
+              desc =
+                "Render Conway transactions as structured, human-readable reports";
+              formulaClass = "TxInspect";
+              formulaTest = ''
+                output = shell_output("#{bin}/tx-inspect 2>&1", 1)
+                assert_match "Usage:", output
+              '';
+              usageGreps = [ "Usage:" "[--rules FILE]" ];
+            }
+            {
+              name = "tx-sign";
+              package = components.exes.tx-sign;
+              desc =
+                "Encrypted signing-key vault and detached witness emitter for Cardano";
+              formulaClass = "TxSign";
+              formulaTest = ''
+                output = shell_output("#{bin}/tx-sign 2>&1", 1)
+                assert_match "Usage:", output
+              '';
+              usageGreps = [ "Usage:" "Create or use an encrypted Cardano" ];
+            }
+            {
+              # tx-graph does no HTTPS today (no github-release-check
+              # banner, no --resolve-web2-style remote calls), so it
+              # ships without the CA-bundle wrapper that txInspect /
+              # txDiff need. Uses components.exes.tx-graph directly.
+              # If tx-graph ever grows an HTTPS call, wrap it like
+              # txInspect / txValidate.
+              name = "tx-graph";
+              package = components.exes.tx-graph;
               desc =
                 "Emit Conway transactions and operator-entity overlays as RDF";
               formulaClass = "TxGraph";
-              executables = {
-                tx-graph = components.exes.tx-graph;
-              };
-              executableNames = [ "tx-graph" ];
-              formulaTest = txGraphDarwinFormulaTest;
-              smokeCommands = [
-                ''
-                  set +e
-                  tx-graph >/tmp/tx-graph.out 2>&1
-                  status="$?"
-                  set -e
-                  test "$status" -ne 0
-                  grep -F "Usage:" /tmp/tx-graph.out >/dev/null
-                  grep -F "operator-entity overlay + body emitter" /tmp/tx-graph.out >/dev/null
-                ''
+              formulaTest = ''
+                output = shell_output("#{bin}/tx-graph 2>&1", 1)
+                assert_match "operator-entity overlay + body emitter", output
+              '';
+              usageGreps = [
+                "Usage:"
+                "operator-entity overlay + body emitter"
               ];
+            }
+            {
+              name = "cardano-tx-generator";
+              package = components.exes.cardano-tx-generator;
+              desc =
+                "Synthetic Cardano transaction load generator";
+              formulaClass = "CardanoTxGenerator";
+              formulaTest = ''
+                output = shell_output("#{bin}/cardano-tx-generator 2>&1", 1)
+                assert_match "--relay-socket PATH", output
+              '';
+              usageGreps = [ "Usage:" "--relay-socket PATH" ];
+            }
+          ];
+          mkExeSmokeCommand = spec:
+            ''
+              set +e
+              ${spec.name} >/tmp/${spec.name}.out 2>&1
+              status="$?"
+              set -e
+              test "$status" -ne 0
+            ''
+            + lib.concatMapStringsSep "\n"
+              (g: "  grep -F ${lib.escapeShellArg g} /tmp/${spec.name}.out >/dev/null")
+              spec.usageGreps;
+          # Parametric Darwin Homebrew bundle. Drop-in replacement for
+          # the per-exe helpers; takes an exeSpec and override args.
+          mkExeDarwinHomebrewBundle = spec: args:
+            mkDarwinHomebrewBundle ({
+              pname = spec.name;
+              version = packageVersion;
+              owner = "lambdasistemi";
+              repo = "cardano-tx-tools";
+              desc = spec.desc;
+              formulaClass = spec.formulaClass;
+              executables = { ${spec.name} = spec.package; };
+              executableNames = [ spec.name ];
+              formulaTest = spec.formulaTest;
+              smokeCommands = [ (mkExeSmokeCommand spec) ];
             } // args);
+          mkExeLinuxRelease = spec: extraArgs:
+            import ./nix/linux-release.nix ({
+              inherit pkgs system packageVersion;
+              executableName = spec.name;
+              package = spec.package;
+              bundlers = inputs.bundlers;
+            } // extraArgs);
+          txDiffSpec =
+            lib.findFirst (s: s.name == "tx-diff")
+              (throw "exeSpecs is missing tx-diff")
+              exeSpecs;
           darwinReleasePackages = lib.optionalAttrs
             pkgs.stdenv.isDarwin
-            {
+            (lib.listToAttrs
+              (lib.concatMap (spec: [
+                {
+                  name = "${spec.name}-darwin-release-artifacts";
+                  value = mkExeDarwinHomebrewBundle spec { };
+                }
+                {
+                  name = "${spec.name}-darwin-dev-homebrew-artifacts";
+                  value = mkExeDarwinHomebrewBundle spec {
+                    artifactVersion = devArtifactVersion;
+                    releaseTag = "dev-homebrew-${spec.name}";
+                    formulaName = "${spec.name}-dev";
+                    formulaClass = "${spec.formulaClass}Dev";
+                    formulaVersion = devArtifactVersion;
+                  };
+                }
+              ]) exeSpecs)
+            // {
+              # Backward-compat aliases. The unprefixed names were
+              # the tx-diff outputs before the Phase-6 refactor; keep
+              # them so any external CI referencing them continues to
+              # build until callers migrate to the prefixed form.
+              # Use the same releaseTag (`dev-homebrew`) the original
+              # dev-Homebrew workflow uses.
               darwin-release-artifacts =
-                mkTxDiffDarwinHomebrewBundle { };
+                mkExeDarwinHomebrewBundle txDiffSpec { };
               darwin-dev-homebrew-artifacts =
-                mkTxDiffDarwinHomebrewBundle {
+                mkExeDarwinHomebrewBundle txDiffSpec {
                   artifactVersion = devArtifactVersion;
                   releaseTag = "dev-homebrew";
                   formulaName = "tx-diff-dev";
                   formulaClass = "TxDiffDev";
                   formulaVersion = devArtifactVersion;
                 };
-              tx-validate-darwin-release-artifacts =
-                mkTxValidateDarwinHomebrewBundle { };
-              tx-validate-darwin-dev-homebrew-artifacts =
-                mkTxValidateDarwinHomebrewBundle {
-                  artifactVersion = devArtifactVersion;
-                  releaseTag = "dev-homebrew";
-                  formulaName = "tx-validate-dev";
-                  formulaClass = "TxValidateDev";
-                  formulaVersion = devArtifactVersion;
-                };
-              tx-graph-darwin-release-artifacts =
-                mkTxGraphDarwinHomebrewBundle { };
-              tx-graph-darwin-dev-homebrew-artifacts =
-                mkTxGraphDarwinHomebrewBundle {
-                  artifactVersion = devArtifactVersion;
-                  releaseTag = "dev-homebrew-tx-graph";
-                  formulaName = "tx-graph-dev";
-                  formulaClass = "TxGraphDev";
-                  formulaVersion = devArtifactVersion;
-                };
-            };
+            });
           linuxReleasePackages = lib.optionalAttrs
             pkgs.stdenv.isLinux
-            {
+            (lib.listToAttrs
+              (lib.concatMap (spec: [
+                {
+                  name = "${spec.name}-linux-release-artifacts";
+                  value = mkExeLinuxRelease spec { };
+                }
+                {
+                  name = "${spec.name}-linux-dev-release-artifacts";
+                  value = mkExeLinuxRelease spec {
+                    artifactVersion = devArtifactVersion;
+                  };
+                }
+              ]) exeSpecs)
+            // {
+              # Backward-compat aliases (tx-diff was unprefixed
+              # pre-Phase-6); preserve so external callers don't
+              # break on rename.
               linux-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  executableName = "tx-diff";
-                  package = txDiff;
-                  bundlers = inputs.bundlers;
-                };
+                mkExeLinuxRelease txDiffSpec { };
               linux-dev-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
+                mkExeLinuxRelease txDiffSpec {
                   artifactVersion = devArtifactVersion;
-                  executableName = "tx-diff";
-                  package = txDiff;
-                  bundlers = inputs.bundlers;
-                };
-              cardano-tx-generator-linux-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  executableName = "cardano-tx-generator";
-                  package = components.exes.cardano-tx-generator;
-                  bundlers = inputs.bundlers;
-                };
-              cardano-tx-generator-linux-dev-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  artifactVersion = devArtifactVersion;
-                  executableName = "cardano-tx-generator";
-                  package = components.exes.cardano-tx-generator;
-                  bundlers = inputs.bundlers;
-                };
-              tx-sign-linux-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  executableName = "tx-sign";
-                  package = components.exes.tx-sign;
-                  bundlers = inputs.bundlers;
-                };
-              tx-sign-linux-dev-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  artifactVersion = devArtifactVersion;
-                  executableName = "tx-sign";
-                  package = components.exes.tx-sign;
-                  bundlers = inputs.bundlers;
-                };
-              tx-validate-linux-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  executableName = "tx-validate";
-                  package = txValidate;
-                  bundlers = inputs.bundlers;
-                };
-              tx-validate-linux-dev-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  artifactVersion = devArtifactVersion;
-                  executableName = "tx-validate";
-                  package = txValidate;
-                  bundlers = inputs.bundlers;
-                };
-              tx-inspect-linux-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  executableName = "tx-inspect";
-                  package = txInspect;
-                  bundlers = inputs.bundlers;
-                };
-              tx-inspect-linux-dev-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  artifactVersion = devArtifactVersion;
-                  executableName = "tx-inspect";
-                  package = txInspect;
-                  bundlers = inputs.bundlers;
-                };
-              # tx-graph does no HTTPS today (no github-release-check
-              # banner, no --resolve-web2-style remote calls), so it
-              # ships without the CA-bundle wrapper that txInspect /
-              # txDiff need. Mirrors the tx-sign pattern: expose
-              # components.exes.tx-graph directly. If tx-graph ever
-              # grows an HTTPS call, mirror the txInspect wrapper.
-              tx-graph-linux-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  executableName = "tx-graph";
-                  package = components.exes.tx-graph;
-                  bundlers = inputs.bundlers;
-                };
-              tx-graph-linux-dev-release-artifacts =
-                import ./nix/linux-release.nix {
-                  inherit pkgs system packageVersion;
-                  artifactVersion = devArtifactVersion;
-                  executableName = "tx-graph";
-                  package = components.exes.tx-graph;
-                  bundlers = inputs.bundlers;
                 };
               linux-artifact-smoke =
                 import ./nix/linux-artifact-smoke.nix {
                   inherit pkgs system;
                 };
-            };
+            });
           cardanoTxGeneratorImage =
             import ./nix/docker-image.nix {
               inherit pkgs components imageTag;
