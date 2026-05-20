@@ -135,30 +135,39 @@ carries `Tasks: T###`.
   - overlay-only path (existing #48 behaviour, no change),
   - body-only path (calls `emit` with empty `[EntityDecl]`),
   - joint-graph path (calls `emit` with the loaded entity list).
-  In this slice the emitter still returns an empty graph (T002 stub),
-  so the executable's joint-graph mode emits only the entity overlay
-  +  the trailing `# Transaction body.` comment with no triples
-  below it — proving the dispatcher works end-to-end. Adds an
-  exe-level smoke test that exercises all three modes against fixture
-  02 inputs.
+  In this slice the emitter still returns an empty graph (T002 stub)
+  and the Turtle serializer doesn't exist yet (lands in T005). The
+  executable handles the pre-T005 gap as follows (analyzer M2):
+  - **overlay-only mode** keeps #48's existing path verbatim (no change).
+  - **body-only and joint-graph modes** exit with `EmitError
+    NoSerializerYet` (a new variant added to T002's `EmitError` in
+    this slice's owned-file scope on `Emit.hs`); the exe-level smoke
+    test asserts that variant + non-zero exit. The dispatcher
+    machinery is fully wired; only the serializer call is gated. T005
+    removes the `NoSerializerYet` variant and wires the real
+    serializer.
 
   **Owned files**:
   - `app/tx-graph/Main.hs`
+  - `src/Cardano/Tx/Graph/Emit.hs` (add `NoSerializerYet` variant to
+    `EmitError`; remove in T005)
   - `test/Cardano/Tx/Graph/TxGraphExeSpec.hs` (new file — uses the
     `TX_GRAPH_EXE` env-var pattern from #48 920a496)
   - `cabal.project` if a new test-suite dependency is needed (likely
     not — `process` is already in the dep closure).
 
-  **Forbidden scope**: emitter module (T002 owns it); gate.sh;
-  fixtures.
+  **Forbidden scope**: emitter projection walker (T005 owns it);
+  Turtle/JSON-LD serializers (T005 + T011); `gate.sh`; fixtures.
 
   **RED proof**: before this slice, `tx-graph --tx foo --utxo bar`
   exits with an `optparse-applicative` unknown-flag error.
 
-  **GREEN proof**: each of the three modes (overlay-only,
-  body-only, joint) produces the expected stub output and exits 0.
-  Structured errors for missing files / decode failures exit
-  non-zero with stderr text containing the variant tag.
+  **GREEN proof**: overlay-only mode produces the same overlay output
+  as #48's `tx-graph --rules` invocation (back-compat preserved).
+  Body-only and joint modes exit non-zero with
+  `EmitError NoSerializerYet` on stderr. Structured errors for
+  missing files / CBOR decode failures / UTxO JSON decode failures
+  exit non-zero with stderr text containing the variant tag.
   `./gate.sh` exits 0.
 
   **Commit subject**: `feat(graph): tx-graph --tx/--utxo/--out/--format flags`
@@ -214,13 +223,24 @@ carries `Tasks: T###`.
 
   **Owned files**:
   - `src/Cardano/Tx/Graph/Emit.hs` (wire projection walk + serializer
-    call into `emit`).
+    call into `emit`; remove the `NoSerializerYet` variant T003
+    introduced).
   - `src/Cardano/Tx/Graph/Emit/Project.hs` (new — projection walker
     for fixture-02-class leaves only).
   - `src/Cardano/Tx/Graph/Emit/Serialize/Turtle.hs` (new — canonical
     Turtle serializer per plan D5).
+  - `src/Cardano/Tx/Graph/Emit/Vocab.hs` (new — single-source-of-truth
+    registry of every `cardano:` Phase A IRI the emitter uses;
+    analyzer M3 closer for FR-009).
   - `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` (new — registers all
     11 fixtures; only fixture 02 enabled now).
+  - `test/Cardano/Tx/Graph/Emit/VocabTraceabilitySpec.hs` (new —
+    analyzer H1 closer for SC-005 + FR-009; per-emit assertion that
+    (a) every `@prefix` declaration is in `{cardano, rdfs,
+    fixture-local ":"}`, (b) no IRI in the emitted output uses any
+    other namespace, (c) no `_internal:` substring leaks. Runs on
+    fixture 02's output in this slice; T006-T010 keep the spec
+    enabled — every regen passes the same check).
   - `test/fixtures/rewrite-redesign/02-alice-bob-ada/expected.ttl`
     (regenerated; the artisan file is overwritten — git history
     retains the prior version).
@@ -233,14 +253,17 @@ carries `Tasks: T###`.
   the projection walker is implemented correctly. The orchestrator
   inspects the candidate against the artisan reference (`git show
   HEAD:test/fixtures/.../expected.ttl` before the regen lands) before
-  accepting.
+  accepting. Additionally `VocabTraceabilitySpec` fails RED until the
+  serializer routes every IRI through `Vocab.hs`.
 
   **GREEN proof**: `nix develop --quiet -c just unit
   "EmitGoldenSpec"` passes (fixture 02 GREEN; others `pendingWith`).
-  The executable smoke test from T003 now produces the correct joint
-  graph for fixture 02 (parseable Turtle). `./gate.sh` exits 0.
+  `nix develop --quiet -c just unit "VocabTraceabilitySpec"` passes
+  (closes SC-005 + FR-009). The executable smoke test from T003 now
+  produces the correct joint graph for fixture 02 (parseable Turtle).
+  `./gate.sh` exits 0.
 
-  **Commit subject**: `feat(graph): body emitter + fixture 02 byte-diff`
+  **Commit subject**: `feat(graph): body emitter + fixture 02 byte-diff + vocab traceability`
 
 ---
 
@@ -252,18 +275,20 @@ unblock. Per-slice scope is fixture-driven so each commit is a
 self-contained "this projection case + this fixture's regen".
 
 - [ ] **T006** *(type=feat, subagent slice; plan slice 6 / research R2)*
-  — Mint section + `Policy` + `AssetClass` leaves. Regenerate fixtures
-  **03** (multi-asset transfer) and **10** (governance treasury
-  withdrawal).
+  — Mint section + `Policy` + `AssetClass` leaves. Regenerate fixture
+  **03** (multi-asset transfer). Fixture 10 moves to T010 (analyzer
+  H2 fix) because its `Vote` + `TreasuryWithdrawal` leaves are
+  fixture-10-only governance-action shapes — they fit the "every
+  residual leaf type" framing T010 already owns better than they fit
+  T006's mint scope.
 
   **Owned files**: `Project.hs` (new mint-related cases),
-  `test/fixtures/rewrite-redesign/03-multi-asset-transfer/expected.ttl`,
-  `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/expected.ttl`.
+  `test/fixtures/rewrite-redesign/03-multi-asset-transfer/expected.ttl`.
 
-  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02 + 03 + 10
+  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02 + 03
   (others remain `pendingWith`). `./gate.sh` exits 0.
 
-  **Commit subject**: `feat(graph): mint + policy + assetClass leaves; fixtures 03, 10`
+  **Commit subject**: `feat(graph): mint + policy + assetClass leaves; fixture 03`
 
 - [ ] **T007** *(type=feat, subagent slice; plan slice 7 / research R2)*
   — Script-witness leaves: `Credential PaymentScript`,
@@ -277,7 +302,7 @@ self-contained "this projection case + this fixture's regen".
   regenerated files).
 
   **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02, 03, 04, 05,
-  08, 10. `./gate.sh` exits 0.
+  08. `./gate.sh` exits 0.
 
   **Commit subject**: `feat(graph): script-witness leaves; fixtures 04, 05, 08`
 
@@ -290,7 +315,7 @@ self-contained "this projection case + this fixture's regen".
   `test/fixtures/rewrite-redesign/0{6,7}-*/expected.ttl` (two
   regenerated files).
 
-  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02-08 + 10.
+  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02-08.
   `./gate.sh` exits 0.
 
   **Commit subject**: `feat(graph): cert + pool + drep leaves; fixtures 06, 07`
@@ -302,25 +327,32 @@ self-contained "this projection case + this fixture's regen".
   **Owned files**: `Project.hs` (residual leaves),
   `test/fixtures/rewrite-redesign/09-mpfs-facts-request/expected.ttl`.
 
-  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02-10.
-  `./gate.sh` exits 0.
+  **GREEN proof**: `EmitGoldenSpec` GREEN for fixtures 02-09 (8
+  fixtures). `./gate.sh` exits 0.
 
   **Commit subject**: `feat(graph): mpfs-facts leaves; fixture 09`
 
 - [ ] **T010** *(type=feat, subagent slice; plan slice 10 / research R2)*
-  — Largest fixtures **01** (amaru-treasury-swap hypothetical) and
-  **11** (amaru-treasury-swap-real). By this slice the emitter must
-  handle every leaf type used by any fixture; this is the final
-  byte-diff slice. Regenerate both `expected.ttl` files.
+  — Largest + residual-leaf fixtures **01** (amaru-treasury-swap
+  hypothetical), **10** (governance treasury withdrawal — moved from
+  T006 per analyzer H2), and **11** (amaru-treasury-swap-real). By
+  this slice the emitter must handle every leaf type used by any
+  fixture, including the `Vote` + `TreasuryWithdrawal` governance-action
+  leaves unique to fixture 10. This is the final byte-diff slice;
+  SC-001 closes here.
 
-  **Owned files**: `Project.hs` (any residual leaves for 01 + 11),
-  `test/fixtures/rewrite-redesign/0{1,11}-*/expected.ttl` (two
-  regenerated files; note 11's prefix is `11-...`, not `01-...`).
+  **Owned files**: `Project.hs` (governance-action leaves
+  + any residual leaves for 01 + 11),
+  `test/fixtures/rewrite-redesign/01-amaru-treasury-swap/expected.ttl`,
+  `test/fixtures/rewrite-redesign/10-governance-treasury-withdrawal/expected.ttl`,
+  `test/fixtures/rewrite-redesign/11-amaru-treasury-swap-real/expected.ttl`
+  (three regenerated files).
 
   **GREEN proof**: `EmitGoldenSpec` GREEN for all 11 fixtures (no
-  `pendingWith` remaining). SC-001 closed. `./gate.sh` exits 0.
+  `pendingWith` remaining). SC-001 closed. `VocabTraceabilitySpec`
+  stays GREEN across all 11. `./gate.sh` exits 0.
 
-  **Commit subject**: `feat(graph): full leaf coverage; fixtures 01, 11`
+  **Commit subject**: `feat(graph): governance-action leaves; fixtures 01, 10, 11`
 
 ---
 
@@ -372,8 +404,15 @@ self-contained "this projection case + this fixture's regen".
   - `CHANGELOG.md`
   - `docs/` (if any pages reference the executable surface)
 
-  **GREEN proof**: docs render cleanly via `nix develop --quiet -c
-  just mkdocs` (if used). `./gate.sh` exits 0.
+  **GREEN proof**: README's `tx-graph` section documents all three
+  modes (overlay-only, body-only, joint) with one example invocation
+  each; CHANGELOG entry under the next-release header mentions
+  FR-010 (RulesLoadResult.rulesEntities), the body emitter,
+  the regeneration of `expected.ttl` for all 11 fixtures (artisan
+  obsoletion + NOTES.md migration), and the `tx-graph --tx/--utxo/--out/--format`
+  flag additions; `docs/` (if applicable) updated for the new flags.
+  Docs render cleanly via `nix develop --quiet -c just mkdocs` (if
+  used). `./gate.sh` exits 0.
 
   **Commit subject**: `docs(058): README + CHANGELOG for body emitter`
 
@@ -427,3 +466,25 @@ self-contained "this projection case + this fixture's regen".
   per-fixture `NOTES.md` markdown files (Option B over A/C/D). Encoded
   in spec.md Clarifications + Key Entities + Glossary, plan.md D5,
   research.md R4, and tasks.md T001a.
+- **Analyzer run** (2026-05-20): `speckit-analyze` sub-worker returned
+  LOOP-BACK-TO-tasks with 2 HIGH + 4 MEDIUM findings; no critical or
+  constitution conflicts. Findings: `specs/058-body-emitter/analysis.md`.
+  Remediation folded inline:
+  - **H1** (SC-005 / FR-009 traceability): T005 now adds
+    `Cardano.Tx.Graph.Emit.Vocab` module + `VocabTraceabilitySpec`
+    asserting prefixes ⊆ {cardano, rdfs, fixture-local} and no
+    `_internal:` leak.
+  - **H2** (T006/fixture-10 leaf scope): fixture 10 moved from T006
+    to T010; T010 owns the governance-action leaves (Vote +
+    TreasuryWithdrawal); T006 keeps just fixture 03.
+  - **M2** (T003 pre-T005 serializer gap): T003 now ships an
+    `EmitError NoSerializerYet` variant that body-only / joint exe
+    modes return until T005 wires the real serializer.
+  - **M3** (vocab module pinning): named in T005's owned files as
+    `Cardano.Tx.Graph.Emit.Vocab`.
+  - **M4** (kmaps Phase A vocab gap risk): added as plan R-8.
+  - **L3** (T013 GREEN-proof tightening): T013's GREEN proof now
+    enumerates README/CHANGELOG/docs content requirements.
+  - M1 (Cardano.Ledger.* boundary enforcement) + L1 + L2 left as
+    code-review invariants / harmless redundancy / optional cross-ref
+    per analyzer notes.
