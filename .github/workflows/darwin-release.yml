@@ -49,9 +49,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-release-tx-diff:
-    name: Build aarch64-darwin tx-diff artifacts
+  build-and-release:
+    name: Build aarch64-darwin ${{ matrix.executable.name }} artifacts
     runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        executable:
+          - name: tx-diff
+            usage-grep: "[--blueprint FILE ...]"
+            dev-tag: dev-homebrew-tx-diff
+          - name: tx-validate
+            usage-grep: "--n2c-socket-path PATH"
+            dev-tag: dev-homebrew-tx-validate
+          - name: tx-inspect
+            usage-grep: "[--rules FILE]"
+            dev-tag: dev-homebrew-tx-inspect
+          - name: tx-sign
+            usage-grep: "Create or use an encrypted Cardano"
+            dev-tag: dev-homebrew-tx-sign
+          - name: tx-graph
+            usage-grep: "operator-entity overlay + body emitter"
+            dev-tag: dev-homebrew-tx-graph
+          - name: cardano-tx-generator
+            usage-grep: "--relay-socket PATH"
+            dev-tag: dev-homebrew-cardano-tx-generator
     env:
       TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
       MODE: >-
@@ -66,7 +88,6 @@ jobs:
           || (inputs.mode != 'dev-homebrew' && inputs.publish == 'yes')
         }}
       UPDATE_TAP: ${{ inputs.update_tap || 'yes' }}
-      DEV_TAG: dev-homebrew
     steps:
       - uses: actions/checkout@v6
         with:
@@ -90,126 +111,44 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Build, smoke-test, and optionally publish Darwin Homebrew artifacts
-        uses: paolino/dev-assets/darwin-homebrew-release@6864b20eb75c3578796e7f667562b5aea8780643
+        uses: paolino/dev-assets/darwin-homebrew-release@41a598ad94d6b4b6aad0162f673786e4fc57db9b
         with:
           mode: ${{ env.MODE }}
           tag: ${{ env.TAG }}
           publish: ${{ env.PUBLISH }}
           update-tap: ${{ env.UPDATE_TAP }}
-          dev-tag: ${{ env.DEV_TAG }}
-          release-package: darwin-release-artifacts
-          dev-package: darwin-dev-homebrew-artifacts
-          release-formula: tx-diff.rb
-          dev-formula: tx-diff-dev.rb
-          release-artifact-name: darwin-release-bundle
-          dev-artifact-name: darwin-dev-homebrew-artifacts
-          tarball-pattern: tx-diff-*-aarch64-darwin.tar.gz
-          installed-commands: tx-diff
-          cleanup-formulae: tx-diff tx-diff-dev
+          dev-tag: ${{ matrix.executable.dev-tag }}
+          release-package: ${{ matrix.executable.name }}-darwin-release-artifacts
+          dev-package: ${{ matrix.executable.name }}-darwin-dev-homebrew-artifacts
+          release-formula: ${{ matrix.executable.name }}.rb
+          dev-formula: ${{ matrix.executable.name }}-dev.rb
+          release-artifact-name: darwin-release-bundle-${{ matrix.executable.name }}
+          dev-artifact-name: darwin-dev-homebrew-artifacts-${{ matrix.executable.name }}
+          tarball-pattern: ${{ matrix.executable.name }}-*-aarch64-darwin.tar.gz
+          installed-commands: ${{ matrix.executable.name }}
+          cleanup-formulae: ${{ matrix.executable.name }} ${{ matrix.executable.name }}-dev
           tap-name: lambdasistemi/tap
           tap-repository: lambdasistemi/homebrew-tap
           github-token: ${{ github.token }}
           tap-token: ${{ secrets.TAP_TOKEN }}
           release-check-command: 'scripts/release/check-version-consistency "$TAG"'
           release-notes-command: 'scripts/release/extract-notes "$TAG"'
-          release-title: tx-diff ${{ env.TAG }}
-          dev-release-title: tx-diff dev Homebrew
+          release-title: ${{ matrix.executable.name }} ${{ env.TAG }}
+          dev-release-title: ${{ matrix.executable.name }} dev Homebrew
           tarball-smoke-script: |
-            if tx-diff >/tmp/tx-diff.out 2>&1; then
-              cat /tmp/tx-diff.out
+            if ${{ matrix.executable.name }} >/tmp/exe.out 2>&1; then
+              cat /tmp/exe.out
               exit 1
             fi
-            cat /tmp/tx-diff.out
-            grep -F "Usage:" /tmp/tx-diff.out >/dev/null
-            grep -F "[--blueprint FILE ...]" /tmp/tx-diff.out >/dev/null
+            cat /tmp/exe.out
+            grep -F "Usage:" /tmp/exe.out >/dev/null
+            grep -F "${{ matrix.executable.usage-grep }}" /tmp/exe.out >/dev/null
           brew-smoke-script: |
-            if tx-diff >/tmp/tx-diff.out 2>&1; then
-              cat /tmp/tx-diff.out
+            if ${{ matrix.executable.name }} >/tmp/exe.out 2>&1; then
+              cat /tmp/exe.out
               exit 1
             fi
-            cat /tmp/tx-diff.out
-            grep -F "Usage:" /tmp/tx-diff.out >/dev/null
-            otool -L "$(which tx-diff)"
-
-  build-and-release-tx-graph:
-    name: Build aarch64-darwin tx-graph artifacts
-    runs-on: macos-14
-    env:
-      TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
-      MODE: >-
-        ${{
-          github.event_name == 'pull_request' && 'dev-homebrew'
-          || inputs.mode
-          || 'release'
-        }}
-      PUBLISH: >-
-        ${{
-          github.event_name == 'push'
-          || (inputs.mode != 'dev-homebrew' && inputs.publish == 'yes')
-        }}
-      UPDATE_TAP: ${{ inputs.update_tap || 'yes' }}
-      DEV_TAG: dev-homebrew-tx-graph
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: >-
-            ${{
-              github.ref_type == 'tag' && github.ref_name
-              || inputs.tag
-              || github.ref
-            }}
-
-      - uses: cachix/install-nix-action@v30
-        with:
-          extra_nix_config: |
-            extra-substituters = https://cache.iog.io https://paolino.cachix.org
-            extra-trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= paolino.cachix.org-1:ecmgO3CXdgSWA2cHlm4srknd/cLFMLmK3i3NrzeDFaE=
-
-      - uses: cachix/cachix-action@v17
-        with:
-          name: paolino
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Build, smoke-test, and optionally publish Darwin Homebrew artifacts
-        uses: paolino/dev-assets/darwin-homebrew-release@6864b20eb75c3578796e7f667562b5aea8780643
-        with:
-          mode: ${{ env.MODE }}
-          tag: ${{ env.TAG }}
-          publish: ${{ env.PUBLISH }}
-          update-tap: ${{ env.UPDATE_TAP }}
-          dev-tag: ${{ env.DEV_TAG }}
-          release-package: tx-graph-darwin-release-artifacts
-          dev-package: tx-graph-darwin-dev-homebrew-artifacts
-          release-formula: tx-graph.rb
-          dev-formula: tx-graph-dev.rb
-          release-artifact-name: darwin-release-bundle-tx-graph
-          dev-artifact-name: darwin-dev-homebrew-artifacts-tx-graph
-          tarball-pattern: tx-graph-*-aarch64-darwin.tar.gz
-          installed-commands: tx-graph
-          cleanup-formulae: tx-graph tx-graph-dev
-          tap-name: lambdasistemi/tap
-          tap-repository: lambdasistemi/homebrew-tap
-          github-token: ${{ github.token }}
-          tap-token: ${{ secrets.TAP_TOKEN }}
-          release-check-command: 'scripts/release/check-version-consistency "$TAG"'
-          release-notes-command: 'scripts/release/extract-notes "$TAG"'
-          release-title: tx-graph ${{ env.TAG }}
-          dev-release-title: tx-graph dev Homebrew
-          tarball-smoke-script: |
-            if tx-graph >/tmp/tx-graph.out 2>&1; then
-              cat /tmp/tx-graph.out
-              exit 1
-            fi
-            cat /tmp/tx-graph.out
-            grep -F "Usage:" /tmp/tx-graph.out >/dev/null
-            grep -F "operator-entity overlay + body emitter" /tmp/tx-graph.out >/dev/null
-          brew-smoke-script: |
-            if tx-graph >/tmp/tx-graph.out 2>&1; then
-              cat /tmp/tx-graph.out
-              exit 1
-            fi
-            cat /tmp/tx-graph.out
-            grep -F "Usage:" /tmp/tx-graph.out >/dev/null
-            grep -F "operator-entity overlay + body emitter" /tmp/tx-graph.out >/dev/null
-            otool -L "$(which tx-graph)"
+            cat /tmp/exe.out
+            grep -F "Usage:" /tmp/exe.out >/dev/null
+            grep -F "${{ matrix.executable.usage-grep }}" /tmp/exe.out >/dev/null
+            otool -L "$(which ${{ matrix.executable.name }})"
