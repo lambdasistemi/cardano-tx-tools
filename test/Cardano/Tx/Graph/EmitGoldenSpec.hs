@@ -41,6 +41,7 @@ import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as S05
 import Fixtures.RewriteRedesign.S06_StakePoolDelegation qualified as S06
 import Fixtures.RewriteRedesign.S07_VoteDelegation qualified as S07
 import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
+import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
 
 import Test.Hspec (
     Spec,
@@ -263,16 +264,43 @@ spec = describe "Cardano.Tx.Graph.Emit joint Turtle goldens (T005)" $ do
                                         <> " vs "
                                         <> show (BS.length expected)
                                         <> ")"
+    -- ---- fixture 09: enabled in T009 (regen-only) ----
+    do
+        let slug = "09-mpfs-facts-request"
+            dir = "test/fixtures/rewrite-redesign" </> slug
+            rulesPath = dir </> "rules.yaml"
+            expectedPath = dir </> "expected.ttl"
+        (entities, overlay) <-
+            runIO (loadEntitiesAndOverlay rulesPath)
+        expected <- runIO (BS.readFile expectedPath)
+        it (slug <> " — emit + serialize matches expected.ttl") $ do
+            case emit S09.tx emptyUtxo entities of
+                Left err ->
+                    expectationFailure $
+                        "emit returned Left " <> show err
+                Right g ->
+                    let joint = g{graphOverlayTurtle = overlay}
+                        actual = serialize Turtle slug joint
+                     in if actual == expected
+                            then pure ()
+                            else
+                                expectationFailure $
+                                    "byte-diff: emit("
+                                        <> slug
+                                        <> ") /= "
+                                        <> expectedPath
+                                        <> " (lengths "
+                                        <> show (BS.length actual)
+                                        <> " vs "
+                                        <> show (BS.length expected)
+                                        <> ")"
     -- ---- pending entries ----
     pendingFixture
         "01-amaru-treasury-swap"
         "T010: collateral input + multi-input (33 swap orders)"
     pendingFixture
-        "09-mpfs-facts-request"
-        "T009: 10-output structural-only (regen)"
-    pendingFixture
         "10-governance-treasury-withdrawal"
-        "T009: proposal + treasury withdrawal action"
+        "T010: proposal + treasury withdrawal action"
     pendingFixture
         "11-amaru-treasury-swap-real"
         "T010: real-bytes mainnet mirror; collateral + inline datum"

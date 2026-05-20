@@ -345,7 +345,7 @@ self-contained "this projection case + this fixture's regen".
 
   **Commit subject**: `feat(graph): cert + pool + drep leaves; fixtures 06, 07`
 
-- [ ] **T009** *(type=feat, subagent slice; plan slice 9 / research R2
+- [X] **T009** *(type=feat, subagent slice; plan slice 9 / research R2
   + T006 audit)* — **Scope corrected per T006 audit**: S09's
   harness builder is **structural-only** (`spend(1) + 11×output`,
   no mint / cert / withdrawal / proposal / script-witness DSL).
