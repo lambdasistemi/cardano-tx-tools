@@ -34,14 +34,17 @@ module Cardano.Tx.Validate.Cli (
     usage,
 
     -- * Session
+    RewardAccountSource (..),
     Session (..),
     mkSession,
+    mkSessionWithRewardAccounts,
 
     -- * Verdict
     Verdict (..),
     VerdictStatus (..),
     buildVerdict,
     collectInputs,
+    collectWithdrawalAccounts,
     exitCodeOf,
     renderHuman,
     renderJson,
@@ -69,13 +72,16 @@ import GitHub.Release.Check (CliBanner)
 import GitHub.Release.Check.OptParse (versionOption)
 
 import Cardano.Crypto.Hash (hashToBytes)
+import Cardano.Ledger.Address (AccountAddress, Withdrawals (..))
 import Cardano.Ledger.Api (PParams)
 import Cardano.Ledger.Api.Tx.Body (
     collateralInputsTxBodyL,
     inputsTxBodyL,
     referenceInputsTxBodyL,
+    withdrawalsTxBodyL,
  )
 import Cardano.Ledger.BaseTypes (Network, SlotNo, TxIx (..))
+import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Conway (ApplyTxError (..), ConwayEra)
 import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure (..))
 import Cardano.Ledger.Core (bodyTxL)
@@ -218,7 +224,15 @@ data Session = Session
     , sessionPParams :: PParams ConwayEra
     , sessionSlot :: SlotNo
     , sessionUtxoResolvers :: [Resolver]
+    , sessionRewardAccounts :: Map AccountAddress Coin
+    , sessionRewardAccountsSource :: RewardAccountSource
     }
+
+-- | Provenance for reward-account state used during validation.
+data RewardAccountSource
+    = RewardAccountsN2C
+    | RewardAccountsNotRequired
+    deriving stock (Eq, Show)
 
 {- | Build a 'Session' from already-acquired primary-session
 data and the resolver chain. Pure.
@@ -230,11 +244,34 @@ mkSession ::
     [Resolver] ->
     Session
 mkSession network pp slot resolvers =
+    mkSessionWithRewardAccounts
+        network
+        pp
+        slot
+        resolvers
+        Map.empty
+        RewardAccountsNotRequired
+
+{- | Build a 'Session' with explicit reward-account state and
+provenance. A missing account remains absent so ledger validation
+can surface @WithdrawalsNotInRewardsCERTS@ unchanged.
+-}
+mkSessionWithRewardAccounts ::
+    Network ->
+    PParams ConwayEra ->
+    SlotNo ->
+    [Resolver] ->
+    Map AccountAddress Coin ->
+    RewardAccountSource ->
+    Session
+mkSessionWithRewardAccounts network pp slot resolvers rewardAccounts source =
     Session
         { sessionNetwork = network
         , sessionPParams = pp
         , sessionSlot = slot
         , sessionUtxoResolvers = resolvers
+        , sessionRewardAccounts = rewardAccounts
+        , sessionRewardAccountsSource = source
         }
 
 -- * Verdict
@@ -258,6 +295,7 @@ data Verdict = Verdict
     , verdictPParamsSource :: Text
     , verdictSlotSource :: Text
     , verdictUtxoSources :: Map TxIn Text
+    , verdictRewardAccountsSource :: RewardAccountSource
     }
 
 {- | Collect every 'TxIn' the body references: spending inputs,
@@ -269,6 +307,14 @@ collectInputs tx =
      in (body ^. inputsTxBodyL)
             <> (body ^. referenceInputsTxBodyL)
             <> (body ^. collateralInputsTxBodyL)
+
+{- | Collect the reward accounts mentioned by the transaction body's
+withdrawals map.
+-}
+collectWithdrawalAccounts :: ConwayTx -> Set AccountAddress
+collectWithdrawalAccounts tx =
+    let Withdrawals withdrawals = tx ^. bodyTxL . withdrawalsTxBodyL
+     in Map.keysSet withdrawals
 
 {- | Build a 'Verdict' from the typed session data + the
 ledger's response. Pure. The caller is responsible for:
@@ -287,7 +333,7 @@ buildVerdict ::
     Map TxIn Text ->
     Either (ApplyTxError ConwayEra) () ->
     Verdict
-buildVerdict _session utxoSources result =
+buildVerdict session utxoSources result =
     let allFailures = case result of
             Right () -> []
             Left (ConwayApplyTxError errs) -> toList errs
@@ -304,6 +350,8 @@ buildVerdict _session utxoSources result =
             , verdictPParamsSource = "n2c"
             , verdictSlotSource = "n2c"
             , verdictUtxoSources = utxoSources
+            , verdictRewardAccountsSource =
+                sessionRewardAccountsSource session
             }
   where
     -- We surface the mempool short-circuit as its own status so
@@ -403,12 +451,18 @@ renderJson v =
             .= verdictWitnessNoiseCount v
         , "pparams_source" .= verdictPParamsSource v
         , "slot_source" .= verdictSlotSource v
+        , "reward_accounts_source"
+            .= renderRewardAccountSource (verdictRewardAccountsSource v)
         , "utxo_sources"
             .= Aeson.object
                 [ Aeson.Key.fromText (renderTxIn txIn) .= src
                 | (txIn, src) <- Map.toAscList (verdictUtxoSources v)
                 ]
         ]
+
+renderRewardAccountSource :: RewardAccountSource -> Text
+renderRewardAccountSource RewardAccountsN2C = "n2c"
+renderRewardAccountSource RewardAccountsNotRequired = "not_required"
 
 statusText :: VerdictStatus -> Text
 statusText StructurallyClean = "structurally_clean"
