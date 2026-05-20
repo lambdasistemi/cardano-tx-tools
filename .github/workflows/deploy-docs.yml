@@ -62,6 +62,11 @@ jobs:
         uses: paolino/dev-assets/static-preview@main
         with:
           path: site
+      - name: Clean up site/
+        if: always()
+        run: |
+          chmod -R u+w site 2>/dev/null || true
+          rm -rf site
 
   deploy:
     if: github.ref == 'refs/heads/main'
