@@ -59,7 +59,7 @@ carries `Tasks: T###`.
 
   **Commit subject**: `feat(graph): expose rulesEntities on RulesLoadResult`
 
-- [ ] **T001a** *(type=docs, orchestrator-owned or subagent slice;
+- [X] **T001a** *(type=docs, orchestrator-owned or subagent slice;
   Q-003 → A-003 / research R4 Q-003 discovery)* — Migrate artisan
   narrative comments from each fixture's current `expected.ttl` to a
   new per-fixture `NOTES.md` markdown file. Pure documentation slice;
