@@ -4,6 +4,55 @@
 
 ### Features
 
+* **058:** `Cardano.Tx.Graph.Emit` — Conway transaction body emitter
+  closing the body-emitter half of epic #46's Wave 2. Walks
+  `Cardano.Tx.Diff.conwayDiffProjection` over a `(ConwayTx, ResolvedUTxO,
+  [EntityDecl])` triple and renders the joint RDF graph as canonical
+  Turtle (byte-diff anchor) or JSON-LD (set-equivalent triple set). Body
+  leaves covered: inputs, outputs, addresses with payment + stake
+  credentials, fee, mint (Mint + Policy + AssetClass clusters),
+  withdrawal, certificates (StakeDelegation + VoteDelegation
+  PubKeyCerts with Pool + DRep targets), collateral inputs, and
+  TreasuryWithdrawal proposals (as `cardano:Datum + decodedAs`
+  envelopes — forward-compatible with #50's CIP-57 blueprint decode).
+  Credentials resolve against the operator-entity overlay via a typed
+  `(LeafType, ByteString) → BnodeName` lookup; uncovered credentials
+  fall through to a deterministic raw-bytes naming scheme
+  (`_:cred_<rolePrefix>_<bytes-prefix>`, prefix = 16 hex chars per
+  research R3). The `Cardano.Tx.Graph.Emit.Vocab` registry is the
+  single-source-of-truth for every `cardano:` Phase A IRI the emitter
+  writes; `VocabTraceabilitySpec` asserts per-emit URI namespacing
+  (cardano + rdfs + fixture-local prefixes only; no foreign-namespace
+  IRIs leak) across all 11 fixtures. Anchored by a 33-invariant
+  cross-fixture spec and an 11/11 byte-diff golden against the
+  regenerated `expected.ttl` (the artisan files merged in #45 are
+  obsoleted by the regen and their narrative content migrated to a
+  new per-fixture `NOTES.md` markdown file). `ReproducibilitySpec`
+  asserts byte-equal output across two emit runs per fixture (SC-004
+  closes the determinism contract).
+* **058:** `tx-graph` executable extends with `--tx`, `--utxo`, `--out`,
+  `--format` flags. Flag-presence dispatch over three modes: overlay-only
+  (existing `--rules` invocation; #48 back-compat preserved), body-only
+  (`--tx`, optionally `--utxo`), and joint (`--tx --utxo --rules`).
+  `--format turtle|json-ld` selects the serializer; `--out FILE`
+  defaults to stdout. CBOR decoding via the ledger's `decodeFullAnnotator`;
+  UTxO JSON via aeson. Structured errors with single-line stderr
+  rendering follow the `renderRulesLoadError` pattern from #48.
+* **058:** `Cardano.Tx.Graph.Rules.Load.RulesLoadResult` gains a new
+  field `rulesEntities :: [EntityDecl]` exposing the deduped in-memory
+  entity list the loader already computes. Additive at the record
+  level (`rulesOverlayTurtle` + `rulesWarnings` consumers unaffected);
+  the body emitter consumes the new field directly without re-parsing
+  overlay Turtle.
+* **058:** The 11 `test/fixtures/rewrite-redesign/<NN>-*/expected.ttl`
+  files are **regenerated** from the body emitter's output (Q-001 →
+  A-001 of #58 PR). Loader-deterministic blank-node names, ledger-
+  authoritative `bytesHex`, ledger-derived fee, and machine-uniform
+  section headers replace the artisan layout merged in #45. The
+  artisan narrative migrates to a new per-fixture
+  `test/fixtures/rewrite-redesign/<NN>-*/NOTES.md` markdown file.
+  `EmitGoldenSpec` byte-diffs the emitter output against the
+  regenerated files (11/11 GREEN; SC-001 closes).
 * **048:** `Cardano.Tx.Graph.Rules.Load` — operator-rules loader for Turtle
   + YAML sugar with `owl:imports` / `imports:` composition, deterministic
   blank-node + entity-IRI naming (slug-everywhere; one bnode per shared
@@ -12,8 +61,10 @@
   warnings. Companion executable `tx-graph` (with `--rules <file>` flag)
   prints the canonical operator-entity overlay on stdout. Anchors the
   Wave-2 entry point for epic #46; per-fixture `expected.entities.ttl`
-  byte-diff goldens cover all 11 `rewrite-redesign` fixtures. Body-emitter
-  flags (`--utxo`, `--out`, `--tx`, `--format`) deferred to a follow-up.
+  byte-diff goldens cover all 11 `rewrite-redesign` fixtures. **#58
+  ships the body-emitter half of the Wave 2 contract** (above) — the
+  `--utxo`, `--out`, `--tx`, `--format` flags previously deferred have
+  landed.
 
 ### Maintenance
 

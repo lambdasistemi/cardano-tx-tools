@@ -18,7 +18,7 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 | [`tx-inspect`](https://lambdasistemi.github.io/cardano-tx-tools/tx-inspect/) | Render one Conway transaction as a structured, human-readable report. Optional [rewriting-rules YAML](https://lambdasistemi.github.io/cardano-tx-tools/rewriting-rules/) drives two stages: **collapse** repeated shapes into named buckets, then **rename** payment addresses and script hashes to address-book names. Same loader and per-leaf renderer `tx-diff` uses. | `tx-inspect tx.cbor.hex --rules rules/amaru-treasury.yaml` |
 | [`tx-sign`](https://lambdasistemi.github.io/cardano-tx-tools/tx-sign/) | Age-encrypted signing-key vault and detached vkey witness creation. Cleartext keys never touch disk; passphrase never on `argv`. | `tx-sign --network mainnet witness --tx unsigned.cbor.hex --vault core.vault.age --out core.witness.hex` |
 | [`tx-validate`](https://lambdasistemi.github.io/cardano-tx-tools/tx-validate/) | Conway Phase-1 pre-flight against a local `cardano-node` via Node-to-Client. Exit code is the contract: `0` clean, `1` structural failure, `≥2` configuration/resolver error. | `tx-validate --input unsigned.cbor.hex --n2c-socket "$CARDANO_NODE_SOCKET_PATH"` |
-| [`tx-graph`](https://lambdasistemi.github.io/cardano-tx-tools/tx-graph/) | Loads operator-authored rules files (Turtle or YAML sugar) and emits the canonical operator-entity overlay as Turtle on stdout. Imports compose via `owl:imports` / `imports:`; cycles detected; cross-file duplicates warned. Body-emitter flags (`--utxo`, `--out`, `--tx`) deferred to a follow-up. | `tx-graph --rules rules.yaml` |
+| [`tx-graph`](https://lambdasistemi.github.io/cardano-tx-tools/tx-graph/) | Emits a Conway transaction as RDF — the operator-entity overlay (from a rules file in Turtle or YAML sugar), the transaction body (inputs / outputs / certs / mints / withdrawals / collateral / proposals), and their cross-references in one canonical Turtle or JSON-LD graph. Three modes by flag presence: overlay-only (`--rules`), body-only (`--tx --utxo`), joint (`--tx --utxo --rules`). | `tx-graph --tx tx.cbor --utxo resolved.json --rules rules.yaml --out graph.ttl` |
 | [`cardano-tx-generator`](https://lambdasistemi.github.io/cardano-tx-tools/cardano-tx-generator/) | Long-running daemon that drives a configurable mix of Conway transactions against a node for soak / fuzz testing. | `cardano-tx-generator --config preprod.yaml` |
 
 ## A worked workflow
@@ -105,6 +105,7 @@ Notable entry points:
 | `Cardano.Tx.Blueprint` | Schema-aware Plutus datum/redeemer decoding |
 | `Cardano.Tx.Sign.*` | Vault + witness primitives (used by `tx-sign`) |
 | `Cardano.Tx.Graph.Rules.Load` | Operator rules loader (Turtle + YAML sugar), used by `tx-graph` |
+| `Cardano.Tx.Graph.Emit` | Body emitter: walks `Cardano.Tx.Diff.conwayDiffProjection` to render a Conway tx + resolved UTxO + operator-entity overlay as Turtle or JSON-LD, used by `tx-graph` |
 | `Cardano.Tx.Generator.*` | Generator engine (used by `cardano-tx-generator`) |
 
 The main library has **no** node-client dependency. N2C access

@@ -61,4 +61,5 @@ nav:
   - rewriting-rules grammar: rewriting-rules.md
   - tx-sign: tx-sign.md
   - tx-validate: tx-validate.md
+  - tx-graph: tx-graph.md
   - cardano-tx-generator: cardano-tx-generator.md

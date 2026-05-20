@@ -434,7 +434,7 @@ self-contained "this projection case + this fixture's regen".
 
 ## Phase 7 — docs + ready-for-review
 
-- [ ] **T013** *(type=docs, orchestrator-owned or subagent slice;
+- [X] **T013** *(type=docs, orchestrator-owned or subagent slice;
   plan slice 13)* — README + CHANGELOG + docs/ entries for the new
   `tx-graph` flags + the regenerated `expected.ttl` workflow. Update
   `docs/` (if any pages need it). Add a CHANGELOG entry under the
