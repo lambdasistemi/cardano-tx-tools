@@ -53,37 +53,35 @@ jobs:
       matrix:
         executable:
           - name: tx-diff
-            release-output: linux-release-artifacts
-            dev-output: linux-dev-release-artifacts
+            release-output: tx-diff-linux-release-artifacts
+            dev-output: tx-diff-linux-dev-release-artifacts
             usage-grep: "[--blueprint FILE ...]"
-            dev-tag: dev-linux
-          - name: cardano-tx-generator
-            release-output: cardano-tx-generator-linux-release-artifacts
-            dev-output: cardano-tx-generator-linux-dev-release-artifacts
-            usage-grep: "--relay-socket PATH"
-            dev-tag: dev-linux-cardano-tx-generator
-          - name: tx-sign
-            release-output: tx-sign-linux-release-artifacts
-            dev-output: tx-sign-linux-dev-release-artifacts
-            usage-grep: "Create or use an encrypted Cardano"
-            dev-tag: dev-linux-tx-sign
+            dev-tag: dev-linux-tx-diff
+          - name: tx-validate
+            release-output: tx-validate-linux-release-artifacts
+            dev-output: tx-validate-linux-dev-release-artifacts
+            usage-grep: "--n2c-socket-path PATH"
+            dev-tag: dev-linux-tx-validate
           - name: tx-inspect
             release-output: tx-inspect-linux-release-artifacts
             dev-output: tx-inspect-linux-dev-release-artifacts
             usage-grep: "[--rules FILE]"
             dev-tag: dev-linux-tx-inspect
+          - name: tx-sign
+            release-output: tx-sign-linux-release-artifacts
+            dev-output: tx-sign-linux-dev-release-artifacts
+            usage-grep: "Create or use an encrypted Cardano"
+            dev-tag: dev-linux-tx-sign
           - name: tx-graph
             release-output: tx-graph-linux-release-artifacts
             dev-output: tx-graph-linux-dev-release-artifacts
             usage-grep: "operator-entity overlay + body emitter"
             dev-tag: dev-linux-tx-graph
-    env:
-      EXE: ${{ matrix.executable.name }}
-      USAGE_GREP: ${{ matrix.executable.usage-grep }}
-      DEV_TAG: ${{ matrix.executable.dev-tag }}
-      MODE: ${{ github.event_name == 'pull_request' && 'dev-linux' || inputs.mode || 'release' }}
-      PUBLISH: ${{ github.event_name == 'push' && 'yes' || inputs.publish || 'no' }}
-      TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+          - name: cardano-tx-generator
+            release-output: cardano-tx-generator-linux-release-artifacts
+            dev-output: cardano-tx-generator-linux-dev-release-artifacts
+            usage-grep: "--relay-socket PATH"
+            dev-tag: dev-linux-cardano-tx-generator
     steps:
       - uses: actions/checkout@v6
         with:
@@ -95,133 +93,29 @@ jobs:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Validate release mode
-        run: |
-          set -euo pipefail
-          case "$MODE" in
-            release)
-              if [ -z "${TAG:-}" ]; then
-                echo "release mode requires a v* tag from a tag push or the tag input" >&2
-                exit 1
-              fi
-              scripts/release/check-version-consistency "$TAG"
-              ;;
-            dev-linux)
-              ;;
-            *)
-              echo "unsupported release mode: $MODE" >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Build and smoke-test Linux artifacts
-        id: linux-artifacts
-        run: |
-          set -euo pipefail
-
-          case "$MODE" in
-            release)
-              artifact_version="$(scripts/release/get-cabal-version)"
-              package_output="${{ matrix.executable.release-output }}"
-              artifact_name="linux-release-bundles-$EXE"
-              ;;
-            dev-linux)
-              artifact_version="$(scripts/release/get-cabal-version)-$(git rev-parse --short=7 HEAD)"
-              package_output="${{ matrix.executable.dev-output }}"
-              artifact_name="linux-dev-release-bundles-$EXE"
-              ;;
-            *)
-              echo "unsupported release mode: $MODE" >&2
-              exit 1
-              ;;
-          esac
-
-          nix build --quiet ".#$package_output"
-          artifact_dir="$(readlink -f result)"
-          nix run --quiet .#linux-artifact-smoke -- \
-            --artifacts-dir "$artifact_dir" \
-            --artifact-version "$artifact_version" \
-            --executable-name "$EXE" \
-            --usage-grep "$USAGE_GREP"
-
-          rm -rf artifacts
-          mkdir -p artifacts
-          cp -L "$artifact_dir"/* artifacts/
-          ls -lh artifacts/
-
-          {
-            echo "artifact_name=$artifact_name"
-            echo "artifact_version=$artifact_version"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v7
+      - uses: paolino/dev-assets/linux-release@41a598ad94d6b4b6aad0162f673786e4fc57db9b
         with:
-          name: ${{ steps.linux-artifacts.outputs.artifact_name }}
-          path: artifacts/*
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Create release and upload artifacts
-        if: env.MODE == 'release' && env.PUBLISH == 'yes'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          notes="$(mktemp)"
-          scripts/release/extract-notes "$TAG" > "$notes"
-          gh=(nix --quiet shell nixpkgs#gh -c gh)
-          "${gh[@]}" release view "$TAG" >/dev/null 2>&1 \
-            || "${gh[@]}" release create "$TAG" \
-              --title "cardano-tx-tools $TAG" \
-              --notes-file "$notes" \
-            || "${gh[@]}" release view "$TAG" >/dev/null
-          "${gh[@]}" release upload "$TAG" artifacts/* --clobber
-
-      - name: Publish dev Linux release assets
-        if: env.MODE == 'dev-linux' && github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          notes="$(mktemp)"
-          {
-            echo "Development Linux $EXE bundles for $GITHUB_SHA"
-            echo
-            echo "Built from $GITHUB_REF."
-          } > "$notes"
-
-          git tag -f "$DEV_TAG" HEAD
-          git push --force origin "refs/tags/$DEV_TAG"
-
-          gh=(nix --quiet shell nixpkgs#gh -c gh)
-          "${gh[@]}" release view "$DEV_TAG" >/dev/null 2>&1 \
-            || "${gh[@]}" release create "$DEV_TAG" \
-              --title "$EXE dev Linux bundles" \
-              --notes-file "$notes" \
-              --prerelease
-          "${gh[@]}" release edit "$DEV_TAG" \
-            --title "$EXE dev Linux bundles" \
-            --notes-file "$notes" \
-            --prerelease
-          "${gh[@]}" release upload "$DEV_TAG" artifacts/* --clobber
-
-      - name: Smoke-test dev Linux release assets
-        if: env.MODE == 'dev-linux' && github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          artifact_version="${{ steps.linux-artifacts.outputs.artifact_version }}"
-          download_dir="$(mktemp -d)"
-          gh=(nix --quiet shell nixpkgs#gh -c gh)
-          "${gh[@]}" release download "$DEV_TAG" \
-            --dir "$download_dir" \
-            --pattern "$EXE-$artifact_version-x86_64-linux.*" \
-            --clobber
-          ls -lh "$download_dir"
-          nix run --quiet .#linux-artifact-smoke -- \
-            --artifacts-dir "$download_dir" \
-            --artifact-version "$artifact_version" \
-            --executable-name "$EXE" \
-            --usage-grep "$USAGE_GREP"
+          mode: >-
+            ${{
+              github.event_name == 'pull_request' && 'dev-linux'
+              || inputs.mode
+              || 'release'
+            }}
+          tag: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+          publish: >-
+            ${{
+              github.event_name == 'push' && 'yes'
+              || inputs.publish
+              || 'no'
+            }}
+          release-output: ${{ matrix.executable.release-output }}
+          dev-output: ${{ matrix.executable.dev-output }}
+          executable-name: ${{ matrix.executable.name }}
+          usage-grep: ${{ matrix.executable.usage-grep }}
+          dev-tag: ${{ matrix.executable.dev-tag }}
+          release-version-command: scripts/release/get-cabal-version
+          release-check-command: 'scripts/release/check-version-consistency "$TAG"'
+          release-notes-command: 'scripts/release/extract-notes "$TAG"'
+          release-title: cardano-tx-tools ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+          dev-release-title: ${{ matrix.executable.name }} dev Linux bundles
+          github-token: ${{ github.token }}

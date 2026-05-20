@@ -74,7 +74,8 @@ sudo apt install ./tx-validate-<version>-x86_64-linux.deb
 # Fedora / RHEL
 sudo dnf install ./tx-validate-<version>-x86_64-linux.rpm
 
-# macOS (and Linux) via Homebrew — also: tx-diff, tx-graph
+# macOS (and Linux) via Homebrew — formula per executable:
+#   tx-diff, tx-validate, tx-inspect, tx-sign, tx-graph, cardano-tx-generator
 brew install lambdasistemi/tap/tx-validate
 
 # Docker
