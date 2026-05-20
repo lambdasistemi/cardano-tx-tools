@@ -2,78 +2,38 @@
 
 ## Unreleased
 
+## [0.1.6.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.5.0...v0.1.6.0) (2026-05-20)
+
 ### Features
 
-* **058:** `Cardano.Tx.Graph.Emit` — Conway transaction body emitter
-  closing the body-emitter half of epic #46's Wave 2. Walks
-  `Cardano.Tx.Diff.conwayDiffProjection` over a `(ConwayTx, ResolvedUTxO,
-  [EntityDecl])` triple and renders the joint RDF graph as canonical
-  Turtle (byte-diff anchor) or JSON-LD (set-equivalent triple set). Body
-  leaves covered: inputs, outputs, addresses with payment + stake
-  credentials, fee, mint (Mint + Policy + AssetClass clusters),
-  withdrawal, certificates (StakeDelegation + VoteDelegation
-  PubKeyCerts with Pool + DRep targets), collateral inputs, and
-  TreasuryWithdrawal proposals (as `cardano:Datum + decodedAs`
-  envelopes — forward-compatible with #50's CIP-57 blueprint decode).
-  Credentials resolve against the operator-entity overlay via a typed
-  `(LeafType, ByteString) → BnodeName` lookup; uncovered credentials
-  fall through to a deterministic raw-bytes naming scheme
-  (`_:cred_<rolePrefix>_<bytes-prefix>`, prefix = 16 hex chars per
-  research R3). The `Cardano.Tx.Graph.Emit.Vocab` registry is the
-  single-source-of-truth for every `cardano:` Phase A IRI the emitter
-  writes; `VocabTraceabilitySpec` asserts per-emit URI namespacing
-  (cardano + rdfs + fixture-local prefixes only; no foreign-namespace
-  IRIs leak) across all 11 fixtures. Anchored by a 33-invariant
-  cross-fixture spec and an 11/11 byte-diff golden against the
-  regenerated `expected.ttl` (the artisan files merged in #45 are
-  obsoleted by the regen and their narrative content migrated to a
-  new per-fixture `NOTES.md` markdown file). `ReproducibilitySpec`
-  asserts byte-equal output across two emit runs per fixture (SC-004
-  closes the determinism contract).
-* **058:** `tx-graph` executable extends with `--tx`, `--utxo`, `--out`,
-  `--format` flags. Flag-presence dispatch over three modes: overlay-only
-  (existing `--rules` invocation; #48 back-compat preserved), body-only
-  (`--tx`, optionally `--utxo`), and joint (`--tx --utxo --rules`).
-  `--format turtle|json-ld` selects the serializer; `--out FILE`
-  defaults to stdout. CBOR decoding via the ledger's `decodeFullAnnotator`;
-  UTxO JSON via aeson. Structured errors with single-line stderr
-  rendering follow the `renderRulesLoadError` pattern from #48.
-* **058:** `Cardano.Tx.Graph.Rules.Load.RulesLoadResult` gains a new
-  field `rulesEntities :: [EntityDecl]` exposing the deduped in-memory
-  entity list the loader already computes. Additive at the record
-  level (`rulesOverlayTurtle` + `rulesWarnings` consumers unaffected);
-  the body emitter consumes the new field directly without re-parsing
-  overlay Turtle.
-* **058:** The 11 `test/fixtures/rewrite-redesign/<NN>-*/expected.ttl`
-  files are **regenerated** from the body emitter's output (Q-001 →
-  A-001 of #58 PR). Loader-deterministic blank-node names, ledger-
-  authoritative `bytesHex`, ledger-derived fee, and machine-uniform
-  section headers replace the artisan layout merged in #45. The
-  artisan narrative migrates to a new per-fixture
-  `test/fixtures/rewrite-redesign/<NN>-*/NOTES.md` markdown file.
-  `EmitGoldenSpec` byte-diffs the emitter output against the
-  regenerated files (11/11 GREEN; SC-001 closes).
-* **048:** `Cardano.Tx.Graph.Rules.Load` — operator-rules loader for Turtle
-  + YAML sugar with `owl:imports` / `imports:` composition, deterministic
-  blank-node + entity-IRI naming (slug-everywhere; one bnode per shared
-  `(leafType, bytesHex)` identity), structured validation errors with
-  file + line provenance, cycle detection, and `DuplicateEntityAcrossFiles`
-  warnings. Companion executable `tx-graph` (with `--rules <file>` flag)
-  prints the canonical operator-entity overlay on stdout. Anchors the
-  Wave-2 entry point for epic #46; per-fixture `expected.entities.ttl`
-  byte-diff goldens cover all 11 `rewrite-redesign` fixtures. **#58
-  ships the body-emitter half of the Wave 2 contract** (above) — the
-  `--utxo`, `--out`, `--tx`, `--format` flags previously deferred have
-  landed.
+* **graph:** scaffold Cardano.Tx.Graph.Rules.Load module ([2758f64](https://github.com/lambdasistemi/cardano-tx-tools/commit/2758f64503b810b2765c093c83d0dfc0f96a4a16))
+* **graph:** YAML parser for entities (from-address, script, asset) ([1dc2ab1](https://github.com/lambdasistemi/cardano-tx-tools/commit/1dc2ab154698e0f72b4917105703dbb1ce9db63b))
+* **graph:** canonical Turtle serializer + 7 basic-shape goldens ([c512591](https://github.com/lambdasistemi/cardano-tx-tools/commit/c51259182a3310f76154ec66ef1a99c0563bfeec))
+* **graph:** compound-key entities (keys+bytes) and fixture 04 golden ([c882350](https://github.com/lambdasistemi/cardano-tx-tools/commit/c8823501aee05a43855c81256b575853d945b5b6))
+* **graph:** shared-identity + blueprints/collapse + 3 complex-shape goldens ([49f4683](https://github.com/lambdasistemi/cardano-tx-tools/commit/49f46839a9e1c423cadc0f2aae3cc2519fc00d93))
+* **graph:** structural Turtle parser for rules subset ([f8e8c94](https://github.com/lambdasistemi/cardano-tx-tools/commit/f8e8c94116a9d1ce290b973b70f4e463ab98bf26))
+* **graph:** owl:imports composition + DFS resolver ([cb1cb8c](https://github.com/lambdasistemi/cardano-tx-tools/commit/cb1cb8c12c3ec5c87a1a8b2011d9a6a07ad99e8f))
+* **graph:** cycle detection in rules import graph ([7826979](https://github.com/lambdasistemi/cardano-tx-tools/commit/78269797a2d5f703c17e2170d3bae72aa5573680))
+* **graph:** structured validation errors with file+line ([359c9f8](https://github.com/lambdasistemi/cardano-tx-tools/commit/359c9f8018a9f9d47fe6328853f135096ab0bf1a))
+* **graph:** warn on cross-file duplicate entities ([260c44d](https://github.com/lambdasistemi/cardano-tx-tools/commit/260c44d92aa8a60e4bd8e179bc64d19c08c6d551))
+* **graph:** tx-graph executable --rules wiring ([47f03fa](https://github.com/lambdasistemi/cardano-tx-tools/commit/47f03fa60c3c2aedf1ca8fd84517db0e6b0849bc))
+* **graph:** expose rulesEntities on RulesLoadResult ([9091098](https://github.com/lambdasistemi/cardano-tx-tools/commit/909109810b0109bf1877c2fe744ccd74340d6189))
+* **graph:** scaffold Cardano.Tx.Graph.Emit module ([42049aa](https://github.com/lambdasistemi/cardano-tx-tools/commit/42049aafcbc183773dc0da42cd881cddf9e33196))
+* **graph:** tx-graph --tx/--utxo/--out/--format flags ([8d60d05](https://github.com/lambdasistemi/cardano-tx-tools/commit/8d60d059b6aa11226f0d1d520fa5c5ed581d8c58))
+* **graph:** credential lookup + raw-bytes bnode naming ([27dba5e](https://github.com/lambdasistemi/cardano-tx-tools/commit/27dba5e0bba6953ee0c3ef13b333996791e2d0e3))
+* **graph:** body emitter + fixture 02 byte-diff + vocab traceability ([485be85](https://github.com/lambdasistemi/cardano-tx-tools/commit/485be85124b6a7974c5be52eebf62b6abd185ff1))
+* **graph:** enable fixture 03 byte-diff (regen-only; no new leaves) ([f1054bf](https://github.com/lambdasistemi/cardano-tx-tools/commit/f1054bf878d59a73959e142022f404f58f8f10d9))
+* **graph:** mint + withdrawal leaves; fixtures 04, 05, 08 ([fd8cf42](https://github.com/lambdasistemi/cardano-tx-tools/commit/fd8cf428e60f0250a7d1daaa9a6f5fa7880f7baf))
+* **graph:** cert + pool + drep leaves; fixtures 06, 07 ([6e87fab](https://github.com/lambdasistemi/cardano-tx-tools/commit/6e87fab0ebacd17d61d797be4e3f725e6c066970))
+* **graph:** enable fixture 09 byte-diff (regen-only; no new leaves) ([7fa3a9f](https://github.com/lambdasistemi/cardano-tx-tools/commit/7fa3a9f0f5c3939ee1bbfd2007e239c42139b191))
+* **graph:** collateral + treasury-withdrawal proposal leaves; fixtures 01, 10, 11 ([a354d01](https://github.com/lambdasistemi/cardano-tx-tools/commit/a354d012e31d9d77b0144f1bb637eb293ec55937))
+* **graph:** JSON-LD serializer + equivalence spec ([3ae472a](https://github.com/lambdasistemi/cardano-tx-tools/commit/3ae472a5c51d3928291ea59c5f4c4dfce57a3668))
 
-### Maintenance
+### Bug Fixes
 
-* **048:** Constitution-compliance sweep — `cabal check` is now clean
-  across every stanza (PvP upper bounds added) and `-Werror` is gated
-  behind a manual `werror` cabal flag enabled from `cabal.project` and
-  the haskell.nix build. `./gate.sh` runs `cabal check` + `cabal haddock`
-  alongside the existing build / unit / cabal-fmt / fourmolu / hlint
-  steps.
+* **048:** refactor unit test to read tx-graph path via env var (nix-check sandbox compatibility) ([920a496](https://github.com/lambdasistemi/cardano-tx-tools/commit/920a496cce0462f40d0c20a3964b6dec53eea024))
+* **validate:** seed reward accounts for withdrawals ([f1fd25e](https://github.com/lambdasistemi/cardano-tx-tools/commit/f1fd25e677e033958b8d92bc1bc1a1dfc72c54fe))
+* **tx-validate:** query reward accounts from n2c ([704ecc9](https://github.com/lambdasistemi/cardano-tx-tools/commit/704ecc9bdcb46364490a8bee7591cbc382ca822e))
 
 ## [0.1.5.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.4.0...v0.1.5.0) (2026-05-18)
 
