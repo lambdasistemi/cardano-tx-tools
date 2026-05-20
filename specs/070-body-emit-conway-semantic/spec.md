@@ -53,13 +53,13 @@ the published `tx-graph` asciinema cast demonstrates rich body output
   `Cardano.Tx.Diff.conwayDiffProjection` to expose a monadic walker, or
   keep the projection pure and lift the walker into `Emit` entirely
   inside `Cardano.Tx.Graph.Emit.Project`?
-  → **A: [NEEDS CLARIFICATION — Q-001-monadic-walker-seam to parent]**
-  Recommendation: keep the walker monadic inside `Project.hs`. Today's
-  `projectBody` walks the ledger types directly (microlens accessors on
-  `bodyTxL`, `inputsTxBodyL`, etc.) rather than calling
-  `Cardano.Tx.Diff.conwayDiffProjection`. Lifting that direct walk into
-  `Emit` requires no surface change to `Cardano.Tx.Diff`. Confirming
-  with the parent before locking the owned-file set.
+  → **A (RESOLVED 2026-05-20 via Q-001 / A-001):** Option C —
+  local-only seam in `Project.hs` now, follow-on ticket at #70
+  finalization for a shared walker once #51 / #52 surface concrete
+  need. `Cardano.Tx.Diff` is read-only for this PR. The monadic
+  seam lives inside `Project.hs` (with optional factoring into a
+  new `Cardano.Tx.Graph.Emit.Monad` module, worker's call). See
+  `/tmp/epic-046/tx-70/answers/A-001-monadic-walker-seam.md`.
 - Q: A material subset of the predicates the per-field minimum coverage
   list names are **not declared** in the canonical
   `cardano-knowledge-maps/data/rdf/transactions.ttl`. Discovered during
@@ -98,23 +98,26 @@ the published `tx-graph` asciinema cast demonstrates rich body output
   `Cardano.Tx.Graph.Emit.Vocab.allVocabTerms` registry, **not** against
   the canonical file in `cardano-knowledge-maps`.)
 
-  → **A: [NEEDS CLARIFICATION — Q-002-vocab-coordination to parent]**
-  Three options under consideration:
-  1. File a kmaps-side ticket (extends `transactions.ttl` Phase A with
-     the missing terms) and block #70 implementation until that lands.
-     Tightest semantics; longest sequencing.
-  2. Implement #70 against the **expanded** internal `VocabTerm`
-     registry plus a strict "every emitted predicate appears in
-     `transactions.ttl`" CI check that **fails** until the kmaps ticket
-     merges. Surfaces drift; blocks own merge.
-  3. Implement #70 with the expanded internal registry and a **lint
-     check** (warn-only) for `transactions.ttl` drift; reconcile in a
-     follow-up. Fastest forward motion; risks shipping divergent vocab
-     once again.
-
-  Worker recommends option 1 — the epic's vocab-traceability gate is
-  load-bearing and the drift list is already non-trivial, so a clean
-  vocab refresh is the right unit of work. Awaiting parent decision.
+  → **A (RESOLVED 2026-05-20 via Q-002 / A-002):** Option 4
+  (hybrid) — load-bearing predicates land in a tightly-scoped
+  kmaps PR (sub-orchestrator drafts the patch at
+  `/tmp/epic-046/tx-70/transactions-additions.ttl`; parent opens
+  the kmaps PR); class-hierarchy refresh + #58-inherited drift
+  cleanup deferred to a follow-up filed at #70 finalization. The
+  CI gate (FR-013) is **decoupled** from the kmaps lifecycle via
+  a vendored pin at `test/fixtures/canonical-vocab/transactions.ttl`,
+  refreshed in dedicated `chore(070): refresh canonical-vocab pin`
+  commits. The canonical vocab already declares most of the
+  apparent gaps under existing names — naming reconciliations
+  (e.g. `cardano:datum` → `cardano:hasDatum`; `cardano:scriptRef`
+  → `cardano:hasReferenceScript`; `cardano:hasTtl` +
+  `cardano:hasValidityRangeStart` → `cardano:hasValidityInterval`
+  object form) land internally in #70, no kmaps round-trip needed.
+  Genuine canonical additions: `fromTxOutRef`, `lovelace`,
+  `quantity`, `mintsAsset`, `withdrawalAccount`, `networkId`,
+  `scriptDataHash`, `auxiliaryDataHash` (plus `intervalStart` /
+  `intervalEnd` per D-001 in plan.md). See
+  `/tmp/epic-046/tx-70/answers/A-002-vocab-coordination.md`.
 - Q: What is the source of truth for the byte-diff anchor after this
   PR — the existing per-fixture `expected.ttl` (#58 stub-shape) or a
   **regenerated** file carrying the rich triples this PR emits?
@@ -415,9 +418,13 @@ constitute scope drift.
   StakeDelegation, VoteDelegation. Other variants raise
   `PUnsupportedLeafType` (fail-loudly inherited from #58).
 - **FR-007 (withdrawal semantic content)**: each withdrawal's subject
-  block carries the reward-account identifier link + the lovelace
-  amount. Pre-existing `cardano:onCredential` + `cardano:withAmount`
-  preserved or renamed per Q-002.
+  block carries `cardano:withdrawalAccount <reward-account>` +
+  `cardano:lovelace <amount>` (per A-002 / D-005). Drops the
+  `#58`-inherited `cardano:onCredential` + `cardano:withAmount` names
+  in favor of canonical-aligned names. This is the one
+  inherited-drift cleanup that lands inline rather than in the
+  deferred follow-up — narrowly scoped, justified by touching the
+  withdrawal emitter anyway.
 - **FR-008 (mint semantic content)**: each mint's subject block carries
   the policy + asset identifier links + the **signed** quantity (as
   an integer literal — negative for burns).
@@ -429,9 +436,11 @@ constitute scope drift.
   `PUnsupportedLeafType` (out of scope for #70).
 - **FR-010 (body-root predicates)**: `_:tx`'s subject block carries
   `hasFee` (preserved from #58) plus, when present on the body, each
-  of `hasTtl` / `hasValidityRangeStart` / `networkId` /
-  `scriptDataHash` / `auxiliaryDataHash` (names finalized under
-  Q-002). Elide when absent; no `null`-valued triples.
+  of `cardano:hasValidityInterval` (singular interval object per
+  D-001 — sub-block carries `intervalStart` / `intervalEnd`) /
+  `cardano:networkId` / `cardano:scriptDataHash` /
+  `cardano:auxiliaryDataHash`. Elide when absent; no `null`-valued
+  triples.
 - **FR-011 (reference input support)**: the empty-leaf probe
   (`assertEmptyLeavesForT008`) is relaxed to permit non-empty
   `referenceInputs`; each reference input's `TxIn` emits a subject
@@ -442,14 +451,18 @@ constitute scope drift.
   view returns zero rows on every fixture in `test/fixtures/
   rewrite-redesign/*/` for the regenerated `expected.ttl`; a non-zero
   row count fails the build (CI gate).
-- **FR-013 (vocab traceability extension)**: the
-  `VocabTraceabilitySpec` invariant from #58 (which currently
-  cross-checks emitted IRIs against the internal `VocabTerm`
-  registry) extends to also cross-check every emitted predicate against
-  the canonical `cardano-knowledge-maps/data/rdf/transactions.ttl`.
-  Implementation depends on Q-002 — option 1 imports the canonical
-  file as a test fixture and parses its declared terms; option 2/3
-  permits a soft-fail and a tracking issue.
+- **FR-013 (vocab traceability extension — vendored pin)**: the
+  `VocabTraceabilitySpec` invariant from #58 extends with a strict
+  cross-check against a **vendored pin** of the canonical vocab
+  under `test/fixtures/canonical-vocab/transactions.ttl` (plus a
+  `PINNED.md` header recording the kmaps commit SHA + date). The
+  pin is refreshed in dedicated `chore(070): refresh canonical-vocab
+  pin to kmaps@<sha>` commits — once when the kmaps PR draft is
+  available, again when it merges. This decouples #70's lifecycle
+  from the kmaps repo's lifecycle: #70 can implement against the
+  proposed additions ahead of merge, CI stays deterministic and
+  offline-buildable, ready-for-review only flips on PR #77 once the
+  pin matches a merged kmaps SHA.
 - **FR-014 (regenerate fixtures)**: each of the 11
   `test/fixtures/rewrite-redesign/<NN>-<slug>/expected.ttl` files is
   regenerated by running the new emitter and overwriting in place.
@@ -578,6 +591,14 @@ docs/ README.md CHANGELOG.md`:
 11. **No-stub SPARQL view** (`views/no-stub-triples.rq` — new file):
     ships with this PR; integrated into `gate.sh` (and the harness
     suite #45 set up) as a CI gate.
+12. **Vendored canonical-vocab pin** (per A-002):
+    `test/fixtures/canonical-vocab/transactions.ttl` (verbatim copy
+    of the kmaps canonical file at a known commit SHA) plus
+    `test/fixtures/canonical-vocab/PINNED.md` (header recording
+    SHA + date). Refreshed in dedicated `chore(070): refresh
+    canonical-vocab pin to kmaps@<sha>` commits — once when the
+    kmaps PR draft is available, again when it merges. The pin is
+    what FR-013's strict CI check parses; not the live kmaps file.
 
 ## Assumptions
 
