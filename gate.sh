@@ -17,5 +17,5 @@ nix develop --quiet -c bash -c "find . -type f -name '*.hs' -not -path '*/dist-n
 nix develop --quiet -c bash -c "find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec hlint {} +"
 
 # Hackage-ready quality (constitution Principle IV) — inherited from #48
-nix develop --quiet -c cabal -O0 check
+nix develop --quiet -c cabal check
 nix develop --quiet -c cabal -O0 haddock lib:cardano-tx-tools
