@@ -177,6 +177,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T110a — S9a: refresh canonical-vocab pin to kmaps#55 branch tip (chore)
 
+- **Status**: [X] complete — landed at this commit. Pin moved to kmaps@e2ba890eeb06dbe3f87e2dc149e766ca39830d73 (kmaps#55 `phase-a1-tx-semantic-predicates` branch HEAD); 10 Phase A.1 predicate declarations now in the pin so FR-013 strict CI is satisfied starting from T103.
 - **Subject**: `chore(070): refresh canonical-vocab pin to kmaps#55 branch tip`
 - **Tasks trailer**: `Tasks: T110a`
 - **Files**:

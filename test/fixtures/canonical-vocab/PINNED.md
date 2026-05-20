@@ -7,12 +7,22 @@ body emitter.
 
 ## Current pin
 
-- **File**: [`transactions.ttl`](./transactions.ttl) (303 lines)
+- **File**: [`transactions.ttl`](./transactions.ttl) (382 lines)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `8597fbd571188b42999ee0b24a8247bda7e717b9` (kmaps `main`
-  HEAD on 2026-05-20)
-- **Version label** declared in the file: `0.1.0-phaseA`
+- **SHA**: `e2ba890eeb06dbe3f87e2dc149e766ca39830d73` (branch
+  `phase-a1-tx-semantic-predicates` HEAD on 2026-05-20)
+- **Branch state**: draft PR
+  [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55),
+  not yet merged to `main`. Base
+  `8597fbd571188b42999ee0b24a8247bda7e717b9`.
+- **Version label** declared in the file: `0.1.0-phaseA` (with
+  Phase A.1 additions appended at the tail: `fromTxOutRef`,
+  `lovelace`, `quantity`, `mintsAsset`, `withdrawalAccount`,
+  `networkId`, `scriptDataHash`, `auxiliaryDataHash`,
+  `intervalStart`, `intervalEnd`).
+- **History** (previous pins): kmaps@`8597fbd571188b42999ee0b24a8247bda7e717b9`
+  (303 lines, vendored at T101 / S0).
 
 ## Why pin?
 
