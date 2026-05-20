@@ -35,6 +35,7 @@ kernel ships upstream.
 -}
 module Cardano.Tx.Validate (
     validatePhase1,
+    validatePhase1WithRewardAccounts,
     isWitnessCompletenessFailure,
 ) where
 
@@ -43,8 +44,9 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Lens.Micro ((&), (.~))
+import Lens.Micro ((%~), (&), (.~))
 
+import Cardano.Ledger.Address (AccountAddress (..), AccountId (..))
 import Cardano.Ledger.Api (PParams)
 import Cardano.Ledger.Api.Tx.Out (TxOut)
 import Cardano.Ledger.BaseTypes (
@@ -57,11 +59,13 @@ import Cardano.Ledger.BaseTypes (
     knownNonZeroBounded,
     mkActiveSlotCoeff,
  )
+import Cardano.Ledger.Coin (Coin (..), compactCoinOrError)
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Rules (
     ConwayLedgerPredFailure (..),
     ConwayUtxowPredFailure (..),
  )
+import Cardano.Ledger.Conway.State (mkConwayAccountState)
 import Cardano.Ledger.Shelley.API.Mempool (
     ApplyTxError,
     applyTx,
@@ -70,8 +74,10 @@ import Cardano.Ledger.Shelley.API.Mempool (
  )
 import Cardano.Ledger.Shelley.LedgerState (
     NewEpochState,
+    certDStateL,
     curPParamsEpochStateL,
     esLStateL,
+    lsCertStateL,
     lsUTxOStateL,
     nesEsL,
     utxoL,
@@ -112,9 +118,34 @@ validatePhase1 ::
     SlotNo ->
     ConwayTx ->
     Either (ApplyTxError ConwayEra) ()
-validatePhase1 network ppBound utxo slot tx =
+validatePhase1 network ppBound utxo =
+    validatePhase1WithRewardAccounts
+        network
+        ppBound
+        utxo
+        Map.empty
+
+{- | Run Conway Phase-1 validation with caller-supplied registered
+reward accounts.
+
+Each map entry is seeded into the Conway certificate/account state
+before @applyTx@ runs. A present account with @Coin 0@ is still
+registered; the account deposit is seeded as zero and the reward
+balance is set explicitly to the supplied coin. Missing map entries
+remain absent so the ledger can still surface
+@WithdrawalsNotInRewardsCERTS@.
+-}
+validatePhase1WithRewardAccounts ::
+    Network ->
+    PParamsBound ->
+    [(TxIn, TxOut ConwayEra)] ->
+    Map.Map AccountAddress Coin ->
+    SlotNo ->
+    ConwayTx ->
+    Either (ApplyTxError ConwayEra) ()
+validatePhase1WithRewardAccounts network ppBound utxo rewardAccounts slot tx =
     let pp = unPParamsBound ppBound
-        nes = seedNewEpochState pp utxo
+        nes = seedNewEpochState pp utxo rewardAccounts
         env = mkMempoolEnv nes slot
         state = mkMempoolState nes
      in case applyTx (synthesiseGlobals network) env state tx of
@@ -132,8 +163,9 @@ This is the typed mirror of
 seedNewEpochState ::
     PParams ConwayEra ->
     [(TxIn, TxOut ConwayEra)] ->
+    Map.Map AccountAddress Coin ->
     NewEpochState ConwayEra
-seedNewEpochState pp utxo =
+seedNewEpochState pp utxo rewardAccounts =
     def
         & nesEsL . curPParamsEpochStateL .~ pp
         & nesEsL
@@ -141,6 +173,34 @@ seedNewEpochState pp utxo =
             . lsUTxOStateL
             . utxoL
             .~ LedgerState.UTxO (Map.fromList utxo)
+        & nesEsL
+            . esLStateL
+            . lsCertStateL
+            . certDStateL
+            . LedgerState.accountsL
+            %~ seedRewardAccounts rewardAccounts
+
+seedRewardAccounts ::
+    Map.Map AccountAddress Coin ->
+    LedgerState.Accounts ConwayEra ->
+    LedgerState.Accounts ConwayEra
+seedRewardAccounts rewardAccounts accounts =
+    Map.foldrWithKey seedRewardAccount accounts rewardAccounts
+
+seedRewardAccount ::
+    AccountAddress ->
+    Coin ->
+    LedgerState.Accounts ConwayEra ->
+    LedgerState.Accounts ConwayEra
+seedRewardAccount (AccountAddress _ (AccountId stakeCredential)) balance =
+    LedgerState.addAccountState
+        stakeCredential
+        (registeredRewardAccount balance)
+
+registeredRewardAccount :: Coin -> LedgerState.AccountState ConwayEra
+registeredRewardAccount balance =
+    mkConwayAccountState (compactCoinOrError (Coin 0))
+        & LedgerState.balanceAccountStateL .~ compactCoinOrError balance
 
 {- | Synthesise a 'Globals' for the supplied 'Network'. All
 non-@networkId@ fields are hardcoded to mainnet-shaped Shelley

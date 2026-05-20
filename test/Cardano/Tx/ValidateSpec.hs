@@ -23,20 +23,28 @@ module Cardano.Tx.ValidateSpec (
 ) where
 
 import Data.Foldable (toList)
+import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Text qualified as Text
 import Lens.Micro ((&), (.~), (^.))
 import Test.Hspec (Spec, describe, it, shouldSatisfy)
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Address (AccountAddress, Withdrawals (..))
 import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
 import Cardano.Ledger.Alonzo.TxBody (
     ScriptIntegrityHash,
     scriptIntegrityHashTxBodyL,
  )
-import Cardano.Ledger.Api.Tx.Body (feeTxBodyL, vldtTxBodyL)
+import Cardano.Ledger.Api (PParams)
+import Cardano.Ledger.Api.Tx.Body (
+    feeTxBodyL,
+    vldtTxBodyL,
+    withdrawalsTxBodyL,
+ )
+import Cardano.Ledger.Api.Tx.Out (TxOut)
 import Cardano.Ledger.BaseTypes (
-    Network (Mainnet),
+    Network (Mainnet, Testnet),
     SlotNo (..),
     StrictMaybe (..),
     TxIx (..),
@@ -54,8 +62,18 @@ import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Tx.Build (mkPParamsBound)
 import Cardano.Tx.BuildSpec (loadBody, loadPParams)
 import Cardano.Tx.Ledger (ConwayTx)
-import Cardano.Tx.Validate (isWitnessCompletenessFailure, validatePhase1)
+import Cardano.Tx.Validate (
+    isWitnessCompletenessFailure,
+    validatePhase1,
+    validatePhase1WithRewardAccounts,
+ )
 import Cardano.Tx.Validate.LoadUtxo (loadUtxo)
+import Fixtures.RewriteRedesign.Helpers (
+    stubRewardAccount,
+    stubTxIn,
+    stubTxOut,
+ )
+import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as WithdrawalScriptStake
 
 spec :: Spec
 spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
@@ -176,6 +194,36 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                 Left err ->
                     failures err
                         `shouldSatisfy` any isMempoolFailure
+
+    it
+        ( "withdrawal tx with no seeded reward accounts surfaces "
+            <> "WithdrawalsNotInRewardsCERTS"
+        )
+        $ do
+            pp <- loadPParams ppPath
+            let result =
+                    validateWithdrawalFixture Map.empty pp
+            case result of
+                Right () -> error "expected Left on unregistered withdrawal"
+                Left err ->
+                    failures err
+                        `shouldSatisfy` any isWithdrawalsNotInRewardsFailure
+
+    it
+        ( "withdrawal tx with zero-balance registered reward account "
+            <> "does not surface WithdrawalsNotInRewardsCERTS"
+        )
+        $ do
+            pp <- loadPParams ppPath
+            let result =
+                    validateWithdrawalFixture
+                        (Map.singleton withdrawalRewardAccount (Coin 0))
+                        pp
+            case result of
+                Right () -> pure ()
+                Left err ->
+                    failures err
+                        `shouldSatisfy` (not . any isWithdrawalsNotInRewardsFailure)
 
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
@@ -310,3 +358,36 @@ isMempoolFailure ::
     ConwayLedgerPredFailure ConwayEra -> Bool
 isMempoolFailure (ConwayMempoolFailure _) = True
 isMempoolFailure _ = False
+
+withdrawalRewardAccount :: AccountAddress
+withdrawalRewardAccount = stubRewardAccount 1
+
+withdrawalUtxo :: [(TxIn, TxOut ConwayEra)]
+withdrawalUtxo = [(stubTxIn 1, stubTxOut 2_000_000)]
+
+validateWithdrawalFixture ::
+    Map.Map AccountAddress Coin ->
+    PParams ConwayEra ->
+    Either (ApplyTxError ConwayEra) ()
+validateWithdrawalFixture rewardAccounts pp =
+    validatePhase1WithRewardAccounts
+        Testnet
+        (mkPParamsBound pp)
+        withdrawalUtxo
+        rewardAccounts
+        (SlotNo 0)
+        withdrawZeroTx
+
+withdrawZeroTx :: ConwayTx
+withdrawZeroTx =
+    WithdrawalScriptStake.tx
+        & bodyTxL
+            . withdrawalsTxBodyL
+            .~ Withdrawals
+                (Map.singleton withdrawalRewardAccount (Coin 0))
+
+isWithdrawalsNotInRewardsFailure ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isWithdrawalsNotInRewardsFailure failure =
+    "WithdrawalsNotInRewardsCERTS"
+        `Text.isInfixOf` Text.pack (show failure)

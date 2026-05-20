@@ -14,7 +14,7 @@
 
 **Independent Test**: a withdrawal fixture run with an empty reward map produces `WithdrawalsNotInRewardsCERTS`; the same fixture run with the account mapped to `Coin 0` no longer produces that failure.
 
-- [ ] T001 [US1] Add reward-aware pure validation in `src/Cardano/Tx/Validate.hs` and regression coverage in `test/Cardano/Tx/ValidateSpec.hs`
+- [x] T001 [US1] Add reward-aware pure validation in `src/Cardano/Tx/Validate.hs` and regression coverage in `test/Cardano/Tx/ValidateSpec.hs`
 
 **Subagent brief for T001**:
 
