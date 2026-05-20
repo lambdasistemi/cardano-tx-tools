@@ -483,6 +483,19 @@ accept-vs-iterate.
   reviews each regen slice carefully against the artisan reference at
   PR-review time; this is documented in spec.md (Clarifications →
   bootstrapping workflow).
+- **R-8** *(analyzer M4)*: **kmaps#53 Phase A vocab term gap.** If a
+  fixture's regen needs an IRI that the merged kmaps Phase A vocab
+  does not declare (a leaf-cluster predicate research R2 missed),
+  the emitter blocks at the affected slice. The 11 fixtures' leaf
+  coverage is claimed within Phase A by design, but the artisan
+  layouts were never run end-to-end through the kmaps schema.
+  Mitigation: research R2's predicate enumeration is closed against
+  the artisan reference layouts before T005 dispatches; if a gap
+  surfaces at T005-T010, the worker escalates via Q-file to the
+  orchestrator, who either files a kmaps PR + pauses the cross-PR
+  contract or selects a fallback predicate (e.g.
+  `cardano:hasMetadata` shape) with a documented follow-up to widen
+  kmaps in a sibling PR.
 
 ## Pre-implementation prereqs
 
