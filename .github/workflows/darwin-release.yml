@@ -141,14 +141,14 @@ jobs:
               exit 1
             fi
             cat /tmp/exe.out
-            grep -F "Usage:" /tmp/exe.out >/dev/null
-            grep -F "${{ matrix.executable.usage-grep }}" /tmp/exe.out >/dev/null
+            grep -F -- "Usage:" /tmp/exe.out >/dev/null
+            grep -F -- "${{ matrix.executable.usage-grep }}" /tmp/exe.out >/dev/null
           brew-smoke-script: |
             if ${{ matrix.executable.name }} >/tmp/exe.out 2>&1; then
               cat /tmp/exe.out
               exit 1
             fi
             cat /tmp/exe.out
-            grep -F "Usage:" /tmp/exe.out >/dev/null
-            grep -F "${{ matrix.executable.usage-grep }}" /tmp/exe.out >/dev/null
+            grep -F -- "Usage:" /tmp/exe.out >/dev/null
+            grep -F -- "${{ matrix.executable.usage-grep }}" /tmp/exe.out >/dev/null
             otool -L "$(which ${{ matrix.executable.name }})"

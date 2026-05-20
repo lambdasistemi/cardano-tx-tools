@@ -180,6 +180,6 @@ jobs:
             exit 1
           fi
           cat /tmp/exe.out
-          grep -F "Usage:" /tmp/exe.out >/dev/null
-          grep -F "$USAGE_GREP" /tmp/exe.out >/dev/null
+          grep -F -- "Usage:" /tmp/exe.out >/dev/null
+          grep -F -- "$USAGE_GREP" /tmp/exe.out >/dev/null
           otool -L "$(which "$EXE")"

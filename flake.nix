@@ -202,6 +202,7 @@
             {
               name = "tx-diff";
               package = txDiff;
+              darwinPackage = components.exes.tx-diff;
               desc =
                 "Compare Conway transactions with blueprint-aware data diffs";
               formulaClass = "TxDiff";
@@ -214,6 +215,7 @@
             {
               name = "tx-validate";
               package = txValidate;
+              darwinPackage = components.exes.tx-validate;
               desc =
                 "Conway Phase-1 pre-flight against a local cardano-node";
               formulaClass = "TxValidate";
@@ -226,6 +228,7 @@
             {
               name = "tx-inspect";
               package = txInspect;
+              darwinPackage = components.exes.tx-inspect;
               desc =
                 "Render Conway transactions as structured, human-readable reports";
               formulaClass = "TxInspect";
@@ -282,6 +285,10 @@
             }
           ];
           mkExeSmokeCommand = spec:
+            # `grep -F --` is required on macOS: BSD grep parses any
+            # argument starting with `--` as a long option, so without
+            # the `--` terminator patterns like `--n2c-socket-path PATH`
+            # or `--relay-socket PATH` trip the option parser.
             ''
               set +e
               ${spec.name} >/tmp/${spec.name}.out 2>&1
@@ -290,8 +297,17 @@
               test "$status" -ne 0
             ''
             + lib.concatMapStringsSep "\n"
-              (g: "  grep -F ${lib.escapeShellArg g} /tmp/${spec.name}.out >/dev/null")
+              (g: "  grep -F -- ${lib.escapeShellArg g} /tmp/${spec.name}.out >/dev/null")
               spec.usageGreps;
+          # Resolve the Darwin-side package: prefer `darwinPackage` if the
+          # spec declares one, else fall back to `package`. The wrapped
+          # Linux variants (txDiff, txValidate, txInspect) bundle a
+          # cacert via `wrapProgram`, which leaves the wrapper script
+          # referencing a nix-store path not present in the Darwin
+          # tarball's closure on a consumer machine. macOS has system
+          # certs, so Darwin uses the raw `components.exes.<name>`
+          # output and skips the wrapper entirely.
+          darwinPackageOf = spec: spec.darwinPackage or spec.package;
           # Parametric Darwin Homebrew bundle. Drop-in replacement for
           # the per-exe helpers; takes an exeSpec and override args.
           mkExeDarwinHomebrewBundle = spec: args:
@@ -302,7 +318,7 @@
               repo = "cardano-tx-tools";
               desc = spec.desc;
               formulaClass = spec.formulaClass;
-              executables = { ${spec.name} = spec.package; };
+              executables = { ${spec.name} = darwinPackageOf spec; };
               executableNames = [ spec.name ];
               formulaTest = spec.formulaTest;
               smokeCommands = [ (mkExeSmokeCommand spec) ];
