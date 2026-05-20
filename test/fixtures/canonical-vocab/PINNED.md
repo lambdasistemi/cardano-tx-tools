@@ -10,7 +10,7 @@ body emitter.
 - **File**: [`transactions.ttl`](./transactions.ttl) (382 lines)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `e2ba890eeb06dbe3f87e2dc149e766ca39830d73` (branch
+- **SHA**: `8ed218cf6dc905c7e3139b9f5a418d278b0acf9c` (branch
   `phase-a1-tx-semantic-predicates` HEAD on 2026-05-20)
 - **Branch state**: draft PR
   [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55),
