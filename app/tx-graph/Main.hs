@@ -4,40 +4,43 @@ Description : tx-graph executable — operator-entity overlay + body-emitter dis
 License     : Apache-2.0
 
 Companion executable to @tx-diff@ / @tx-inspect@ / @tx-sign@ /
-@tx-validate@. Loads an operator-authored rules file (Turtle or
-YAML sugar) via 'Cardano.Tx.Graph.Rules.Load.loadRulesFile' and,
-in T003 + onwards, drives the joint-graph body emitter from
-'Cardano.Tx.Graph.Emit'.
+@tx-validate@. Renders an operator-authored rules overlay,
+a Conway transaction body, or both, as a canonical Turtle (or
+JSON-LD) graph.
 
-The CLI surface follows plan slice D8 — flag-presence dispatch
-on @(--rules, --tx, --utxo)@:
+The CLI surface tracks the rest of the suite:
 
-* @--rules \<file\>@ alone — /overlay-only/ mode (the existing
-  #48 contract). Emits the canonical Turtle entity overlay to
-  stdout.
-* @--tx \<file\>@ with or without @--rules@ / @--utxo@ —
-  /body-emitting/ modes (body-only, body-with-empty-utxo,
-  body-only-with-utxo, joint). T003 wires the dispatcher; the
-  Turtle serializer lands in T005. Until then, body-emitting
-  modes short-circuit on the transitional
-  'Cardano.Tx.Graph.Emit.NoSerializerYet' variant and write the
-  rendered error to stderr.
-* no input flags — @optparse-applicative@ usage error (stderr,
-  exit 2).
+* @--tx PATH | -@ — Conway tx CBOR. @-@ reads from stdin. The
+  decoder is the same polymorphic @decodeConwayTxInput@ used by
+  @tx-diff@ and @tx-inspect@: accepts hex text envelope JSON, raw
+  hex text, or untagged binary CBOR.
+* @--utxo FILE@ — pre-resolved UTxO JSON for the tx's inputs. The
+  T003-shipped decoder is a syntax-only validator; the structural
+  decoder is tracked separately.
+* @--n2c-socket-path SOCKET --network-magic N@ — live UTxO
+  resolution via a local @cardano-node@ Node-to-Client socket,
+  exactly the seam @tx-inspect@ and @tx-validate@ use.
+* @--rules FILE@ — operator-authored rules (Turtle or YAML sugar);
+  drives the entity overlay.
+* @--out FILE@ — output destination (default stdout).
+* @--format turtle|json-ld@ — output format (default @turtle@).
 
-@--format turtle|json-ld@ is parsed (default @turtle@) and
-@--out \<path\>@ is parsed (default stdout); both are inert
-in T003 because every body-emitting mode short-circuits before
-either is consulted. T005 wires the Turtle serializer to the
-overlay-merging code path; T011 wires JSON-LD.
+Modes (flag-presence dispatch):
+
+* @--rules@ alone — overlay-only.
+* @--tx@ present — body-emitting; if @--rules@ is also present the
+  overlay is merged in (joint mode); if @--utxo@ or
+  @--n2c-socket-path@ is supplied the UTxO map is populated, else
+  body-only with an empty UTxO.
+* No input flags — @optparse-applicative@ usage error to stderr.
 
 Exit codes:
 
-* 0 — overlay emitted to stdout; any non-fatal warnings printed
-  to stderr.
-* 1 — structured 'Cardano.Tx.Graph.Rules.Load.RulesLoadError'
-  or 'Cardano.Tx.Graph.Emit.EmitError' printed to stderr.
-* 2 — @optparse-applicative@ usage error.
+* 0 — overlay or graph emitted successfully.
+* 1 — structured 'Cardano.Tx.Graph.Rules.Load.RulesLoadError' or
+  'Cardano.Tx.Graph.Emit.EmitError'.
+* >=2 — @optparse-applicative@ usage error or invalid flag
+  combination.
 -}
 module Main (main) where
 
@@ -59,61 +62,92 @@ import Cardano.Tx.Graph.Rules.Load (
     rulesEntities,
  )
 
+import Control.Concurrent.Async (withAsync)
+import Control.Monad (void)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
-import Data.ByteString.Lazy qualified as BSL
 import Data.Map.Strict qualified as Map
+import Data.Set (Set)
 import Data.Text qualified as Text
+import Data.Word (Word32)
 import Options.Applicative (
     Parser,
     ParserInfo,
+    ParserResult (Failure),
+    auto,
+    defaultPrefs,
+    eitherReader,
     execParser,
     fullDesc,
+    handleParseResult,
     header,
     help,
     helper,
     info,
     long,
     metavar,
+    option,
     optional,
+    parserFailure,
     progDesc,
+    showDefault,
     strOption,
     value,
     (<**>),
  )
+import Options.Applicative.Types (ParseError (ErrorMsg))
 import System.Exit (ExitCode (..), exitSuccess, exitWith)
-import System.IO (hPutStrLn, stderr, stdout)
+import System.IO (hPutStrLn, stderr, stdin, stdout)
 import System.IO.Error (catchIOError)
 
-import Cardano.Ledger.Binary (decodeFullAnnotator)
-import Cardano.Ledger.Binary.Decoding (decCBOR)
-import Cardano.Ledger.Conway (ConwayEra)
-import Cardano.Ledger.Core (eraProtVerLow)
+import Cardano.Ledger.Api.Tx (bodyTxL)
+import Cardano.Ledger.Api.Tx.Body (
+    collateralInputsTxBodyL,
+    inputsTxBodyL,
+    referenceInputsTxBodyL,
+ )
+import Cardano.Ledger.TxIn (TxIn)
+import Lens.Micro ((^.))
+import Ouroboros.Network.Magic (NetworkMagic (..))
 
+import Cardano.Node.Client.N2C.Connection (
+    newLSQChannel,
+    newLTxSChannel,
+    runNodeClient,
+ )
+import Cardano.Node.Client.N2C.Provider (mkN2CProvider)
+import Cardano.Tx.Diff (decodeConwayTxInput)
+import Cardano.Tx.Diff.Resolver (Resolver, resolveChain)
+import Cardano.Tx.Diff.Resolver.N2C (n2cResolver)
 import Cardano.Tx.Ledger (ConwayTx)
 
-{- | Command-line options. The body-emitter flags
-(@--tx@ / @--utxo@ / @--out@ / @--format@) were introduced in
-T003 alongside the dispatcher.
+{- | Mainnet network magic. Default for @--network-magic@ — matches
+@tx-validate@.
+-}
+mainnetMagic :: Word32
+mainnetMagic = 764824073
+
+{- | Command-line options. @--n2c-socket-path@ + @--network-magic@
+mirror the surface @tx-inspect@ and @tx-validate@ already expose.
 -}
 data Options = Options
     { optRulesFile :: !(Maybe FilePath)
-    -- ^ Operator-authored rules file (overlay producer).
-    , optTxFile :: !(Maybe FilePath)
-    -- ^ Conway tx CBOR (binary, untagged ledger encoding).
+    , optTxFile :: !(Maybe TxInputSource)
     , optUtxoFile :: !(Maybe FilePath)
-    -- ^ Resolved-UTxO JSON.
+    , optN2cSocket :: !(Maybe FilePath)
+    , optNetworkMagic :: !Word32
     , optOutFile :: !(Maybe FilePath)
-    -- ^ Output destination; 'Nothing' means stdout.
     , optFormat :: !String
-    -- ^ Output format ('turtle' / 'json-ld'); validated at
-    -- dispatch time so unknown values map to
-    -- 'Cardano.Tx.Graph.Emit.UnknownFormat'.
     }
 
-{- | Parser for 'Options'. All flags are optional at the parser
-level; missing-input enforcement lives in 'dispatch'.
+{- | Where to read the Conway tx CBOR from. @-@ on the command
+line maps to 'TxFromStdin'.
 -}
+data TxInputSource
+    = TxFromFile FilePath
+    | TxFromStdin
+    deriving stock (Eq, Show)
+
 optionsParser :: Parser Options
 optionsParser =
     Options
@@ -129,12 +163,15 @@ optionsParser =
                 )
             )
         <*> optional
-            ( strOption
+            ( option
+                readTxInput
                 ( long "tx"
-                    <> metavar "FILE"
+                    <> metavar "PATH | -"
                     <> help
-                        ( "Conway tx CBOR (binary). Triggers the "
-                            <> "body-emitting dispatcher."
+                        ( "Conway tx CBOR (hex text envelope, raw "
+                            <> "hex, or binary). '-' reads from "
+                            <> "stdin. Triggers the body-emitting "
+                            <> "dispatcher."
                         )
                 )
             )
@@ -143,10 +180,35 @@ optionsParser =
                 ( long "utxo"
                     <> metavar "FILE"
                     <> help
-                        ( "Resolved-UTxO JSON for the tx's inputs "
-                            <> "(joint mode)."
+                        ( "Resolved-UTxO JSON for the tx's inputs. "
+                            <> "Mutually exclusive with "
+                            <> "--n2c-socket-path."
                         )
                 )
+            )
+        <*> optional
+            ( strOption
+                ( long "n2c-socket-path"
+                    <> metavar "SOCKET"
+                    <> help
+                        ( "Local cardano-node Node-to-Client "
+                            <> "socket. When supplied, the tx's "
+                            <> "inputs are resolved live against "
+                            <> "the node (requires --network-"
+                            <> "magic)."
+                        )
+                )
+            )
+        <*> option
+            auto
+            ( long "network-magic"
+                <> metavar "WORD32"
+                <> value mainnetMagic
+                <> showDefault
+                <> help
+                    ( "Network magic for the --n2c-socket-path "
+                        <> "session. Defaults to mainnet."
+                    )
             )
         <*> optional
             ( strOption
@@ -159,14 +221,15 @@ optionsParser =
             ( long "format"
                 <> metavar "FORMAT"
                 <> value "turtle"
-                <> help
-                    ( "Output format: 'turtle' (default) or "
-                        <> "'json-ld'. T005 wires Turtle; T011 "
-                        <> "wires JSON-LD."
-                    )
+                <> showDefault
+                <> help "Output format: 'turtle' or 'json-ld'."
             )
+  where
+    readTxInput =
+        eitherReader $ \case
+            "-" -> Right TxFromStdin
+            path -> Right (TxFromFile path)
 
--- | The @optparse-applicative@ 'ParserInfo' for @tx-graph@.
 optionsInfo :: ParserInfo Options
 optionsInfo =
     info
@@ -174,56 +237,47 @@ optionsInfo =
         ( fullDesc
             <> header "tx-graph — operator-entity overlay + body emitter"
             <> progDesc
-                ( "Loads operator-authored rules (overlay-only "
-                    <> "mode) or drives the joint-graph body "
-                    <> "emitter on a Conway tx + resolved UTxO. "
-                    <> "Output format defaults to Turtle."
+                ( "tx-graph — operator-entity overlay + body "
+                    <> "emitter. Loads operator-authored rules "
+                    <> "(overlay-only mode) or drives the joint-"
+                    <> "graph body emitter on a Conway tx + "
+                    <> "resolved UTxO. Output format defaults to "
+                    <> "Turtle."
                 )
         )
 
--- | Entry point.
 main :: IO ()
 main = do
     opts <- execParser optionsInfo
     dispatch opts
 
-{- | Flag-presence dispatcher (plan D8). Three top-level modes:
-
-* @(--rules, _, _)@ with @--tx@ absent — overlay-only (the
-  existing #48 path).
-* @--tx@ present (regardless of @--rules@ / @--utxo@) —
-  body-emitting; routes through the real serializer (T005).
-* neither @--rules@ nor @--tx@ — usage error.
+{- | Flag-presence dispatcher. See the module header for the full
+mode table.
 -}
 dispatch :: Options -> IO ()
-dispatch
-    Options
-        { optRulesFile
-        , optTxFile
-        , optUtxoFile
-        , optOutFile
-        , optFormat
-        } =
-        case (optRulesFile, optTxFile) of
-            (Just rulesPath, Nothing) ->
-                overlayOnly rulesPath
-            (_, Just txPath) ->
-                bodyEmit
-                    optRulesFile
-                    txPath
-                    optUtxoFile
-                    optOutFile
-                    optFormat
-            (Nothing, Nothing) -> do
-                hPutStrLn
-                    stderr
-                    ( "tx-graph: missing input — pass --rules and/or "
-                        <> "--tx (see --help)."
+dispatch opts =
+    case (optRulesFile opts, optTxFile opts) of
+        (Just rulesPath, Nothing) ->
+            overlayOnly rulesPath
+        (_, Just txSource) ->
+            bodyEmit opts txSource
+        (Nothing, Nothing) ->
+            handleParseResult
+                ( Failure
+                    ( parserFailure
+                        defaultPrefs
+                        optionsInfo
+                        ( ErrorMsg
+                            ( "missing input: pass --rules "
+                                <> "and/or --tx (see --help)."
+                            )
+                        )
+                        []
                     )
-                exitWith (ExitFailure 2)
+                )
 
-{- | Overlay-only mode (existing #48 contract). Loads the rules
-file and writes the canonical Turtle entity overlay to stdout.
+{- | Overlay-only mode. Loads the rules file and writes the
+canonical Turtle entity overlay to stdout.
 -}
 overlayOnly :: FilePath -> IO ()
 overlayOnly rulesPath = do
@@ -237,52 +291,34 @@ overlayOnly rulesPath = do
             hPutStrLn stderr (renderRulesLoadError err)
             exitWith (ExitFailure 1)
 
-{- | Body-emitting modes (plan D8 rows 2–5). Decodes the tx +
-optional UTxO + optional rules file, validates the @--format@
-argument, and calls 'Cardano.Tx.Graph.Emit.emit' followed by
-'serialize' for the chosen 'EmitFormat'.
+{- | Body-emitting modes. Decodes the tx, populates the UTxO map
+from @--utxo@ or the live N2C resolver, optionally merges the
+overlay in, and writes the serialized graph.
 
-When @--rules@ is present, the overlay bytes from the loader are
-threaded into the emitted graph's @graphOverlayTurtle@ field so
-the serializer produces the joint Turtle output (overlay +
-body). When @--rules@ is absent, the body emits without an
-overlay section — body-only / body-with-utxo modes.
-
-The fixture slug used in the @\@prefix :@ declaration defaults
-to @\"tx\"@; the operator-facing surface will grow a @--slug@
-flag in a later slice when the executable picks up multi-fixture
-batch emission.
+@--utxo@ and @--n2c-socket-path@ are mutually exclusive: passing
+both is a configuration error.
 -}
-bodyEmit ::
-    Maybe FilePath ->
-    FilePath ->
-    Maybe FilePath ->
-    Maybe FilePath ->
-    String ->
-    IO ()
-bodyEmit mRules txPath mUtxo mOut fmt = do
-    fmtChecked <- exitOnEmitError (parseFormat fmt)
-    tx <- exitOnEmitError =<< loadTxCbor txPath
-    utxo <- case mUtxo of
-        Nothing -> pure (Map.empty :: ResolvedUTxO)
-        Just p -> exitOnEmitError =<< loadUtxoJson p
-    (entities, overlay) <- case mRules of
+bodyEmit :: Options -> TxInputSource -> IO ()
+bodyEmit opts txSource = do
+    fmtChecked <- exitOnEmitError (parseFormat (optFormat opts))
+    tx <- loadTxOrExit txSource
+    (entities, overlay) <- case optRulesFile opts of
         Nothing -> pure ([], BS.empty)
         Just p -> loadOverlayAndEntitiesOrExit p
+    utxo <- resolveUtxoOrExit opts tx
     g <- exitOnEmitError (emit tx utxo entities)
     let joint = g{graphOverlayTurtle = overlay}
         rendered = serialize fmtChecked defaultSlug joint
-    writeOutput mOut rendered
+    writeOutput (optOutFile opts) rendered
 
-{- | Slug used in the @\@prefix :@ declaration when the
-executable's body emitter doesn't otherwise know the fixture
-name. T005 hardcodes it; a later operator-surface slice can
-promote it to a @--slug@ flag.
+{- | Slug used in the @\@prefix :@ declaration when the executable
+doesn't know the fixture name. Operator-surface @--slug@ flag
+deferred.
 -}
 defaultSlug :: FilePath
 defaultSlug = "tx"
 
-{- | Write the serialized graph to @--out@ if set; otherwise to
+{- | Write the serialized graph to @--out@ if set, otherwise to
 stdout.
 -}
 writeOutput :: Maybe FilePath -> BS.ByteString -> IO ()
@@ -290,74 +326,133 @@ writeOutput mOut bytes = case mOut of
     Nothing -> BS.hPut stdout bytes
     Just p -> BS.writeFile p bytes
 
-{- | Parse the @--format@ argument to an 'EmitFormat'. Unknown
-values surface as 'UnknownFormat' (T003 enforces the contract;
-the underlying serializers land in T005 / T011).
--}
 parseFormat :: String -> Either EmitError EmitFormat
 parseFormat = \case
     "turtle" -> Right Turtle
     "json-ld" -> Right JsonLd
     other -> Left (UnknownFormat (Text.pack other))
 
-{- | Load and decode a Conway tx CBOR file (binary, untagged
-ledger encoding). On any IO or decode failure surfaces a
-'MalformedTxCbor' value.
+{- | Read the Conway tx CBOR from @--tx@ (file or stdin), decode
+it polymorphically, and exit with 'MalformedTxCbor' on failure.
 -}
-loadTxCbor :: FilePath -> IO (Either EmitError ConwayTx)
-loadTxCbor path = do
-    bsOrErr <- tryReadFile path
-    pure $ case bsOrErr of
+loadTxOrExit :: TxInputSource -> IO ConwayTx
+loadTxOrExit src = do
+    let label = case src of
+            TxFromStdin -> "<stdin>"
+            TxFromFile p -> p
+    bsOrErr <- case src of
+        TxFromStdin ->
+            (Right <$> BS.hGetContents stdin)
+                `catchIOError` (pure . Left . show)
+        TxFromFile p ->
+            (Right <$> BS.readFile p)
+                `catchIOError` (pure . Left . show)
+    case bsOrErr of
         Left ioMsg ->
-            Left (MalformedTxCbor path (Text.pack ioMsg))
+            exitOnEmitError
+                (Left (MalformedTxCbor label (Text.pack ioMsg)))
         Right bs ->
-            case decodeFullAnnotator
-                (eraProtVerLow @ConwayEra)
-                "ConwayTx"
-                decCBOR
-                (BSL.fromStrict bs) of
+            case decodeConwayTxInput bs of
                 Right tx ->
-                    Right tx
+                    pure tx
                 Left decErr ->
-                    Left
-                        ( MalformedTxCbor
-                            path
-                            (Text.pack (show decErr))
+                    exitOnEmitError
+                        ( Left
+                            ( MalformedTxCbor
+                                label
+                                (Text.pack (show decErr))
+                            )
                         )
 
-{- | Load and decode a resolved-UTxO JSON file. T003 ships a
-syntax-only validator: the file must parse as JSON, but the
-emitter still receives an empty 'ResolvedUTxO' because the
-body-emitter dispatcher short-circuits on 'NoSerializerYet'
-before the map is consulted. T005 (or the slice that wires the
-real projection walker) replaces this with a structural decoder
-against the 'TxIn' / 'TxOut' shape; the @--utxo@ contract is
-unchanged from the operator's perspective.
+{- | Resolve the tx's inputs to a 'ResolvedUTxO' using whichever
+source the operator configured. @--utxo@ and @--n2c-socket-path@
+are mutually exclusive.
 -}
-loadUtxoJson :: FilePath -> IO (Either EmitError ResolvedUTxO)
-loadUtxoJson path = do
-    bsOrErr <- tryReadFile path
-    pure $ case bsOrErr of
+resolveUtxoOrExit :: Options -> ConwayTx -> IO ResolvedUTxO
+resolveUtxoOrExit opts tx =
+    case (optUtxoFile opts, optN2cSocket opts) of
+        (Just _, Just _) -> do
+            hPutStrLn
+                stderr
+                ( "tx-graph: --utxo and --n2c-socket-path are "
+                    <> "mutually exclusive."
+                )
+            exitWith (ExitFailure 2)
+        (Just utxoPath, Nothing) ->
+            loadUtxoJsonOrExit utxoPath
+        (Nothing, Just socketPath) ->
+            resolveViaN2c socketPath (optNetworkMagic opts) tx
+        (Nothing, Nothing) ->
+            pure Map.empty
+
+{- | Load and decode a resolved-UTxO JSON file. The T003 decoder
+is a syntax-only validator; the structural decoder is tracked
+separately.
+-}
+loadUtxoJsonOrExit :: FilePath -> IO ResolvedUTxO
+loadUtxoJsonOrExit path = do
+    bsOrErr <-
+        (Right <$> BS.readFile path)
+            `catchIOError` (pure . Left . show)
+    case bsOrErr of
         Left ioMsg ->
-            Left (MalformedUtxoJson path (Text.pack ioMsg))
+            exitOnEmitError
+                (Left (MalformedUtxoJson path (Text.pack ioMsg)))
         Right bs ->
             case Aeson.eitherDecodeStrict bs :: Either String Aeson.Value of
-                Right _ -> Right Map.empty
+                Right _ -> pure Map.empty
                 Left parseErr ->
-                    Left
-                        ( MalformedUtxoJson
-                            path
-                            (Text.pack parseErr)
+                    exitOnEmitError
+                        ( Left
+                            ( MalformedUtxoJson
+                                path
+                                (Text.pack parseErr)
+                            )
                         )
 
-{- | Load the operator-entity list AND the overlay Turtle bytes
-from a rules file. The overlay bytes are inlined verbatim into
-the joint Turtle output by the serializer; the entity list
-drives the credential lookup.
+{- | Spin up an N2C session against the supplied socket and
+resolve the tx's input set via the standard chain resolver. The
+session is torn down when this function returns.
+-}
+resolveViaN2c :: FilePath -> Word32 -> ConwayTx -> IO ResolvedUTxO
+resolveViaN2c socket magic tx =
+    withN2cResolver socket magic $ \r -> do
+        (resolved, _unresolved) <- resolveChain [r] (collectInputs tx)
+        pure resolved
 
-A rules load failure exits with the loader's structured renderer
-(exit 1) so the operator sees the same diagnostic the
-overlay-only mode would print.
+{- | Collect every 'TxIn' the body references: spending inputs,
+reference inputs, collateral inputs. Mirrors the same helper in
+@tx-inspect@ and @tx-validate@.
+-}
+collectInputs :: ConwayTx -> Set TxIn
+collectInputs tx =
+    let body = tx ^. bodyTxL
+     in (body ^. inputsTxBodyL)
+            <> (body ^. referenceInputsTxBodyL)
+            <> (body ^. collateralInputsTxBodyL)
+
+{- | Bracket an N2C resolver around a continuation. Mirrors
+@tx-inspect@'s helper: spawn the mini-protocol thread, give the
+caller a single 'Resolver', and tear the thread down when the
+continuation returns.
+-}
+withN2cResolver :: FilePath -> Word32 -> (Resolver -> IO a) -> IO a
+withN2cResolver socket magic k = do
+    lsqCh <- newLSQChannel 64
+    ltxsCh <- newLTxSChannel 64
+    withAsync
+        ( void $
+            runNodeClient
+                (NetworkMagic magic)
+                socket
+                lsqCh
+                ltxsCh
+        )
+        $ \_ -> k (n2cResolver (mkN2CProvider lsqCh))
+
+{- | Load the operator-entity list AND the overlay Turtle bytes
+from a rules file. The overlay bytes are inlined into the joint
+Turtle output; the entity list drives the credential lookup.
 -}
 loadOverlayAndEntitiesOrExit ::
     FilePath -> IO ([EntityDecl], BS.ByteString)
@@ -371,8 +466,8 @@ loadOverlayAndEntitiesOrExit path = do
             hPutStrLn stderr (renderRulesLoadError err)
             exitWith (ExitFailure 1)
 
-{- | Either project an 'EmitError' to a stderr line + exit 1,
-or pass through a successful value.
+{- | Either project an 'EmitError' to a stderr line + exit 1, or
+pass through a successful value.
 -}
 exitOnEmitError :: Either EmitError a -> IO a
 exitOnEmitError = \case
@@ -380,14 +475,3 @@ exitOnEmitError = \case
     Left e -> do
         hPutStrLn stderr (renderEmitError e)
         exitWith (ExitFailure 1)
-
-{- | Read a file, mapping any 'IOError' to a 'Left' with the
-exception's 'show' rendering — used to feed 'MalformedTxCbor'
-/ 'MalformedUtxoJson' without leaking an 'IOError' to the
-operator.
--}
-tryReadFile :: FilePath -> IO (Either String BS.ByteString)
-tryReadFile path =
-    catchIOError
-        (Right <$> BS.readFile path)
-        (pure . Left . show)

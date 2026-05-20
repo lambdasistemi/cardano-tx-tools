@@ -52,6 +52,7 @@ let
         test -e ${components.exes."cardano-tx-generator"}
         test -e ${components.tests."unit-tests"}
         test -e ${components.tests."tx-generator-tests"}
+        test -e ${components.tests."tx-validate-tests"}
         test -e ${components.tests."e2e-tests"}
         echo "build outputs realized"
       '';
@@ -78,6 +79,15 @@ let
         [ components.tests."tx-generator-tests" ];
       text = ''
         tx-generator-tests
+      '';
+    };
+
+    tx-validate-unit = {
+      name = "tx-validate-unit";
+      runtimeInputs =
+        [ components.tests."tx-validate-tests" ];
+      text = ''
+        tx-validate-tests
       '';
     };
 

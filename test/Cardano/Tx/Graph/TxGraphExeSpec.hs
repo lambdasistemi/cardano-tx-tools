@@ -203,6 +203,46 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                     BS8.unpack err
                         `shouldSatisfy` ("UnknownFormat" `isInfixOf`)
 
+            it
+                ( "(6) --tx - (stdin) — exit 0, stdout carries the"
+                    <> " # Transaction body. section"
+                )
+                $ do
+                    (code, out, _err) <-
+                        runExeWithStdin
+                            txGraphPath
+                            ["--tx", "-"]
+                            s02CborBytes
+                    code `shouldBe` ExitSuccess
+                    BS8.unpack out
+                        `shouldSatisfy` ("# Transaction body." `isInfixOf`)
+
+            it
+                ( "(7) --utxo + --n2c-socket-path are mutually"
+                    <> " exclusive — non-zero exit, stderr explains"
+                )
+                $ withSystemTempDirectory "tx-graph-mutex"
+                $ \dir -> do
+                    let txPath = dir </> "tx.cbor"
+                        utxoPath = dir </> "utxo.json"
+                    BS.writeFile txPath s02CborBytes
+                    BS.writeFile utxoPath "{}"
+                    (code, _out, err) <-
+                        runExe
+                            txGraphPath
+                            [ "--tx"
+                            , txPath
+                            , "--utxo"
+                            , utxoPath
+                            , "--n2c-socket-path"
+                            , dir </> "no-such.socket"
+                            ]
+                    code `shouldSatisfy` isFailure
+                    BS8.unpack err
+                        `shouldSatisfy` ( "mutually exclusive"
+                                            `isInfixOf`
+                                        )
+
 ----------------------------------------------------------------------
 -- Tx fixture bytes
 ----------------------------------------------------------------------
@@ -241,6 +281,34 @@ runExe prog args = do
             _ ->
                 fail $
                     "runExe: stdout/stderr pipes not created for " <> prog
+
+{- | Same as 'runExe' but feeds the supplied bytes on the spawned
+process's stdin. The CBOR payloads we use are small enough that the
+write-then-close-then-read pattern fits inside the OS pipe buffer.
+-}
+runExeWithStdin ::
+    FilePath -> [String] -> ByteString -> IO (ExitCode, ByteString, ByteString)
+runExeWithStdin prog args input = do
+    let cp =
+            (proc prog args)
+                { std_in = CreatePipe
+                , std_out = CreatePipe
+                , std_err = CreatePipe
+                }
+    withCreateProcess cp $ \mStdin mStdout mStderr ph ->
+        case (mStdin, mStdout, mStderr) of
+            (Just hIn, Just hOut, Just hErr) -> do
+                BS.hPut hIn input
+                hClose hIn
+                out <- BS.hGetContents hOut
+                err <- BS.hGetContents hErr
+                hClose hOut
+                hClose hErr
+                code <- waitForProcess ph
+                pure (code, out, err)
+            _ ->
+                fail $
+                    "runExeWithStdin: pipes not created for " <> prog
 
 -- | Non-zero exit detector.
 isFailure :: ExitCode -> Bool

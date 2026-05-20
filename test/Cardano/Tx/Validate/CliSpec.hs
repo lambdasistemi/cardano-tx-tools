@@ -117,7 +117,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
                     fakeBanner
                     [ "--input"
                     , "tx.cbor.hex"
-                    , "--n2c-socket"
+                    , "--n2c-socket-path"
                     , "/tmp/node.socket"
                     ]
             txValidateCliInput options
@@ -135,7 +135,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
                     fakeBanner
                     [ "--input"
                     , "-"
-                    , "--n2c-socket"
+                    , "--n2c-socket-path"
                     , "/tmp/node.socket"
                     ]
             txValidateCliInput options `shouldBe` InputStdin

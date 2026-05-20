@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Features
+
+* **tx-graph:** read Conway tx CBOR from stdin via `--tx -`; resolve
+  UTxO live against a local `cardano-node` over Node-to-Client via
+  `--n2c-socket-path` / `--network-magic` (same seam `tx-inspect` and
+  `tx-validate` expose); accept hex / hex-envelope / raw CBOR via the
+  shared polymorphic decoder. `--utxo` and `--n2c-socket-path` are
+  mutually exclusive.
+* **tx-validate!** rename `--n2c-socket` to `--n2c-socket-path` for
+  consistency with `tx-inspect` and `tx-graph`. **Breaking** — scripts
+  pinning the old flag name must be updated.
+
 ### Maintenance
 
 * **066:** `tx-graph` is now wired into the Linux release pipeline

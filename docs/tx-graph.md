@@ -7,24 +7,39 @@ mint, withdrawal, certificates, collateral, proposals), and their
 cross-references — in one canonical Turtle or JSON-LD graph.
 
 ```text
-Usage: tx-graph (--rules FILE | --tx FILE [--utxo FILE]) [--out FILE]
-                [--format turtle|json-ld]
+Usage: tx-graph [--rules FILE] [--tx PATH | -]
+                [--utxo FILE | --n2c-socket-path SOCKET]
+                [--network-magic WORD32]
+                [--out FILE] [--format turtle|json-ld]
 
-  --rules FILE          Operator-authored rules file (.ttl / .yaml / .yml)
-  --tx FILE             Conway transaction CBOR
-  --utxo FILE           Resolved-UTxO JSON (same shape consumed by
-                        Cardano.Tx.Diff.Resolver)
-  --out FILE            Output path (defaults to stdout)
-  --format FORMAT       turtle | json-ld (defaults to turtle)
+  --rules FILE              Operator-authored rules file (.ttl / .yaml /
+                            .yml). Overlay-only mode when used alone.
+  --tx PATH | -             Conway tx CBOR (hex envelope, raw hex, or
+                            binary). '-' reads from stdin. Triggers the
+                            body-emitting dispatcher.
+  --utxo FILE               Pre-resolved UTxO JSON for the tx's inputs.
+                            Mutually exclusive with --n2c-socket-path.
+  --n2c-socket-path SOCKET  Local cardano-node Node-to-Client socket.
+                            Resolves the tx's inputs live against the
+                            node (requires --network-magic).
+  --network-magic WORD32    Network magic for the --n2c-socket-path
+                            session (default: mainnet, 764824073).
+  --out FILE                Output path (defaults to stdout).
+  --format turtle|json-ld   Output format (defaults to turtle).
 ```
 
 ## Three modes by flag presence
 
-| `--rules` | `--tx` | `--utxo` | Behaviour |
-|-----------|--------|----------|-----------|
-| present | absent  | absent  | **Overlay only** — emits the operator-entity overlay (`cardano:Entity` + `cardano:Identifier` blocks for every entity in the rules file). The deterministic blank-node naming scheme is documented under [rewriting-rules grammar](rewriting-rules.md) (entity slugs as IRI local parts; `_:<slug>_<roleSuffix>` per identifier). |
-| present | present | present | **Joint graph** — emits the overlay followed by the transaction body. Body credentials cross-reference the overlay's identifier blank nodes when an entity covers the credential's `(LeafType, bytesHex)` pair; otherwise a raw-bytes naming fallback applies. |
-| absent  | present | optional | **Body only** — emits the transaction body with raw-bytes naming for every credential (no entity-named bnodes). Useful for ad-hoc inspection without authoring rules. |
+| `--rules` | `--tx` | UTxO source | Behaviour |
+|-----------|--------|-------------|-----------|
+| present | absent  | n/a | **Overlay only** — emits the operator-entity overlay (`cardano:Entity` + `cardano:Identifier` blocks for every entity in the rules file). The deterministic blank-node naming scheme is documented under [rewriting-rules grammar](rewriting-rules.md) (entity slugs as IRI local parts; `_:<slug>_<roleSuffix>` per identifier). |
+| present | present | `--utxo` or `--n2c-socket-path` (optional) | **Joint graph** — emits the overlay followed by the transaction body. Body credentials cross-reference the overlay's identifier blank nodes when an entity covers the credential's `(LeafType, bytesHex)` pair; otherwise a raw-bytes naming fallback applies. |
+| absent  | present | `--utxo` or `--n2c-socket-path` (optional) | **Body only** — emits the transaction body with raw-bytes naming for every credential (no entity-named bnodes). Useful for ad-hoc inspection without authoring rules. |
+
+`--utxo` and `--n2c-socket-path` are mutually exclusive; passing
+both exits non-zero with a one-line stderr message. With neither,
+the UTxO map is empty, which is enough for leaves that key off
+the body alone.
 
 ## Examples
 
@@ -34,7 +49,8 @@ Emit the operator-entity overlay from a rules file:
 tx-graph --rules rules/amaru-treasury.yaml
 ```
 
-Emit the joint graph for a built unsigned tx:
+Emit the joint graph for a built unsigned tx, with the UTxO
+pre-resolved to JSON on disk:
 
 ```bash
 tx-graph \
@@ -44,7 +60,20 @@ tx-graph \
   --out graph.ttl
 ```
 
-Same input, JSON-LD output:
+Same shape, but read the tx CBOR from stdin and resolve the
+UTxO live against a local `cardano-node` over Node-to-Client
+(same seam `tx-inspect` and `tx-validate` use):
+
+```bash
+cat tx.cbor | tx-graph \
+  --tx - \
+  --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH" \
+  --network-magic 764824073 \
+  --rules rules/amaru-treasury.yaml \
+  --out graph.ttl
+```
+
+JSON-LD output of the same input:
 
 ```bash
 tx-graph \
@@ -92,7 +121,9 @@ emitJoint rulesPath tx utxo = do
 ```
 
 Both `emit` and `serialize` are pure; the only IO happens at the
-rules-loading boundary (which the CLI handles for operators).
+rules-loading boundary (which the CLI handles for operators) and,
+when `--n2c-socket-path` is supplied, the Node-to-Client session
+that resolves the tx's inputs.
 
 ## See also
 

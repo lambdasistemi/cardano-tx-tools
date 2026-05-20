@@ -27,6 +27,7 @@ jobs:
           .#checks.x86_64-linux.build
           .#checks.x86_64-linux.unit
           .#checks.x86_64-linux.tx-generator-unit
+          .#checks.x86_64-linux.tx-validate-unit
           .#checks.x86_64-linux.e2e
           .#checks.x86_64-linux.lint
       - name: Release version contract
@@ -67,6 +68,18 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: TxGenerator unit tests
         run: nix run --quiet .#tx-generator-unit
+
+  tx-validate-unit:
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: TxValidate unit tests
+        run: nix run --quiet .#tx-validate-unit
 
   e2e:
     needs: build-gate

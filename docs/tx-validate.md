@@ -9,7 +9,7 @@ one-line human summary or a JSON envelope; the exit code is the
 contract pipelines act on.
 
 ```text
-Usage: tx-validate --input PATH | - --n2c-socket PATH [--network-magic WORD32]
+Usage: tx-validate --input PATH | - --n2c-socket-path PATH [--network-magic WORD32]
                    [--output human|json] [--version]
 ```
 
@@ -28,7 +28,7 @@ Validate an unsigned tx against a local mainnet node:
 ```bash
 tx-validate \
   --input unsigned.cbor.hex \
-  --n2c-socket "$CARDANO_NODE_SOCKET_PATH"
+  --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH"
 # structurally clean: 2 witness-completeness failures filtered
 ```
 
@@ -37,7 +37,7 @@ JSON envelope for machine-readable pipelines:
 ```bash
 tx-validate \
   --input unsigned.cbor.hex \
-  --n2c-socket "$CARDANO_NODE_SOCKET_PATH" \
+  --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH" \
   --output json
 ```
 
@@ -58,14 +58,14 @@ Preprod (or any testnet) — pass the right network magic:
 ```bash
 tx-validate \
   --input unsigned.cbor.hex \
-  --n2c-socket /run/cardano-preprod.socket \
+  --n2c-socket-path /run/cardano-preprod.socket \
   --network-magic 1
 ```
 
 Pipeline integration — gate signing on the exit code:
 
 ```bash
-tx-validate --input "$tx" --n2c-socket "$CARDANO_NODE_SOCKET_PATH"
+tx-validate --input "$tx" --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH"
 case $? in
   0) tx-sign --network mainnet witness --tx "$tx" ... ;;
   1) echo "Phase-1 rejected; do not sign"; exit 1 ;;

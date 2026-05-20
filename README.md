@@ -17,8 +17,8 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 | [`tx-diff`](https://lambdasistemi.github.io/cardano-tx-tools/tx-diff/) | Structural diff between two Conway transactions, keyed by ledger identity (TxIn, address+asset, vkey hash, redeemer purpose). Plutus datums and redeemers decoded against an optional blueprint schema. | `tx-diff a.cbor.hex b.cbor.hex` |
 | [`tx-inspect`](https://lambdasistemi.github.io/cardano-tx-tools/tx-inspect/) | Render one Conway transaction as a structured, human-readable report. Optional [rewriting-rules YAML](https://lambdasistemi.github.io/cardano-tx-tools/rewriting-rules/) drives two stages: **collapse** repeated shapes into named buckets, then **rename** payment addresses and script hashes to address-book names. Same loader and per-leaf renderer `tx-diff` uses. | `tx-inspect tx.cbor.hex --rules rules/amaru-treasury.yaml` |
 | [`tx-sign`](https://lambdasistemi.github.io/cardano-tx-tools/tx-sign/) | Age-encrypted signing-key vault and detached vkey witness creation. Cleartext keys never touch disk; passphrase never on `argv`. | `tx-sign --network mainnet witness --tx unsigned.cbor.hex --vault core.vault.age --out core.witness.hex` |
-| [`tx-validate`](https://lambdasistemi.github.io/cardano-tx-tools/tx-validate/) | Conway Phase-1 pre-flight against a local `cardano-node` via Node-to-Client. Exit code is the contract: `0` clean, `1` structural failure, `≥2` configuration/resolver error. | `tx-validate --input unsigned.cbor.hex --n2c-socket "$CARDANO_NODE_SOCKET_PATH"` |
-| [`tx-graph`](https://lambdasistemi.github.io/cardano-tx-tools/tx-graph/) | Emits a Conway transaction as RDF — the operator-entity overlay (from a rules file in Turtle or YAML sugar), the transaction body (inputs / outputs / certs / mints / withdrawals / collateral / proposals), and their cross-references in one canonical Turtle or JSON-LD graph. Three modes by flag presence: overlay-only (`--rules`), body-only (`--tx --utxo`), joint (`--tx --utxo --rules`). | `tx-graph --tx tx.cbor --utxo resolved.json --rules rules.yaml --out graph.ttl` |
+| [`tx-validate`](https://lambdasistemi.github.io/cardano-tx-tools/tx-validate/) | Conway Phase-1 pre-flight against a local `cardano-node` via Node-to-Client. Exit code is the contract: `0` clean, `1` structural failure, `≥2` configuration/resolver error. | `tx-validate --input unsigned.cbor.hex --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH"` |
+| [`tx-graph`](https://lambdasistemi.github.io/cardano-tx-tools/tx-graph/) | Emits a Conway transaction as RDF — the operator-entity overlay (from a rules file in Turtle or YAML sugar), the transaction body (inputs / outputs / certs / mints / withdrawals / collateral / proposals), and their cross-references in one canonical Turtle or JSON-LD graph. Three modes by flag presence: overlay-only (`--rules`), body-only (`--tx --utxo` or `--tx --n2c-socket-path`), joint (`--tx --rules` plus `--utxo` or `--n2c-socket-path`). | `tx-graph --tx tx.cbor --utxo resolved.json --rules rules.yaml --out graph.ttl` · live N2C: `tx-graph --tx tx.cbor --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH" --network-magic 764824073 --rules rules.yaml --out graph.ttl` |
 | [`cardano-tx-generator`](https://lambdasistemi.github.io/cardano-tx-tools/cardano-tx-generator/) | Long-running daemon that drives a configurable mix of Conway transactions against a node for soak / fuzz testing. | `cardano-tx-generator --config preprod.yaml` |
 
 ## A worked workflow
@@ -32,7 +32,7 @@ unsigned=tx.cbor.hex
 # 2. Pre-flight against the live ledger.  Exit 0 means it's
 # structurally sound (only witness-completeness failures remain,
 # which signing will resolve).
-tx-validate --input "$unsigned" --n2c-socket "$CARDANO_NODE_SOCKET_PATH" \
+tx-validate --input "$unsigned" --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH" \
     || { echo "Phase-1 rejected; do not sign"; exit 1; }
 
 # 3. Inspect the tx as a structured, named report (collapse + rename
