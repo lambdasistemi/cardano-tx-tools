@@ -199,6 +199,18 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T109 — S8: `views/no-stub-triples.rq` + gate-script integration (feat)
 
+- **Status**: [X] complete — landed at this commit. Canonical SPARQL
+  view shipped at `views/no-stub-triples.rq` (the operator-facing
+  contract; downstream RDF stores — Apache Jena ARQ, Redland roqet,
+  Oxigraph — must observe the same zero-row outcome). In-repo CI
+  runner is `Cardano.Tx.Graph.Emit.NoStubViewSpec`: a line-scanning
+  structural predicate over the canonical Turtle serializer output,
+  re-implementing the view's semantics without a SPARQL engine
+  (Q-001 / A-001-sparql-runtime decision). 11/11 fixtures GREEN
+  plus a self-check assertion that guards against a vacuously-GREEN
+  predicate. Wired into `unit-main.hs` so `gate.sh` picks it up via
+  the existing `just unit` step (no `gate.sh` edit needed; recorded
+  in commit body).
 - **Subject**: `feat(070): no-stub SPARQL view + gate.sh integration`
 - **Tasks trailer**: `Tasks: T109`
 - **Files**:
