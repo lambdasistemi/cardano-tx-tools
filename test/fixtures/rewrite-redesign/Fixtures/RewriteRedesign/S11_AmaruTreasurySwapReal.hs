@@ -15,13 +15,12 @@ production DSL call shape (read-only — the harness does NOT depend on
 Body shape: 2 inputs (1 user wallet + 1 treasury), 5 outputs (2 swap
 orders at @amaru.swap.v2@ + 1 treasury leftover at
 @amaru-treasury.network_compliance@ + 2 user payments back to the
-@amaru.network-wallet@), 1 collateral input from the same user wallet.
-The on-chain tx additionally carries a zero-amount @withdraw@ redeemer
-and four reference inputs; the harness does NOT model these structurally
-because 'assertShape' counts only the body-shape fields enumerated in
-'ExpectedShape', and the rewrite-redesign rendering contract is
-exercised by the future @#47@ emitter against @rules.yaml@'s
-@entities:@ section, not by the @TxBuilder@ body.
+@amaru.network-wallet@), 1 collateral input from the same user wallet,
+4 reference inputs (mirroring the on-chain swap-validator + treasury
+script + network-compliance + amaru.swap.v2 reference scripts the
+real tx attaches). T103 adds the four 'reference' entries so the
+emitter's reference-input branch is exercised by a live-shape
+fixture; @ExpectedShape.esReferenceIns@ is bumped to 4 in step.
 
 The harness sister fixture @01-amaru-treasury-swap@ remains as the
 hypothetical 33-input stress example from the 044 spec narrative; this
@@ -41,7 +40,19 @@ module Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal (
     storyId,
     tx,
     shape,
+    swapUsdmPolicy,
+    swapUsdmName,
 ) where
+
+import Data.ByteString.Short qualified as SBS
+import Data.Maybe (fromJust)
+
+import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Hashes (ScriptHash (..))
+import Cardano.Ledger.Mary.Value (
+    AssetName (..),
+    PolicyID (..),
+ )
 
 import Fixtures.RewriteRedesign.Helpers (
     ExpectedShape (..),
@@ -51,9 +62,10 @@ import Fixtures.RewriteRedesign.Helpers (
     mkTx,
     stubTxIn,
     stubTxOut,
+    stubTxOutMA,
  )
 
-import Cardano.Tx.Build (collateral, output, spend)
+import Cardano.Tx.Build (collateral, output, reference, spend)
 import Cardano.Tx.Ledger (ConwayTx)
 
 -- | Story slug — kebab directory name under @test/fixtures/rewrite-redesign/@.
@@ -63,17 +75,55 @@ storyId = StoryId "11-amaru-treasury-swap-real"
 {- | Conway tx body: 2 inputs (user fuel + treasury), 5 outputs (2 swap-order
 chunks + 1 treasury leftover + 2 user payments), 1 collateral input.
 Values from the on-chain @expected.txt@ render; illustrative only.
+
+T104 / S3 lifts the first swap-order chunk to a multi-asset output
+carrying the @usdm-control@ × USDM bundle the real on-chain swap
+order settles. The remaining outputs stay coin-only — the
+single multi-asset entry is enough to exercise the output-side
+list emission on this real-shape fixture.
 -}
 tx :: ConwayTx
 tx = mkTx . TxBuilder $ do
     _ <- spend (stubTxIn 1) -- user-wallet input (96.8 ADA, also collateral source)
     _ <- spend (stubTxIn 2) -- treasury input (1_137_000 ADA)
-    _ <- output (stubTxOut 39_306_821_250) -- swap-order chunk 1
+    _ <-
+        output
+            ( stubTxOutMA
+                39_306_821_250
+                [(swapUsdmPolicy, swapUsdmName, 1_500_000_000)]
+            ) -- swap-order chunk 1 (USDM-bearing)
     _ <- output (stubTxOut 39_306_821_249) -- swap-order chunk 2
     _ <- output (stubTxOut 1_058_730_000_000) -- treasury leftover
     _ <- output (stubTxOut 50_000_000) -- user payment 1
     _ <- output (stubTxOut 46_800_000) -- user payment 2 (residual change)
     collateral (stubTxIn 100)
+    reference (stubTxIn 200) -- swap-validator reference script
+    reference (stubTxIn 201) -- treasury-validator reference script
+    reference (stubTxIn 202) -- network-compliance reference script
+    reference (stubTxIn 203) -- amaru.swap.v2 reference script
+
+----------------------------------------------------------------------
+-- Asset constants — same USDM policy as fixtures 03 + 04
+----------------------------------------------------------------------
+
+{- | USDM policy-id used by the on-chain Amaru swap. Re-exported so
+'Cardano.Tx.Graph.EmitGoldenSpec' can construct the resolved-UTxO
+entry that surfaces the resolved-input multi-asset path.
+-}
+swapUsdmPolicy :: PolicyID
+swapUsdmPolicy =
+    PolicyID
+        ( ScriptHash
+            ( fromJust
+                ( hashFromStringAsHex
+                    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
+                )
+            )
+        )
+
+-- | USDM asset-name — same as fixtures 03 + 04.
+swapUsdmName :: AssetName
+swapUsdmName = AssetName (SBS.toShort "USDM")
 
 -- | Expected structural shape per the real on-chain tx.
 shape :: ExpectedShape
@@ -82,4 +132,5 @@ shape =
         { esInputs = 2
         , esOutputs = 5
         , esCollateral = 1
+        , esReferenceIns = 4
         }

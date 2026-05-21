@@ -43,7 +43,12 @@ import Cardano.Tx.Graph.Emit.Triple (
     Subject (..),
     SubjectBlock (..),
  )
-import Cardano.Tx.Graph.Emit.Vocab (cardanoPrefix, fixturePrefixBase, rdfsPrefix)
+import Cardano.Tx.Graph.Emit.Vocab (
+    cardanoPrefix,
+    fixturePrefixBase,
+    rdfPrefix,
+    rdfsPrefix,
+ )
 
 {- | Render the joint Turtle output for a fixture slug + the
 emitter's IR.
@@ -130,6 +135,7 @@ renderPrefixes :: Text -> Builder
 renderPrefixes slug =
     mconcat
         [ prefixLine "cardano:" cardanoPrefix
+        , prefixLine "rdf:    " rdfPrefix
         , prefixLine "rdfs:   " rdfsPrefix
         , prefixLine ":       " (fixturePrefixBase <> slug <> "#")
         , newline

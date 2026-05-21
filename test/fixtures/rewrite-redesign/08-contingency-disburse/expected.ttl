@@ -1,4 +1,5 @@
 @prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/08-contingency-disburse#> .
 
@@ -61,33 +62,62 @@ _:tx a cardano:Transaction ;
 # Input 1
 #
 
-_:input1 a cardano:Input .
+_:input1 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef1 .
+
+_:inputTxOutRef1 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000001" .
 
 #
 # Input 2
 #
 
-_:input2 a cardano:Input .
+_:input2 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef2 .
+
+_:inputTxOutRef2 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000002" .
 
 #
 # Output 1
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 100000000 .
 
 #
 # Output 2
 #
 
 _:output2 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 9825000 .
 
 #
 # Collateral 1
 #
 
-_:collateral1 a cardano:Input .
+_:collateral1 a cardano:Input ;
+  cardano:fromTxOutRef _:collateralTxOutRef1 .
+
+_:collateralTxOutRef1 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000003" .
 
 #
 # Address decompositions — payment + stake credential per leaf.
@@ -96,6 +126,10 @@ _:collateral1 a cardano:Input .
 _:cred_paymentkey_0000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
   cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+
+_:cred_paymentkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .

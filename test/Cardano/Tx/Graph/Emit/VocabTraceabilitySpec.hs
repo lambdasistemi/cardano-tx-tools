@@ -7,11 +7,16 @@ Asserts the three vocab-traceability invariants on the joint
 Turtle output of every fixture currently enabled in
 'Cardano.Tx.Graph.EmitGoldenSpec':
 
-1. The emitter declares only the three known prefixes — @cardano:@,
-   @rdfs:@, fixture-local empty prefix — and no others.
+1. The emitter declares only the four known prefixes — @cardano:@,
+   @rdf:@, @rdfs:@, fixture-local empty prefix — and no others.
+   The @rdf:@ prefix was added at T104 to carry the RDF-list
+   primitives ('rdf:first', 'rdf:rest', 'rdf:nil') that bind an
+   output's multi-asset value list cells.
 2. No body line references a prefix outside that set (no
-   @ex:foo@, no @owl:Class@, no stray @rdf:type@ — Turtle's @a@
-   keyword covers the latter).
+   @ex:foo@, no @owl:Class@, etc. Turtle's @a@ keyword covers
+   the bare @rdf:type@ subject-predicate; the @rdf:@ prefix
+   surfaces only as the multi-asset list-cell predicates and
+   the @rdf:nil@ list terminator).
 3. No @_internal:@ substring leaks into the bytes. This catches
    accidental leaks of internal vocabulary draft IRIs.
 
@@ -34,6 +39,8 @@ import Data.ByteString.Char8 qualified as BS8
 import Data.Char (isAlpha, isAlphaNum)
 import Data.List (nub, sort)
 import Data.Map.Strict qualified as Map
+import Data.Set (Set)
+import Data.Set qualified as Set
 import System.FilePath ((</>))
 
 import Cardano.Tx.Graph.Emit (
@@ -100,6 +107,7 @@ fixtureSpec (slug, tx) = describe slug $ do
     let bytes = case emit tx emptyUtxo entities of
             Right g -> serialize Turtle slug g
             Left _ -> BS.empty
+    canonicalLocals <- runIO loadCanonicalLocals
     runIO $
         case emit tx emptyUtxo entities of
             Left err ->
@@ -109,17 +117,34 @@ fixtureSpec (slug, tx) = describe slug $ do
                         <> ": emit returned Left "
                         <> show err
             Right _ -> pure ()
-    it "declared prefixes ⊆ {cardano, rdfs, :}" $ do
+    it "declared prefixes ⊆ {cardano, rdf, rdfs, :}" $ do
         sort (extractDeclaredPrefixes bytes)
-            `shouldBe` sort ["", "cardano", "rdfs"]
-    it "every CURIE prefix in the body is one of the declared three" $ do
+            `shouldBe` sort ["", "cardano", "rdf", "rdfs"]
+    it "every CURIE prefix in the body is one of the declared four" $ do
         let usedPrefixes = nub (extractUsedPrefixes bytes)
-            ok p = p `elem` ["", "cardano", "rdfs"]
+            ok p = p `elem` ["", "cardano", "rdf", "rdfs"]
             bad = filter (not . ok) usedPrefixes
         bad `shouldBe` []
     it "no '_internal:' substring leak" $ do
         BS8.unpack bytes
             `shouldSatisfy` notContaining "_internal:"
+    -- T123a / S24: STRICT canonical-vocab traceability. Every
+    -- @cardano:Foo@ CURIE the emitter writes must trace to a
+    -- declaration in 'test/fixtures/canonical-vocab/transactions.ttl'
+    -- (the pinned upstream kmaps fragment). Flipping this on
+    -- closes the A-006 invariant — the canonical fragment is now
+    -- derived from Vocab.hs (T122b), so every Vocab term
+    -- contributes one declaration here.
+    --
+    -- T128g / S32: kmaps#57 (Phase A.3 — witness-set seaboard)
+    -- merged at kmaps@f8ca275 and the pin refresh in that commit
+    -- landed the 15 net-new declarations canonically. The strict
+    -- gate now runs without a short-circuit.
+    it "every emitted cardano: CURIE is declared in the canonical pin" $ do
+        let emittedLocals = Set.fromList (extractCardanoLocalParts bytes)
+            missing =
+                Set.toList (emittedLocals `Set.difference` canonicalLocals)
+        missing `shouldBe` []
 
 ----------------------------------------------------------------------
 -- Helpers
@@ -139,6 +164,79 @@ loadEntities path = do
                     <> path
                     <> ": "
                     <> show err
+
+{- | Load the set of @cardano:Foo@ local-parts declared in the
+vendored canonical pin. T123a / S24: strict mode flips on, so
+every emitted CURIE must appear in this set.
+
+The parser is a regex sweep over lines beginning with
+@cardano:@ — full Turtle parsing is out of scope. Matches any
+line that opens a declaration block: @cardano:Foo a rdfs:Class ;@
+or @cardano:hasFoo a rdf:Property ;@.
+-}
+loadCanonicalLocals :: IO (Set String)
+loadCanonicalLocals = do
+    bs <- BS.readFile "test/fixtures/canonical-vocab/transactions.ttl"
+    pure (extractDeclaredCardanoLocals bs)
+
+{- | Extract @Foo@ from every @cardano:Foo …@ declaration line in
+the canonical pin.
+-}
+extractDeclaredCardanoLocals :: ByteString -> Set String
+extractDeclaredCardanoLocals bs =
+    Set.fromList
+        [ takeWhile isIdentChar tail_
+        | bsLine <- BS8.lines bs
+        , let line = BS8.unpack bsLine
+        , Just tail_ <- [stripPrefixStr "cardano:" line]
+        , first : _ <- [tail_]
+        , isAlpha first || first == '_'
+        ]
+
+-- | Drop the prefix from a string; 'Nothing' if not a prefix.
+stripPrefixStr :: String -> String -> Maybe String
+stripPrefixStr p s
+    | take (length p) s == p = Just (drop (length p) s)
+    | otherwise = Nothing
+
+{- | Extract every @cardano:Foo@ local-part referenced from the
+emitted bytes (the body output produced by 'emit'). Excludes
+@\@prefix cardano: …@ declaration lines.
+-}
+extractCardanoLocalParts :: ByteString -> [String]
+extractCardanoLocalParts bs =
+    concat
+        [ scanCardanoLocals line
+        | bsLine <- BS8.lines bs
+        , let line = BS8.unpack bsLine
+        , not ("@prefix" `isPrefixOfStr` line)
+        ]
+  where
+    isPrefixOfStr p s = take (length p) s == p
+
+{- | Scan a single line for @cardano:Foo@ tokens, returning the
+@Foo@ local-part. Skips occurrences inside Turtle string
+literals.
+-}
+scanCardanoLocals :: String -> [String]
+scanCardanoLocals = go False
+  where
+    go _ [] = []
+    go inString ('"' : rest) = go (not inString) rest
+    go True (_ : rest) = go True rest
+    go False s@(_ : rest)
+        | "cardano:" `isPfx` s =
+            let after = drop 8 s
+                (local, after') = span isIdentChar after
+             in if null local
+                    then go False rest
+                    else local : go False after'
+        | otherwise = go False rest
+
+    isPfx p s = take (length p) s == p
+
+isIdentChar :: Char -> Bool
+isIdentChar c = isAlphaNum c || c == '_' || c == '-'
 
 notContaining :: String -> String -> Bool
 notContaining needle haystack = not (needle `isInfixOf'` haystack)

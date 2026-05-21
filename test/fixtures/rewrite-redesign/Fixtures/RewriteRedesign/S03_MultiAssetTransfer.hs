@@ -31,6 +31,16 @@ module Fixtures.RewriteRedesign.S03_MultiAssetTransfer (
     shape,
 ) where
 
+import Data.ByteString.Short qualified as SBS
+import Data.Maybe (fromJust)
+
+import Cardano.Crypto.Hash (hashFromStringAsHex)
+import Cardano.Ledger.Hashes (ScriptHash (..))
+import Cardano.Ledger.Mary.Value (
+    AssetName (..),
+    PolicyID (..),
+ )
+
 import Fixtures.RewriteRedesign.Helpers (
     ExpectedShape (..),
     StoryId (..),
@@ -38,7 +48,7 @@ import Fixtures.RewriteRedesign.Helpers (
     baseShape,
     mkTx,
     stubTxIn,
-    stubTxOut,
+    stubTxOutMA,
  )
 
 import Cardano.Tx.Build (output, spend)
@@ -49,18 +59,69 @@ storyId :: StoryId
 storyId = StoryId "03-multi-asset-transfer"
 
 {- | Conway tx body: 1 input (Alice's 200 ADA + 500 USDM + 5M MEME UTxO),
-2 outputs (50 ADA + 100 USDM + 1M MEME to Bob; 149.825 ADA + 400 USDM + 4M
-MEME change). Multi-asset values are not encoded in the 'stubTxOut'
-bodies — 'assertShape' only counts entries, and the future #47 emitter
-rebuilds these tokens from @rules.yaml@'s asset entities.
+2 outputs:
+
+* output 1 — 50 ADA + 100 USDM + 1_000_000 MEME → Bob.
+* output 2 — 149.825 ADA + 400 USDM + 4_000_000 MEME (change) → Alice.
+
+Both outputs carry the multi-asset value matching the 044 narrative.
+T104 / S3 introduced 'stubTxOutMA' so this fixture finally exercises
+the output-side multi-asset RDF-list emission path; pre-T104 the
+outputs were coin-only and the @-multi-asset-@ slug was nominal only.
 -}
 tx :: ConwayTx
 tx = mkTx . TxBuilder $ do
     _ <- spend (stubTxIn 1)
-    _ <- output (stubTxOut 50_000_000)
-    _ <- output (stubTxOut 149_825_000)
+    _ <-
+        output
+            ( stubTxOutMA
+                50_000_000
+                [ (usdmPolicy, usdmName, 100)
+                , (memePolicy, memeName, 1_000_000)
+                ]
+            )
+    _ <-
+        output
+            ( stubTxOutMA
+                149_825_000
+                [ (usdmPolicy, usdmName, 400)
+                , (memePolicy, memeName, 4_000_000)
+                ]
+            )
     pure ()
 
 -- | Expected structural shape per 044 Story 3.
 shape :: ExpectedShape
 shape = baseShape{esInputs = 1, esOutputs = 2}
+
+----------------------------------------------------------------------
+-- Asset constants — match @rules.yaml@ entity declarations
+----------------------------------------------------------------------
+
+usdmPolicy :: PolicyID
+usdmPolicy =
+    PolicyID
+        ( ScriptHash
+            ( fromJust
+                ( hashFromStringAsHex
+                    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
+                )
+            )
+        )
+
+usdmName :: AssetName
+usdmName = AssetName (SBS.toShort "USDM")
+
+memePolicy :: PolicyID
+memePolicy =
+    PolicyID
+        ( ScriptHash
+            ( fromJust
+                ( hashFromStringAsHex
+                    "aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc"
+                )
+            )
+        )
+
+memeName :: AssetName
+memeName = AssetName (SBS.toShort "MEME")

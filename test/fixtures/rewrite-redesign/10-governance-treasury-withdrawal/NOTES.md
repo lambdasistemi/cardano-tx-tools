@@ -49,40 +49,26 @@ output 1.
 ## Proposal 1
 
 `ProposalProcedure` carrying a `TreasuryWithdrawals` action
-requesting 50_000 ADA paid to `cardano-foundation.ops`. Phase A
-declares `cardano:hasProposal` as the body→proposal binding but
-does not (yet) declare a `ProposalProcedure` class or per-variety
-subclasses — and the (`deposit`, `returnAddr`,
-`action.withdrawals.{address: amount}`) shape from 044 Story 10
-carries coin amounts (body-data), not structural-leaf data. The
-structural graph therefore surfaces only the identity-bearing
-surface of the proposal:
+requesting 50_000 ADA paid to `cardano-foundation.ops`. T108 / S7
+emits the D-006 fallback shape: the proposal subject itself is
+typeless (typing under `cardano:Proposal` is deferred to follow-on
+F3) and carries only a single `cardano:hasDatum` edge to an inline
+sub-block; the sub-block IS typed `cardano:Datum` and carries
 
-- the proposal's variety tag is pinned via `cardano:Datum` +
-  `cardano:decodedAs "TreasuryWithdrawals"` — reusing the
-  `decodedAs` property Phase A declares for datum/redeemer
-  payloads to label the action variant — and parallels the
-  precedent set by T015..T021 of leaving body-data quantities
-  (deposit, mint amounts, coin values) out of the structural
-  graph while pinning the kind of action;
-- the proposer's `returnAddr` is the operator's stake credential,
-  so the proposal carries a `cardano:hasIdentifier` link to the
-  same `_:operatorIdStake` bnode the address decomposition emits;
-- the `TreasuryWithdrawals` target reward-account is
-  `cardano-foundation.ops`'s stake credential, surfaced as a
-  second `cardano:hasIdentifier` link to the same
-  `_:cardanoFoundationOpsIdStake` bnode emitted by that entity's
-  address decomposition.
+- `cardano:decodedAs "TreasuryWithdrawals"` — the variety tag,
+  parallel to how Phase A uses `decodedAs` for datum/redeemer
+  payloads; and
+- `cardano:hasRawBytes "<cbor-hex>"` — the CBOR wire-encoding of
+  the `ProposalProcedure` itself (deposit + return-addr + action
+  + anchor), serialized at the Conway era's protocol version.
 
-Both stake-side identifiers — `returnAddr` vs withdrawal target —
-attach to the proposal under the same `cardano:hasIdentifier`
-property because Phase A has no separate `hasReturnAddr` /
-`hasWithdrawalTarget` terms; the kmaps#53 `(leafType, bytesHex)`
-key on each leaf still pins which is which through the address
-decomposition. A future kmaps follow-up can mint richer terms
-(deposit amount, per-withdrawal coin, `returnAddr`/target role
-discriminators) and the rename remains a mechanical sed across
-this fixture and the future #47 emitter.
+The proposer's `returnAddr` and the `TreasuryWithdrawals` target
+reward-account are dropped from the structural surface — Phase A
+has no `proposerReturnAddr` / `withdrawalTarget` predicates, so
+their identifier links are deferred to follow-on F3. Until F3,
+the typed inline-datum payload preserves enough information to
+recover both addresses via CBOR decode without minting under-
+specified `cardano:hasIdentifier` links to the proposal subject.
 
 The 50_000 ADA withdrawal amount and the 100_000 ADA deposit
 live in `expected.txt` / the future #47 emitter, not in this
@@ -92,13 +78,10 @@ quantities, coin values).
 
 ## Address decompositions
 
-The operator bech32 is identical to alice's in
-`02-alice-bob-ada` and the `cardano-foundation.ops` bech32 is
-identical to bob's there. Both address decompositions reuse the
-identifier bnodes declared in the entity blocks above; the
-operator stake-credential bnode (`_:operatorIdStake`) is the
-same one referenced by the proposal's `returnAddr` link, and
-the `cardano-foundation.ops` stake-credential bnode
-(`_:cardanoFoundationOpsIdStake`) is the same one referenced by
-the proposal's `TreasuryWithdrawals` target link — the
-cross-leaf identity surface kmaps#53 pins.
+This fixture's body has 1 spending input + 1 change output, so
+the deduped address-decomposition section carries a single
+`cardano:PaymentCredential` entry for the operator's payment
+key (no stake-credential leaves are emitted at this slice — the
+return-addr + withdrawal-target stake credentials live inside
+the proposal's inline CBOR raw bytes per D-006, not as
+`hasIdentifier` links on the proposal subject).

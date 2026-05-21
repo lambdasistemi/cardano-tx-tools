@@ -39,6 +39,14 @@ module Cardano.Tx.Graph.Emit (
     SubjectBlock (..),
     BodySection (..),
 
+    -- * Body-walker monad (T102)
+    -- $monadSurface
+    Emit,
+    tellTriple,
+    introduce,
+    runEmit,
+    groupBySubject,
+
     -- * Inputs
     ResolvedUTxO,
 
@@ -58,6 +66,9 @@ module Cardano.Tx.Graph.Emit (
     entityBnodeName,
     rawBytesBnodeName,
     rawBytesPrefixLength,
+
+    -- * Vocab export (T122b)
+    renderVocabFragment,
 ) where
 
 import Data.ByteString (ByteString)
@@ -79,8 +90,14 @@ import Cardano.Tx.Graph.Emit.Lookup (
     rawBytesPrefixLength,
     resolveCredential,
  )
+import Cardano.Tx.Graph.Emit.Monad (
+    Emit,
+    groupBySubject,
+    introduce,
+    runEmit,
+    tellTriple,
+ )
 import Cardano.Tx.Graph.Emit.Project (
-    ProjectError (..),
     projectBody,
  )
 import Cardano.Tx.Graph.Emit.Serialize.JsonLd (renderJsonLd)
@@ -93,6 +110,8 @@ import Cardano.Tx.Graph.Emit.Triple (
     SubjectBlock (..),
     Triple (..),
  )
+import Cardano.Tx.Graph.Emit.VocabExport (renderVocabFragment)
+import Cardano.Tx.Graph.Emit.Witness (projectWitness)
 import Cardano.Tx.Graph.Rules.Load (EntityDecl)
 import Cardano.Tx.Ledger (ConwayTx)
 
@@ -102,6 +121,24 @@ The credential-lookup machinery introduced by T004. The submodule
 re-export block exposes its types and functions to in-package
 test suites and to the projection walker without publishing the
 module path itself.
+-}
+
+{- $monadSurface
+The body-walker monad seam introduced by T102. The submodule
+@Cardano.Tx.Graph.Emit.Monad@ is private to the library; this
+re-export block exposes the @Emit@ monad alongside the
+@tellTriple@ / @introduce@ / @runEmit@ / @groupBySubject@
+helpers so in-package test suites and the projection walker can
+use them without publishing the module path itself.
+
+The seam is @WriterT [Triple] (State (Set Subject))@ — a writer
+over the typed triple stream plus a state-tracked seen-subject
+set used by @introduce@ to dedup subjects reached more than once
+during the walk (shared addresses, asset classes, DReps).
+@groupBySubject@ rebuilds the @[SubjectBlock]@ list from the
+flat triple stream preserving first-occurrence order so the
+Turtle serializer's byte layout stays byte-identical to the
+pre-T102 walker.
 -}
 
 {- | The resolved-input map the emitter consumes alongside a
@@ -234,16 +271,21 @@ emit ::
     [EntityDecl] ->
     Either EmitError EmittedGraph
 emit tx utxo entities =
-    case projectBody entities (buildLookup entities) tx utxo of
-        Left (PUnsupportedLeafType leaf) ->
-            Left (UnsupportedLeafType leaf)
-        Right body ->
-            Right
-                EmittedGraph
-                    { graphPrefixes = []
-                    , graphOverlayTurtle = BS.empty
-                    , graphBody = body
-                    }
+    -- T122 / S21: 'projectBody' is total over @ConwayTx@; the
+    -- 'Either' wrapper is preserved here for API compatibility
+    -- with callers that still pattern-match on
+    -- @Left ('UnsupportedLeafType' _)@, and reserves the slot
+    -- for future error modes (e.g. typed-datum decode failures
+    -- when CIP-57 blueprint decoding lands, #50).
+    let lookupTbl = buildLookup entities
+     in Right
+            EmittedGraph
+                { graphPrefixes = []
+                , graphOverlayTurtle = BS.empty
+                , graphBody =
+                    projectBody entities lookupTbl tx utxo
+                        <> projectWitness entities lookupTbl tx
+                }
 
 {- | Render an 'EmittedGraph' to a 'ByteString' in the requested
 'EmitFormat'.

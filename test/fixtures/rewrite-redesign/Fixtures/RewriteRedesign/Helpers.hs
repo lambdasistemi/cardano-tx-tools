@@ -62,6 +62,10 @@ module Fixtures.RewriteRedesign.Helpers (
     -- * Smart constructors for body-leaf values
     stubTxIn,
     stubTxOut,
+    stubTxOutMA,
+    stubTxOutDatumScript,
+    stubInlineDatum,
+    stubRefScript,
     stubRewardAccount,
     stubStakeDelegationCert,
     stubVoteDelegationCert,
@@ -77,6 +81,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Short qualified as SBS
 import Data.Default (def)
+import Data.Function ((&))
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Text (Text)
@@ -85,7 +90,8 @@ import Data.Void (Void)
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 
-import Lens.Micro ((^.))
+import Lens.Micro ((.~), (^.))
+import PlutusCore.Data qualified as PLC
 import Test.Hspec (Expectation, shouldBe)
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
@@ -95,6 +101,9 @@ import Cardano.Ledger.Address (
     Addr (..),
     Withdrawals (..),
  )
+import Cardano.Ledger.Allegra.Scripts (mkRequireSignatureTimelock)
+import Cardano.Ledger.Alonzo.Scripts (AlonzoScript (NativeScript))
+import Cardano.Ledger.Api.Scripts.Data (Datum)
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
@@ -112,10 +121,15 @@ import Cardano.Ledger.Api.Tx.Cert (
     pattern DelegStakeTxCert,
     pattern DelegTxCert,
  )
-import Cardano.Ledger.Api.Tx.Out (TxOut, mkBasicTxOut)
+import Cardano.Ledger.Api.Tx.Out (
+    TxOut,
+    datumTxOutL,
+    mkBasicTxOut,
+    referenceScriptTxOutL,
+ )
 import Cardano.Ledger.BaseTypes (
     Network (Testnet),
-    StrictMaybe (SNothing),
+    StrictMaybe (SJust, SNothing),
     TxIx (..),
     textToUrl,
  )
@@ -126,19 +140,24 @@ import Cardano.Ledger.Conway.Governance (
     GovAction (TreasuryWithdrawals),
     ProposalProcedure (..),
  )
+import Cardano.Ledger.Core (Script)
 import Cardano.Ledger.Credential (
     Credential (KeyHashObj),
     StakeReference (StakeRefNull),
  )
 import Cardano.Ledger.DRep (DRep (DRepKeyHash))
 import Cardano.Ledger.Hashes (ScriptHash (..), unsafeMakeSafeHash)
-import Cardano.Ledger.Keys (KeyHash (..), KeyRole (DRepRole, Payment, StakePool, Staking))
+import Cardano.Ledger.Keys (
+    KeyHash (..),
+    KeyRole (DRepRole, Payment, StakePool, Staking, Witness),
+ )
 import Cardano.Ledger.Mary.Value (
     AssetName (..),
     MaryValue (..),
     MultiAsset (..),
     PolicyID (..),
  )
+import Cardano.Ledger.Plutus.Data (mkInlineDatum)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
 import Cardano.Tx.Build (TxBuild, draft)
@@ -344,6 +363,67 @@ this slice.
 -}
 stubTxOut :: Integer -> TxOut ConwayEra
 stubTxOut coin = mkBasicTxOut stubAddr (MaryValue (Coin coin) (MultiAsset mempty))
+
+{- | A 'TxOut' carrying ADA plus a non-empty multi-asset value. T104 / S3
+introduced this so fixtures 03, 04, 11 can exercise the output-side
+multi-asset RDF-list emission path. The 'AssetClass'-style triple list
+@(policy, asset-name, quantity)@ is folded into a 'MultiAsset' map;
+zero-quantity entries are emitted verbatim (the harness does not enforce
+the ledger's positivity rule — that's the emitter's downstream concern).
+The address reuses 'stubAddr' so the address-decomposition section stays
+byte-stable across coin-only and multi-asset stubs.
+-}
+stubTxOutMA ::
+    Integer ->
+    [(PolicyID, AssetName, Integer)] ->
+    TxOut ConwayEra
+stubTxOutMA coin assets =
+    mkBasicTxOut stubAddr (MaryValue (Coin coin) multiAsset)
+  where
+    multiAsset =
+        MultiAsset $
+            Map.unionsWith
+                (Map.unionWith (+))
+                [ Map.singleton policy (Map.singleton name qty)
+                | (policy, name, qty) <- assets
+                ]
+
+{- | A coin-only 'TxOut' that additionally carries an inline datum
+('stubInlineDatum') and a reference script ('stubRefScript').
+T105 / S4 uses this to exercise the per-output @cardano:hasDatum@
++ @cardano:hasReferenceScript@ emission paths from a single
+fixture-builder seam — fixture 01 swaps one of its two outputs to
+this stub so the rewrite-redesign goldens cover the datum-bearing
+and ref-script-bearing branches without needing a bespoke
+fixture.
+-}
+stubTxOutDatumScript :: Integer -> TxOut ConwayEra
+stubTxOutDatumScript coin =
+    mkBasicTxOut stubAddr (MaryValue (Coin coin) (MultiAsset mempty))
+        & datumTxOutL .~ stubInlineDatum
+        & referenceScriptTxOutL .~ SJust stubRefScript
+
+{- | A deterministic inline 'Datum' — the Plutus integer constant
+@42@. Used by 'stubTxOutDatumScript' so the per-output datum
+emission path exercised by T105 has a stable, byte-deterministic
+input.
+-}
+stubInlineDatum :: Datum ConwayEra
+stubInlineDatum = mkInlineDatum (PLC.I 42)
+
+{- | A deterministic reference 'Script' — a native (timelock) script
+that requires a single signature from a stub witness key-hash
+(28 bytes of @0x01@). Used by 'stubTxOutDatumScript' so the
+per-output reference-script emission path exercised by T105 has
+a stable, byte-deterministic input.
+-}
+stubRefScript :: Script ConwayEra
+stubRefScript =
+    NativeScript (mkRequireSignatureTimelock stubRefScriptKeyHash)
+  where
+    stubRefScriptKeyHash :: KeyHash Witness
+    stubRefScriptKeyHash =
+        KeyHash (fromJust (hashFromStringAsHex (replicate 56 '1')))
 
 stubAddr :: Addr
 stubAddr =

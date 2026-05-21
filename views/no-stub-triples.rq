@@ -1,0 +1,32 @@
+# No-stub-triples view (issue #70 / spec FR-012 / epic #46 CI gate).
+#
+# Finds every subject in the emitted graph that is typed
+# `cardano:Input` or `cardano:Output` AND has no triples on it other
+# than its `rdf:type`. Such a subject is a "stub": the body emitter
+# saw an input/output, allocated a fresh blank node, typed it, but
+# emitted nothing about its semantics (e.g. `cardano:fromTxOutRef`
+# for an input or `cardano:lovelace` for an output).
+#
+# Gate semantics: the CI build fails when this query returns one or
+# more rows on any fixture's regenerated `expected.ttl`.
+#
+# Canonical statement of the gate. The in-repo Haskell runner is
+# `test/Cardano/Tx/Graph/Emit/NoStubViewSpec.hs`, which re-implements
+# this predicate as a line-scanning structural check over the
+# canonical Turtle serializer output (no SPARQL engine required at
+# build time — see Q-001 / A-001-sparql-runtime in the #70 worker
+# orchestration journal). Downstream consumers running this `.rq`
+# against the graph with any RDF store (Apache Jena ARQ, Redland
+# roqet, Oxigraph, …) must observe the same zero-row outcome.
+
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?subj WHERE {
+  ?subj a ?type .
+  FILTER (?type IN (cardano:Input, cardano:Output))
+  FILTER NOT EXISTS {
+    ?subj ?p ?o .
+    FILTER (?p != rdf:type)
+  }
+}

@@ -1,4 +1,5 @@
 @prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/07-vote-delegation#> .
 
@@ -41,18 +42,36 @@ _:tx a cardano:Transaction ;
 # Input 1
 #
 
-_:input1 a cardano:Input .
+_:input1 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef1 .
+
+_:inputTxOutRef1 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000001" .
 
 #
 # Output 1
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 4825000 .
 
 #
 # Certificate 1
 #
+
+_:cred_stakekey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000001" .
+
+_:cred_drepkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "DRepKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000001" .
 
 _:cert1 a cardano:VoteDelegation ;
   cardano:onCredential _:cred_stakekey_0000000000000000 ;
@@ -68,6 +87,10 @@ _:drep1 a cardano:DRep ;
 _:cred_paymentkey_0000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
   cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+
+_:cred_paymentkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .

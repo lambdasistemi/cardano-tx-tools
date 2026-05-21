@@ -1,4 +1,5 @@
 @prefix cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix :        <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/01-amaru-treasury-swap#> .
 
@@ -101,225 +102,560 @@ _:tx a cardano:Transaction ;
 # Input 1
 #
 
-_:input1 a cardano:Input .
+_:input1 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef1 .
+
+_:inputTxOutRef1 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000001" .
 
 #
 # Input 2
 #
 
-_:input2 a cardano:Input .
+_:input2 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef2 .
+
+_:inputTxOutRef2 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000002" .
 
 #
 # Input 3
 #
 
-_:input3 a cardano:Input .
+_:input3 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef3 .
+
+_:inputTxOutRef3 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000003" .
 
 #
 # Input 4
 #
 
-_:input4 a cardano:Input .
+_:input4 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef4 .
+
+_:inputTxOutRef4 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000004" .
 
 #
 # Input 5
 #
 
-_:input5 a cardano:Input .
+_:input5 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef5 .
+
+_:inputTxOutRef5 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000005" .
 
 #
 # Input 6
 #
 
-_:input6 a cardano:Input .
+_:input6 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef6 .
+
+_:inputTxOutRef6 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000006" .
 
 #
 # Input 7
 #
 
-_:input7 a cardano:Input .
+_:input7 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef7 .
+
+_:inputTxOutRef7 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000007" .
 
 #
 # Input 8
 #
 
-_:input8 a cardano:Input .
+_:input8 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef8 .
+
+_:inputTxOutRef8 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000008" .
 
 #
 # Input 9
 #
 
-_:input9 a cardano:Input .
+_:input9 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef9 .
+
+_:inputTxOutRef9 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000009" .
 
 #
 # Input 10
 #
 
-_:input10 a cardano:Input .
+_:input10 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef10 .
+
+_:inputTxOutRef10 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000000a" .
 
 #
 # Input 11
 #
 
-_:input11 a cardano:Input .
+_:input11 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef11 .
+
+_:inputTxOutRef11 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000000b" .
 
 #
 # Input 12
 #
 
-_:input12 a cardano:Input .
+_:input12 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef12 .
+
+_:inputTxOutRef12 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000000c" .
 
 #
 # Input 13
 #
 
-_:input13 a cardano:Input .
+_:input13 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef13 .
+
+_:inputTxOutRef13 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000000d" .
 
 #
 # Input 14
 #
 
-_:input14 a cardano:Input .
+_:input14 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef14 .
+
+_:inputTxOutRef14 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000000e" .
 
 #
 # Input 15
 #
 
-_:input15 a cardano:Input .
+_:input15 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef15 .
+
+_:inputTxOutRef15 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000000f" .
 
 #
 # Input 16
 #
 
-_:input16 a cardano:Input .
+_:input16 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef16 .
+
+_:inputTxOutRef16 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000010" .
 
 #
 # Input 17
 #
 
-_:input17 a cardano:Input .
+_:input17 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef17 .
+
+_:inputTxOutRef17 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000011" .
 
 #
 # Input 18
 #
 
-_:input18 a cardano:Input .
+_:input18 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef18 .
+
+_:inputTxOutRef18 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000012" .
 
 #
 # Input 19
 #
 
-_:input19 a cardano:Input .
+_:input19 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef19 .
+
+_:inputTxOutRef19 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000013" .
 
 #
 # Input 20
 #
 
-_:input20 a cardano:Input .
+_:input20 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef20 .
+
+_:inputTxOutRef20 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000014" .
 
 #
 # Input 21
 #
 
-_:input21 a cardano:Input .
+_:input21 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef21 .
+
+_:inputTxOutRef21 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000015" .
 
 #
 # Input 22
 #
 
-_:input22 a cardano:Input .
+_:input22 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef22 .
+
+_:inputTxOutRef22 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000016" .
 
 #
 # Input 23
 #
 
-_:input23 a cardano:Input .
+_:input23 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef23 .
+
+_:inputTxOutRef23 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000017" .
 
 #
 # Input 24
 #
 
-_:input24 a cardano:Input .
+_:input24 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef24 .
+
+_:inputTxOutRef24 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000018" .
 
 #
 # Input 25
 #
 
-_:input25 a cardano:Input .
+_:input25 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef25 .
+
+_:inputTxOutRef25 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000019" .
 
 #
 # Input 26
 #
 
-_:input26 a cardano:Input .
+_:input26 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef26 .
+
+_:inputTxOutRef26 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000001a" .
 
 #
 # Input 27
 #
 
-_:input27 a cardano:Input .
+_:input27 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef27 .
+
+_:inputTxOutRef27 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000001b" .
 
 #
 # Input 28
 #
 
-_:input28 a cardano:Input .
+_:input28 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef28 .
+
+_:inputTxOutRef28 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000001c" .
 
 #
 # Input 29
 #
 
-_:input29 a cardano:Input .
+_:input29 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef29 .
+
+_:inputTxOutRef29 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000001d" .
 
 #
 # Input 30
 #
 
-_:input30 a cardano:Input .
+_:input30 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef30 .
+
+_:inputTxOutRef30 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000001e" .
 
 #
 # Input 31
 #
 
-_:input31 a cardano:Input .
+_:input31 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef31 .
+
+_:inputTxOutRef31 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000000000001f" .
 
 #
 # Input 32
 #
 
-_:input32 a cardano:Input .
+_:input32 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef32 .
+
+_:inputTxOutRef32 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000020" .
 
 #
 # Input 33
 #
 
-_:input33 a cardano:Input .
+_:input33 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef33 .
+
+_:inputTxOutRef33 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000021" .
 
 #
 # Input 34
 #
 
-_:input34 a cardano:Input .
+_:input34 a cardano:Input ;
+  cardano:fromTxOutRef _:inputTxOutRef34 .
+
+_:inputTxOutRef34 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000022" .
 
 #
 # Output 1
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 1500000 ;
+  cardano:hasDatum _:outputDatum1 ;
+  cardano:hasReferenceScript _:outputRefScript1 .
+
+_:outputDatum1 a cardano:Datum ;
+  cardano:hasHash _:hash_datum_9e1199a988ba72ff ;
+  cardano:hasRawBytes "182a" .
+
+_:hash_datum_9e1199a988ba72ff a cardano:Identifier ;
+  cardano:leafType "DatumHash" ;
+  cardano:bytesHex "9e1199a988ba72ffd6e9c269cadb3b53b5f360ff99f112d9b2ee30c4d74ad88b" .
+
+_:outputRefScript1 a cardano:NativeScript ;
+  cardano:hasHash _:hash_script_5334c8c55ec6518f ;
+  cardano:hasRawBytes "8200581c11111111111111111111111111111111111111111111111111111111" .
+
+_:hash_script_5334c8c55ec6518f a cardano:Identifier ;
+  cardano:leafType "ScriptHash" ;
+  cardano:bytesHex "5334c8c55ec6518f2e262da617d3170bf0722f43813d64dbaf0ff0b9" .
 
 #
 # Output 2
 #
 
 _:output2 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr .
+  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:lovelace 850000 .
 
 #
 # Collateral 1
 #
 
-_:collateral1 a cardano:Input .
+_:collateral1 a cardano:Input ;
+  cardano:fromTxOutRef _:collateralTxOutRef1 .
+
+_:collateralTxOutRef1 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000064" .
 
 #
 # Address decompositions — payment + stake credential per leaf.
@@ -328,6 +664,10 @@ _:collateral1 a cardano:Input .
 _:cred_paymentkey_0000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
   cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+
+_:cred_paymentkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .
