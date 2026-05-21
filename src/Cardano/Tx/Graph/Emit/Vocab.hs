@@ -145,6 +145,16 @@ data VocabTerm
     | TermHasAnchor
     | TermAnchorUrl
     | TermAnchorHash
+    | -- Raw-bytes identifier literal triples (T119b / S18b).
+      -- All three are already canonically declared (pin@a9b5d96
+      -- + Phase A predicates) and shipped by the entity-overlay
+      -- path; this slice brings the body walker into parity so
+      -- the @_:cred_paymentkey_\<hex\>@ raw-bytes bnodes carry
+      -- the same @a cardano:Identifier ; cardano:leafType ; cardano:bytesHex@
+      -- shape entity-overlay bnodes already carry.
+      TermIdentifier
+    | TermLeafType
+    | TermBytesHex
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -223,6 +233,9 @@ vocabIri = \case
     TermHasAnchor -> cardanoPrefix <> "hasAnchor"
     TermAnchorUrl -> cardanoPrefix <> "anchorUrl"
     TermAnchorHash -> cardanoPrefix <> "anchorHash"
+    TermIdentifier -> cardanoPrefix <> "Identifier"
+    TermLeafType -> cardanoPrefix <> "leafType"
+    TermBytesHex -> cardanoPrefix <> "bytesHex"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -300,6 +313,9 @@ vocabCurie = \case
     TermHasAnchor -> "cardano:hasAnchor"
     TermAnchorUrl -> "cardano:anchorUrl"
     TermAnchorHash -> "cardano:anchorHash"
+    TermIdentifier -> "cardano:Identifier"
+    TermLeafType -> "cardano:leafType"
+    TermBytesHex -> "cardano:bytesHex"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

@@ -229,7 +229,7 @@ import Data.Foldable (toList)
 import Cardano.Tx.Graph.Emit.Lookup (
     BnodeName (..),
     LookupTable,
-    resolveCredential,
+    rawBytesBnodeName,
  )
 import Cardano.Tx.Graph.Emit.Monad (
     Emit,
@@ -480,6 +480,84 @@ clusterBlocks :: Emit () -> [SubjectBlock]
 clusterBlocks action =
     let (triples, _seen) = runEmit action
      in groupBySubject triples
+
+----------------------------------------------------------------------
+-- Raw-bytes identifier literal exposure (T119b / S18b)
+----------------------------------------------------------------------
+
+{- | Resolve a @(LeafType, raw bytes)@ pair to a bnode name AND
+emit the canonical identifier-literal triples
+(@a cardano:Identifier ; cardano:leafType "X" ;
+cardano:bytesHex "\<hex\>"@) on the bnode when the resolution
+goes through the raw-bytes path. Entity-named bnodes (table
+hits) skip the emission — the entity-overlay path already
+emits those triples verbatim, so emitting them again from the
+body walker would duplicate.
+
+Use this instead of 'resolveCredential' in every body-walker
+site that produces a credential bnode. The new triples let
+SPARQL views join 'cardano:hasRequiredSigner' literals (and
+similar raw-hex predicates) against the credential bnode's
+@cardano:bytesHex@ via @FILTER (?signer = ?credHex)@ — no IRI
+surgery required (operator-driven gap, T119b).
+
+== Dedup
+
+The triples are wrapped in 'introduce' so re-resolving the same
+(lt, bytes) within a single 'Emit' walk emits the block only
+once. The body walker runs each cluster in its own 'runEmit',
+so the same identifier may emit triples in multiple clusters
+that reference it — that's fine semantically (Turtle's
+blank-node naming gives the same logical subject, so multiple
+emissions merge into a single graph at parse time), and the
+linear duplication is bounded by the number of clusters that
+share a credential.
+-}
+resolveCredentialAndIntroduceIdent ::
+    LookupTable ->
+    LeafType ->
+    ByteString ->
+    Emit BnodeName
+resolveCredentialAndIntroduceIdent tbl lt bytes = do
+    case Map.lookup (lt, bytes) tbl of
+        Just bn ->
+            -- Entity-named — overlay path emits the literal triples.
+            pure bn
+        Nothing -> do
+            let bn = rawBytesBnodeName lt bytes
+                bnSubj = SBnode bn
+            introduce bnSubj $ do
+                tellTriple
+                    (Triple bnSubj PRdfType (OIri (vocabCurie TermIdentifier)))
+                tellTriple
+                    ( Triple
+                        bnSubj
+                        (PIri (vocabCurie TermLeafType))
+                        (OStringLit (leafTypeText lt))
+                    )
+                tellTriple
+                    ( Triple
+                        bnSubj
+                        (PIri (vocabCurie TermBytesHex))
+                        (OStringLit (hexText bytes))
+                    )
+            pure bn
+
+{- | Canonical camelCase string form of a 'LeafType'. Matches the
+@cardano:leafType@ literal the entity-overlay path emits
+(see @Cardano.Tx.Graph.Rules.Load.Emit.Overlay.renderLeafType@).
+-}
+leafTypeText :: LeafType -> Text
+leafTypeText = \case
+    PaymentKey -> "PaymentKey"
+    PaymentScript -> "PaymentScript"
+    StakeKey -> "StakeKey"
+    StakeScript -> "StakeScript"
+    AssetClass -> "AssetClass"
+    Policy -> "Policy"
+    PoolId -> "PoolId"
+    DRepKey -> "DRepKey"
+    DRepScript -> "DRepScript"
 
 ----------------------------------------------------------------------
 -- Per-input + per-output traversal
@@ -737,8 +815,8 @@ emitAssetListCell lookupTbl va total (m, (policy, assetName, qty)) = do
         entrySubj = SBnode entryBnode
         policyBytes = policyIdBytes policy
         assetBytes = policyBytes <> assetClassNameBytes assetName
-        assetIdBnode =
-            resolveCredential lookupTbl AssetClass assetBytes
+    assetIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl AssetClass assetBytes
     tellTriple
         (Triple cellSubj (PIri "rdf:first") (OBnode entryBnode))
     tellTriple
@@ -1468,11 +1546,11 @@ emitAddrEntry
                             (PIri (vocabCurie TermHasStakeCredential))
                             (OBnode stakeCredBnode)
                         )
-        let payIdBnode =
-                resolveCredential
-                    lookupTbl
-                    (plLeafType aePaymentCred)
-                    (plBytes aePaymentCred)
+        payIdBnode <-
+            resolveCredentialAndIntroduceIdent
+                lookupTbl
+                (plLeafType aePaymentCred)
+                (plBytes aePaymentCred)
         introduce payCredSubj $ do
             tellTriple
                 ( Triple
@@ -1489,11 +1567,11 @@ emitAddrEntry
         case aeStakeCred of
             Nothing -> pure ()
             Just sl -> do
-                let stakeIdBnode =
-                        resolveCredential
-                            lookupTbl
-                            (slLeafType sl)
-                            (slBytes sl)
+                stakeIdBnode <-
+                    resolveCredentialAndIntroduceIdent
+                        lookupTbl
+                        (slLeafType sl)
+                        (slBytes sl)
                 introduce stakeCredSubj $ do
                     tellTriple
                         ( Triple
@@ -1532,9 +1610,10 @@ emitMintCluster ::
 emitMintCluster lookupTbl k policyId assetName quantity = do
     let policyBytes = policyIdBytes policyId
         assetBytes = policyBytes <> assetClassNameBytes assetName
-        assetIdBnode = resolveCredential lookupTbl AssetClass assetBytes
         mintSubj = SBnode (idMintBnode k)
         assetSubj = SBnode (idAssetBnode k)
+    assetIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl AssetClass assetBytes
     tellTriple (Triple mintSubj PRdfType (OIri (vocabCurie TermMint)))
     tellTriple
         ( Triple
@@ -1588,8 +1667,9 @@ emitWithdrawalCluster ::
     LookupTable -> Int -> AccountAddress -> Coin -> Emit ()
 emitWithdrawalCluster lookupTbl k account (Coin lovelace) = do
     let (leafTy, credBytes) = accountStakeLeaf account
-        credIdBnode = resolveCredential lookupTbl leafTy credBytes
         wSubj = SBnode (idWithdrawalBnode k)
+    credIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl leafTy credBytes
     tellTriple (Triple wSubj PRdfType (OIri (vocabCurie TermWithdrawal)))
     tellTriple
         ( Triple
@@ -1696,10 +1776,12 @@ emitStakeDelegation ::
     Emit ()
 emitStakeDelegation lookupTbl k stakeCred poolBytes = do
     let (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
-        stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
-        poolIdBnode = resolveCredential lookupTbl PoolId poolBytes
         certSubj = SBnode (idCertBnode k)
         poolSubj = SBnode (idPoolBnode k)
+    stakeIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl stakeLT stakeBytes
+    poolIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl PoolId poolBytes
     tellTriple
         ( Triple
             certSubj
@@ -1735,10 +1817,12 @@ emitVoteDelegation ::
     Emit ()
 emitVoteDelegation lookupTbl k stakeCred drepLT drepBytes = do
     let (stakeLT, stakeBytes) = stakeCredLeaf stakeCred
-        stakeIdBnode = resolveCredential lookupTbl stakeLT stakeBytes
-        drepIdBnode = resolveCredential lookupTbl drepLT drepBytes
         certSubj = SBnode (idCertBnode k)
         drepSubj = SBnode (idDRepBnode k)
+    stakeIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl stakeLT stakeBytes
+    drepIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl drepLT drepBytes
     tellTriple
         ( Triple
             certSubj

@@ -57,6 +57,14 @@ _:output1 a cardano:Output ;
 # Certificate 1
 #
 
+_:cred_stakekey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "StakeKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000001" .
+
+_:cred_drepkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "DRepKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000001" .
+
 _:cert1 a cardano:VoteDelegation ;
   cardano:onCredential _:cred_stakekey_0000000000000000 ;
   cardano:toDRep _:drep1 .
@@ -71,6 +79,10 @@ _:drep1 a cardano:DRep ;
 _:cred_paymentkey_0000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
   cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+
+_:cred_paymentkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .

@@ -85,6 +85,10 @@ _:resolvedInput2 a cardano:Output ;
   cardano:lovelace 1137000000000 ;
   cardano:hasAssetValue _:resolvedInputMultiAsset2 .
 
+_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+  cardano:leafType "AssetClass" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad5553444d" .
+
 _:resolvedInputMultiAsset2 rdf:first _:assetEntry_resolvedInput2_1 ;
   rdf:rest rdf:nil .
 
@@ -128,6 +132,10 @@ _:output1 a cardano:Output ;
   cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
   cardano:lovelace 39306821250 ;
   cardano:hasAssetValue _:outputMultiAsset1 .
+
+_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+  cardano:leafType "AssetClass" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad5553444d" .
 
 _:outputMultiAsset1 rdf:first _:assetEntry_output1_1 ;
   rdf:rest rdf:nil .
@@ -182,6 +190,10 @@ _:collateral1 a cardano:Input ;
 _:cred_paymentkey_0000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
   cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+
+_:cred_paymentkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .

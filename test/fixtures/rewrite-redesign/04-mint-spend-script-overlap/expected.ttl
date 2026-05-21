@@ -79,6 +79,10 @@ _:assetEntry_output1_1 a cardano:Asset ;
 # Mint 1
 #
 
+_:cred_assetclass_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "AssetClass" ;
+  cardano:bytesHex "000000000000000000000000000000000000000000000000000000015553444d" .
+
 _:mint1 a cardano:Mint ;
   cardano:mintsAsset _:asset1 ;
   cardano:quantity 1000 .
@@ -93,6 +97,10 @@ _:asset1 a cardano:Asset ;
 _:cred_paymentkey_0000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
   cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+
+_:cred_paymentkey_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "PaymentKey" ;
+  cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .
