@@ -3,7 +3,7 @@ Module      : Cardano.Tx.Graph.Emit.ExhaustivitySpec
 Description : Type-driven ConwayDiffValue dispatcher coverage (T115).
 License     : Apache-2.0
 
-== Belt-and-suspenders, not load-bearing (per A-006)
+== Belt-and-suspenders, not load-bearing (per A-007 v3)
 
 The load-bearing exhaustivity gate is the compiler itself:
 @-Wincomplete-patterns@ + @-Werror@ (constitution-mandated)
@@ -12,14 +12,15 @@ the build. This spec is a secondary check that catches dispatcher
 drift outside the literal pattern-match (e.g. a fail-loudly stub
 that compiles but raises 'PUnsupportedLeafType' at runtime).
 
-For each body-reachable constructor the spec ships a synthetic
-'Cardano.Tx.Ledger.ConwayTx' that populates the body field
-labelled by the constructor (via lens-set on @mkBasicTxBody@
-where no fixture covers the case naturally) and asserts
-'Cardano.Tx.Graph.Emit.emit' returns 'Right' (not
-@Left ('UnsupportedLeafType' _)@) for each witness.
+Per A-007 v3 corrected scope: the spec asserts coverage of the
+__full chain-visible surface__ of a 'Cardano.Tx.Ledger.ConwayTx',
+not the body-only subset the earlier A-006 framing carved out.
+For each constructor in 'allConwayDiffConstructors' the spec ships
+a synthetic 'ConwayTx' that populates the field labelled by the
+constructor and asserts 'Cardano.Tx.Graph.Emit.emit' returns
+'Right' (not @Left ('UnsupportedLeafType' _)@) for each witness.
 
-This converts "the emitter forgot to dispatch a body-reachable
+This converts "the emitter forgot to dispatch a chain-visible
 leaf" from a runtime crash on a real-chain transaction (which is
 how 'ConwayRequiredSignersValue' surfaced on the operator's tx
 on 2026-05-21) into a test-time per-constructor failure.
@@ -34,35 +35,33 @@ of @src/Cardano/Tx/Diff.hs@; any drift (a new ledger constructor
 without a list entry, or a stale list entry that no longer
 matches a Diff.hs constructor) fails the gate.
 
-== Body-reachable subset
+== Pending witness-set + diff-fallback constructors
 
-'bodyReachableConstructors' carves the subset of constructors the
-body walker actually visits. Witness-set, redeemer, and
-inner-bytestring leaves (which the body walker never reaches) are
-excluded, each with an inline rationale comment so a future
-reader can audit the carve-out after a ledger update.
+'pendingTillT128b' enumerates the 13 constructors that a synthetic
+'ConwayTx' cannot exercise through the body walker alone — the 12
+witness-set leaves (vkey witnesses, bootstrap witnesses, scripts,
+datums-as-witnesses, redeemers, ex-units) plus 'ConwayOpenValue'
+(the diff-projection fallback the body walker bypasses via direct
+lens access). T128b promotes the 12 witness entries into positive
+assertions when the new
+@Cardano.Tx.Graph.Emit.Witness@ walker lands; 'ConwayOpenValue'
+stays pending as a documented permanent elision (no chain-visible
+content of its own).
 
 == Per-constructor witness assertion
 
-For every body-reachable constructor, the spec ships a synthetic
-'ConwayTx' that populates the body field labelled by the
-constructor (via lens-set on @mkBasicTxBody@ where no fixture
-covers the case naturally). The assertion is
+For every constructor in 'allConwayDiffConstructors', the spec
+ships a synthetic 'ConwayTx' that populates the body field
+labelled by the constructor (via lens-set on @mkBasicTxBody@
+where no fixture covers the case naturally). The assertion is
 @'emit' witnessTx 'Map.empty' [] = 'Right' _@ — a per-constructor
 'expectationFailure' isolates which leaf regressed when the
-spec is RED.
-
-Constructors the emitter does not yet positively dispatch
-(@ConwayKeyHashesValue@ / @ConwayKeyHashValue@ — required
-signers; @ConwayStrictMaybeCoinValue@ — total collateral)
-are marked 'pendingWith' the slice (@T116@, @T117@) that
-flips them. Each subsequent coverage slice promotes its
-'pendingWith' entry into an active assertion.
+spec is RED. Constructors listed in 'pendingTillT128b' short-circuit
+to 'pendingWith' so the suite stays green while T128b is in flight.
 -}
 module Cardano.Tx.Graph.Emit.ExhaustivitySpec (
     spec,
     allConwayDiffConstructors,
-    bodyReachableConstructors,
 ) where
 
 import Data.Map.Strict qualified as Map
@@ -118,6 +117,7 @@ import Test.Hspec (
     describe,
     expectationFailure,
     it,
+    pendingWith,
     shouldBe,
  )
 
@@ -170,59 +170,30 @@ allConwayDiffConstructors =
     , "ConwayWitnessesValue"
     ]
 
-{- | The body-reachable subset of 'allConwayDiffConstructors'.
+{- | Constructors the body walker cannot reach with a synthetic
+'ConwayTx' alone — either witness-set leaves (12 entries) or
+the diff-projection's 'ConwayOpenValue' fallback (the body
+walker uses direct lens access, never the diff fallback).
 
-A constructor is body-reachable iff the emit walker
-('Cardano.Tx.Graph.Emit.Project.projectBody') visits its leaf when
-walking the body of a populated Conway tx. Excluded constructors
-carry inline rationale; the carve-out is what
-'A-004-exhaustivity-approach.md' (Option B's "document the elision
-rationale inline next to each excluded constructor") prescribes.
+T128b's witness-set walker promotes the 12 witness entries
+into positive assertions; 'ConwayOpenValue' stays pending as
+a documented permanent elision (no chain-visible content).
 -}
-bodyReachableConstructors :: [Text]
-bodyReachableConstructors =
-    [ "ConwayAddressValue" -- output address leaf
-    , "ConwayAssetQuantitiesValue" -- per-policy mint container
-    , "ConwayBodyValue" -- body container (always reached)
-    , -- Excluded: "ConwayBootstrapWitnessValue" — witness-set, not body.
-      -- Excluded: "ConwayBootstrapWitnessesValue" — witness-set, not body.
-      "ConwayCoinValue" -- fee, output coin, total-collateral coin
-    , -- Excluded: "ConwayDataValue" — datum witness, not body leaf
-      -- (per-output datum flows through ConwayDatumValue).
-      "ConwayDatumValue" -- output datum (T105)
-    , -- Excluded: "ConwayDatumWitnessesValue" — witness-set datum
-      -- collection, not body.
-      -- Excluded: "ConwayExUnitsValue" — redeemer execution units,
-      -- witness-set side, not body.
-      "ConwayInputsValue" -- inputs / refInputs / collateralInputs container
-    , "ConwayIntegerValue" -- mint quantity leaf
-    , "ConwayKeyHashValue" -- required-signer key-hash leaf
-    , "ConwayKeyHashesValue" -- required-signers container
-    , "ConwayMintValue" -- mint container
-    , -- Excluded: "ConwayOpenValue" — diff projection fallback for
-      -- fields that have no dedicated constructor (governance
-      -- procedures, etc.); the emit walker reaches these via
-      -- direct lens access, not via the diff projection.
-      "ConwayOutputsValue" -- outputs container
-    , -- Excluded: "ConwayRedeemerValue" — witness-set, not body.
-      -- Excluded: "ConwayRedeemersValue" — witness-set, not body.
-      "ConwayReferenceScriptValue" -- output reference script (T105)
-    , -- Excluded: "ConwayScriptValue" — witness-set script leaf,
-      -- not body (output reference scripts flow through
-      -- ConwayReferenceScriptValue).
-      -- Excluded: "ConwayScriptsValue" — witness-set, not body.
-      "ConwaySlotBoundValue" -- validity-interval slot bound leaf
-    , "ConwayStrictMaybeCoinValue" -- total-collateral StrictMaybe coin
-    , "ConwayTxInIdValue" -- TxIn id leaf
-    , "ConwayTxInValue" -- per-input
-    , "ConwayTxOutValue" -- per-output
-    , "ConwayTxValue" -- root tx (always reached)
-    , -- Excluded: "ConwayVKeyWitnessValue" — witness-set, not body.
-      -- Excluded: "ConwayVKeyWitnessesValue" — witness-set, not body.
-      "ConwayValidityIntervalValue" -- validity interval container
-    , "ConwayWithdrawalsValue" -- withdrawals container
-    -- Excluded: "ConwayWitnessesValue" — the witness set itself,
-    -- which the body walker does not traverse.
+pendingTillT128b :: [Text]
+pendingTillT128b =
+    [ "ConwayBootstrapWitnessValue"
+    , "ConwayBootstrapWitnessesValue"
+    , "ConwayDataValue"
+    , "ConwayDatumWitnessesValue"
+    , "ConwayExUnitsValue"
+    , "ConwayOpenValue"
+    , "ConwayRedeemerValue"
+    , "ConwayRedeemersValue"
+    , "ConwayScriptValue"
+    , "ConwayScriptsValue"
+    , "ConwayVKeyWitnessValue"
+    , "ConwayVKeyWitnessesValue"
+    , "ConwayWitnessesValue"
     ]
 
 ----------------------------------------------------------------------
@@ -237,15 +208,14 @@ Witness baseline for the container-only constructors
 baseTx :: ConwayTx
 baseTx = mkBasicTx mkBasicTxBody
 
-{- | The witness 'ConwayTx' for the named body-reachable
-constructor — a minimal tx that populates the body field labelled
-by the constructor.
+{- | The witness 'ConwayTx' for the named constructor — a minimal
+tx that populates the body field labelled by the constructor.
 
-Total over 'bodyReachableConstructors'; the catch-all 'error'
-branch fails 'GHC2021' incomplete-patterns warnings during
-development but only fires at runtime if a hand-list entry has no
-corresponding witness clause (which the per-constructor 'it' loop
-below would surface as a per-case failure anyway).
+Only called for constructors not in 'pendingTillT128b'
+(those short-circuit before reaching here). The catch-all
+'error' branch only fires if a body-reachable constructor is
+added to 'allConwayDiffConstructors' without a corresponding
+witness arm or a 'pendingTillT128b' entry.
 -}
 witnessTx :: Text -> ConwayTx
 witnessTx = \case
@@ -301,9 +271,9 @@ witnessTx = \case
     -- the SNothing elision branch via the empty output.
     name ->
         error
-            ( "ExhaustivitySpec.witnessTx: no witness clause for body-reachable "
+            ( "ExhaustivitySpec.witnessTx: no witness clause for "
                 <> Text.unpack name
-                <> ". Add a witness here when extending bodyReachableConstructors."
+                <> ". Add an entry to pendingTillT128b or a witnessTx arm."
             )
 
 -- | A tx with exactly one body input.
@@ -353,68 +323,44 @@ txWithOutput =
 spec :: Spec
 spec = describe "Cardano.Tx.Graph.Emit ConwayDiffValue exhaustivity (T115)" $ do
     handListShapeSpec
-    bodyReachableShapeSpec
     witnessCoverageSpec
 
-{- | Sanity-check the hand list itself: alphabetized, no duplicates,
-body-reachable subset of all.
--}
+-- | Sanity-check the hand list itself: alphabetized, no duplicates.
 handListShapeSpec :: Spec
 handListShapeSpec = describe "constructor hand list" $ do
     it "allConwayDiffConstructors is alphabetized" $
         allConwayDiffConstructors `shouldBe` sortedNub allConwayDiffConstructors
-    it "bodyReachableConstructors is alphabetized" $
-        bodyReachableConstructors
-            `shouldBe` sortedNub bodyReachableConstructors
-    it "bodyReachableConstructors is a subset of allConwayDiffConstructors" $
-        let all_ = Set.fromList allConwayDiffConstructors
-            br = Set.fromList bodyReachableConstructors
-         in (br `Set.difference` all_) `shouldBe` Set.empty
 
 sortedNub :: (Ord a) => [a] -> [a]
 sortedNub = Set.toAscList . Set.fromList
 
-{- | Body-reachable subset shape: every body-reachable constructor
-also appears in 'allConwayDiffConstructors'. This is the same as
-the subset assertion above, surfaced under a per-name spec block
-so a regression on a specific constructor surfaces with that
-constructor's name.
--}
-bodyReachableShapeSpec :: Spec
-bodyReachableShapeSpec =
-    describe "every body-reachable constructor is in the all-list" $
-        mapM_
-            ( \name ->
-                it (Text.unpack name) $
-                    Set.member name (Set.fromList allConwayDiffConstructors)
-                        `shouldBe` True
-            )
-            bodyReachableConstructors
+{- | The load-bearing assertion: for each constructor in
+'allConwayDiffConstructors', the witness 'ConwayTx' emits
+without a @PUnsupportedLeafType@.
 
-{- | The load-bearing assertion: for each body-reachable
-constructor, the witness 'ConwayTx' emits without a
-@PUnsupportedLeafType@.
-
-Constructors not yet positively dispatched are 'pendingWith' the
-slice that flips them. Each subsequent coverage slice
-(T116..T122) promotes its 'pendingWith' branch into an active
-assertion by deleting the 'pendingWith' line.
+Constructors listed in 'pendingTillT128b' short-circuit to
+'pendingWith' — T128b's witness-set walker will promote the
+12 witness entries into active assertions; 'ConwayOpenValue'
+stays pending as a documented permanent elision.
 -}
 witnessCoverageSpec :: Spec
 witnessCoverageSpec =
     describe "witness ConwayTx emits without PUnsupportedLeafType" $
-        mapM_ assertWitnessCovers bodyReachableConstructors
+        mapM_ assertWitnessCovers allConwayDiffConstructors
 
 assertWitnessCovers :: Text -> Spec
-assertWitnessCovers name = it (Text.unpack name) $
-    case emit (witnessTx name) emptyUtxo [] of
-        Left err ->
-            expectationFailure $
-                "witness for "
-                    <> Text.unpack name
-                    <> " emitted Left: "
-                    <> renderEmitError err
-        Right _ -> pure ()
+assertWitnessCovers name =
+    it (Text.unpack name) $
+        if name `elem` pendingTillT128b
+            then pendingWith "T128b: witness-set walker / diff fallback"
+            else case emit (witnessTx name) emptyUtxo [] of
+                Left err ->
+                    expectationFailure $
+                        "witness for "
+                            <> Text.unpack name
+                            <> " emitted Left: "
+                            <> renderEmitError err
+                Right _ -> pure ()
 
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty
