@@ -1,0 +1,378 @@
+# Tasks: Blueprint decode → typed triples (CIP-57)
+
+**Feature**: `Cardano.Tx.Graph.Emit.Blueprint` (typed datum / redeemer emission)
+**Branch**: `050-blueprint-decode-typed-triples`
+**Plan**: [plan.md](./plan.md)
+**Spec**: [spec.md](./spec.md)
+**Parent answer**: `/tmp/epic-046/tx-50/answers/A-001-design-decisions.md`
+
+Task numbering aligns with plan.md slices (S0..S11 → T100..T111). Every
+behavior-changing task ships one bisect-safe commit; gate.sh GREEN on every
+slice; commits carry a `Tasks: T###` trailer per the gate-script skill.
+
+## Pre-implementation (already done in this PR)
+
+| Status | Task | Commit | Subject |
+|---|---|---|---|
+| [X] | T000 | `00515a3` | `chore(050): add gate.sh for issue #50 PR` |
+| [X] | T001 | `24bb617` + `799b7f0` | `docs(050): spec.md` + A-001 micro-edits |
+| [X] | T002 | `45ef85e` | `docs(050): plan.md — D-001a..D-001g pins + S0..S11` |
+
+The analyzer report (`analysis.md`) lands separately as part of the
+speckit-analyze pass before T100.
+
+## Implementation slices (auto-continue, no phase stop)
+
+### T100 — S0: rules-loader threads the blueprint index (chore)
+
+- **Subject**: `chore(050): rules-loader reads + parses blueprints into the index`
+- **Tasks trailer**: `Tasks: T100`
+- **Files**:
+  - `src/Cardano/Tx/Graph/Rules/Load/Types.hs` — add `RulesLoadError`
+    variants: `BlueprintFileMissing`, `BlueprintParseError`,
+    `AbsoluteBlueprintPath`, `HttpsBlueprintPath`,
+    `DuplicateBlueprintForScript`, `DuplicateBlueprintPredicate`.
+  - `src/Cardano/Tx/Graph/Rules/Load.hs` — extend `RulesLoadResult` with
+    `rulesBlueprints :: ![(ScriptHash, Blueprint, Text)]`; new render
+    cases in `renderRulesLoadError`.
+  - `src/Cardano/Tx/Graph/Rules/Load/Parse/Yaml.hs` — extend the existing
+    shape-validating walker to **actually read + parse** each `datum:`
+    path via `parseBlueprintJSON`; gather the blueprint index; raise the
+    new error variants.
+  - `src/Cardano/Tx/Graph/Rules/Load/Resolve/Imports.hs` (if needed) —
+    extend the imports resolver to surface blueprint indices from each
+    imported file's loader result.
+  - `cardano-tx-tools.cabal` — no new modules, but verify deps cover
+    `Cardano.Tx.Blueprint` re-export.
+  - `test/Cardano/Tx/Graph/Rules/Load/BlueprintLoadSpec.hs` (NEW) — synthetic
+    in-memory YAML + on-disk JSON; assert `rulesBlueprints` is populated
+    and the script-hash keys match the referenced entity's `PaymentScript`
+    identifier bytes. Round-trip the six new error variants.
+- **RED**: `BlueprintLoadSpec` fails on the pre-T100 loader (the field
+  doesn't exist; the new error variants don't exist).
+- **GREEN**: field + variants land; spec passes; **every existing fixture's
+  loader result stays unchanged at the byte level** (no semantic change
+  on the existing 11 fixtures because none of their `rules.yaml` paths
+  resolve to a missing blueprint file — fixture 01's blueprint JSON exists
+  on disk).
+- **Live-boundary**: rules-loader ↔ filesystem read + JSON parse. The
+  `owl:imports`-style path resolution is the boundary the new tests
+  exercise.
+- **Owner**: paired subagents (driver / navigator) via tmux quadrant.
+  Brief at `/tmp/epic-046/tx-50/subagents/T100-rules-loader/brief.md`.
+
+### T101 — S1: `Cardano.Tx.Graph.Emit.Blueprint` module (feat)
+
+- **Subject**: `feat(050): Emit.Blueprint — pure decoder + IRI minter (no emit wiring yet)`
+- **Tasks trailer**: `Tasks: T101`
+- **Files**:
+  - `src/Cardano/Tx/Graph/Emit/Blueprint.hs` (NEW) — exports
+    `BlueprintDecodeResult (NoBlueprintRegistered | Decoded OpenValue
+    Blueprint | DecodeFailed BlueprintDataError)`, `decodeDatumForOutput
+    :: [(ScriptHash, Blueprint)] -> TxOut ConwayEra -> Data ConwayEra ->
+    BlueprintDecodeResult`, `decodeRedeemerForPurpose ::
+    [(ScriptHash, Blueprint)] -> RdmrPurpose -> ScriptHash -> Data
+    ConwayEra -> BlueprintDecodeResult`, and the constructor-to-IRI
+    minter (`blueprintFieldPredicate :: Text -> Text -> Predicate`).
+  - `cardano-tx-tools.cabal` — wire the new module.
+  - `test/Cardano/Tx/Graph/Emit/BlueprintSpec.hs` (NEW) — pure-function
+    unit spec: covers each `BlueprintSchemaKind` constructor with
+    synthetic `Data ConwayEra` values; asserts all three
+    `BlueprintDecodeResult` variants emit on the expected paths; round-trips
+    the IRI minter on `(title=Nothing, index=0)` → `"_0"` /
+    `(title=Just "Foo", field="bar")` → `"Foo_bar"`.
+- **RED**: `BlueprintSpec` fails because `Emit.Blueprint` doesn't exist.
+- **GREEN**: module lands; spec passes; **no fixture changes**.
+- **Live-boundary**: blueprint-decoder ↔ `OpenValue` AST — structural
+  only, no I/O.
+- **Owner**: paired subagents.
+
+### T102 — S2: extend `emit` signature; thread index through walker (feat)
+
+- **Subject**: `feat(050): emit accepts blueprint index; projectBody + projectWitness consult it`
+- **Tasks trailer**: `Tasks: T102`
+- **Files**:
+  - `src/Cardano/Tx/Graph/Emit.hs` — extend `emit` to
+    `emit :: ConwayTx -> ResolvedUTxO -> [EntityDecl] ->
+    [(ScriptHash, Blueprint, Text)] -> Either EmitError EmittedGraph`.
+    Re-export `BlueprintDecodeResult` for tests.
+  - `src/Cardano/Tx/Graph/Emit/Project.hs` — thread the blueprint index
+    into `projectBody`; `emitOutputDatum` (≈ line 1573) consults the
+    index for each output's payment-credential script hash. On
+    `NoBlueprintRegistered` → existing opaque shape. On `Decoded` →
+    emit typed triples per FR-008 / FR-004. On `DecodeFailed` →
+    `cardano:hasRawBytes` + `cardano:decodeError` literal (first error
+    only, D-001d).
+  - `src/Cardano/Tx/Graph/Emit/Witness.hs` — mirror the same logic on
+    the datum-witness path; redeemers consult the index keyed by purpose
+    + resolved script hash per FR-007.
+  - All callers of `emit` (executable, harness, tests) updated to pass
+    `[]` for the blueprint index — preserves existing 11 fixtures'
+    `expected.ttl` byte-for-byte.
+- **RED**: a new `EmitGoldenSpec` invariant — every existing fixture's
+  `expected.ttl` is **byte-equal** to the pre-T102 expectation when the
+  emit caller passes `[]`. Initially red against a buggy signature
+  thread; GREEN after wiring.
+- **GREEN**: all 11 existing fixtures byte-stable; new emit signature
+  compiles + threads.
+- **Live-boundary**: emitter signature ↔ all callers (compile-time);
+  emitter walker ↔ blueprint index lookup (still no behavioural change
+  with `[]`).
+- **Owner**: paired subagents.
+
+### T103 — S3: fixture 11-blueprint-typed + EmitGoldenSpec extension (feat)
+
+- **Subject**: `feat(050): fixture 11-blueprint-typed — typed SwapOrder datum emission`
+- **Tasks trailer**: `Tasks: T103`
+- **Files**:
+  - `test/fixtures/rewrite-redesign/11-blueprint-typed/rules.yaml` (NEW)
+    — declares the swap.v2 entity (re-using the fixture 01 script hash)
+    and a `blueprints:` entry pointing to
+    `./blueprints/swap-v2-datum.cip57.json` (re-used from
+    `test/fixtures/rewrite-redesign/blueprints/swap-v2-datum.cip57.json`
+    via a relative `../blueprints/` path).
+  - `test/fixtures/rewrite-redesign/11-blueprint-typed/NOTES.md` (NEW)
+    — provenance citing the operator-paste CBOR at
+    `test/fixtures/blockfrost-cache/operator-paste-2026-05-21.cbor.hex`
+    + an ADR-style note pinning the typed-emission byte shape.
+  - `test/fixtures/rewrite-redesign/11-blueprint-typed/expected.ttl`
+    (NEW) — byte-diff golden showing
+    `_:outputDatum1 a cardano:Datum ; cardano:hasHash <hash> ;
+    :SwapOrder_recipient _:datum1_recipient .` plus the
+    `_:datum1_recipient a cardano:Identifier` sub-block with the
+    correct `leafType` ("PaymentScript" for a script credential) and
+    `bytesHex`.
+  - `test/fixtures/rewrite-redesign/11-blueprint-typed/expected.entities.ttl`
+    (NEW) — entity overlay following the existing pattern.
+  - `test/fixtures/rewrite-redesign/11-blueprint-typed/expected.txt`
+    (NEW) — `tx-graph` exe stdout / stderr golden.
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S11BlueprintTyped.hs`
+    (NEW) — fixture builder following the existing
+    `S<NN><Slug>.hs` pattern (cf. `S11_AmaruTreasurySwapReal.hs` for
+    the precedent on real on-chain bytes).
+  - `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` — enumerate the new
+    fixture in the fixture list; add the BlueprintTraceability
+    invariant once the corresponding spec lands in T104.
+- **RED**:
+  1. `EmitGoldenSpec` extended to fixture 11 fails on the pre-T103
+     emitter (no typed triples produced).
+  2. (Optional, if `arq` available in the dev shell) a SPARQL-shaped
+     invariant: `SELECT ?r WHERE { ?d :SwapOrder_recipient ?r . ?r
+     cardano:bytesHex ?b }` returns exactly one row.
+- **GREEN**: emitter wiring produces the typed triples; fixture 11
+  byte-diff passes; all 11 existing fixtures stay byte-stable.
+- **Live-boundary**: emitter ↔ blueprint-decoder + fixture-scoped
+  namespace minter; the operator-paste CBOR is real Conway bytes
+  (strongest live-boundary smoke in the plan).
+- **Owner**: paired subagents.
+
+### T104 — S4: fixture 12-blueprint-passthrough + traceability spec (feat)
+
+- **Subject**: `feat(050): fixture 12-blueprint-passthrough — no-blueprint path stays opaque`
+- **Tasks trailer**: `Tasks: T104`
+- **Files**:
+  - `test/fixtures/rewrite-redesign/12-blueprint-passthrough/{rules.yaml,
+    expected.ttl, expected.entities.ttl, expected.txt, NOTES.md}` (NEW)
+    — same datum body as fixture 11 but `rules.yaml` has NO
+    `blueprints:` block. `expected.ttl` shows the post-#77 opaque
+    `hasRawBytes` shape, byte-equal to what the pre-T103 emitter would
+    have produced.
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S12BlueprintPassthrough.hs`
+    (NEW).
+  - `test/Cardano/Tx/Graph/Emit/BlueprintPredicateTraceabilitySpec.hs`
+    (NEW) — FR-010 / D-001c: for every fixture, parse `expected.ttl`,
+    extract all `:_<>` predicate IRIs, and assert the set equals the
+    set of `(constructor, field)` titles declared in that fixture's
+    loaded blueprint index. Fixture 12's check is "both sets empty";
+    fixture 11's check is "{`SwapOrder_recipient`}".
+  - `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` — enumerate fixture 12.
+- **RED**: `BlueprintPredicateTraceabilitySpec` fails on a stray
+  `:_<>` predicate (or a declared-but-not-emitted predicate). Initially
+  passes vacuously on the existing 11 fixtures; the assertion really
+  bites once fixture 11 ships and fixture 12 ships without a
+  `blueprints:` section.
+- **GREEN**: fixture 12 byte-diff passes; traceability spec covers all
+  13 fixtures (11 existing + 11/12).
+- **Live-boundary**: emitter ↔ rules-loader (no-blueprint path); the
+  set-equality check is the boundary smoke.
+- **Owner**: paired subagents.
+
+### T105 — S5: fixture 13-blueprint-decode-fail (feat)
+
+- **Subject**: `feat(050): fixture 13-blueprint-decode-fail — decodeError literal + stderr warn`
+- **Tasks trailer**: `Tasks: T105`
+- **Files**:
+  - `test/fixtures/rewrite-redesign/blueprints/swap-v2-wrong-shape.cip57.json`
+    (NEW) — a deliberately wrong blueprint (e.g. expects a `bytes`
+    leaf where the SwapOrder datum carries a constructor).
+  - `test/fixtures/rewrite-redesign/13-blueprint-decode-fail/{rules.yaml,
+    expected.ttl, expected.entities.ttl, expected.txt, NOTES.md}` (NEW)
+    — same datum body as fixture 11; `rules.yaml` points at the
+    wrong-shape blueprint. `expected.ttl` carries both
+    `cardano:hasRawBytes "<cbor-hex>"` and a single
+    `cardano:decodeError "<reason>"` literal. `expected.txt` carries
+    the expected stderr warning line.
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S13BlueprintDecodeFail.hs`
+    (NEW).
+  - `test/Cardano/Tx/Graph/Emit/BlueprintSpec.hs` (extended) — assert
+    the FIRST-error-only invariant: a synthetic blueprint that fails at
+    multiple sub-positions emits exactly one `cardano:decodeError`
+    triple (D-001d).
+  - `test/Cardano/Tx/Graph/TxGraphExeSpec.hs` — assert (a) exit code 0,
+    (b) stderr substring match against `expected.txt`.
+- **RED**: extended `BlueprintSpec` + `TxGraphExeSpec` fail on the
+  pre-T105 emitter (no `decodeError` literal emitted).
+- **GREEN**: decode-failure path lands; fixture 13 byte-diff passes;
+  exit 0 + stderr warning asserted.
+- **Live-boundary**: emitter ↔ blueprint-decoder (failure path) +
+  stderr; the exe spec is the operator-visible boundary.
+- **Owner**: paired subagents.
+
+### T106 — S6: draft Phase A.4 patch for `cardano:decodeError` (chore)
+
+- **Subject**: `chore(050): draft Phase A.4 patch for cardano:decodeError`
+- **Tasks trailer**: `Tasks: T106`
+- **Files**:
+  - `/tmp/epic-046/tx-50/transactions-additions-phase-a4.ttl` (NEW —
+    not under the repo; lives in the runtime root). Body: a single
+    `cardano:decodeError a owl:DatatypeProperty ; rdfs:domain
+    cardano:Datum ; rdfs:range xsd:string ; rdfs:label
+    "decode error" ; rdfs:comment "..." .` block.
+  - STATUS.md: `NOTE PARENT-ACTION: kmaps Phase A.4 patch drafted at
+    /tmp/epic-046/tx-50/transactions-additions-phase-a4.ttl — parent to
+    open kmaps#58`.
+- **RED**: n/a (pure draft + STATUS log).
+- **GREEN**: file exists; STATUS line written.
+- **Live-boundary**: n/a — cross-repo dependency surfaced via
+  PARENT-ACTION mechanism.
+- **Owner**: sub-orchestrator (self-execute; pure draft).
+
+### T107 — S7: refresh canonical-vocab pin to kmaps#58 branch tip (chore)
+
+- **Subject**: `chore(050): refresh canonical-vocab pin to kmaps#58 branch tip`
+- **Tasks trailer**: `Tasks: T107`
+- **Files**:
+  - `test/fixtures/canonical-vocab/transactions.ttl` — verbatim copy of
+    kmaps#58 branch tip `transactions.ttl` (the canonical file at the
+    PR's branch HEAD). Contains the new `cardano:decodeError` term.
+  - `test/fixtures/canonical-vocab/PINNED.md` — refresh header to cite
+    kmaps#58 + branch tip SHA + date.
+  - `test/Cardano/Tx/Graph/Emit/VocabTraceabilitySpec.hs` — invariant
+    count goes 33/33 → 34/34 strict.
+- **RED**: `VocabTraceabilitySpec` fails on the pre-T107 pin
+  (`cardano:decodeError` emitted by fixture 13 has no declaration in
+  the canonical vocab).
+- **GREEN**: pin refreshed; strict count = 34/34.
+- **Live-boundary**: canonical-vocab pin ↔ `VocabTraceabilitySpec`
+  strict CI gate. The pin refresh is byte-stable.
+- **Owner**: sub-orchestrator (self-execute; pure data vendoring).
+- **Depends on**: T106 PARENT-ACTION acknowledgement (parent confirms
+  kmaps#58 branch is ready). If kmaps#58 stalls > 48h: BLOCKED
+  Q-002-kmaps-phase-a4-stall.
+
+### T108 — S8: re-record asciinema cast on fixture 11; refresh docs (docs)
+
+- **Subject**: `docs(050): re-record tx-graph.cast on fixture 11 + docs refresh`
+- **Tasks trailer**: `Tasks: T108`
+- **Files**:
+  - `docs/assets/asciinema/scripts/tx-graph.sh` — extend (or replace
+    the fixture choice) to record against fixture 11. The script may
+    need to dispatch `--rules` and the chosen tx CBOR.
+  - `docs/assets/asciinema/tx-graph.cast` — regenerated cast bytes.
+  - `docs/tx-graph.md` — refresh the `--help` excerpt if it changed;
+    add a one-paragraph + Turtle-example section on blueprint decoding.
+  - `README.md` — one-paragraph blueprint-decode mention; one extra
+    CLI example demonstrating a blueprint-typed datum output.
+- **RED**: n/a (docs only).
+- **GREEN**: `./gate.sh` passes (no test impact); manual reviewer
+  check that the cast renders on the preview URL.
+- **Live-boundary**: asciinema-cast viewer ↔ docs preview — manual
+  check at `MKDOCS_SITE_URL`.
+- **Owner**: sub-orchestrator (self-execute; docs only).
+
+### T109 — S9: refresh canonical-vocab pin to merged kmaps#58 main SHA (chore — finalization-blocking)
+
+- **Subject**: `chore(050): refresh canonical-vocab pin to kmaps@<merged-sha>`
+- **Tasks trailer**: `Tasks: T109`
+- **Files**:
+  - `test/fixtures/canonical-vocab/transactions.ttl` — refreshed to the
+    merged kmaps `main` SHA.
+  - `test/fixtures/canonical-vocab/PINNED.md` — header refresh.
+- **RED**: n/a; the byte-content should match T107's pin if kmaps#58
+  merged cleanly. If kmaps received review changes the diff is real
+  and the spec count may extend further.
+- **GREEN**: pin matches merged SHA; all invariants stay GREEN.
+- **Live-boundary**: n/a (data refresh).
+- **Owner**: sub-orchestrator.
+- **Depends on**: parent surfaces merged kmaps `main` SHA via STATUS or
+  A-file. PR cannot flip to ready (T111) until this commits.
+
+### T110 — S10: CHANGELOG entry (docs)
+
+- **Subject**: `docs(050): CHANGELOG entry for blueprint-decoded datum emission`
+- **Tasks trailer**: `Tasks: T110`
+- **Files**:
+  - `CHANGELOG.md` — one entry under the next-release cut summarising
+    the typed-emission feature, the rules.yaml schema extension (no
+    breaking change), the new `RulesLoadError` variants, and the new
+    `cardano:decodeError` term.
+- **RED**: n/a (docs only).
+- **GREEN**: `./gate.sh` passes.
+- **Live-boundary**: n/a.
+- **Owner**: sub-orchestrator.
+
+### T111 — S11: drop gate.sh (ready for review) (chore)
+
+- **Subject**: `chore(050): drop gate.sh (ready for review)`
+- **Tasks trailer**: `Tasks: T111`
+- **Files**: removes `gate.sh`.
+- **RED**: n/a.
+- **GREEN**: `cabal check` + `cabal haddock` + unit suite GREEN one
+  last time (manually invoked because `gate.sh` is being removed in
+  the same commit); `gh pr ready` flips the PR out of draft.
+- **Live-boundary**: n/a.
+- **Owner**: sub-orchestrator.
+- **Depends on**: T109 (merged-SHA pin), T108 (cast refreshed), every
+  prior task GREEN.
+
+## Cross-slice invariants
+
+These specs run on every behavior-changing slice (S2..S5) — never
+deleted, only extended:
+
+- `EmitGoldenSpec` — byte-diff per fixture vs `expected.ttl`.
+- `ReproducibilitySpec` (#58 SC-005) — run-twice → identical bytes.
+- `JsonLdEquivalenceSpec` (#58 SC-002) — JSON-LD ≡ Turtle.
+- `VocabTraceabilitySpec` (#58 SC-006, narrowed by D-001c) — every
+  emitted `cardano:` CURIE traces to a term declared in the canonical
+  vocab pin. Count: 33 → 34 at T107.
+- `BlueprintPredicateTraceabilitySpec` (T104+) — set-equality between
+  emitted `:_<>` predicates and declared blueprint `(constructor, field)`
+  pairs, per fixture.
+- `NoStubViewSpec` (#70 T109) — SPARQL view returns zero rows on every
+  fixture, including the 3 new ones.
+- `SubjectDeDupSpec` (#70 T102) — no two distinct subject blocks share
+  the same subject node.
+- Constitution sweep — `cabal check`, `cabal haddock`, `fourmolu`,
+  `hlint`, `cabal-fmt` — inherited from `gate.sh`.
+
+## Parent-side parallel work (not a task this worker executes)
+
+- **K1** — Parent opens kmaps#58 using
+  `/tmp/epic-046/tx-50/transactions-additions-phase-a4.ttl` as the body
+  (drafted in T106). Single term: `cardano:decodeError`.
+- **K2** — On merge, parent surfaces the merged kmaps `main` SHA via
+  STATUS / answer-file so worker's T109 commit message can cite it
+  precisely.
+
+## Follow-on tickets (filed at #50 finalization, NOT during this PR)
+
+- **F1** — "OWL annotations for blueprint-derived predicates" against
+  cardano-tx-tools (D-001e deferral closure — owned by #49 / #51).
+- **F2** — "SHACL shapes for operator-extensible decode" — Phase C
+  reference for #51.
+- **F3** — "Cross-blueprint predicate-namespace handling" if real
+  operator workflows surface a need beyond the fixture-scoped `:`
+  prefix (Q-001b option 2 / option 3 from Q-001).
+- **F4** — "`--no-blueprint-decode` debug flag" if an operator needs to
+  emit opaque output despite a registered blueprint (Q-001g option 2).
