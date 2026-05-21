@@ -65,6 +65,7 @@ library
     Cardano.Tx.Evaluate
     Cardano.Tx.Graph.Emit
     Cardano.Tx.Graph.Emit.Blueprint
+    Cardano.Tx.Graph.Emit.Project
     Cardano.Tx.Graph.Rules.Load
     Cardano.Tx.Ledger
     Cardano.Tx.Rewrite
@@ -87,7 +88,6 @@ library
     Cardano.Tx.Deposits
     Cardano.Tx.Graph.Emit.Lookup
     Cardano.Tx.Graph.Emit.Monad
-    Cardano.Tx.Graph.Emit.Project
     Cardano.Tx.Graph.Emit.Serialize.JsonLd
     Cardano.Tx.Graph.Emit.Serialize.Turtle
     Cardano.Tx.Graph.Emit.Triple
@@ -436,6 +436,7 @@ test-suite unit-tests
     Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal
     Fixtures.RewriteRedesign.S12BlueprintTyped
     Fixtures.RewriteRedesign.S13BlueprintPassthrough
+    Fixtures.RewriteRedesign.S14BlueprintDecodeFail
     Fixtures.RewriteRedesign.TurtleShim
     StaticResolver
 

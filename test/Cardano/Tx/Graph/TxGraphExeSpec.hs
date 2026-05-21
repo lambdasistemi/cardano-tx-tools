@@ -64,6 +64,7 @@ import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Core (eraProtVerLow)
 
 import Fixtures.RewriteRedesign.S02_AliceBobAda qualified as S02
+import Fixtures.RewriteRedesign.S14BlueprintDecodeFail qualified as S14
 
 ----------------------------------------------------------------------
 -- Spec
@@ -243,6 +244,36 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                                             `isInfixOf`
                                         )
 
+            it
+                ( "(8) fixture 14-blueprint-decode-fail — exit 0,"
+                    <> " stderr carries the FR-014 WARN line matching"
+                    <> " expected.txt (T105 / S5)"
+                )
+                $ withSystemTempDirectory "tx-graph-decode-fail"
+                $ \dir -> do
+                    let rulesPath =
+                            "test/fixtures/rewrite-redesign"
+                                </> "14-blueprint-decode-fail"
+                                </> "rules.yaml"
+                        expectedTxtPath =
+                            "test/fixtures/rewrite-redesign"
+                                </> "14-blueprint-decode-fail"
+                                </> "expected.txt"
+                        txPath = dir </> "tx.cbor"
+                    BS.writeFile txPath s14CborBytes
+                    expectedTxt <- BS.readFile expectedTxtPath
+                    (code, _out, err) <-
+                        runExe
+                            txGraphPath
+                            [ "--rules"
+                            , rulesPath
+                            , "--tx"
+                            , txPath
+                            ]
+                    code `shouldBe` ExitSuccess
+                    let needle = BS8.unpack (stripTrailingNewline expectedTxt)
+                    BS8.unpack err `shouldSatisfy` (needle `isInfixOf`)
+
 ----------------------------------------------------------------------
 -- Tx fixture bytes
 ----------------------------------------------------------------------
@@ -255,6 +286,30 @@ can read them via @--tx@ without a new on-disk fixture.
 s02CborBytes :: ByteString
 s02CborBytes =
     BSL.toStrict (serialize (eraProtVerLow @ConwayEra) S02.tx)
+
+{- | Serialized ConwayEra CBOR of the fixture-14 @S14.tx@ builder
+(T105 / S5). Same datum body as fixtures 12 + 13; the behaviour
+under test is what the exe writes to stderr when fixture 14's
+@rules.yaml@ registers a wrong-shape blueprint against the
+SwapOrder script hash. The CBOR ships through a temp file so the
+executable consumes it via @--tx@; no on-disk @tx.cbor@ lives
+under the fixture directory.
+-}
+s14CborBytes :: ByteString
+s14CborBytes =
+    BSL.toStrict (serialize (eraProtVerLow @ConwayEra) S14.tx)
+
+{- | Drop a single trailing @\\n@ off a ByteString (Unix line-ending
+convention). Used by the fixture-14 stderr-substring assertion so
+@expected.txt@ can ship its single WARN line as one logical line
+followed by a terminating newline without breaking the
+@isInfixOf@ match.
+-}
+stripTrailingNewline :: ByteString -> ByteString
+stripTrailingNewline bs
+    | BS.null bs = bs
+    | BS.last bs == 0x0A = BS.init bs
+    | otherwise = bs
 
 ----------------------------------------------------------------------
 -- Subprocess helpers
