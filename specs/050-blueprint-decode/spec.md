@@ -296,6 +296,14 @@ literal's text is `show :: BlueprintDataError -> Text` (e.g.
 `BlueprintDataTypeMismatch "bytes"`). The pipeline exits 0; the
 executable writes one stderr line per failed decode (FR-014).
 
+When a single datum decode encounters multiple sub-errors (e.g. the
+top-level constructor matched but two nested fields failed), the emitter
+writes **exactly one** `cardano:decodeError` literal on the Datum subject,
+naming the **first** error the decoder encountered (D-001d / A-001 micro-pin).
+Subsequent errors at the same Datum surface on stderr only — no second
+`decodeError` literal — to keep downstream SPARQL view queries
+deterministic (one literal per failed Datum subject).
+
 **FR-006** — The datum-witness emitter
 (`Cardano.Tx.Graph.Emit.Witness.projectWitness` datum-witness path) mirrors
 FR-004 / FR-005. The datum-witness position is the one that carries the
@@ -326,9 +334,11 @@ absent on a constructor, the constructor's `index` is used as the title
 (`:_<index>_<field>`). If `"title"` is absent on a field, the field's
 0-based position is used (`:_<index>_field<n>`). Naming-collision
 handling: if two blueprints in the index produce the same predicate name,
-the loader returns a new `DuplicateBlueprintPredicate` error
-(rules-yaml-path:line of the second declaration + the conflicting predicate
-name).
+the loader returns a **hard error** `DuplicateBlueprintPredicate`
+(D-001b / A-001 micro-pin — not a warning; predicate collisions are an
+operator-side config bug and must be surfaced at load time, before the
+emitter runs). Payload = rules-yaml-path + 1-based source line of the
+second declaration + the conflicting predicate name.
 
 **FR-009** — `cardano:decodeError` is added to the canonical kmaps
 `transactions.ttl` via a Phase A.4 patch
@@ -355,8 +365,24 @@ the rules.yaml file path + 1-based source line of the offending `- script:`
 key + the offending value. `renderRulesLoadError` renders one stderr line
 per variant matching the existing format.
 
-**FR-012** — Three new test fixtures (or a refactored fixture 01 + two new
-— parent decides in Q-001f) cover the three paths in User Stories 1, 2, 3.
+**FR-012** — Three new test fixtures cover the three paths in User Stories
+1, 2, 3. Existing fixture 01 stays frozen (its `expected.ttl` is the
+post-#77 byte-diff baseline). Pinned slugs (D-001f / A-001 micro-pin):
+
+- `test/fixtures/rewrite-redesign/11-blueprint-typed/` — happy path:
+  SwapOrder datum body sourced from the operator-paste CBOR (or a
+  stripped-down equivalent); `rules.yaml` declares the blueprint;
+  `expected.ttl` shows `:SwapOrder_recipient _:recipient1 .` typed triples.
+- `test/fixtures/rewrite-redesign/12-blueprint-passthrough/` — no-blueprint
+  path: same datum shape as fixture 11 but `rules.yaml` carries NO
+  `blueprints:` entries. `expected.ttl` shows opaque `hasRawBytes`,
+  byte-equal to what #77's emitter would have produced.
+- `test/fixtures/rewrite-redesign/13-blueprint-decode-fail/` — decode-failure
+  path: fixture 11's tx + a deliberately-wrong-shape blueprint (e.g. expects
+  `bytes` where the datum has `integer`). `expected.ttl` carries both
+  `cardano:hasRawBytes` and `cardano:decodeError "<reason>"`;
+  `expected.txt` carries the expected stderr warning line.
+
 Per-fixture deliverables:
 
 - `rules.yaml` — declares any `blueprints:` entries the fixture exercises.
