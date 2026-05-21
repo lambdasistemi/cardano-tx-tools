@@ -4,6 +4,7 @@ import Test.Hspec (hspec)
 
 import Cardano.Tx.BuildSpec qualified as BuildSpec
 import Cardano.Tx.DiffSpec qualified as DiffSpec
+import Cardano.Tx.Graph.Emit.BlockfrostSampleSmokeSpec qualified as GraphEmitBlockfrostSampleSmokeSpec
 import Cardano.Tx.Graph.Emit.BodyRootSpec qualified as GraphEmitBodyRootSpec
 import Cardano.Tx.Graph.Emit.CertVariantsSpec qualified as GraphEmitCertVariantsSpec
 import Cardano.Tx.Graph.Emit.ExhaustivitySpec qualified as GraphEmitExhaustivitySpec
@@ -51,6 +52,7 @@ main :: IO ()
 main = hspec $ do
     DiffSpec.spec
     BuildSpec.spec
+    GraphEmitBlockfrostSampleSmokeSpec.spec
     GraphEmitBodyRootSpec.spec
     GraphEmitCertVariantsSpec.spec
     GraphEmitExhaustivitySpec.spec
