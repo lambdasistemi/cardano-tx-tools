@@ -5,6 +5,7 @@ import Test.Hspec (hspec)
 import Cardano.Tx.BuildSpec qualified as BuildSpec
 import Cardano.Tx.DiffSpec qualified as DiffSpec
 import Cardano.Tx.Graph.Emit.BodyRootSpec qualified as GraphEmitBodyRootSpec
+import Cardano.Tx.Graph.Emit.CertVariantsSpec qualified as GraphEmitCertVariantsSpec
 import Cardano.Tx.Graph.Emit.ExhaustivitySpec qualified as GraphEmitExhaustivitySpec
 import Cardano.Tx.Graph.Emit.IdentifierLiteralSpec qualified as GraphEmitIdentifierLiteralSpec
 import Cardano.Tx.Graph.Emit.InputSemanticSpec qualified as GraphEmitInputSemanticSpec
@@ -49,6 +50,7 @@ main = hspec $ do
     DiffSpec.spec
     BuildSpec.spec
     GraphEmitBodyRootSpec.spec
+    GraphEmitCertVariantsSpec.spec
     GraphEmitExhaustivitySpec.spec
     GraphEmitIdentifierLiteralSpec.spec
     GraphEmitInputSemanticSpec.spec

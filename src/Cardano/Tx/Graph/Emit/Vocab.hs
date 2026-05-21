@@ -155,6 +155,12 @@ data VocabTerm
       TermIdentifier
     | TermLeafType
     | TermBytesHex
+    | -- Exhaustive cert / proposal cover (T120 / S19, T121 / S20)
+      -- — parent class + OpaqueLeaf fallback for variants whose
+      -- semantic shape has not been modeled yet. Invented
+      -- locally per A-006; exported upstream via T122b.
+      TermCertificate
+    | TermOpaqueLeaf
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -236,6 +242,8 @@ vocabIri = \case
     TermIdentifier -> cardanoPrefix <> "Identifier"
     TermLeafType -> cardanoPrefix <> "leafType"
     TermBytesHex -> cardanoPrefix <> "bytesHex"
+    TermCertificate -> cardanoPrefix <> "Certificate"
+    TermOpaqueLeaf -> cardanoPrefix <> "OpaqueLeaf"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -316,6 +324,8 @@ vocabCurie = \case
     TermIdentifier -> "cardano:Identifier"
     TermLeafType -> "cardano:leafType"
     TermBytesHex -> "cardano:bytesHex"
+    TermCertificate -> "cardano:Certificate"
+    TermOpaqueLeaf -> "cardano:OpaqueLeaf"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

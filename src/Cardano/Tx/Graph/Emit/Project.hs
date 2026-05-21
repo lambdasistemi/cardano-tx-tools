@@ -198,13 +198,23 @@ import Cardano.Ledger.Conway.Governance (
     VotingProcedures (..),
     foldrVotingProcedures,
  )
+import Cardano.Ledger.Conway.TxCert (
+    pattern AuthCommitteeHotKeyTxCert,
+    pattern RegDRepTxCert,
+    pattern RegDepositDelegTxCert,
+    pattern RegDepositTxCert,
+    pattern ResignCommitteeColdTxCert,
+    pattern UnRegDRepTxCert,
+    pattern UnRegDepositTxCert,
+    pattern UpdateDRepTxCert,
+ )
 import Cardano.Ledger.Core (Script, TxCert, hashScript)
 import Cardano.Ledger.Credential (
     Credential (KeyHashObj, ScriptHashObj),
     StakeReference (StakeRefBase, StakeRefNull, StakeRefPtr),
  )
 import Cardano.Ledger.DRep (
-    DRep (DRepAlwaysAbstain, DRepAlwaysNoConfidence, DRepKeyHash, DRepScriptHash),
+    DRep (DRepKeyHash, DRepScriptHash),
  )
 import Cardano.Ledger.Hashes (
     KeyHash (..),
@@ -316,9 +326,13 @@ projectBody entities lookupTbl tx utxo = do
             buildCollateralReturn entities lookupTbl collateralReturn addrRegistry3
         refInputData = buildReferenceInputs refInputs
         addrEntries = addrRegistryEntries addrRegistry4
-    -- Per-cert clusters (T008 — fixtures 06, 07).
-    certClusters <-
-        traverse (uncurry (buildCertCluster lookupTbl)) (zip [1 ..] certs)
+    -- Per-cert clusters (T008 — fixtures 06, 07; T120 — Conway
+    -- variants beyond the StakeDelegation / VoteDelegation
+    -- pair fall through the OpaqueLeaf cover).
+    let certClusters =
+            [ buildCertCluster lookupTbl k cert
+            | (k, cert) <- zip [1 ..] certs
+            ]
     -- Per-proposal clusters (T010 — fixture 10).
     proposalBlocks <-
         traverse
@@ -1728,45 +1742,103 @@ buildCertCluster ::
     LookupTable ->
     Int ->
     TxCert ConwayEra ->
-    Either ProjectError [SubjectBlock]
+    [SubjectBlock]
 buildCertCluster lookupTbl k = \case
     DelegTxCert cred (DelegStake (KeyHash poolHash)) ->
-        Right
-            ( clusterBlocks
-                (emitStakeDelegation lookupTbl k cred (hashToBytes poolHash))
-            )
+        clusterBlocks
+            (emitStakeDelegation lookupTbl k cred (hashToBytes poolHash))
     DelegTxCert cred (DelegVote (DRepKeyHash (KeyHash drepHash))) ->
-        Right
-            ( clusterBlocks
-                ( emitVoteDelegation
-                    lookupTbl
-                    k
-                    cred
-                    DRepKey
-                    (hashToBytes drepHash)
-                )
+        clusterBlocks
+            ( emitVoteDelegation
+                lookupTbl
+                k
+                cred
+                DRepKey
+                (hashToBytes drepHash)
             )
     DelegTxCert cred (DelegVote (DRepScriptHash (ScriptHash drepHash))) ->
-        Right
-            ( clusterBlocks
-                ( emitVoteDelegation
-                    lookupTbl
-                    k
-                    cred
-                    DRepScript
-                    (hashToBytes drepHash)
-                )
+        clusterBlocks
+            ( emitVoteDelegation
+                lookupTbl
+                k
+                cred
+                DRepScript
+                (hashToBytes drepHash)
             )
-    DelegTxCert _ (DelegVote DRepAlwaysAbstain) ->
-        Left (PUnsupportedLeafType "ConwayCertValue DelegVote DRepAlwaysAbstain")
-    DelegTxCert _ (DelegVote DRepAlwaysNoConfidence) ->
-        Left
-            ( PUnsupportedLeafType
-                "ConwayCertValue DelegVote DRepAlwaysNoConfidence"
-            )
-    DelegTxCert _ DelegStakeVote{} ->
-        Left (PUnsupportedLeafType "ConwayCertValue DelegStakeVote")
-    _ -> Left (PUnsupportedLeafType "ConwayCertValue (non-delegation)")
+    -- T120 / S19: all remaining Conway cert constructors fall
+    -- through to the OpaqueLeaf fallback shape — typed
+    -- @cardano:Certificate, cardano:OpaqueLeaf@ with @cardano:leafType@
+    -- discriminating the variant and @cardano:hasRawBytes@ carrying
+    -- the CBOR wire encoding. This keeps the emit walker total over
+    -- TxCert ConwayEra without designing a typed shape for every
+    -- governance / registration variant at once.
+    cert -> clusterBlocks (emitCertOpaqueLeaf k (certVariantTag cert) cert)
+
+{- | Emit an OpaqueLeaf fallback for a cert variant whose typed
+RDF shape hasn't been designed yet.
+
+@
+_:certK a cardano:Certificate, cardano:OpaqueLeaf ;
+  cardano:leafType "\<variantTag\>" ;
+  cardano:hasRawBytes "\<cbor-hex\>" .
+@
+-}
+emitCertOpaqueLeaf :: Int -> Text -> TxCert ConwayEra -> Emit ()
+emitCertOpaqueLeaf k variantTag cert = do
+    let certSubj = SBnode (idCertBnode k)
+        rawBytes = serialize' (eraProtVerLow @ConwayEra) cert
+    tellTriple
+        (Triple certSubj PRdfType (OIri (vocabCurie TermCertificate)))
+    tellTriple
+        (Triple certSubj PRdfType (OIri (vocabCurie TermOpaqueLeaf)))
+    tellTriple
+        ( Triple
+            certSubj
+            (PIri (vocabCurie TermLeafType))
+            (OStringLit variantTag)
+        )
+    tellTriple
+        ( Triple
+            certSubj
+            (PIri (vocabCurie TermHasRawBytes))
+            (OStringLit (hexText rawBytes))
+        )
+
+{- | Stable variant-tag string for any Conway 'TxCert' constructor —
+the literal that appears in the @cardano:leafType@ predicate of
+the OpaqueLeaf fallback. Total over all constructors so the
+emit walker is exhaustive at the type level (T120 / S19).
+-}
+certVariantTag :: TxCert ConwayEra -> Text
+certVariantTag = \case
+    -- Conway stake-credential certs.
+    RegDepositTxCert{} -> "ConwayRegDeposit"
+    UnRegDepositTxCert{} -> "ConwayUnRegDeposit"
+    RegDepositDelegTxCert{} -> "ConwayRegDepositDeleg"
+    DelegTxCert _ DelegStake{} ->
+        -- Covered by the rich StakeDelegation case-arm above;
+        -- reachable here only via the catch-all if someone
+        -- passes a DelegStake-with-non-KeyHash pool variant
+        -- (presently impossible). Tag kept for completeness.
+        "ConwayDelegStakeNonKeyHash"
+    DelegTxCert _ DelegVote{} ->
+        -- DelegVote DRepAlwaysAbstain / DRepAlwaysNoConfidence
+        -- variants — typed pre-aggregated DRep targets that
+        -- don't fit the on-credential / to-DRep cert shape.
+        "ConwayDelegVoteAggregateDRep"
+    DelegTxCert _ DelegStakeVote{} -> "ConwayDelegStakeVote"
+    -- Conway governance certs.
+    RegDRepTxCert{} -> "ConwayRegDRep"
+    UnRegDRepTxCert{} -> "ConwayUnRegDRep"
+    UpdateDRepTxCert{} -> "ConwayUpdateDRep"
+    AuthCommitteeHotKeyTxCert{} -> "ConwayAuthCommitteeHotKey"
+    ResignCommitteeColdTxCert{} -> "ConwayResignCommitteeColdKey"
+    -- Pre-Conway-era pass-throughs (still encoded under the
+    -- Conway tx type for backwards compatibility). The rich
+    -- StakeDelegation case-arm above captures the DelegStake
+    -- pass-through; the remaining stake reg/dereg + pool reg/retire
+    -- fall here.
+    _ -> "ConwayLegacyCertPassThrough"
 
 emitStakeDelegation ::
     LookupTable ->
