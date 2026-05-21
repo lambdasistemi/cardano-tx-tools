@@ -373,6 +373,7 @@ test-suite unit-tests
     Cardano.Tx.Diff.Web2Spec
     Cardano.Tx.DiffSpec
     Cardano.Tx.Graph.Emit.BlockfrostSampleSmokeSpec
+    Cardano.Tx.Graph.Emit.BlueprintPredicateTraceabilitySpec
     Cardano.Tx.Graph.Emit.BlueprintSpec
     Cardano.Tx.Graph.Emit.BlueprintTypedFixtureSpec
     Cardano.Tx.Graph.Emit.BlueprintWiringSpec
@@ -434,6 +435,7 @@ test-suite unit-tests
     Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal
     Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal
     Fixtures.RewriteRedesign.S12BlueprintTyped
+    Fixtures.RewriteRedesign.S13BlueprintPassthrough
     Fixtures.RewriteRedesign.TurtleShim
     StaticResolver
 

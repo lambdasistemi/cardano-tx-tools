@@ -1,0 +1,9 @@
+inputs:
+  - resolved.address: ?
+outputs:
+  - address: amaru.swap.v2
+    coin: 5.000000 ADA
+    datum.rawBytes: d8799fd8799f581c64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540efffff
+  - address: 64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef
+    coin: 2.000000 ADA
+fee: 0.000000 ADA
