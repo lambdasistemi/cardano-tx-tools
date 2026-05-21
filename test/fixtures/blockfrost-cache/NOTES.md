@@ -33,14 +33,26 @@ tx that crashed pre-T116
 ## Acceptance contract
 
 `BlockfrostSampleSmokeSpec` walks every `*.cbor.hex` file in
-this directory and asserts:
+this directory and asserts, per fixture, two `it`-blocks:
 
-1. The bytes decode as a Conway `ConwayTx` (via
-   `decodeConwayTxInput`).
-2. `Cardano.Tx.Graph.Emit.emit` returns `Right` (no
-   `PUnsupportedLeafType` / `MalformedTxCbor` / etc.).
-3. The emitted Turtle parses cleanly (prefix declarations +
+1. **Baseline** — the bytes decode as a Conway `ConwayTx` (via
+   `decodeConwayTxInput`), `Cardano.Tx.Graph.Emit.emit` returns
+   `Right` (no `PUnsupportedLeafType` / `MalformedTxCbor` /
+   etc.), and the emitted Turtle contains the
+   `_:tx a cardano:Transaction` anchor (prefix declarations +
    body sections, no `_internal:` substring leak).
+
+2. **Redeemer block surfaces** (T128e) — for fixtures whose
+   decoded witness set carries a non-empty `Redeemers` map, the
+   emitted Turtle bytes must contain the canonical redeemer
+   block: the top-level `cardano:hasRedeemer` edge, the six
+   witness-set predicates `cardano:hasPurpose`,
+   `cardano:hasIndex`, `cardano:hasData`, `cardano:hasExUnits`,
+   `cardano:memoryUnits`, `cardano:cpuUnits`, plus the
+   operator-mandated spending-redeemer value
+   `cardano:hasPurpose "Spend"` at `cardano:hasIndex 0`.
+   Fixtures with no redeemers are marked `pending` for this
+   block — the baseline still runs.
 
 Per A-005, this is the **terminal acceptance gate** — a
 failure on any cache entry blocks `gh pr ready`.
