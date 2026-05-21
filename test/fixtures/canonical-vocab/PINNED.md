@@ -10,21 +10,28 @@ body emitter.
 - **File**: [`transactions.ttl`](./transactions.ttl)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9` (branch
-  `phase-a1-tx-semantic-predicates` HEAD on 2026-05-20)
+- **SHA**: `a9b5d96` (branch `phase-a2-tx-semantic-completeness`
+  tip on 2026-05-21).
 - **Branch state**: draft PR
-  [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55),
-  not yet merged to `main`. Base
-  `8597fbd571188b42999ee0b24a8247bda7e717b9`.
-- **Version label** declared in the file: `0.1.0-phaseA` (with
-  Phase A.1 additions appended at the tail: `fromTxOutRef`,
-  `lovelace`, `quantity`, `mintsAsset`, `hasAssetValue`,
-  `withdrawalAccount`, `networkId`, `scriptDataHash`,
-  `auxiliaryDataHash`, `intervalStart`, `intervalEnd`).
-  T104 added `hasAssetValue` (Output-domain) to disambiguate the
-  output-side multi-asset binding from the Mint-domain `mintsAsset`
-  (per A-001-output-asset-predicate).
+  [kmaps#56](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/56),
+  not yet merged to `main`. Base kmaps `main` @
+  `cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9` (Phase A.1 merged).
+- **Version label** declared in the file: `0.1.0-phaseA` (now with
+  Phase A.2 additions appended at the tail: `cardano:Certificate`
+  parent + 11 Conway-era cert subclasses, `cardano:Proposal`
+  parent + 7 proposal subclasses, `cardano:Vote` + `Voter` parent
+  + 3 voter subclasses, `hasRequiredSigner`, `totalCollateral`,
+  `hasCollateralReturn`, `currentTreasuryValue`,
+  `treasuryDonation`, `onCredential`, `withAmount`, `toPool`,
+  `toDRep`, `retireAtEpoch`, `hasAnchor`, `anchorUrl`,
+  `anchorHash`, `hasDeposit`, `hasRefund`, `hasVote`, `hasVoter`,
+  `hasVotingAction`, `hasVerdict`, `hasReturnAddress`,
+  `hasGovActionId`, plus the `cardano:Mint` / `Policy` /
+  `Withdrawal` / `Pool` / `DRep` / `StakeDelegation` /
+  `VoteDelegation` #58-inherited drift classes).
 - **History** (previous pins):
+  kmaps@`cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9` (Phase A.1
+  merged main, vendored at T110b);
   kmaps@`8ed218cf6dc905c7e3139b9f5a418d278b0acf9c` (382 lines,
   pre-`hasAssetValue` tip refreshed at T103);
   kmaps@`8597fbd571188b42999ee0b24a8247bda7e717b9` (303 lines,
@@ -44,19 +51,22 @@ canonical-vocab pin to kmaps@<sha>` commits — never on the same
 commit as a behavior-changing slice (per A-002's decoupling
 rationale).
 
-## Lifecycle (per A-002 / A-004)
+## Lifecycle (per A-002 / A-004 / A-005)
 
-1. **Now (this commit)** — pin at kmaps@8597fbd57, the Phase A
-   HEAD that exists today. None of the proposed Phase A.1
-   additions live here yet.
-2. **Slice T110a (before T103 emits a Phase A.1 predicate)** —
-   refresh to the `phase-a1-tx-semantic-predicates` branch tip of
-   [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55)
-   so the strict CI gate is satisfied as Phase A.1 predicates
-   start emitting.
-3. **Slice T110b (finalization, before T113 drops `gate.sh`)** —
-   refresh to the merged kmaps `main` SHA once kmaps#55 lands.
-   Blocks PR #77 finalization.
+1. T101 / S0 — pin at kmaps@8597fbd57 (Phase A header only).
+2. T103 — refresh to kmaps@8ed218cf (Phase A.1 branch tip with
+   `@prefix xsd:` fix).
+3. T110a — refresh to kmaps@5536df0f (Phase A.1 branch tip with
+   `hasAssetValue` predicate added).
+4. T110b — refresh to kmaps@cce9625b (Phase A.1 merged to main).
+5. **T114b (this commit)** — refresh to kmaps@a9b5d96 (Phase A.2
+   branch tip,
+   [kmaps#56](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/56)).
+   Enables the type-driven exhaustive ConwayDiffValue coverage
+   work (T115..T122) per the v2 corrected scope.
+6. **T123 (finalization, after T122)** — refresh to the merged
+   kmaps `main` SHA once kmaps#56 lands. Blocks T127 (Blockfrost
+   sample smoke) and PR #77 finalization.
 
 ## Refresh recipe
 
