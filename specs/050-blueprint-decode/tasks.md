@@ -181,22 +181,26 @@ speckit-analyze pass before T100.
     `blueprints:` block. `expected.ttl` shows the post-#77 opaque
     `hasRawBytes` shape, byte-equal to what the pre-T103 emitter would
     have produced.
-  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S12BlueprintPassthrough.hs`
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S13BlueprintPassthrough.hs`
     (NEW).
   - `test/Cardano/Tx/Graph/Emit/BlueprintPredicateTraceabilitySpec.hs`
     (NEW) — FR-010 / D-001c: for every fixture, parse `expected.ttl`,
     extract all `:_<>` predicate IRIs, and assert the set equals the
     set of `(constructor, field)` titles declared in that fixture's
-    loaded blueprint index. Fixture 12's check is "both sets empty";
-    fixture 11's check is "{`SwapOrder_recipient`}".
-  - `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` — enumerate fixture 12.
+    loaded blueprint index. Fixture 13's check is "both sets empty"
+    (no `blueprints:` declared → no typed predicates); fixture 12's
+    check is "{`SwapOrder_recipient`, `_0_pubKeyHash`}" (the typed
+    SwapOrder shape T103 landed).
+  - `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` — enumerate fixture 13.
 - **RED**: `BlueprintPredicateTraceabilitySpec` fails on a stray
   `:_<>` predicate (or a declared-but-not-emitted predicate). Initially
-  passes vacuously on the existing 11 fixtures; the assertion really
-  bites once fixture 11 ships and fixture 12 ships without a
-  `blueprints:` section.
-- **GREEN**: fixture 12 byte-diff passes; traceability spec covers all
-  13 fixtures (11 existing + 11/12).
+  passes vacuously on the existing 11 fixtures + fixture 13 (no
+  `blueprints:`); the assertion really bites against fixture 12 (T103,
+  declares + emits typed predicates) — the set-equality there is the
+  load-bearing FR-010 / D-001c invariant.
+- **GREEN**: fixture 13 byte-diff passes (byte-equal to the pre-T103
+  opaque `hasRawBytes` shape on the same datum body); traceability
+  spec covers all 13 fixtures (11 existing + 12 + 13).
 - **Live-boundary**: emitter ↔ rules-loader (no-blueprint path); the
   set-equality check is the boundary smoke.
 - **Owner**: paired subagents.
