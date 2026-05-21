@@ -388,330 +388,242 @@ cardano:intervalEnd a rdf:Property ;
   rdfs:range  xsd:integer ;
   dcterms:description "The exclusive upper slot bound of a validity interval (Conway 'invalidHereafter' / TTL)." .
 
-# Style: existing file mixes blank-line-separated triple blocks with
-# rdfs:label + dcterms:description; this patch matches that style.
-
-# ==============================================================================
-# Classes — Certificate parent (Phase A.2)
-# ==============================================================================
+# Derived from cardano-tx-tools src/Cardano/Tx/Graph/Emit/Vocab.hs
+# (T122b / S23). Regenerate via 'EMIT_GOLDEN_REGEN=1 just unit'.
+# Append to data/rdf/transactions.ttl in the kmaps repo; the
+# prefix declarations (cardano:, rdfs:, rdf:, owl:, dcterms:,
+# skos:, xsd:) are already at the top of that file. Descriptions
+# are left blank — kmaps maintainers author them.
 #
-# Phase A.1 left certificate subjects typed as ad-hoc subclasses
-# (cardano:StakeDelegation, cardano:VoteDelegation). Phase A.2 lifts
-# the shared parent class so the existing emitted subclasses below
-# can declare rdfs:subClassOf cardano:Certificate without forward
-# reference.
+# Base prefix: https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#
+
+cardano:Address a rdfs:Class ;
+  rdfs:label "Address" .
+
+cardano:Asset a rdfs:Class ;
+  rdfs:label "Asset" .
 
 cardano:Certificate a rdfs:Class ;
-  rdfs:label "Certificate" ;
-  dcterms:description "An on-chain certificate carried by a transaction: stake key registration / deregistration, stake delegation, vote delegation, pool registration / retirement, DRep registration / unregistration / update, committee cold-key resignation, committee hot-key authorization. Subclasses discriminate variants." .
-
-# ==============================================================================
-# Classes — Mint / Policy / Withdrawal (Phase A.2 — #58-inherited drift cleanup)
-# ==============================================================================
-#
-# These classes have shipped on the wire since #58 but were never
-# declared canonically. Phase A.2 declares them so the strict
-# vocab-traceability gate can flip on without a hand-maintained
-# allow-list.
-
-cardano:Mint a rdfs:Class ;
-  rdfs:label "Mint" ;
-  dcterms:description "A single mint entry — a (policy, asset name) pair with a signed integer quantity (negative = burn). One Mint subject per emitted mint cluster." .
-
-cardano:Policy a rdfs:Class ;
-  rdfs:label "Policy" ;
-  dcterms:description "A native-asset minting policy, identified by its policy hash. Bound to mint entries via cardano:hasPolicy." .
-
-cardano:Withdrawal a rdfs:Class ;
-  rdfs:label "Withdrawal" ;
-  dcterms:description "A reward-account withdrawal entry — a (stake-credential, lovelace) pair drawn from the rewards UTxO into the transaction. One Withdrawal subject per emitted withdrawal cluster." .
-
-# ==============================================================================
-# Classes — Certificate subtypes (Phase A.2)
-# ==============================================================================
-#
-# Two of these (cardano:StakeDelegation, cardano:VoteDelegation) were
-# shipped pre-canonically by #58. Phase A.2 declares them as
-# rdfs:subClassOf cardano:Certificate, alongside the remaining
-# Conway-era variants the emitter now covers.
-
-cardano:StakeDelegation a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "StakeDelegation" ;
-  dcterms:description "A stake-delegation certificate: binds a stake credential to a pool target via cardano:onCredential / cardano:toPool." .
-
-cardano:VoteDelegation a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "VoteDelegation" ;
-  dcterms:description "A vote-delegation certificate: binds a stake credential to a DRep target via cardano:onCredential / cardano:toDRep." .
-
-cardano:CertificateStakeRegistration a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateStakeRegistration" ;
-  dcterms:description "A pre-Conway-style stake registration certificate (no explicit deposit field)." .
-
-cardano:CertificateStakeDeregistration a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateStakeDeregistration" ;
-  dcterms:description "A pre-Conway-style stake deregistration certificate (no explicit refund field)." .
-
-cardano:CertificateRegDeposit a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateRegDeposit" ;
-  dcterms:description "A Conway-era stake registration certificate carrying an explicit deposit field." .
-
-cardano:CertificateUnregDeposit a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateUnregDeposit" ;
-  dcterms:description "A Conway-era stake deregistration certificate carrying an explicit refund field." .
-
-cardano:CertificatePoolRegistration a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificatePoolRegistration" ;
-  dcterms:description "A stake-pool registration certificate (operator, owners, pledge, margin, relays, metadata)." .
-
-cardano:CertificatePoolRetirement a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificatePoolRetirement" ;
-  dcterms:description "A stake-pool retirement certificate binding a pool to its target retire-epoch." .
-
-cardano:CertificateDRepRegistration a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateDRepRegistration" ;
-  dcterms:description "A DRep registration certificate (deposit + optional anchor)." .
-
-cardano:CertificateDRepUnregistration a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateDRepUnregistration" ;
-  dcterms:description "A DRep unregistration certificate (refund)." .
-
-cardano:CertificateDRepUpdate a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateDRepUpdate" ;
-  dcterms:description "A DRep anchor-update certificate." .
-
-cardano:CertificateAuthCommitteeHot a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateAuthCommitteeHot" ;
-  dcterms:description "A constitutional-committee certificate authorizing a hot key for an existing cold key." .
-
-cardano:CertificateCommitteeColdResign a rdfs:Class ;
-  rdfs:subClassOf cardano:Certificate ;
-  rdfs:label "CertificateCommitteeColdResign" ;
-  dcterms:description "A constitutional-committee certificate resigning a cold key (with optional anchor)." .
-
-# ==============================================================================
-# Classes — Identity targets (Phase A.2 — #58-inherited drift cleanup)
-# ==============================================================================
-#
-# cardano:Pool and cardano:DRep were shipped pre-canonically by #58
-# as identity-target classes on cert clusters. Phase A.2 declares
-# them.
-
-cardano:Pool a rdfs:Class ;
-  rdfs:label "Pool" ;
-  dcterms:description "A stake pool, identified by its pool key hash. Target of stake-delegation certificates and pool registration / retirement certificates." .
+  rdfs:label "Certificate" .
 
 cardano:DRep a rdfs:Class ;
-  rdfs:label "DRep" ;
-  dcterms:description "A delegate representative (DRep), identified by a key or script hash. Target of vote-delegation certificates and DRep registration / unregistration / update certificates." .
+  rdfs:label "DRep" .
 
-# ==============================================================================
-# Classes — Proposal parent + subtypes (Phase A.2)
-# ==============================================================================
+cardano:Datum a rdfs:Class ;
+  rdfs:label "Datum" .
 
-cardano:Proposal a rdfs:Class ;
-  rdfs:label "Proposal" ;
-  dcterms:description "A Conway-era governance proposal procedure: an on-chain proposal that DReps and the constitutional committee may vote on. Subclasses discriminate the governance action variety." .
+cardano:Identifier a rdfs:Class ;
+  rdfs:label "Identifier" .
 
-cardano:ProposalTreasuryWithdrawals a rdfs:Class ;
-  rdfs:subClassOf cardano:Proposal ;
-  rdfs:label "ProposalTreasuryWithdrawals" ;
-  dcterms:description "A treasury-withdrawals proposal: requests one or more transfers from the on-chain treasury to specified reward accounts." .
+cardano:Input a rdfs:Class ;
+  rdfs:label "Input" .
 
-cardano:ProposalParameterChange a rdfs:Class ;
-  rdfs:subClassOf cardano:Proposal ;
-  rdfs:label "ProposalParameterChange" ;
-  dcterms:description "A protocol-parameter-update proposal." .
+cardano:Mint a rdfs:Class ;
+  rdfs:label "Mint" .
 
-cardano:ProposalHardForkInitiation a rdfs:Class ;
-  rdfs:subClassOf cardano:Proposal ;
-  rdfs:label "ProposalHardForkInitiation" ;
-  dcterms:description "A hard-fork-initiation proposal carrying a target protocol version." .
+cardano:NativeScript a rdfs:Class ;
+  rdfs:label "NativeScript" .
 
-cardano:ProposalNoConfidence a rdfs:Class ;
-  rdfs:subClassOf cardano:Proposal ;
-  rdfs:label "ProposalNoConfidence" ;
-  dcterms:description "A motion of no confidence in the current constitutional committee." .
+cardano:OpaqueLeaf a rdfs:Class ;
+  rdfs:label "OpaqueLeaf" .
 
-cardano:ProposalUpdateCommittee a rdfs:Class ;
-  rdfs:subClassOf cardano:Proposal ;
-  rdfs:label "ProposalUpdateCommittee" ;
-  dcterms:description "A proposal to update the constitutional committee membership and quorum threshold." .
+cardano:Output a rdfs:Class ;
+  rdfs:label "Output" .
 
-cardano:ProposalNewConstitution a rdfs:Class ;
-  rdfs:subClassOf cardano:Proposal ;
-  rdfs:label "ProposalNewConstitution" ;
-  dcterms:description "A proposal carrying a new constitution anchor (and optional guardrails script)." .
+cardano:PaymentCredential a rdfs:Class ;
+  rdfs:label "PaymentCredential" .
 
-cardano:ProposalInfoAction a rdfs:Class ;
-  rdfs:subClassOf cardano:Proposal ;
-  rdfs:label "ProposalInfoAction" ;
-  dcterms:description "An informational proposal carrying no on-chain action — used purely to record an anchored statement." .
+cardano:PlutusScript a rdfs:Class ;
+  rdfs:label "PlutusScript" .
 
-# ==============================================================================
-# Classes — Vote + Voter discrimination (Phase A.2)
-# ==============================================================================
+cardano:Policy a rdfs:Class ;
+  rdfs:label "Policy" .
+
+cardano:Pool a rdfs:Class ;
+  rdfs:label "Pool" .
+
+cardano:StakeCredential a rdfs:Class ;
+  rdfs:label "StakeCredential" .
+
+cardano:StakeDelegation a rdfs:Class ;
+  rdfs:label "StakeDelegation" .
+
+cardano:Transaction a rdfs:Class ;
+  rdfs:label "Transaction" .
+
+cardano:TxOutRef a rdfs:Class ;
+  rdfs:label "TxOutRef" .
 
 cardano:Vote a rdfs:Class ;
-  rdfs:label "Vote" ;
-  dcterms:description "A single Conway voting-procedure entry — a (voter, governance-action-id, verdict) tuple carried by the transaction body. One Vote subject per emitted vote cluster." .
+  rdfs:label "Vote" .
 
-cardano:Voter a rdfs:Class ;
-  rdfs:label "Voter" ;
-  dcterms:description "The identity casting a vote. Subclasses discriminate the voter role (DRep, stake pool, constitutional committee cold key)." .
-
-cardano:VoterDRep a rdfs:Class ;
-  rdfs:subClassOf cardano:Voter ;
-  rdfs:label "VoterDRep" ;
-  dcterms:description "A vote cast by a DRep, identified by a key or script hash." .
-
-cardano:VoterStakePool a rdfs:Class ;
-  rdfs:subClassOf cardano:Voter ;
-  rdfs:label "VoterStakePool" ;
-  dcterms:description "A vote cast by a stake pool, identified by its pool key hash." .
+cardano:VoteDelegation a rdfs:Class ;
+  rdfs:label "VoteDelegation" .
 
 cardano:VoterCommitteeCold a rdfs:Class ;
-  rdfs:subClassOf cardano:Voter ;
-  rdfs:label "VoterCommitteeCold" ;
-  dcterms:description "A vote cast by a constitutional-committee cold key, identified by a key or script hash." .
+  rdfs:label "VoterCommitteeCold" .
 
-# ==============================================================================
-# Properties — Required signers (Phase A.2)
-# ==============================================================================
+cardano:VoterDRep a rdfs:Class ;
+  rdfs:label "VoterDRep" .
 
-cardano:hasRequiredSigner a rdf:Property ;
-  rdfs:label "hasRequiredSigner" ;
-  rdfs:domain cardano:Transaction ;
-  dcterms:description "Binds a transaction to a public-key hash declared in the required-signers set; one triple per Set entry. The required-signers set is consulted by Plutus scripts via the script context." .
+cardano:VoterStakePool a rdfs:Class ;
+  rdfs:label "VoterStakePool" .
 
-# ==============================================================================
-# Properties — Collateral (Phase A.2)
-# ==============================================================================
-
-cardano:totalCollateral a rdf:Property ;
-  rdfs:label "totalCollateral" ;
-  rdfs:domain cardano:Transaction ;
-  rdfs:range  xsd:integer ;
-  dcterms:description "The total collateral declared on a Plutus-bearing transaction body, in lovelace. Equal to the sum of collateral-input lovelace minus the collateral-return output value." .
-
-cardano:hasCollateralReturn a rdf:Property ;
-  rdfs:label "hasCollateralReturn" ;
-  rdfs:domain cardano:Transaction ;
-  dcterms:description "Binds a transaction to its collateral-return output — the output that receives the unconsumed collateral when phase-1 succeeds and phase-2 also succeeds (so collateral is not collected)." .
-
-# ==============================================================================
-# Properties — Treasury operations (Phase A.2)
-# ==============================================================================
-
-cardano:currentTreasuryValue a rdf:Property ;
-  rdfs:label "currentTreasuryValue" ;
-  rdfs:domain cardano:Transaction ;
-  rdfs:range  xsd:integer ;
-  dcterms:description "The transaction's declared current-treasury-value assertion in lovelace — a Conway field that pins the proposer's view of the on-chain treasury when the proposal was built." .
-
-cardano:treasuryDonation a rdf:Property ;
-  rdfs:label "treasuryDonation" ;
-  rdfs:domain cardano:Transaction ;
-  rdfs:range  xsd:integer ;
-  dcterms:description "A direct donation from the transaction to the on-chain treasury, in lovelace — a Conway field that allows non-proposal contributions to the treasury." .
-
-# ==============================================================================
-# Properties — Cert clusters (Phase A.2 — #58-inherited drift cleanup)
-# ==============================================================================
-
-cardano:onCredential a rdf:Property ;
-  rdfs:label "onCredential" ;
-  dcterms:description "Binds a credential-scoped subject (certificate cluster, withdrawal, vote) to the stake or governance credential it acts on." .
-
-cardano:withAmount a rdf:Property ;
-  rdfs:label "withAmount" ;
-  rdfs:range  xsd:integer ;
-  dcterms:description "Binds a value-bearing subject (deposit / refund cluster) to its lovelace amount. Pre-existing emitter term; new value subjects prefer cardano:lovelace." .
-
-cardano:toPool a rdf:Property ;
-  rdfs:label "toPool" ;
-  rdfs:domain cardano:StakeDelegation ;
-  dcterms:description "Binds a stake-delegation certificate to its target pool identifier." .
-
-cardano:toDRep a rdf:Property ;
-  rdfs:label "toDRep" ;
-  rdfs:domain cardano:VoteDelegation ;
-  dcterms:description "Binds a vote-delegation certificate to its target DRep identifier." .
-
-cardano:retireAtEpoch a rdf:Property ;
-  rdfs:label "retireAtEpoch" ;
-  rdfs:domain cardano:CertificatePoolRetirement ;
-  rdfs:range  xsd:integer ;
-  dcterms:description "The target epoch at which a pool-retirement certificate takes effect." .
-
-cardano:hasAnchor a rdf:Property ;
-  rdfs:label "hasAnchor" ;
-  dcterms:description "Binds a Conway certificate or proposal to its anchor (a URL + hash pair describing off-chain context)." .
-
-cardano:anchorUrl a rdf:Property ;
-  rdfs:label "anchorUrl" ;
-  rdfs:range  rdfs:Literal ;
-  dcterms:description "The URL component of an anchor (off-chain context pointer)." .
+cardano:Withdrawal a rdfs:Class ;
+  rdfs:label "Withdrawal" .
 
 cardano:anchorHash a rdf:Property ;
-  rdfs:label "anchorHash" ;
-  dcterms:description "The hash component of an anchor (binds the URL's content)." .
+  rdfs:label "anchorHash" .
 
-cardano:hasDeposit a rdf:Property ;
-  rdfs:label "hasDeposit" ;
-  rdfs:range  xsd:integer ;
-  dcterms:description "The lovelace deposit paid by a registration certificate (stake, DRep, proposal)." .
+cardano:anchorUrl a rdf:Property ;
+  rdfs:label "anchorUrl" .
 
-cardano:hasRefund a rdf:Property ;
-  rdfs:label "hasRefund" ;
-  rdfs:range  xsd:integer ;
-  dcterms:description "The lovelace refund paid back by a deregistration certificate (stake, DRep)." .
+cardano:atAddress a rdf:Property ;
+  rdfs:label "atAddress" .
 
-# ==============================================================================
-# Properties — Voting procedures (Phase A.2)
-# ==============================================================================
+cardano:auxiliaryDataHash a rdf:Property ;
+  rdfs:label "auxiliaryDataHash" .
 
-cardano:hasVote a rdf:Property ;
-  rdfs:label "hasVote" ;
-  rdfs:domain cardano:Transaction ;
-  dcterms:description "Binds a transaction to one of the votes it casts under voting procedures." .
+cardano:bech32 a rdf:Property ;
+  rdfs:label "bech32" .
 
-cardano:hasVoter a rdf:Property ;
-  rdfs:label "hasVoter" ;
-  rdfs:domain cardano:Vote ;
-  dcterms:description "Binds a vote to the voter identity casting it (DRep, stake pool, or constitutional-committee cold key)." .
+cardano:bytesHex a rdf:Property ;
+  rdfs:label "bytesHex" .
 
-cardano:hasVotingAction a rdf:Property ;
-  rdfs:label "hasVotingAction" ;
-  rdfs:domain cardano:Vote ;
-  dcterms:description "Binds a vote to the governance-action ID it votes on (the (txId, govActionIx) pair identifying a previously submitted proposal)." .
+cardano:decodedAs a rdf:Property ;
+  rdfs:label "decodedAs" .
+
+cardano:fromTxOutRef a rdf:Property ;
+  rdfs:label "fromTxOutRef" .
+
+cardano:hasAnchor a rdf:Property ;
+  rdfs:label "hasAnchor" .
+
+cardano:hasAsset a rdf:Property ;
+  rdfs:label "hasAsset" .
+
+cardano:hasAssetValue a rdf:Property ;
+  rdfs:label "hasAssetValue" .
+
+cardano:hasCertificate a rdf:Property ;
+  rdfs:label "hasCertificate" .
+
+cardano:hasCollateralInput a rdf:Property ;
+  rdfs:label "hasCollateralInput" .
+
+cardano:hasCollateralReturn a rdf:Property ;
+  rdfs:label "hasCollateralReturn" .
+
+cardano:hasDatum a rdf:Property ;
+  rdfs:label "hasDatum" .
+
+cardano:hasFee a rdf:Property ;
+  rdfs:label "hasFee" .
+
+cardano:hasHash a rdf:Property ;
+  rdfs:label "hasHash" .
+
+cardano:hasIdentifier a rdf:Property ;
+  rdfs:label "hasIdentifier" .
+
+cardano:hasIndex a rdf:Property ;
+  rdfs:label "hasIndex" .
+
+cardano:hasInput a rdf:Property ;
+  rdfs:label "hasInput" .
+
+cardano:hasMint a rdf:Property ;
+  rdfs:label "hasMint" .
+
+cardano:hasOutput a rdf:Property ;
+  rdfs:label "hasOutput" .
+
+cardano:hasPaymentCredential a rdf:Property ;
+  rdfs:label "hasPaymentCredential" .
+
+cardano:hasPolicy a rdf:Property ;
+  rdfs:label "hasPolicy" .
+
+cardano:hasProposal a rdf:Property ;
+  rdfs:label "hasProposal" .
+
+cardano:hasRawBytes a rdf:Property ;
+  rdfs:label "hasRawBytes" .
+
+cardano:hasReferenceInput a rdf:Property ;
+  rdfs:label "hasReferenceInput" .
+
+cardano:hasReferenceScript a rdf:Property ;
+  rdfs:label "hasReferenceScript" .
+
+cardano:hasRequiredSigner a rdf:Property ;
+  rdfs:label "hasRequiredSigner" .
+
+cardano:hasStakeCredential a rdf:Property ;
+  rdfs:label "hasStakeCredential" .
+
+cardano:hasTxId a rdf:Property ;
+  rdfs:label "hasTxId" .
+
+cardano:hasValidityInterval a rdf:Property ;
+  rdfs:label "hasValidityInterval" .
 
 cardano:hasVerdict a rdf:Property ;
-  rdfs:label "hasVerdict" ;
-  rdfs:domain cardano:Vote ;
-  rdfs:range  rdfs:Literal ;
-  dcterms:description "The verdict of a vote, as a literal — one of \"Yes\", \"No\", \"Abstain\"." .
+  rdfs:label "hasVerdict" .
 
-# ==============================================================================
-# Properties — Proposals (Phase A.2)
-# ==============================================================================
+cardano:hasVersion a rdf:Property ;
+  rdfs:label "hasVersion" .
 
-cardano:hasReturnAddress a rdf:Property ;
-  rdfs:label "hasReturnAddress" ;
-  rdfs:domain cardano:Proposal ;
-  dcterms:description "Binds a proposal to the reward-account that receives its deposit refund when the proposal is enacted or expires." .
+cardano:hasVote a rdf:Property ;
+  rdfs:label "hasVote" .
 
-cardano:hasGovActionId a rdf:Property ;
-  rdfs:label "hasGovActionId" ;
-  dcterms:description "Binds a governance-action-bearing subject (vote, proposal-pointer) to the (txId, govActionIx) identifier of the proposal it references." .
+cardano:hasVoter a rdf:Property ;
+  rdfs:label "hasVoter" .
+
+cardano:hasVotingAction a rdf:Property ;
+  rdfs:label "hasVotingAction" .
+
+cardano:hasWithdrawal a rdf:Property ;
+  rdfs:label "hasWithdrawal" .
+
+cardano:intervalEnd a rdf:Property ;
+  rdfs:label "intervalEnd" .
+
+cardano:intervalStart a rdf:Property ;
+  rdfs:label "intervalStart" .
+
+cardano:leafType a rdf:Property ;
+  rdfs:label "leafType" .
+
+cardano:lovelace a rdf:Property ;
+  rdfs:label "lovelace" .
+
+cardano:mintsAsset a rdf:Property ;
+  rdfs:label "mintsAsset" .
+
+cardano:networkId a rdf:Property ;
+  rdfs:label "networkId" .
+
+cardano:onCredential a rdf:Property ;
+  rdfs:label "onCredential" .
+
+cardano:quantity a rdf:Property ;
+  rdfs:label "quantity" .
+
+cardano:resolvedTo a rdf:Property ;
+  rdfs:label "resolvedTo" .
+
+cardano:scriptDataHash a rdf:Property ;
+  rdfs:label "scriptDataHash" .
+
+cardano:toDRep a rdf:Property ;
+  rdfs:label "toDRep" .
+
+cardano:toPool a rdf:Property ;
+  rdfs:label "toPool" .
+
+cardano:totalCollateral a rdf:Property ;
+  rdfs:label "totalCollateral" .
+
+cardano:withdrawalAccount a rdf:Property ;
+  rdfs:label "withdrawalAccount" .

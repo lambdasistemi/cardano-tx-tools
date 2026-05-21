@@ -10,12 +10,15 @@ body emitter.
 - **File**: [`transactions.ttl`](./transactions.ttl)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `a9b5d96` (branch `phase-a2-tx-semantic-completeness`
-  tip on 2026-05-21).
+- **SHA**: `e0602fe` (branch `phase-a2-tx-semantic-completeness`
+  tip on 2026-05-21, after the force-push to derived content).
 - **Branch state**: draft PR
   [kmaps#56](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/56),
   not yet merged to `main`. Base kmaps `main` @
   `cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9` (Phase A.1 merged).
+  The branch HEAD is a single commit replacing the previous
+  Phase A.1.5 guess content with the Vocab.hs-derived patch
+  verbatim, per T122b/T123a + operator A-007/A-008 ordering.
 - **Version label** declared in the file: `0.1.0-phaseA` (now with
   Phase A.2 additions appended at the tail: `cardano:Certificate`
   parent + 11 Conway-era cert subclasses, `cardano:Proposal`
@@ -59,14 +62,17 @@ rationale).
 3. T110a — refresh to kmaps@5536df0f (Phase A.1 branch tip with
    `hasAssetValue` predicate added).
 4. T110b — refresh to kmaps@cce9625b (Phase A.1 merged to main).
-5. **T114b (this commit)** — refresh to kmaps@a9b5d96 (Phase A.2
-   branch tip,
-   [kmaps#56](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/56)).
-   Enables the type-driven exhaustive ConwayDiffValue coverage
-   work (T115..T122) per the v2 corrected scope.
-6. **T123 (finalization, after T122)** — refresh to the merged
-   kmaps `main` SHA once kmaps#56 lands. Blocks T127 (Blockfrost
-   sample smoke) and PR #77 finalization.
+5. T114b — refresh to kmaps@a9b5d96 (Phase A.2 branch tip,
+   Phase A.1.5 guess content). Enabled the type-driven
+   exhaustive ConwayDiffValue coverage work (T115..T122).
+6. **T123a (this commit)** — refresh to kmaps@e0602fe after the
+   parent force-pushed kmaps#56 to the Vocab.hs-derived patch
+   verbatim (operator A-008). The strict VocabTraceabilitySpec
+   gate flips ON at this slice — every emitted CURIE must trace
+   to a declaration in this pin.
+7. **T123 (finalization, after Path A merge)** — refresh to the
+   merged kmaps `main` SHA once kmaps#56 lands. Blocks PR #77
+   finalization (T126).
 
 ## Refresh recipe
 
