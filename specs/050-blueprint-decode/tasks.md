@@ -221,7 +221,7 @@ speckit-analyze pass before T100.
     `cardano:hasRawBytes "<cbor-hex>"` and a single
     `cardano:decodeError "<reason>"` literal. `expected.txt` carries
     the expected stderr warning line.
-  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S13BlueprintDecodeFail.hs`
+  - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S14BlueprintDecodeFail.hs`
     (NEW).
   - `test/Cardano/Tx/Graph/Emit/BlueprintSpec.hs` (extended) — assert
     the FIRST-error-only invariant: a synthetic blueprint that fails at
@@ -231,7 +231,7 @@ speckit-analyze pass before T100.
     (b) stderr substring match against `expected.txt`.
 - **RED**: extended `BlueprintSpec` + `TxGraphExeSpec` fail on the
   pre-T105 emitter (no `decodeError` literal emitted).
-- **GREEN**: decode-failure path lands; fixture 13 byte-diff passes;
+- **GREEN**: decode-failure path lands; fixture 14 byte-diff passes;
   exit 0 + stderr warning asserted.
 - **Live-boundary**: emitter ↔ blueprint-decoder (failure path) +
   stderr; the exe spec is the operator-visible boundary.
