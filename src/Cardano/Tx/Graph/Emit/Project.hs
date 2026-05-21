@@ -188,7 +188,7 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Governance (
     Anchor (..),
-    GovAction (TreasuryWithdrawals),
+    GovAction (..),
     GovActionId (..),
     GovActionIx (..),
     ProposalProcedure (..),
@@ -333,11 +333,13 @@ projectBody entities lookupTbl tx utxo = do
             [ buildCertCluster lookupTbl k cert
             | (k, cert) <- zip [1 ..] certs
             ]
-    -- Per-proposal clusters (T010 — fixture 10).
-    proposalBlocks <-
-        traverse
-            (uncurry buildProposalCluster)
-            (zip [1 ..] proposals)
+    -- Per-proposal clusters (T010 — fixture 10; T121 — every
+    -- Conway GovAction variant flows through the same fallback
+    -- shape).
+    let proposalBlocks =
+            [ buildProposalCluster k proposal
+            | (k, proposal) <- zip [1 ..] proposals
+            ]
     -- Per-vote clusters (T119 / S18 — voting procedures).
     let voteBlocks =
             [ clusterBlocks (buildVoteCluster k voter actionId procedure)
@@ -2129,44 +2131,56 @@ emitReferenceInput k txIn = do
 {- | Build the cluster of subject blocks for one proposal at
 position @k@.
 
-T108 / S7 emits the D-006 fallback shape: the proposal subject
-itself is typeless (typing under @cardano:Proposal@ is deferred
-to follow-on F3) and carries only a @cardano:hasDatum@ edge to
-an inline-datum sub-block. The sub-block IS typed
-@cardano:Datum@, carries @cardano:decodedAs "\<variety\>"@ to
-label the variant (@TreasuryWithdrawals@ at this slice), and
-@cardano:hasRawBytes "\<cbor-hex\>"@ for the CBOR wire-encoding
-of the @ProposalProcedure@. The proposer's @returnAddr@ and the
-withdrawal targets are dropped from the structural surface here
-— Phase A has no @proposerReturnAddr@ / @withdrawalTarget@
-predicates; they are deferred to follow-on F3 once kmaps mints
-those terms.
+T108 / S7 introduced the D-006 fallback shape; T121 / S20
+generalizes it across every Conway 'GovAction' constructor so
+the emit walker is total over 'ProposalProcedure ConwayEra'.
 
-== Policy: fail-loudly on unsupported proposal varieties (T008 D3)
+Every proposal emits:
 
-Conway @GovAction@ constructors other than @TreasuryWithdrawals@
-(@ParameterChange@, @HardForkInitiation@, @NoConfidence@,
-@UpdateCommittee@, @NewConstitution@, @InfoAction@) raise
-'PUnsupportedLeafType' rather than silently emitting partial
-triples. Future slices that need a variant extend this function
-explicitly.
+@
+_:proposalK cardano:hasDatum _:proposalDatumK .
+_:proposalDatumK a cardano:Datum ;
+  cardano:decodedAs "\<varietyTag\>" ;
+  cardano:hasRawBytes "\<cbor-hex\>" .
+@
+
+The variety tag names the 'GovAction' constructor
+(@TreasuryWithdrawals@, @ParameterChange@,
+@HardForkInitiation@, @NoConfidence@, @UpdateCommittee@,
+@NewConstitution@, @InfoAction@) so SPARQL views can
+@FILTER@ on it. The CBOR raw bytes are the full
+@ProposalProcedure@ wire encoding via 'serialize'' at
+'eraProtVerLow' for 'ConwayEra'.
+
+The proposer's return-address and the per-variant inner
+shape (treasury withdrawal targets, parameter-change deltas,
+hard-fork target version, committee membership tuples,
+constitution anchor) are still folded into the @hasRawBytes@
+literal — typed RDF decomposition for those is deferred to a
+follow-on (typed datum decoding via CIP-57 blueprints, #50).
 -}
 buildProposalCluster ::
     Int ->
     ProposalProcedure ConwayEra ->
-    Either ProjectError [SubjectBlock]
+    [SubjectBlock]
 buildProposalCluster k proposal@(ProposalProcedure _ _ action _) =
-    case action of
-        TreasuryWithdrawals _ _ ->
-            Right
-                ( clusterBlocks
-                    (emitProposalDatumFallback k "TreasuryWithdrawals" proposal)
-                )
-        _ ->
-            Left
-                ( PUnsupportedLeafType
-                    "ConwayProposalValue (non-TreasuryWithdrawals)"
-                )
+    clusterBlocks (emitProposalDatumFallback k (govActionTag action) proposal)
+
+{- | Stable variety-tag string for any Conway 'GovAction'
+constructor — the literal that appears in the proposal datum
+sub-block's @cardano:decodedAs@ predicate. Total over all
+constructors so the emit walker is exhaustive at the type
+level (T121 / S20).
+-}
+govActionTag :: GovAction ConwayEra -> Text
+govActionTag = \case
+    TreasuryWithdrawals{} -> "TreasuryWithdrawals"
+    ParameterChange{} -> "ParameterChange"
+    HardForkInitiation{} -> "HardForkInitiation"
+    NoConfidence{} -> "NoConfidence"
+    UpdateCommittee{} -> "UpdateCommittee"
+    NewConstitution{} -> "NewConstitution"
+    InfoAction{} -> "InfoAction"
 
 {- | Emit the D-006 fallback shape for a proposal at position @k@:
 @_:proposalK cardano:hasDatum _:proposalDatumK@ on the proposal

@@ -19,6 +19,7 @@ import Cardano.Tx.Graph.Emit.OutputDatumSpec qualified as GraphEmitOutputDatumSp
 import Cardano.Tx.Graph.Emit.OutputLovelaceSpec qualified as GraphEmitOutputLovelaceSpec
 import Cardano.Tx.Graph.Emit.OutputScriptRefSpec qualified as GraphEmitOutputScriptRefSpec
 import Cardano.Tx.Graph.Emit.ProposalSpec qualified as GraphEmitProposalSpec
+import Cardano.Tx.Graph.Emit.ProposalVariantsSpec qualified as GraphEmitProposalVariantsSpec
 import Cardano.Tx.Graph.Emit.ReproducibilitySpec qualified as GraphEmitReproducibilitySpec
 import Cardano.Tx.Graph.Emit.RequiredSignersSpec qualified as GraphEmitRequiredSignersSpec
 import Cardano.Tx.Graph.Emit.SubjectDeDupSpec qualified as GraphEmitSubjectDeDupSpec
@@ -64,6 +65,7 @@ main = hspec $ do
     GraphEmitOutputLovelaceSpec.spec
     GraphEmitOutputScriptRefSpec.spec
     GraphEmitProposalSpec.spec
+    GraphEmitProposalVariantsSpec.spec
     GraphEmitReproducibilitySpec.spec
     GraphEmitRequiredSignersSpec.spec
     GraphEmitSubjectDeDupSpec.spec

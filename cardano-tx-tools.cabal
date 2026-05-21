@@ -383,6 +383,7 @@ test-suite unit-tests
     Cardano.Tx.Graph.Emit.OutputLovelaceSpec
     Cardano.Tx.Graph.Emit.OutputScriptRefSpec
     Cardano.Tx.Graph.Emit.ProposalSpec
+    Cardano.Tx.Graph.Emit.ProposalVariantsSpec
     Cardano.Tx.Graph.Emit.ReproducibilitySpec
     Cardano.Tx.Graph.Emit.RequiredSignersSpec
     Cardano.Tx.Graph.Emit.SubjectDeDupSpec
