@@ -34,6 +34,7 @@ import Cardano.Tx.Graph.Emit.WitnessSpec qualified as GraphEmitWitnessSpec
 import Cardano.Tx.Graph.EmitGoldenSpec qualified as GraphEmitGoldenSpec
 import Cardano.Tx.Graph.EmitMonadSpec qualified as GraphEmitMonadSpec
 import Cardano.Tx.Graph.EmitSmokeSpec qualified as GraphEmitSmokeSpec
+import Cardano.Tx.Graph.Rules.Load.BlueprintLoadSpec qualified as GraphRulesLoadBlueprintLoadSpec
 import Cardano.Tx.Graph.Rules.LoadEntitiesSpec qualified as GraphRulesLoadEntitiesSpec
 import Cardano.Tx.Graph.Rules.LoadExeSpec qualified as GraphRulesLoadExeSpec
 import Cardano.Tx.Graph.Rules.LoadGoldenSpec qualified as GraphRulesLoadGoldenSpec
@@ -84,6 +85,7 @@ main = hspec $ do
     GraphEmitGoldenSpec.spec
     GraphEmitMonadSpec.spec
     GraphEmitSmokeSpec.spec
+    GraphRulesLoadBlueprintLoadSpec.spec
     GraphRulesLoadEntitiesSpec.spec
     GraphRulesLoadExeSpec.spec
     GraphRulesLoadGoldenSpec.spec

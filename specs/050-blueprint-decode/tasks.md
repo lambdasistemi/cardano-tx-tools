@@ -25,6 +25,7 @@ speckit-analyze pass before T100.
 
 ### T100 — S0: rules-loader threads the blueprint index (chore)
 
+- **Status**: [X] complete — landed at this commit; 583/0/23 examples + cabal-fmt + fourmolu + hlint + cabal check + cabal haddock green; A-001 fixture-path fix folded in (Q-001-fixture-blueprint-paths-broken); spec.md FR-011 dup-script-variant relocation to `RulesLoadWarning` folded in as correction-in-passing.
 - **Subject**: `chore(050): rules-loader reads + parses blueprints into the index`
 - **Tasks trailer**: `Tasks: T100`
 - **Files**:

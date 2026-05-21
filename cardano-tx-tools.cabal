@@ -400,6 +400,7 @@ test-suite unit-tests
     Cardano.Tx.Graph.EmitGoldenSpec
     Cardano.Tx.Graph.EmitMonadSpec
     Cardano.Tx.Graph.EmitSmokeSpec
+    Cardano.Tx.Graph.Rules.Load.BlueprintLoadSpec
     Cardano.Tx.Graph.Rules.LoadEntitiesSpec
     Cardano.Tx.Graph.Rules.LoadExeSpec
     Cardano.Tx.Graph.Rules.LoadGoldenSpec

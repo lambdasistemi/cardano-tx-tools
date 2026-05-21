@@ -13,7 +13,7 @@ entities:
       name: USDM
 blueprints:
   - script: amaru.swap.v2
-    datum: ./blueprints/swap-v2-datum.cip57.json
+    datum: ../blueprints/swap-v2-datum.cip57.json
 collapse:
   - name: SwapOrderInput
     at: body.inputs

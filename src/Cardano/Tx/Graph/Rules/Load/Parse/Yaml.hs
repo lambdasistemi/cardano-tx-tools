@@ -59,6 +59,7 @@ module Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
     parseRulesYamlImports,
     parseRulesYamlImportsWithFile,
     slugify,
+    BlueprintStub (..),
 ) where
 
 import Cardano.Tx.Graph.Rules.Load.Bech32 (
@@ -73,6 +74,8 @@ import Cardano.Tx.Graph.Rules.Load.Types (
     RulesLoadError (..),
  )
 
+import Cardano.Crypto.Hash (hashFromBytes)
+import Cardano.Ledger.Hashes (ScriptHash (..))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -86,6 +89,7 @@ import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Yaml qualified as Yaml
+import System.FilePath (isAbsolute)
 import Text.Libyaml qualified as Libyaml
 
 {- | The placeholder file path attached to errors when the caller uses
@@ -132,31 +136,47 @@ The in-memory entry point uses @\<in-memory\>@ as the source file in
 every error. For real file-path provenance, drive
 'Cardano.Tx.Graph.Rules.Load.loadRulesFile' (which threads the file
 path through 'parseRulesYamlImportsWithFile').
+
+The in-memory entry points discard the blueprint stub list; the
+file-aware 'parseRulesYamlImportsWithFile' threads it through to the
+resolver for IO loading + JSON parsing.
 -}
 parseRulesYamlText :: ByteString -> Either RulesLoadError [EntityDecl]
-parseRulesYamlText = fmap snd . parseRulesYamlImports
+parseRulesYamlText = fmap (\(_, ents, _) -> ents) . parseRulesYamlImports
 
-{- | Parse a @rules.yaml@ byte blob into both the raw @imports:@ list
-(in source order) and the in-memory entity list. Uses the placeholder
-@\<in-memory\>@ file path — see 'parseRulesYamlImportsWithFile' for
-the file-aware variant used by the imports resolver.
+{- | Parse a @rules.yaml@ byte blob into the raw @imports:@ list (in
+source order), the in-memory entity list, and the blueprint stub
+list. Uses the placeholder @\<in-memory\>@ file path — see
+'parseRulesYamlImportsWithFile' for the file-aware variant used by
+the imports resolver.
 
-Returns @Right ([], [])@ for an empty document. Each element of the
-returned import list is the raw operator-authored string — the
-resolver applies its own absolute/HTTPS/missing-file checks.
+Returns @Right ([], [], [])@ for an empty document. Each element of
+the returned import list is the raw operator-authored string — the
+resolver applies its own absolute/HTTPS/missing-file checks. Each
+'BlueprintStub' captures one @blueprints:@ entry's metadata so the
+resolver can do the file-read + JSON-parse step in IO.
 -}
 parseRulesYamlImports ::
-    ByteString -> Either RulesLoadError ([Text], [EntityDecl])
+    ByteString ->
+    Either RulesLoadError ([Text], [EntityDecl], [BlueprintStub])
 parseRulesYamlImports = parseRulesYamlImportsWithFile inMemoryFile
 
 {- | Variant of 'parseRulesYamlImports' that takes the source 'FilePath'
 so every 'RulesLoadError' carries real (file, line) provenance. Used
 by 'Cardano.Tx.Graph.Rules.Load.Resolve.Imports.resolveImports'.
+
+The third element of the result is the list of 'BlueprintStub' values
+extracted from this file's @blueprints:@ section, in source order.
+The stubs carry just enough metadata (rules.yaml path, source line,
+script entity name, decoded 'ScriptHash', raw @datum:@ path string)
+for the resolver's IO stage to load + parse each blueprint JSON and
+the post-resolver dedup stage to apply first-wins + predicate
+collision detection.
 -}
 parseRulesYamlImportsWithFile ::
     FilePath ->
     ByteString ->
-    Either RulesLoadError ([Text], [EntityDecl])
+    Either RulesLoadError ([Text], [EntityDecl], [BlueprintStub])
 parseRulesYamlImportsWithFile file blob =
     let ctx =
             Ctx
@@ -187,9 +207,11 @@ yamlParseExceptionLine = \case
     _ -> topLevelLine
 
 walkTop ::
-    Ctx -> Aeson.Value -> Either RulesLoadError ([Text], [EntityDecl])
+    Ctx ->
+    Aeson.Value ->
+    Either RulesLoadError ([Text], [EntityDecl], [BlueprintStub])
 walkTop ctx = \case
-    Aeson.Null -> Right ([], [])
+    Aeson.Null -> Right ([], [], [])
     Aeson.Object obj -> do
         imports <- parseImportsKey ctx obj
         entities <- case KeyMap.lookup (Key.fromText "entities") obj of
@@ -208,15 +230,15 @@ walkTop ctx = \case
                         ( "entities: must be a list, got: "
                             <> typeName other
                         )
-        -- @blueprints:@ is shape-validated at parse time. Every
-        -- @script: \<name\>@ reference must resolve to an entity in
-        -- the same file whose shape is @script:@. The blueprint
-        -- entries themselves do not produce overlay triples (#51).
-        validateBlueprints ctx entities obj
+        -- @blueprints:@ is shape-validated AND parsed into stubs at
+        -- parse time. The stub carries the script entity's decoded
+        -- 'ScriptHash' and the raw @datum:@ path string; the
+        -- resolver's IO stage does the file-read + JSON-parse step.
+        stubs <- validateBlueprints ctx entities obj
         -- @collapse:@ is silently accepted (typed-list shape only;
         -- triples are emitted by #51, not the overlay serializer).
         validateCollapse ctx obj
-        Right (imports, entities)
+        Right (imports, entities, stubs)
     other ->
         Left $
             ParserError
@@ -279,23 +301,63 @@ parseImportEntry ctx = \case
                     <> typeName other
                 )
 
+{- | A 'blueprints:' entry distilled into the metadata the resolver
+needs for its IO stage. Built by the pure YAML walker; consumed by
+'Cardano.Tx.Graph.Rules.Load.Resolve.Imports.resolveImports'.
+
+Each stub carries the rules.yaml path + 1-based source line of the
+@- script:@ key so the IO stage can mint
+'BlueprintFileMissing' / 'BlueprintParseError' diagnostics with
+operator-friendly file:line provenance, the script entity's decoded
+'ScriptHash' (used as the index key + for first-wins dedup), the
+raw operator-authored @datum:@ path (preserved verbatim for error
+messages and to drive the resolver's relative-path resolution
+against the importer's directory), and the entity name (used by
+the 'DuplicateBlueprintForScript' warning's payload).
+-}
+data BlueprintStub = BlueprintStub
+    { stubRulesFile :: !FilePath
+    -- ^ Absolute path of the rules.yaml that declared this blueprint.
+    , stubLine :: !Int
+    -- ^ 1-based source line of the @- script:@ key.
+    , stubScriptName :: !Text
+    -- ^ The operator-typed entity name (verbatim from @script:@).
+    , stubScriptHash :: !ScriptHash
+    -- ^ The decoded script hash for the referenced entity's
+    -- @PaymentScript@ identifier — used as the
+    -- 'rulesBlueprints' index key and the first-wins dedup key.
+    , stubDatumRaw :: !Text
+    -- ^ Raw @datum:@ path string the operator authored (relative
+    -- to the rules.yaml's directory unless rejected by the
+    -- absolute / @file://@ / @http(s)://@ policy check).
+    }
+    deriving stock (Eq, Show)
+
 {- | Walk the top-level @blueprints:@ value (a list of objects) and
-verify every @script: \<name\>@ field names an entity in @entities@
-that carries a 'PaymentScript' identifier. Triggers
-'BlueprintRefsUnknownScript' on a dangling or non-script reference
-and a 'ParserError' on a structural shape error (non-list,
-non-object entry, missing @script:@ field, non-string @script:@
-value).
+produce a 'BlueprintStub' per entry. Triggers:
+
+* 'BlueprintRefsUnknownScript' on a dangling or non-script reference
+  in the @script:@ field;
+* 'AbsoluteBlueprintPath' on an absolute filesystem @datum:@ path or
+  a @file://@ URI;
+* 'HttpsBlueprintPath' on an @http(s)://@ URI in @datum:@;
+* 'ParserError' on a structural shape error (non-list, non-object
+  entry, missing @script:@ or @datum:@ field, non-string value).
+
+The resolver's IO stage (see
+'Cardano.Tx.Graph.Rules.Load.Resolve.Imports.resolveImports') is the
+one that mints 'BlueprintFileMissing' / 'BlueprintParseError' once
+each stub's @datum:@ file is actually read off disk.
 -}
 validateBlueprints ::
     Ctx ->
     [EntityDecl] ->
     KeyMap.KeyMap Aeson.Value ->
-    Either RulesLoadError ()
+    Either RulesLoadError [BlueprintStub]
 validateBlueprints ctx entities obj =
     case KeyMap.lookup (Key.fromText "blueprints") obj of
-        Nothing -> Right ()
-        Just Aeson.Null -> Right ()
+        Nothing -> Right []
+        Just Aeson.Null -> Right []
         Just (Aeson.Array arr) ->
             walk (foldr (:) [] arr) (ctxBlueprintLines ctx)
         Just other ->
@@ -307,43 +369,40 @@ validateBlueprints ctx entities obj =
                         <> typeName other
                     )
   where
-    walk [] _ = Right ()
-    walk (x : xs) (ln : lns) =
-        validateBlueprintEntry ctx ln entities x >> walk xs lns
-    walk (x : xs) [] =
-        validateBlueprintEntry ctx topLevelLine entities x >> walk xs []
+    walk [] _ = Right []
+    walk (x : xs) (ln : lns) = do
+        stub <- validateBlueprintEntry ctx ln entities x
+        rest <- walk xs lns
+        pure (stub : rest)
+    walk (x : xs) [] = do
+        stub <- validateBlueprintEntry ctx topLevelLine entities x
+        rest <- walk xs []
+        pure (stub : rest)
 
 validateBlueprintEntry ::
     Ctx ->
     Int ->
     [EntityDecl] ->
     Aeson.Value ->
-    Either RulesLoadError ()
+    Either RulesLoadError BlueprintStub
 validateBlueprintEntry ctx ln entities = \case
-    Aeson.Object o -> case KeyMap.lookup (Key.fromText "script") o of
-        Nothing ->
-            Left $
-                ParserError
-                    (ctxFile ctx)
-                    ln
-                    "blueprints[]: entry is missing the 'script:' field"
-        Just (Aeson.String refName) ->
-            if scriptEntityKnown entities refName
-                then Right ()
-                else
-                    Left $
-                        BlueprintRefsUnknownScript
-                            (ctxFile ctx)
-                            ln
-                            refName
-        Just other ->
-            Left $
-                ParserError
-                    (ctxFile ctx)
-                    ln
-                    ( "blueprints[].script: must be a string, got: "
-                        <> typeName other
-                    )
+    Aeson.Object o -> do
+        refName <- requireScriptName ctx ln o
+        scriptHash <-
+            maybe
+                (Left (BlueprintRefsUnknownScript (ctxFile ctx) ln refName))
+                Right
+                (lookupScriptHash entities refName)
+        datumRaw <- requireDatumPath ctx ln o
+        validateBlueprintDatumPath ctx ln datumRaw
+        Right
+            BlueprintStub
+                { stubRulesFile = ctxFile ctx
+                , stubLine = ln
+                , stubScriptName = refName
+                , stubScriptHash = scriptHash
+                , stubDatumRaw = datumRaw
+                }
     other ->
         Left $
             ParserError
@@ -353,21 +412,88 @@ validateBlueprintEntry ctx ln entities = \case
                     <> typeName other
                 )
 
-{- | True iff @entities@ contains a declaration with the given
-operator-typed name (matched against 'entityName' verbatim, not the
-slug) that carries at least one 'PaymentScript' identifier — i.e.
-the entity was declared with a @script:@ shape (or a compound-key
-shape that includes 'PaymentScript').
+requireScriptName ::
+    Ctx -> Int -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError Text
+requireScriptName ctx ln o = case KeyMap.lookup (Key.fromText "script") o of
+    Nothing ->
+        Left $
+            ParserError
+                (ctxFile ctx)
+                ln
+                "blueprints[]: entry is missing the 'script:' field"
+    Just (Aeson.String t) -> Right t
+    Just other ->
+        Left $
+            ParserError
+                (ctxFile ctx)
+                ln
+                ( "blueprints[].script: must be a string, got: "
+                    <> typeName other
+                )
+
+requireDatumPath ::
+    Ctx -> Int -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError Text
+requireDatumPath ctx ln o = case KeyMap.lookup (Key.fromText "datum") o of
+    Nothing ->
+        Left $
+            ParserError
+                (ctxFile ctx)
+                ln
+                "blueprints[]: entry is missing the 'datum:' field"
+    Just (Aeson.String t) -> Right t
+    Just other ->
+        Left $
+            ParserError
+                (ctxFile ctx)
+                ln
+                ( "blueprints[].datum: must be a string path, got: "
+                    <> typeName other
+                )
+
+{- | Enforce the filesystem-only / default-offline policy on a
+@blueprints:@ entry's @datum: \<path\>@ string. Mirrors the
+@owl:imports@ policy applied in
+'Cardano.Tx.Graph.Rules.Load.Resolve.Imports.resolveChild': reject
+@http(s)://@ as 'HttpsBlueprintPath', reject @file://@ and absolute
+filesystem paths as 'AbsoluteBlueprintPath'. Relative paths fall
+through to the IO stage which resolves them against the importer's
+directory.
 -}
-scriptEntityKnown :: [EntityDecl] -> Text -> Bool
-scriptEntityKnown entities refName =
-    any matches entities
+validateBlueprintDatumPath ::
+    Ctx -> Int -> Text -> Either RulesLoadError ()
+validateBlueprintDatumPath ctx ln raw
+    | Text.isPrefixOf "http://" raw || Text.isPrefixOf "https://" raw =
+        Left (HttpsBlueprintPath (ctxFile ctx) ln raw)
+    | Text.isPrefixOf "file://" raw =
+        Left (AbsoluteBlueprintPath (ctxFile ctx) ln raw)
+    | isAbsolute (Text.unpack raw) =
+        Left (AbsoluteBlueprintPath (ctxFile ctx) ln raw)
+    | otherwise = Right ()
+
+{- | Find the script hash for an operator-typed entity name. Looks for
+an entity whose 'entityName' matches @refName@ verbatim (not the
+slug) and which carries a 'PaymentScript' identifier shape.
+
+Decodes the identifier's lowercase hex bytes back into a 28-byte
+'ScriptHash'. Returns 'Nothing' for a dangling reference, a
+non-script entity, or the impossible case of a malformed hex
+payload (the per-entity parser already validates the hex shape at
+the @script:@ key, so the only realistic 'Nothing' path is the
+unknown-name path).
+-}
+lookupScriptHash :: [EntityDecl] -> Text -> Maybe ScriptHash
+lookupScriptHash entities refName = do
+    EntityDecl{entityIdentifiers} <-
+        find ((== refName) . entityName) entities
+    EntityIdentifier{entityIdBytesHex} <-
+        find ((== PaymentScript) . entityIdLeafType) entityIdentifiers
+    bytes <-
+        case Base16.decode (TextEncoding.encodeUtf8 entityIdBytesHex) of
+            Right b | BS.length b == 28 -> Just b
+            _ -> Nothing
+    ScriptHash <$> hashFromBytes bytes
   where
-    matches EntityDecl{entityName, entityIdentifiers} =
-        entityName == refName
-            && any
-                ((== PaymentScript) . entityIdLeafType)
-                entityIdentifiers
+    find p = foldr (\x acc -> if p x then Just x else acc) Nothing
 
 {- | Walk the top-level @collapse:@ value. The view-collapse surface
 is owned by #51; the loader only enforces the list shape so a
