@@ -50,14 +50,26 @@ _:tx a cardano:Transaction ;
   cardano:hasOutput _:output1 ;
   cardano:hasMint _:mint1 ;
   cardano:hasFee 0 ;
-  cardano:scriptDataHash "61a9c0106f3d796ea63f3be5f9d40bf5d47ad48f14a6ddb8f8e46a983462c8cf" .
+  cardano:scriptDataHash _:hash_scriptdata_61a9c0106f3d796e .
+
+_:hash_scriptdata_61a9c0106f3d796e a cardano:Identifier ;
+  cardano:leafType "ScriptDataHash" ;
+  cardano:bytesHex "61a9c0106f3d796ea63f3be5f9d40bf5d47ad48f14a6ddb8f8e46a983462c8cf" .
 
 #
 # Input 1
 #
 
 _:input1 a cardano:Input ;
-  cardano:fromTxOutRef "0000000000000000000000000000000000000000000000000000000000000001#0" .
+  cardano:fromTxOutRef _:inputTxOutRef1 .
+
+_:inputTxOutRef1 a cardano:TxOutRef ;
+  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasIndex 0 .
+
+_:hash_txid_0000000000000000 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000001" .
 
 #
 # Output 1

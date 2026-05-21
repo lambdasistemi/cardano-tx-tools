@@ -74,12 +74,25 @@ data EntityIdentifier = EntityIdentifier
     }
     deriving stock (Eq, Ord, Show)
 
-{- | The role-class enum the loader supports. The nine values used by
-the 11 rewrite-redesign fixtures are pinned in spec FR-013 and the
-@roleSuffix@ table in plan D2.
+{- | The role-class enum the loader supports.
+
+The first nine values (PaymentKey ... DRepScript) are the
+operator-declarable entity-credential leaf types pinned in spec
+FR-013 and the @roleSuffix@ table in plan D2 — they appear in
+operator rules files and the entity-overlay path.
+
+The remaining five (TxId, DatumHash, ScriptHash, ScriptDataHash,
+AuxiliaryDataHash) are body-walker-only leaf types introduced by
+T122c / S22 for the literal-vs-node consistency audit (A-007):
+any hash with independent identity (txid, datum hash, script
+hash, script-data hash, auxiliary-data hash) emits as a
+@cardano:Identifier@-typed bnode under the @_:hash_*@ raw-bytes
+naming prefix, so cross-position bnode joins in SPARQL views
+work without literal-string surgery.
 -}
 data LeafType
-    = PaymentKey
+    = -- Operator-declarable credential leaves (FR-013 / plan D2).
+      PaymentKey
     | PaymentScript
     | StakeKey
     | StakeScript
@@ -88,6 +101,20 @@ data LeafType
     | PoolId
     | DRepKey
     | DRepScript
+    | -- Body-walker hash leaves (T122c / S22).
+      -- 'Lt' prefix avoids name clashes with the ledger's
+      -- 'Cardano.Ledger.Hashes.ScriptHash',
+      -- 'Cardano.Ledger.Api.Scripts.Data.DatumHash',
+      -- 'Cardano.Ledger.TxIn.TxId', etc. The cardano:leafType
+      -- literals these emit ("ScriptHash" / "DatumHash" /
+      -- "TxId" / …) match A-007's wire-shape directly via the
+      -- 'leafTypeText' / 'renderLeafType' tables, not the
+      -- constructor name.
+      LtTxId
+    | LtDatumHash
+    | LtScriptHash
+    | LtScriptDataHash
+    | LtAuxiliaryDataHash
     deriving stock (Eq, Ord, Show)
 
 {- | Structured errors the loader returns via 'Left'. Each constructor

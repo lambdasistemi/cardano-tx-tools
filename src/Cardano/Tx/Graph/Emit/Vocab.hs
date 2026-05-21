@@ -161,6 +161,16 @@ data VocabTerm
       -- locally per A-006; exported upstream via T122b.
       TermCertificate
     | TermOpaqueLeaf
+    | -- TxOutRef decomposition (T122c / S22). 'fromTxOutRef'
+      -- shifts from a flat @"<txid>#<ix>"@ literal to a
+      -- typed @cardano:TxOutRef@ node carrying a TxId
+      -- Identifier sub-node + a numeric @cardano:hasIndex@,
+      -- so SPARQL views can join across positions referencing
+      -- the same TxId without literal-string surgery
+      -- (operator A-007).
+      TermTxOutRef
+    | TermHasTxId
+    | TermHasIndex
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -244,6 +254,9 @@ vocabIri = \case
     TermBytesHex -> cardanoPrefix <> "bytesHex"
     TermCertificate -> cardanoPrefix <> "Certificate"
     TermOpaqueLeaf -> cardanoPrefix <> "OpaqueLeaf"
+    TermTxOutRef -> cardanoPrefix <> "TxOutRef"
+    TermHasTxId -> cardanoPrefix <> "hasTxId"
+    TermHasIndex -> cardanoPrefix <> "hasIndex"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -326,6 +339,9 @@ vocabCurie = \case
     TermBytesHex -> "cardano:bytesHex"
     TermCertificate -> "cardano:Certificate"
     TermOpaqueLeaf -> "cardano:OpaqueLeaf"
+    TermTxOutRef -> "cardano:TxOutRef"
+    TermHasTxId -> "cardano:hasTxId"
+    TermHasIndex -> "cardano:hasIndex"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

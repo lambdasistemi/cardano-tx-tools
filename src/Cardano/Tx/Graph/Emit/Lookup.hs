@@ -143,25 +143,51 @@ entityBnodeName :: EntityDecl -> EntityIdentifier -> BnodeName
 entityBnodeName EntityDecl{entitySlug} EntityIdentifier{entityIdLeafType} =
     BnodeName (entitySlug <> "_" <> roleSuffix entityIdLeafType)
 
-{- | The fallback bnode name for an unknown credential —
-@cred_\<rolePrefix\>_\<bytes-prefix\>@, where @bytes-prefix@ is
+{- | The fallback bnode name for an unknown leaf — under the
+@_:cred_\<rolePrefix\>_\<bytes-prefix\>@ pattern for credential
+leaves and the @_:hash_\<rolePrefix\>_\<bytes-prefix\>@ pattern
+for body-walker hash leaves (T122c / S22). The @bytes-prefix@ is
 the first 'rawBytesPrefixLength' hex characters of the lowercase
 base16 encoding of @bytes@ (spec FR-005, plan D4).
 
-The role-prefix table is exhaustive over the nine 'LeafType'
-values pinned by spec FR-013; an unhandled leaf surfaces as a
-@-Wincomplete-patterns@ failure when a new variant is added.
+The role-prefix table is exhaustive over the 'LeafType' enum; an
+unhandled leaf surfaces as a @-Wincomplete-patterns@ failure
+when a new variant is added.
 -}
 rawBytesBnodeName :: LeafType -> ByteString -> BnodeName
 rawBytesBnodeName lt bytes =
     BnodeName $
-        "cred_"
+        familyPrefix lt
+            <> "_"
             <> rolePrefix lt
             <> "_"
             <> Text.take rawBytesPrefixLength hex
   where
     hex =
         TextEncoding.decodeLatin1 (Base16.encode bytes)
+
+{- | The bnode-name family prefix: @"cred"@ for the
+operator-declarable credential leaves (PaymentKey, PoolId, etc.)
+and @"hash"@ for the body-walker-only hash leaves (TxId,
+DatumHash, ScriptHash, ScriptDataHash, AuxiliaryDataHash).
+T122c / S22 introduces the @hash@ family.
+-}
+familyPrefix :: LeafType -> Text
+familyPrefix = \case
+    PaymentKey -> "cred"
+    PaymentScript -> "cred"
+    StakeKey -> "cred"
+    StakeScript -> "cred"
+    AssetClass -> "cred"
+    Policy -> "cred"
+    PoolId -> "cred"
+    DRepKey -> "cred"
+    DRepScript -> "cred"
+    LtTxId -> "hash"
+    LtDatumHash -> "hash"
+    LtScriptHash -> "hash"
+    LtScriptDataHash -> "hash"
+    LtAuxiliaryDataHash -> "hash"
 
 {- | Lowercased role-class prefix used in raw-bytes bnodes.
 
@@ -183,6 +209,11 @@ rolePrefix = \case
     PoolId -> "poolid"
     DRepKey -> "drepkey"
     DRepScript -> "drepscript"
+    LtTxId -> "txid"
+    LtDatumHash -> "datum"
+    LtScriptHash -> "script"
+    LtScriptDataHash -> "scriptdata"
+    LtAuxiliaryDataHash -> "auxiliarydata"
 
 {- | Decode a hex 'Text' to a 'ByteString'; @error@ on failure.
 

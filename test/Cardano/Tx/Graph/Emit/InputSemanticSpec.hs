@@ -125,6 +125,11 @@ T103-defined sense when its bnode name starts with
 @input@, @collateral@, or @refInput@. The numeric suffix
 (@input1@, @collateral1@, @refInput1@, …) distinguishes
 ordinal positions and is not part of the prefix match.
+
+Excludes resolved-output sub-blocks (@resolvedInput@,
+@resolvedCollateral@) and T122c TxOutRef sub-blocks
+(@inputTxOutRef@, @collateralTxOutRef@, @refInputTxOutRef@) —
+those carry @hasTxId@ + @hasIndex@, not @fromTxOutRef@.
 -}
 isInputSubject :: Subject -> Bool
 isInputSubject = \case
@@ -134,9 +139,19 @@ isInputSubject = \case
             ["input", "collateral", "refInput"]
             && not ("resolvedInput" `Text.isPrefixOf` name)
             && not ("resolvedCollateral" `Text.isPrefixOf` name)
+            && not ("inputTxOutRef" `Text.isPrefixOf` name)
+            && not ("collateralTxOutRef" `Text.isPrefixOf` name)
+            && not ("refInputTxOutRef" `Text.isPrefixOf` name)
     _ -> False
 
--- | Whether a subject block contains @cardano:fromTxOutRef@.
+{- | Whether a subject block contains @cardano:fromTxOutRef@.
+
+T122c / S22: the predicate now binds the input subject to a
+typed @cardano:TxOutRef@ bnode rather than a flat
+@"\<txid\>#\<ix\>"@ literal; the presence of the predicate is
+what this check enforces (the object form is asserted by
+fixture goldens + the new TxOutRef decomposition spec).
+-}
 hasFromTxOutRef :: SubjectBlock -> Bool
 hasFromTxOutRef SubjectBlock{subjectBlockPredicates} =
     any (\(p, _) -> p == fromTxOutRefPredicate) subjectBlockPredicates

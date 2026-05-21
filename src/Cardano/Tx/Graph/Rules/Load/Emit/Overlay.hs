@@ -188,3 +188,12 @@ renderLeafType = \case
     PoolId -> "PoolId"
     DRepKey -> "DRepKey"
     DRepScript -> "DRepScript"
+    -- T122c hash leaves are body-walker-only — they don't
+    -- appear in the operator-overlay rules path but the pattern
+    -- match here stays total so a future overlay extension can
+    -- consume them without an exhaustivity warning.
+    LtTxId -> "TxId"
+    LtDatumHash -> "DatumHash"
+    LtScriptHash -> "ScriptHash"
+    LtScriptDataHash -> "ScriptDataHash"
+    LtAuxiliaryDataHash -> "AuxiliaryDataHash"

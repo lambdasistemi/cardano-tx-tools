@@ -137,13 +137,20 @@ scriptDataHashSpecs = describe "cardano:scriptDataHash" $ do
         let bytes = emitBytes baseTx
         txBlockOfBytes bytes
             `shouldSatisfy` (not . BS8.isInfixOf "cardano:scriptDataHash")
-    it "emits scriptDataHash hex literal when SJust" $ do
+    it "emits scriptDataHash Identifier bnode when SJust (T122c)" $ do
         let h = stubScriptIntegrityHash 0xaa
             bytes = emitBytes (baseTx & scriptDataHash (SJust h))
             hex = BS8.replicate 64 'a'
+        -- T122c / S22: hash is now an Identifier-typed bnode
+        -- under the @_:hash_scriptdata_…@ name, not a flat
+        -- string literal.
         txBlockOfBytes bytes
+            `shouldSatisfy` BS8.isInfixOf "cardano:scriptDataHash _:hash_scriptdata_"
+        bytes
+            `shouldSatisfy` BS8.isInfixOf "cardano:leafType \"ScriptDataHash\""
+        bytes
             `shouldSatisfy` BS8.isInfixOf
-                ("cardano:scriptDataHash \"" <> hex <> "\"")
+                ("cardano:bytesHex \"" <> hex <> "\"")
 
 ----------------------------------------------------------------------
 -- cardano:auxiliaryDataHash
@@ -155,13 +162,18 @@ auxiliaryDataHashSpecs = describe "cardano:auxiliaryDataHash" $ do
         let bytes = emitBytes baseTx
         txBlockOfBytes bytes
             `shouldSatisfy` (not . BS8.isInfixOf "cardano:auxiliaryDataHash")
-    it "emits auxiliaryDataHash hex literal when SJust" $ do
+    it "emits auxiliaryDataHash Identifier bnode when SJust (T122c)" $ do
         let h = TxAuxDataHash (unsafeMakeSafeHash (rawHash 0xbb))
             bytes = emitBytes (baseTx & auxDataHash (SJust h))
             hex = BS8.replicate 64 'b'
         txBlockOfBytes bytes
             `shouldSatisfy` BS8.isInfixOf
-                ("cardano:auxiliaryDataHash \"" <> hex <> "\"")
+                "cardano:auxiliaryDataHash _:hash_auxiliarydata_"
+        bytes
+            `shouldSatisfy` BS8.isInfixOf "cardano:leafType \"AuxiliaryDataHash\""
+        bytes
+            `shouldSatisfy` BS8.isInfixOf
+                ("cardano:bytesHex \"" <> hex <> "\"")
 
 ----------------------------------------------------------------------
 -- Synthesis helpers

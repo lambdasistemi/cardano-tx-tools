@@ -323,7 +323,7 @@ projectBody entities lookupTbl tx utxo =
             buildCollaterals entities lookupTbl utxo collateralIns addrRegistry2
         (collateralReturnData, addrRegistry4) =
             buildCollateralReturn entities lookupTbl collateralReturn addrRegistry3
-        refInputData = buildReferenceInputs refInputs
+        refInputData = buildReferenceInputs lookupTbl refInputs
         addrEntries = addrRegistryEntries addrRegistry4
         -- Per-cert clusters (T008 — fixtures 06, 07; T120 —
         -- every Conway TxCert variant falls through the
@@ -351,6 +351,7 @@ projectBody entities lookupTbl tx utxo =
         txBlocks =
             clusterBlocks $
                 emitTxBlock
+                    lookupTbl
                     (length inputData)
                     (length refInputData)
                     (length outputData)
@@ -571,6 +572,11 @@ leafTypeText = \case
     PoolId -> "PoolId"
     DRepKey -> "DRepKey"
     DRepScript -> "DRepScript"
+    LtTxId -> "TxId"
+    LtDatumHash -> "DatumHash"
+    LtScriptHash -> "ScriptHash"
+    LtScriptDataHash -> "ScriptDataHash"
+    LtAuxiliaryDataHash -> "AuxiliaryDataHash"
 
 ----------------------------------------------------------------------
 -- Per-input + per-output traversal
@@ -863,6 +869,7 @@ also emits a separate @_:interval1@ sub-block carrying
 @cardano:intervalStart@ and\/or @cardano:intervalEnd@.
 -}
 emitTxBlock ::
+    LookupTable ->
     Int ->
     Int ->
     Int ->
@@ -882,6 +889,7 @@ emitTxBlock ::
     Int ->
     Emit ()
 emitTxBlock
+    lookupTbl
     nInputs
     nReferenceInputs
     nOutputs
@@ -923,9 +931,9 @@ emitTxBlock
             (OIntLit (fromIntegral feeLovelace))
         emitValidityInterval txSubj validity
         emitNetworkId txSubj networkId
-        emitScriptDataHash txSubj scriptDataHash
-        emitAuxiliaryDataHash txSubj auxDataHash
-        emitRequiredSigners txSubj requiredSigners
+        emitScriptDataHash lookupTbl txSubj scriptDataHash
+        emitAuxiliaryDataHash lookupTbl txSubj auxDataHash
+        emitRequiredSigners lookupTbl txSubj requiredSigners
         emitTotalCollateral txSubj totalCollateral
         emitCollateralReturnEdge txSubj hasCollateralReturnFlag
         edges TermHasVote idVoteBnode nVotes
@@ -964,25 +972,35 @@ emitCollateralReturnEdge txSubj True =
             (OBnode idCollateralReturnBnode)
         )
 
-{- | Emit one @cardano:hasRequiredSigner "\<hex\>"@ triple per
-required-signer key-hash declared on the body. The set is
-ascending-sorted so the emitted triples are deterministic across
-runs; an empty set elides the predicate entirely (no triple).
+{- | Emit one @cardano:hasRequiredSigner _:cred_paymentkey_X@
+edge per required-signer key-hash declared on the body, plus
+the @_:cred_paymentkey_X a cardano:Identifier ; ...@ block via
+'resolveCredentialAndIntroduceIdent'. The set is
+ascending-sorted so the emitted triples are deterministic; an
+empty set elides the predicate entirely.
 
-T116 / S15. Closes the operator's 2026-05-21 crash mode
-(@UnsupportedLeafType: ConwayRequiredSignersValue@) — required
-signers are the key-hashes Plutus scripts consult via the script
-context to gate spending.
+T116 / S15 introduced the predicate as a string literal; T122c
+/ S22 flips it to an Identifier-typed bnode per the
+literal-vs-node consistency audit (operator A-007). The bnode
+binds to the @PaymentKey@ leaf type because a required signer
+is always a payment key-hash — same logical entity as the
+payment-credential bnodes addresses decompose into, so SPARQL
+views can join @hasRequiredSigner@ targets to payment
+credentials directly on bnode equality.
 -}
-emitRequiredSigners :: Subject -> [KeyHash Guard] -> Emit ()
-emitRequiredSigners txSubj = mapM_ emit1
+emitRequiredSigners ::
+    LookupTable -> Subject -> [KeyHash Guard] -> Emit ()
+emitRequiredSigners lookupTbl txSubj = mapM_ emit1
   where
-    emit1 (KeyHash h) =
+    emit1 (KeyHash h) = do
+        let bytes = hashToBytes h
+        bn <-
+            resolveCredentialAndIntroduceIdent lookupTbl PaymentKey bytes
         tellTriple
             ( Triple
                 txSubj
                 (PIri (vocabCurie TermHasRequiredSigner))
-                (OStringLit (hexText (hashToBytes h)))
+                (OBnode bn)
             )
 
 {- | Emit the @cardano:hasValidityInterval _:interval1@ edge plus
@@ -1036,32 +1054,50 @@ emitNetworkId txSubj (SJust net) =
             (OIntLit (fromIntegral (networkToWord8 net)))
         )
 
-{- | Emit @cardano:scriptDataHash \"\<hex\>\"@ when the body's
-script-integrity hash is 'SJust'. The 32-byte hash is rendered
-as a hex string literal.
+{- | Emit @cardano:scriptDataHash _:hash_scriptdata_X@ when the
+body's script-integrity hash is 'SJust', plus the
+@_:hash_scriptdata_X a cardano:Identifier ;
+cardano:leafType "ScriptDataHash" ; cardano:bytesHex "<hex>"@
+sub-block via 'resolveCredentialAndIntroduceIdent'.
+
+Pre-T122c the predicate emitted the hash as a flat hex literal;
+A-007 flips it to an Identifier-typed bnode so SPARQL views can
+join the script-data hash on bnode equality against the
+witness-set's script bodies (#77 follow-on).
 -}
-emitScriptDataHash :: Subject -> StrictMaybe ScriptIntegrityHash -> Emit ()
-emitScriptDataHash _ SNothing = pure ()
-emitScriptDataHash txSubj (SJust h) =
+emitScriptDataHash ::
+    LookupTable -> Subject -> StrictMaybe ScriptIntegrityHash -> Emit ()
+emitScriptDataHash _ _ SNothing = pure ()
+emitScriptDataHash lookupTbl txSubj (SJust h) = do
+    let bytes = hashToBytes (extractHash h)
+    bn <- resolveCredentialAndIntroduceIdent lookupTbl LtScriptDataHash bytes
     tellTriple
         ( Triple
             txSubj
             (PIri (vocabCurie TermScriptDataHash))
-            (OStringLit (hexText (hashToBytes (extractHash h))))
+            (OBnode bn)
         )
 
-{- | Emit @cardano:auxiliaryDataHash \"\<hex\>\"@ when the body's
-aux-data hash is 'SJust'. The 32-byte hash is rendered as a hex
-string literal.
+{- | Emit @cardano:auxiliaryDataHash _:hash_auxiliarydata_X@ when
+the body's aux-data hash is 'SJust', plus the matching
+@_:hash_auxiliarydata_X a cardano:Identifier ; ...@ sub-block.
+
+Pre-T122c the predicate emitted the hash as a flat hex literal;
+A-007 flips it to an Identifier-typed bnode so SPARQL views can
+join the auxiliary-data hash on bnode equality against the
+auxiliary metadata block (#77 follow-on).
 -}
-emitAuxiliaryDataHash :: Subject -> StrictMaybe TxAuxDataHash -> Emit ()
-emitAuxiliaryDataHash _ SNothing = pure ()
-emitAuxiliaryDataHash txSubj (SJust (TxAuxDataHash h)) =
+emitAuxiliaryDataHash ::
+    LookupTable -> Subject -> StrictMaybe TxAuxDataHash -> Emit ()
+emitAuxiliaryDataHash _ _ SNothing = pure ()
+emitAuxiliaryDataHash lookupTbl txSubj (SJust (TxAuxDataHash h)) = do
+    let bytes = hashToBytes (extractHash h)
+    bn <- resolveCredentialAndIntroduceIdent lookupTbl LtAuxiliaryDataHash bytes
     tellTriple
         ( Triple
             txSubj
             (PIri (vocabCurie TermAuxiliaryDataHash))
-            (OStringLit (hexText (hashToBytes (extractHash h))))
+            (OBnode bn)
         )
 
 ----------------------------------------------------------------------
@@ -1226,6 +1262,11 @@ rolePrefixText = \case
     PoolId -> "poolid"
     DRepKey -> "drepkey"
     DRepScript -> "drepscript"
+    LtTxId -> "txid"
+    LtDatumHash -> "datum"
+    LtScriptHash -> "script"
+    LtScriptDataHash -> "scriptdata"
+    LtAuxiliaryDataHash -> "auxiliarydata"
 
 hexText :: ByteString -> Text
 hexText = TextEncoding.decodeLatin1 . Base16.encode
@@ -1247,7 +1288,7 @@ buildInputs entities lookupTbl utxo = go [] emptyAddrRegistry . zip [1 ..]
         case Map.lookup txIn utxo of
             Nothing ->
                 let blocks =
-                        clusterBlocks (emitUnresolvedInput k txIn)
+                        clusterBlocks (emitUnresolvedInput lookupTbl k txIn)
                  in go (blocks : acc) reg rest
             Just resolved ->
                 let (entry, reg') =
@@ -1268,31 +1309,29 @@ buildInputs entities lookupTbl utxo = go [] emptyAddrRegistry . zip [1 ..]
                  in go (blocks : acc) reg' rest
 
 {- | Emit triples for an input whose 'TxIn' is NOT resolved
-under the operator-supplied UTxO map. T103: every input —
-resolved or not — carries @cardano:fromTxOutRef
-"\<txid\>#\<ix\>"@ as its first non-@rdf:type@ triple
-(spec FR-004).
+under the operator-supplied UTxO map.
+
+T122c / S22 shape: the @cardano:fromTxOutRef@ slot binds the
+input subject to a typed @cardano:TxOutRef@ sub-node with
+@cardano:hasTxId _:hash_txid_X@ + @cardano:hasIndex N@.
+The TxId is an Identifier-typed bnode dedup-able across
+positions (operator A-007).
 -}
-emitUnresolvedInput :: Int -> TxIn -> Emit ()
-emitUnresolvedInput k txIn = do
+emitUnresolvedInput :: LookupTable -> Int -> TxIn -> Emit ()
+emitUnresolvedInput lookupTbl k txIn = do
     let inputSubj = SBnode (idInputBnode k)
     tellTriple (Triple inputSubj PRdfType (OIri (vocabCurie TermInput)))
-    tellTriple
-        ( Triple
-            inputSubj
-            (PIri (vocabCurie TermFromTxOutRef))
-            (OStringLit (formatTxIn txIn))
-        )
+    emitFromTxOutRef
+        lookupTbl
+        inputSubj
+        (idInputTxOutRefBnode k)
+        txIn
 
 {- | Emit triples for an input whose 'TxIn' IS resolved.
-T103: the @cardano:fromTxOutRef@ literal sits between the
-@rdf:type@ triple and the @cardano:resolvedTo@ edge so the
-predicate order is uniform across resolved / unresolved
-inputs. The shared address bnode base is passed in (it
-comes from the 'AddrRegistry' first-occurrence-wins
-lookup). T104 threads the resolved 'TxOut' value through so
-the resolved-output subject carries @cardano:lovelace@ and
-(when non-empty) the multi-asset RDF list.
+
+T122c / S22 shape: same @cardano:fromTxOutRef _:txOutRef@
+decomposition as the unresolved path, plus the
+@cardano:resolvedTo@ edge to the resolved-output sub-block.
 -}
 emitResolvedInput ::
     LookupTable -> Int -> TxIn -> Text -> MaryValue -> Emit ()
@@ -1300,12 +1339,11 @@ emitResolvedInput lookupTbl k txIn base value = do
     let inputSubj = SBnode (idInputBnode k)
         resolvedSubj = SBnode (idResolvedInputBnode k)
     tellTriple (Triple inputSubj PRdfType (OIri (vocabCurie TermInput)))
-    tellTriple
-        ( Triple
-            inputSubj
-            (PIri (vocabCurie TermFromTxOutRef))
-            (OStringLit (formatTxIn txIn))
-        )
+    emitFromTxOutRef
+        lookupTbl
+        inputSubj
+        (idInputTxOutRefBnode k)
+        txIn
     tellTriple
         ( Triple
             inputSubj
@@ -1325,16 +1363,59 @@ emitResolvedInput lookupTbl k txIn base value = do
         resolvedSubj
         value
 
-{- | Render a 'TxIn' as the @cardano:fromTxOutRef@ literal:
-@\<txid_hex\>#\<index\>@. The 'TxId' is the safe-hash of the
-producing transaction; the 'TxIx' is its output position
-(0-based, ledger semantics).
+{- | Emit the @cardano:fromTxOutRef _:txOutRefK@ edge on the
+parent input subject plus the
+@_:txOutRefK a cardano:TxOutRef ; cardano:hasTxId
+_:hash_txid_X ; cardano:hasIndex N@ sub-block. The TxId hash
+flows through 'resolveCredentialAndIntroduceIdent' so it
+dedups against other positions referencing the same producing
+transaction.
+
+T122c / S22 — A-007 decomposition. The @cardano:hasIndex@
+literal stays an integer (0-based ledger semantics).
 -}
-formatTxIn :: TxIn -> Text
-formatTxIn (TxIn (TxId safeHash) (TxIx index)) =
-    hexText (hashToBytes (extractHash safeHash))
-        <> "#"
-        <> Text.pack (show index)
+emitFromTxOutRef ::
+    LookupTable -> Subject -> BnodeName -> TxIn -> Emit ()
+emitFromTxOutRef lookupTbl parentSubj refBnode (TxIn (TxId safeHash) (TxIx index)) = do
+    let refSubj = SBnode refBnode
+        txIdBytes = hashToBytes (extractHash safeHash)
+    tellTriple
+        ( Triple
+            parentSubj
+            (PIri (vocabCurie TermFromTxOutRef))
+            (OBnode refBnode)
+        )
+    tellTriple
+        (Triple refSubj PRdfType (OIri (vocabCurie TermTxOutRef)))
+    txIdBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl LtTxId txIdBytes
+    tellTriple
+        ( Triple
+            refSubj
+            (PIri (vocabCurie TermHasTxId))
+            (OBnode txIdBnode)
+        )
+    tellTriple
+        ( Triple
+            refSubj
+            (PIri (vocabCurie TermHasIndex))
+            (OIntLit (fromIntegral index))
+        )
+
+-- | Bnode name the input position @k@'s TxOutRef sub-block gets.
+idInputTxOutRefBnode :: Int -> BnodeName
+idInputTxOutRefBnode k =
+    BnodeName ("inputTxOutRef" <> Text.pack (show k))
+
+-- | Bnode name the collateral position @k@'s TxOutRef sub-block gets.
+idCollateralTxOutRefBnode :: Int -> BnodeName
+idCollateralTxOutRefBnode k =
+    BnodeName ("collateralTxOutRef" <> Text.pack (show k))
+
+-- | Bnode name the reference-input position @k@'s TxOutRef sub-block gets.
+idRefInputTxOutRefBnode :: Int -> BnodeName
+idRefInputTxOutRefBnode k =
+    BnodeName ("refInputTxOutRef" <> Text.pack (show k))
 
 ----------------------------------------------------------------------
 -- Outputs
@@ -1389,8 +1470,8 @@ emitOutput lookupTbl k base txOut = do
             (OBnode (BnodeName (base <> "Addr")))
         )
     emitOutputValue lookupTbl (ValueAnchor "output" k) outSubj value
-    emitOutputDatum k outSubj datum
-    emitOutputReferenceScript k outSubj refScript
+    emitOutputDatum lookupTbl k outSubj datum
+    emitOutputReferenceScript lookupTbl k outSubj refScript
 
 {- | Emit the @cardano:hasDatum@ edge + per-datum sub-block for an
 output at position @k@ when the output carries a datum.
@@ -1398,10 +1479,16 @@ output at position @k@ when the output carries a datum.
 @Datum@ outputs additionally emit @cardano:hasRawBytes@ — the
 presence of @hasRawBytes@ is the distinguisher between the two
 shapes (per D-002). Outputs with @NoDatum@ emit nothing.
+
+T122c / S22: the @cardano:hasHash@ value is now an
+Identifier-typed bnode (@DatumHash@ leaf type) rather than a
+flat hex literal, so datum hashes cross-reference cleanly on
+bnode equality between datum-hash-only outputs, inline datums,
+and the witness-set's datum bag (operator A-007).
 -}
-emitOutputDatum :: Int -> Subject -> Datum ConwayEra -> Emit ()
-emitOutputDatum _ _ NoDatum = pure ()
-emitOutputDatum k outSubj (DatumHash dh) = do
+emitOutputDatum :: LookupTable -> Int -> Subject -> Datum ConwayEra -> Emit ()
+emitOutputDatum _ _ _ NoDatum = pure ()
+emitOutputDatum lookupTbl k outSubj (DatumHash dh) = do
     let datumBnode = idOutputDatumBnode k
         datumSubj = SBnode datumBnode
         hashBytes = hashToBytes (extractHash dh)
@@ -1412,13 +1499,15 @@ emitOutputDatum k outSubj (DatumHash dh) = do
             (OBnode datumBnode)
         )
     tellTriple (Triple datumSubj PRdfType (OIri (vocabCurie TermDatum)))
+    hashBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl LtDatumHash hashBytes
     tellTriple
         ( Triple
             datumSubj
             (PIri (vocabCurie TermHasHash))
-            (OStringLit (hexText hashBytes))
+            (OBnode hashBnode)
         )
-emitOutputDatum k outSubj (Datum binaryData) = do
+emitOutputDatum lookupTbl k outSubj (Datum binaryData) = do
     let datumBnode = idOutputDatumBnode k
         datumSubj = SBnode datumBnode
         hashBytes = hashToBytes (extractHash (hashBinaryData binaryData))
@@ -1430,11 +1519,13 @@ emitOutputDatum k outSubj (Datum binaryData) = do
             (OBnode datumBnode)
         )
     tellTriple (Triple datumSubj PRdfType (OIri (vocabCurie TermDatum)))
+    hashBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl LtDatumHash hashBytes
     tellTriple
         ( Triple
             datumSubj
             (PIri (vocabCurie TermHasHash))
-            (OStringLit (hexText hashBytes))
+            (OBnode hashBnode)
         )
     tellTriple
         ( Triple
@@ -1457,9 +1548,13 @@ bnode is typed @cardano:PlutusScript@ (with a
 nothing.
 -}
 emitOutputReferenceScript ::
-    Int -> Subject -> StrictMaybe (Script ConwayEra) -> Emit ()
-emitOutputReferenceScript _ _ SNothing = pure ()
-emitOutputReferenceScript k outSubj (SJust script) = do
+    LookupTable ->
+    Int ->
+    Subject ->
+    StrictMaybe (Script ConwayEra) ->
+    Emit ()
+emitOutputReferenceScript _ _ _ SNothing = pure ()
+emitOutputReferenceScript lookupTbl k outSubj (SJust script) = do
     let scriptBnode = idOutputRefScriptBnode k
         scriptSubj = SBnode scriptBnode
         ScriptHash hh = hashScript script
@@ -1478,11 +1573,18 @@ emitOutputReferenceScript k outSubj (SJust script) = do
             (OBnode scriptBnode)
         )
     tellTriple (Triple scriptSubj PRdfType (OIri (vocabCurie classTerm)))
+    -- T122c / S22: cardano:hasHash on a reference script now
+    -- binds to an Identifier-typed bnode (ScriptHash leaf type)
+    -- so the same script hash referenced from a payment-script
+    -- credential or the witness-set's script bag joins on bnode
+    -- equality (operator A-007).
+    hashBnode <-
+        resolveCredentialAndIntroduceIdent lookupTbl LtScriptHash hashBytes
     tellTriple
         ( Triple
             scriptSubj
             (PIri (vocabCurie TermHasHash))
-            (OStringLit (hexText hashBytes))
+            (OBnode hashBnode)
         )
     tellTriple
         ( Triple
@@ -1955,7 +2057,7 @@ buildCollaterals entities lookupTbl utxo txIns reg0 =
     go acc reg ((k, txIn) : rest) =
         case Map.lookup txIn utxo of
             Nothing ->
-                let blocks = clusterBlocks (emitUnresolvedCollateral k txIn)
+                let blocks = clusterBlocks (emitUnresolvedCollateral lookupTbl k txIn)
                  in go (blocks : acc) reg rest
             Just resolved ->
                 let (entry, reg') =
@@ -1976,26 +2078,24 @@ buildCollaterals entities lookupTbl utxo txIns reg0 =
                  in go (blocks : acc) reg' rest
 
 {- | Emit triples for a collateral input whose 'TxIn' is NOT
-resolved. Shape mirrors 'emitUnresolvedInput' — T103 adds
-the @cardano:fromTxOutRef@ literal.
+resolved. Shape mirrors 'emitUnresolvedInput' — T122c flips
+@cardano:fromTxOutRef@ to a typed @cardano:TxOutRef@
+sub-node.
 -}
-emitUnresolvedCollateral :: Int -> TxIn -> Emit ()
-emitUnresolvedCollateral k txIn = do
+emitUnresolvedCollateral :: LookupTable -> Int -> TxIn -> Emit ()
+emitUnresolvedCollateral lookupTbl k txIn = do
     let collSubj = SBnode (idCollateralBnode k)
     tellTriple (Triple collSubj PRdfType (OIri (vocabCurie TermInput)))
-    tellTriple
-        ( Triple
-            collSubj
-            (PIri (vocabCurie TermFromTxOutRef))
-            (OStringLit (formatTxIn txIn))
-        )
+    emitFromTxOutRef
+        lookupTbl
+        collSubj
+        (idCollateralTxOutRefBnode k)
+        txIn
 
 {- | Emit triples for a collateral input whose 'TxIn' IS
 resolved. Shape mirrors 'emitResolvedInput' with the
-collateral-specific @resolvedCollateralN@ bnode. T103 adds
-the @cardano:fromTxOutRef@ literal between the @rdf:type@
-triple and the @cardano:resolvedTo@ edge; T104 attaches the
-resolved-output value triples (lovelace + optional MA list).
+collateral-specific @resolvedCollateralN@ bnode. T122c flips
+@cardano:fromTxOutRef@ to a typed @cardano:TxOutRef@ sub-node.
 -}
 emitResolvedCollateral ::
     LookupTable -> Int -> TxIn -> Text -> MaryValue -> Emit ()
@@ -2003,12 +2103,11 @@ emitResolvedCollateral lookupTbl k txIn base value = do
     let collSubj = SBnode (idCollateralBnode k)
         resolvedSubj = SBnode (idResolvedCollateralBnode k)
     tellTriple (Triple collSubj PRdfType (OIri (vocabCurie TermInput)))
-    tellTriple
-        ( Triple
-            collSubj
-            (PIri (vocabCurie TermFromTxOutRef))
-            (OStringLit (formatTxIn txIn))
-        )
+    emitFromTxOutRef
+        lookupTbl
+        collSubj
+        (idCollateralTxOutRefBnode k)
+        txIn
     tellTriple
         ( Triple
             collSubj
@@ -2087,8 +2186,8 @@ emitCollateralReturn lookupTbl base txOut = do
     -- with k = 0 so the bnode names (outputDatum0,
     -- outputRefScript0) do not collide with regular outputs at
     -- positions [1..]. T117 / S16.
-    emitOutputDatum 0 outSubj datum
-    emitOutputReferenceScript 0 outSubj refScript
+    emitOutputDatum lookupTbl 0 outSubj datum
+    emitOutputReferenceScript lookupTbl 0 outSubj refScript
 
 ----------------------------------------------------------------------
 -- Reference inputs (T103 — fixture 11)
@@ -2103,23 +2202,22 @@ cardano:fromTxOutRef "\<txid\>#\<ix\>"@. The class is
 T103 does not surface @cardano:resolvedTo@ for reference
 inputs — the resolved-output payload arrives across T104+T105.
 -}
-buildReferenceInputs :: [TxIn] -> [[SubjectBlock]]
-buildReferenceInputs txIns =
-    [ clusterBlocks (emitReferenceInput k txIn)
+buildReferenceInputs :: LookupTable -> [TxIn] -> [[SubjectBlock]]
+buildReferenceInputs lookupTbl txIns =
+    [ clusterBlocks (emitReferenceInput lookupTbl k txIn)
     | (k, txIn) <- zip [1 :: Int ..] txIns
     ]
 
 -- | Emit triples for a reference input at position @k@.
-emitReferenceInput :: Int -> TxIn -> Emit ()
-emitReferenceInput k txIn = do
+emitReferenceInput :: LookupTable -> Int -> TxIn -> Emit ()
+emitReferenceInput lookupTbl k txIn = do
     let refSubj = SBnode (idReferenceInputBnode k)
     tellTriple (Triple refSubj PRdfType (OIri (vocabCurie TermInput)))
-    tellTriple
-        ( Triple
-            refSubj
-            (PIri (vocabCurie TermFromTxOutRef))
-            (OStringLit (formatTxIn txIn))
-        )
+    emitFromTxOutRef
+        lookupTbl
+        refSubj
+        (idRefInputTxOutRefBnode k)
+        txIn
 
 ----------------------------------------------------------------------
 -- Proposal cluster (T010 — fixture 10)
