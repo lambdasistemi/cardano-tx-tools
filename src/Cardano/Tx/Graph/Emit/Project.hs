@@ -135,6 +135,7 @@ import Cardano.Ledger.Address (
  )
 import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
 import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
+import Cardano.Ledger.Api.Era (eraProtVerLow)
 import Cardano.Ledger.Api.Scripts.Data (
     Datum (Datum, DatumHash, NoDatum),
     hashBinaryData,
@@ -175,6 +176,7 @@ import Cardano.Ledger.BaseTypes (
     TxIx (..),
     networkToWord8,
  )
+import Cardano.Ledger.Binary (serialize')
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Governance (
@@ -299,7 +301,7 @@ projectBody entities lookupTbl tx utxo = do
     -- Per-proposal clusters (T010 — fixture 10).
     proposalBlocks <-
         traverse
-            (uncurry (buildProposalCluster lookupTbl))
+            (uncurry buildProposalCluster)
             (zip [1 ..] proposals)
     -- Assemble the tx subject block via the Emit monad — the
     -- per-predicate @tellTriple@ sequence preserves the
@@ -383,9 +385,9 @@ projectBody entities lookupTbl tx utxo = do
         proposalSections =
             [ BodySection
                 { sectionHeader = "Proposal " <> Text.pack (show k)
-                , sectionBlocks = [block]
+                , sectionBlocks = blocks
                 }
-            | (k, block) <- zip [1 :: Int ..] proposalBlocks
+            | (k, blocks) <- zip [1 :: Int ..] proposalBlocks
             ]
         addrSection
             | null addrEntries = []
@@ -543,6 +545,15 @@ idResolvedCollateralBnode k =
 idProposalBnode :: Int -> BnodeName
 idProposalBnode k =
     BnodeName ("proposal" <> Text.pack (show k))
+
+{- | Bnode name the per-proposal inline-datum sub-block at proposal
+position @k@ (1-based) gets. T108 / S7 attaches it to the
+proposal subject via 'cardano:hasDatum'; the sub-block carries
+'cardano:decodedAs' + 'cardano:hasRawBytes' (D-006 fallback).
+-}
+idProposalDatumBnode :: Int -> BnodeName
+idProposalDatumBnode k =
+    BnodeName ("proposalDatum" <> Text.pack (show k))
 
 ----------------------------------------------------------------------
 -- Multi-asset value anchor + bnode naming (T104)
@@ -1765,21 +1776,21 @@ emitReferenceInput k txIn = do
 -- Proposal cluster (T010 — fixture 10)
 ----------------------------------------------------------------------
 
-{- | Build the subject block for one proposal at position @k@.
+{- | Build the cluster of subject blocks for one proposal at
+position @k@.
 
-T010 ships the @TreasuryWithdrawals@ variety only, which is the
-sole proposal the post-#45 harness exercises (S10 via
-@stubTreasuryWithdrawalProposal@). The cluster pins the proposal
-under @cardano:Datum@ (a deliberate reuse of the datum vocab,
-matching the artisan layout from #45 — Phase A declares
-@cardano:hasProposal@ as the body binding but does not (yet)
-declare a @ProposalProcedure@ class or per-variety subclasses)
-plus @cardano:decodedAs "TreasuryWithdrawals"@ to label the
-variant. The proposer's @returnAddr@ stake credential surfaces
-as a @cardano:hasIdentifier@ link, followed by one
-@cardano:hasIdentifier@ per @TreasuryWithdrawals@ target
-reward-account (in 'Map' ascending order — the same order the
-ledger enforces on the wire).
+T108 / S7 emits the D-006 fallback shape: the proposal subject
+itself is typeless (typing under @cardano:Proposal@ is deferred
+to follow-on F3) and carries only a @cardano:hasDatum@ edge to
+an inline-datum sub-block. The sub-block IS typed
+@cardano:Datum@, carries @cardano:decodedAs "\<variety\>"@ to
+label the variant (@TreasuryWithdrawals@ at this slice), and
+@cardano:hasRawBytes "\<cbor-hex\>"@ for the CBOR wire-encoding
+of the @ProposalProcedure@. The proposer's @returnAddr@ and the
+withdrawal targets are dropped from the structural surface here
+— Phase A has no @proposerReturnAddr@ / @withdrawalTarget@
+predicates; they are deferred to follow-on F3 once kmaps mints
+those terms.
 
 == Policy: fail-loudly on unsupported proposal varieties (T008 D3)
 
@@ -1791,74 +1802,59 @@ triples. Future slices that need a variant extend this function
 explicitly.
 -}
 buildProposalCluster ::
-    LookupTable ->
     Int ->
     ProposalProcedure ConwayEra ->
-    Either ProjectError SubjectBlock
-buildProposalCluster lookupTbl k (ProposalProcedure _ returnAddr action _) =
+    Either ProjectError [SubjectBlock]
+buildProposalCluster k proposal@(ProposalProcedure _ _ action _) =
     case action of
-        TreasuryWithdrawals targets _ ->
-            let blocks =
-                    clusterBlocks
-                        (emitProposalTreasuryWithdrawals lookupTbl k returnAddr targets)
-             in case blocks of
-                    [b] -> Right b
-                    _ ->
-                        -- T102 invariant: emitProposalTreasuryWithdrawals
-                        -- emits triples for a single subject, so
-                        -- groupBySubject must return exactly one block.
-                        -- This arm is unreachable; the explicit
-                        -- pattern guards against silent regression
-                        -- if a future slice adds extra subjects.
-                        Left
-                            ( PUnsupportedLeafType
-                                "ConwayProposalValue TreasuryWithdrawals (unexpected multi-subject)"
-                            )
+        TreasuryWithdrawals _ _ ->
+            Right
+                ( clusterBlocks
+                    (emitProposalDatumFallback k "TreasuryWithdrawals" proposal)
+                )
         _ ->
             Left
                 ( PUnsupportedLeafType
                     "ConwayProposalValue (non-TreasuryWithdrawals)"
                 )
 
-emitProposalTreasuryWithdrawals ::
-    LookupTable ->
+{- | Emit the D-006 fallback shape for a proposal at position @k@:
+@_:proposalK cardano:hasDatum _:proposalDatumK@ on the proposal
+subject, plus a typed @_:proposalDatumK a cardano:Datum ;
+cardano:decodedAs "\<variety\>" ; cardano:hasRawBytes "\<cbor-hex\>"@
+sub-block. The raw bytes are the CBOR wire-encoding of the
+@ProposalProcedure@ at the Conway era's protocol version (per the
+ledger's 'EncCBOR' instance).
+-}
+emitProposalDatumFallback ::
     Int ->
-    AccountAddress ->
-    Map AccountAddress Coin ->
+    Text ->
+    ProposalProcedure ConwayEra ->
     Emit ()
-emitProposalTreasuryWithdrawals lookupTbl k returnAddr targets = do
-    let (returnLT, returnBytes) = accountStakeLeaf returnAddr
-        returnIdBnode =
-            resolveCredential lookupTbl returnLT returnBytes
-        targetIdBnodes =
-            [ resolveCredential lookupTbl lt bytes
-            | acct <- Map.keys targets
-            , let (lt, bytes) = accountStakeLeaf acct
-            ]
-        propSubj = SBnode (idProposalBnode k)
-    -- T105 / S4 drops the @_:proposalN a cardano:Datum@ type
-    -- triple — the @cardano:Datum@ class declaration in the
-    -- canonical pin is retained, but the proposal subject is
-    -- left typeless here until T108 / S7 retypes it under the
-    -- D-006 fallback shape.
+emitProposalDatumFallback k variety proposal = do
+    let propSubj = SBnode (idProposalBnode k)
+        datumBnode = idProposalDatumBnode k
+        datumSubj = SBnode datumBnode
+        rawBytes = serialize' (eraProtVerLow @ConwayEra) proposal
     tellTriple
         ( Triple
             propSubj
+            (PIri (vocabCurie TermHasDatum))
+            (OBnode datumBnode)
+        )
+    tellTriple (Triple datumSubj PRdfType (OIri (vocabCurie TermDatum)))
+    tellTriple
+        ( Triple
+            datumSubj
             (PIri (vocabCurie TermDecodedAs))
-            (OStringLit "TreasuryWithdrawals")
+            (OStringLit variety)
         )
     tellTriple
         ( Triple
-            propSubj
-            (PIri (vocabCurie TermHasIdentifier))
-            (OBnode returnIdBnode)
+            datumSubj
+            (PIri (vocabCurie TermHasRawBytes))
+            (OStringLit (hexText rawBytes))
         )
-    mapM_
-        ( tellTriple
-            . Triple propSubj (PIri (vocabCurie TermHasIdentifier))
-            . OBnode
-        )
-        targetIdBnodes
 
 ----------------------------------------------------------------------
 -- Bech32 encoding for the cardano:bech32 literal

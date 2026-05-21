@@ -186,6 +186,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T108 — S7: proposal fallback shape (TreasuryWithdrawals inline-datum) (feat)
 
+- **Status**: [X] complete — landed at this commit. `buildProposalCluster` now returns `Either ProjectError [SubjectBlock]` so the proposal cluster carries a typeless `_:proposalN` subject (`cardano:Proposal` typing deferred to follow-on F3) bound via `cardano:hasDatum` to a typed `_:proposalDatumN a cardano:Datum ; cardano:decodedAs "TreasuryWithdrawals" ; cardano:hasRawBytes "<cbor-hex>"` sub-block (the CBOR bytes are the ledger `EncCBOR` of the `ProposalProcedure` at the Conway era's `eraProtVerLow`). The T102 carry-finding unreachable `Left` arm is removed — `clusterBlocks` legitimately returns multiple subject blocks for this cluster now. The pre-D-006 `returnAddr` / withdrawal-target `cardano:hasIdentifier`-spam is dropped; recovery of those addresses goes through the inline CBOR until F3 mints `proposerReturnAddr` / `withdrawalTarget` predicates. Fixture 10 `expected.ttl` + `NOTES.md` regenerated; new `ProposalSpec` GREEN on all 11 fixtures (proposalless fixtures pass vacuously).
 - **Subject**: `feat(070): proposal fallback shape — inline-datum sub-block per D-006 deferral`
 - **Tasks trailer**: `Tasks: T108`
 - **Files**:
