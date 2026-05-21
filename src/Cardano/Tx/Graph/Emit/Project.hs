@@ -161,6 +161,7 @@ import Cardano.Ledger.Api.Tx.Body (
     scriptIntegrityHashTxBodyL,
     totalCollateralTxBodyL,
     vldtTxBodyL,
+    votingProceduresTxBodyL,
     withdrawalsTxBodyL,
  )
 import Cardano.Ledger.Api.Tx.Cert (
@@ -180,13 +181,22 @@ import Cardano.Ledger.BaseTypes (
     StrictMaybe (SJust, SNothing),
     TxIx (..),
     networkToWord8,
+    urlToText,
  )
 import Cardano.Ledger.Binary (serialize')
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Governance (
+    Anchor (..),
     GovAction (TreasuryWithdrawals),
+    GovActionId (..),
+    GovActionIx (..),
     ProposalProcedure (..),
+    Vote (Abstain, VoteNo, VoteYes),
+    Voter (CommitteeVoter, DRepVoter, StakePoolVoter),
+    VotingProcedure (..),
+    VotingProcedures (..),
+    foldrVotingProcedures,
  )
 import Cardano.Ledger.Core (Script, TxCert, hashScript)
 import Cardano.Ledger.Credential (
@@ -293,6 +303,7 @@ projectBody entities lookupTbl tx utxo = do
             Set.toAscList (body ^. reqSignerHashesTxBodyL)
         totalCollateral = body ^. totalCollateralTxBodyL
         collateralReturn = body ^. collateralReturnTxBodyL
+        votes = flattenVotingProcedures (body ^. votingProceduresTxBodyL)
     -- Build per-input data + per-output data + per-collateral
     -- data with a single deduped address bnode registry.
     let (inputData, addrRegistry1) =
@@ -313,6 +324,11 @@ projectBody entities lookupTbl tx utxo = do
         traverse
             (uncurry buildProposalCluster)
             (zip [1 ..] proposals)
+    -- Per-vote clusters (T119 / S18 — voting procedures).
+    let voteBlocks =
+            [ clusterBlocks (buildVoteCluster k voter actionId procedure)
+            | (k, (voter, actionId, procedure)) <- zip [1 ..] votes
+            ]
     -- Assemble the tx subject block via the Emit monad — the
     -- per-predicate @tellTriple@ sequence preserves the
     -- pre-T102 byte order (see the module-header note on
@@ -336,6 +352,7 @@ projectBody entities lookupTbl tx utxo = do
                     requiredSigners
                     totalCollateral
                     (not (null collateralReturnData))
+                    (length votes)
         txSection =
             BodySection
                 { sectionHeader = "Transaction body."
@@ -409,6 +426,13 @@ projectBody entities lookupTbl tx utxo = do
                 }
             | (k, blocks) <- zip [1 :: Int ..] proposalBlocks
             ]
+        voteSections =
+            [ BodySection
+                { sectionHeader = "Vote " <> Text.pack (show k)
+                , sectionBlocks = blocks
+                }
+            | (k, blocks) <- zip [1 :: Int ..] voteBlocks
+            ]
         addrSection
             | null addrEntries = []
             | otherwise =
@@ -435,6 +459,7 @@ projectBody entities lookupTbl tx utxo = do
                 <> collateralSections
                 <> collateralReturnSections
                 <> proposalSections
+                <> voteSections
                 <> addrSection
         )
 
@@ -544,6 +569,18 @@ idResolvedCollateralBnode k =
 idProposalBnode :: Int -> BnodeName
 idProposalBnode k =
     BnodeName ("proposal" <> Text.pack (show k))
+
+-- | Bnode name a vote entry at position @k@ (1-based) gets.
+idVoteBnode :: Int -> BnodeName
+idVoteBnode k = BnodeName ("vote" <> Text.pack (show k))
+
+-- | Bnode name a vote's voter sub-block at position @k@ gets.
+idVoterBnode :: Int -> BnodeName
+idVoterBnode k = BnodeName ("voter" <> Text.pack (show k))
+
+-- | Bnode name a vote's anchor sub-block at position @k@ gets.
+idVoteAnchorBnode :: Int -> BnodeName
+idVoteAnchorBnode k = BnodeName ("voteAnchor" <> Text.pack (show k))
 
 {- | Bnode name the per-proposal inline-datum sub-block at proposal
 position @k@ (1-based) gets. T108 / S7 attaches it to the
@@ -751,6 +788,7 @@ emitTxBlock ::
     [KeyHash Guard] ->
     StrictMaybe Coin ->
     Bool ->
+    Int ->
     Emit ()
 emitTxBlock
     nInputs
@@ -768,7 +806,8 @@ emitTxBlock
     auxDataHash
     requiredSigners
     totalCollateral
-    hasCollateralReturnFlag = do
+    hasCollateralReturnFlag
+    nVotes = do
         let txSubj = SBnode (BnodeName "tx")
             tt p o = tellTriple (Triple txSubj p o)
             -- Emit one @cardano:hasX _:xK@ edge per k in
@@ -798,6 +837,7 @@ emitTxBlock
         emitRequiredSigners txSubj requiredSigners
         emitTotalCollateral txSubj totalCollateral
         emitCollateralReturnEdge txSubj hasCollateralReturnFlag
+        edges TermHasVote idVoteBnode nVotes
 
 {- | Emit @cardano:totalCollateral N@ when the body's total
 collateral is @SJust@ (Conway's pre-declared collateral total in
@@ -2008,6 +2048,154 @@ emitProposalDatumFallback k variety proposal = do
             datumSubj
             (PIri (vocabCurie TermHasRawBytes))
             (OStringLit (hexText rawBytes))
+        )
+
+----------------------------------------------------------------------
+-- Voting procedures (T119 — voter discrimination + verdict + anchor)
+----------------------------------------------------------------------
+
+{- | Flatten 'VotingProcedures' into a deterministic list of
+@(voter, govActionId, procedure)@ triples in ascending voter
+then ascending govActionId order. The underlying
+@Map Voter (Map GovActionId VotingProcedure)@ is already
+'Map.toAscList'-orderable, so the flattening preserves a
+canonical, byte-stable iteration.
+-}
+flattenVotingProcedures ::
+    VotingProcedures ConwayEra ->
+    [(Voter, GovActionId, VotingProcedure ConwayEra)]
+flattenVotingProcedures =
+    foldrVotingProcedures (\v g p acc -> (v, g, p) : acc) []
+
+{- | Build the subject blocks for one vote at position @k@.
+
+== Shape
+
+@
+_:voteK a cardano:Vote ;
+        cardano:hasVoter _:voterK ;
+        cardano:hasVotingAction "\<txid\>#\<ix\>" ;
+        cardano:hasVerdict "Yes" | "No" | "Abstain" ;
+        cardano:hasAnchor _:voteAnchorK .  -- when SJust
+@
+
+@_:voterK@ carries one of three discriminating @rdf:type@
+triples (@cardano:VoterDRep@ / @cardano:VoterStakePool@ /
+@cardano:VoterCommitteeCold@) plus a @cardano:hasIdentifier@
+predicate carrying the 28-byte key/script hash as a hex
+literal.
+
+When the procedure carries an 'Anchor', @_:voteAnchorK@ carries
+@cardano:anchorUrl "url"@ + @cardano:anchorHash "hex"@.
+-}
+buildVoteCluster ::
+    Int ->
+    Voter ->
+    GovActionId ->
+    VotingProcedure ConwayEra ->
+    Emit ()
+buildVoteCluster k voter actionId procedure = do
+    let voteSubj = SBnode (idVoteBnode k)
+        voterSubj = SBnode (idVoterBnode k)
+        VotingProcedure vote mAnchor = procedure
+    tellTriple (Triple voteSubj PRdfType (OIri (vocabCurie TermVote)))
+    tellTriple
+        ( Triple
+            voteSubj
+            (PIri (vocabCurie TermHasVoter))
+            (OBnode (idVoterBnode k))
+        )
+    tellTriple
+        ( Triple
+            voteSubj
+            (PIri (vocabCurie TermHasVotingAction))
+            (OStringLit (formatGovActionId actionId))
+        )
+    tellTriple
+        ( Triple
+            voteSubj
+            (PIri (vocabCurie TermHasVerdict))
+            (OStringLit (verdictText vote))
+        )
+    case mAnchor of
+        SNothing -> pure ()
+        SJust anchor -> emitVoteAnchor k voteSubj anchor
+    emitVoterBlock k voterSubj voter
+
+-- | The verdict text literal: @"Yes"@, @"No"@, or @"Abstain"@.
+verdictText :: Vote -> Text
+verdictText = \case
+    VoteYes -> "Yes"
+    VoteNo -> "No"
+    Abstain -> "Abstain"
+
+-- | Render a 'GovActionId' as @"\<txid_hex\>#\<index\>"@.
+formatGovActionId :: GovActionId -> Text
+formatGovActionId (GovActionId (TxId safeHash) (GovActionIx ix)) =
+    hexText (hashToBytes (extractHash safeHash))
+        <> "#"
+        <> Text.pack (show ix)
+
+{- | Emit the @_:voterK a cardano:VoterX ; cardano:hasIdentifier
+"\<hex\>"@ sub-block. The discriminating class
+('VoterDRep' / 'VoterStakePool' / 'VoterCommitteeCold') is
+keyed by the 'Voter' constructor; the identifier is the
+28-byte key-hash (or script-hash) the voter is bound to.
+-}
+emitVoterBlock :: Int -> Subject -> Voter -> Emit ()
+emitVoterBlock _ voterSubj voter = do
+    let (classTerm, idBytes) = voterDiscrimination voter
+    tellTriple (Triple voterSubj PRdfType (OIri (vocabCurie classTerm)))
+    tellTriple
+        ( Triple
+            voterSubj
+            (PIri (vocabCurie TermHasIdentifier))
+            (OStringLit (hexText idBytes))
+        )
+
+{- | Classify a 'Voter' into its discriminating class term and
+identifier bytes. @CommitteeVoter@ wraps a hot-committee
+credential (key or script hash); @DRepVoter@ wraps a DRep
+credential (key or script hash); @StakePoolVoter@ wraps a pool
+key-hash directly.
+-}
+voterDiscrimination :: Voter -> (VocabTerm, ByteString)
+voterDiscrimination = \case
+    CommitteeVoter (KeyHashObj (KeyHash h)) ->
+        (TermVoterCommitteeCold, hashToBytes h)
+    CommitteeVoter (ScriptHashObj (ScriptHash h)) ->
+        (TermVoterCommitteeCold, hashToBytes h)
+    DRepVoter (KeyHashObj (KeyHash h)) ->
+        (TermVoterDRep, hashToBytes h)
+    DRepVoter (ScriptHashObj (ScriptHash h)) ->
+        (TermVoterDRep, hashToBytes h)
+    StakePoolVoter (KeyHash h) ->
+        (TermVoterStakePool, hashToBytes h)
+
+{- | Emit the @cardano:hasAnchor _:voteAnchorK@ edge + sub-block
+on a vote subject at position @k@. The sub-block carries
+@cardano:anchorUrl "url"@ + @cardano:anchorHash "hex"@.
+-}
+emitVoteAnchor :: Int -> Subject -> Anchor -> Emit ()
+emitVoteAnchor k voteSubj (Anchor url dataHash) = do
+    let anchorSubj = SBnode (idVoteAnchorBnode k)
+    tellTriple
+        ( Triple
+            voteSubj
+            (PIri (vocabCurie TermHasAnchor))
+            (OBnode (idVoteAnchorBnode k))
+        )
+    tellTriple
+        ( Triple
+            anchorSubj
+            (PIri (vocabCurie TermAnchorUrl))
+            (OStringLit (urlToText url))
+        )
+    tellTriple
+        ( Triple
+            anchorSubj
+            (PIri (vocabCurie TermAnchorHash))
+            (OStringLit (hexText (hashToBytes (extractHash dataHash))))
         )
 
 ----------------------------------------------------------------------

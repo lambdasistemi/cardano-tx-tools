@@ -132,6 +132,19 @@ data VocabTerm
       TermPlutusScript
     | TermNativeScript
     | TermHasVersion
+    | -- Voting procedures (T119 / S18). All terms invented
+      -- locally per A-006; exported upstream via T122b.
+      TermVote
+    | TermHasVote
+    | TermHasVoter
+    | TermHasVotingAction
+    | TermHasVerdict
+    | TermVoterDRep
+    | TermVoterStakePool
+    | TermVoterCommitteeCold
+    | TermHasAnchor
+    | TermAnchorUrl
+    | TermAnchorHash
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -199,6 +212,17 @@ vocabIri = \case
     TermPlutusScript -> cardanoPrefix <> "PlutusScript"
     TermNativeScript -> cardanoPrefix <> "NativeScript"
     TermHasVersion -> cardanoPrefix <> "hasVersion"
+    TermVote -> cardanoPrefix <> "Vote"
+    TermHasVote -> cardanoPrefix <> "hasVote"
+    TermHasVoter -> cardanoPrefix <> "hasVoter"
+    TermHasVotingAction -> cardanoPrefix <> "hasVotingAction"
+    TermHasVerdict -> cardanoPrefix <> "hasVerdict"
+    TermVoterDRep -> cardanoPrefix <> "VoterDRep"
+    TermVoterStakePool -> cardanoPrefix <> "VoterStakePool"
+    TermVoterCommitteeCold -> cardanoPrefix <> "VoterCommitteeCold"
+    TermHasAnchor -> cardanoPrefix <> "hasAnchor"
+    TermAnchorUrl -> cardanoPrefix <> "anchorUrl"
+    TermAnchorHash -> cardanoPrefix <> "anchorHash"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -265,6 +289,17 @@ vocabCurie = \case
     TermPlutusScript -> "cardano:PlutusScript"
     TermNativeScript -> "cardano:NativeScript"
     TermHasVersion -> "cardano:hasVersion"
+    TermVote -> "cardano:Vote"
+    TermHasVote -> "cardano:hasVote"
+    TermHasVoter -> "cardano:hasVoter"
+    TermHasVotingAction -> "cardano:hasVotingAction"
+    TermHasVerdict -> "cardano:hasVerdict"
+    TermVoterDRep -> "cardano:VoterDRep"
+    TermVoterStakePool -> "cardano:VoterStakePool"
+    TermVoterCommitteeCold -> "cardano:VoterCommitteeCold"
+    TermHasAnchor -> "cardano:hasAnchor"
+    TermAnchorUrl -> "cardano:anchorUrl"
+    TermAnchorHash -> "cardano:anchorHash"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.
