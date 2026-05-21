@@ -11,6 +11,7 @@ import Cardano.Tx.Graph.Emit.JsonLdEquivalenceSpec qualified as GraphEmitJsonLdE
 import Cardano.Tx.Graph.Emit.LookupSpec qualified as GraphEmitLookupSpec
 import Cardano.Tx.Graph.Emit.MintQuantitySpec qualified as GraphEmitMintQuantitySpec
 import Cardano.Tx.Graph.Emit.MultiAssetListSpec qualified as GraphEmitMultiAssetListSpec
+import Cardano.Tx.Graph.Emit.NativeScriptRefScriptSpec qualified as GraphEmitNativeScriptRefScriptSpec
 import Cardano.Tx.Graph.Emit.NoStubViewSpec qualified as GraphEmitNoStubViewSpec
 import Cardano.Tx.Graph.Emit.OutputDatumSpec qualified as GraphEmitOutputDatumSpec
 import Cardano.Tx.Graph.Emit.OutputLovelaceSpec qualified as GraphEmitOutputLovelaceSpec
@@ -52,6 +53,7 @@ main = hspec $ do
     GraphEmitLookupSpec.spec
     GraphEmitMintQuantitySpec.spec
     GraphEmitMultiAssetListSpec.spec
+    GraphEmitNativeScriptRefScriptSpec.spec
     GraphEmitNoStubViewSpec.spec
     GraphEmitOutputDatumSpec.spec
     GraphEmitOutputLovelaceSpec.spec

@@ -134,6 +134,10 @@ import Cardano.Ledger.Address (
     serialiseAddr,
  )
 import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
+import Cardano.Ledger.Alonzo.Scripts (
+    plutusScriptLanguage,
+    toPlutusScript,
+ )
 import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
 import Cardano.Ledger.Api.Era (eraProtVerLow)
 import Cardano.Ledger.Api.Scripts.Data (
@@ -205,6 +209,9 @@ import Cardano.Ledger.Mary.Value (
     MaryValue (..),
     MultiAsset (..),
     PolicyID (..),
+ )
+import Cardano.Ledger.Plutus.Language (
+    Language (PlutusV1, PlutusV2, PlutusV3, PlutusV4),
  )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Data.Foldable (toList)
@@ -1307,11 +1314,16 @@ emitOutputDatum k outSubj (Datum binaryData) = do
 
 {- | Emit the @cardano:hasReferenceScript@ edge + per-script
 sub-block for an output at position @k@ when the output carries
-a reference script. The sub-block carries @cardano:hasHash@ +
-@cardano:hasRawBytes@; the script bnode is untyped (the
-canonical @cardano:Script@ class is declared in the kmaps pin
-but is not applied here — see the navigator brief literal
-shape). Outputs with no reference script emit nothing.
+a reference script.
+
+T118 / S17 adds the script-language discrimination: the script
+bnode is typed @cardano:PlutusScript@ (with a
+@cardano:hasVersion N@ literal where N is the Plutus version
+1/2/3) when @toPlutusScript@ returns @Just@, and
+@cardano:NativeScript@ when it returns @Nothing@ (a Conway-era
+@TimelockScript@). Both branches keep @cardano:hasHash@ +
+@cardano:hasRawBytes@. Outputs with no reference script emit
+nothing.
 -}
 emitOutputReferenceScript ::
     Int -> Subject -> StrictMaybe (Script ConwayEra) -> Emit ()
@@ -1322,12 +1334,19 @@ emitOutputReferenceScript k outSubj (SJust script) = do
         ScriptHash hh = hashScript script
         hashBytes = hashToBytes hh
         rawBytes = originalBytes script
+        (classTerm, mVersion) = case toPlutusScript script of
+            Just ps ->
+                ( TermPlutusScript
+                , Just (plutusVersionInt (plutusScriptLanguage ps))
+                )
+            Nothing -> (TermNativeScript, Nothing)
     tellTriple
         ( Triple
             outSubj
             (PIri (vocabCurie TermHasReferenceScript))
             (OBnode scriptBnode)
         )
+    tellTriple (Triple scriptSubj PRdfType (OIri (vocabCurie classTerm)))
     tellTriple
         ( Triple
             scriptSubj
@@ -1340,6 +1359,23 @@ emitOutputReferenceScript k outSubj (SJust script) = do
             (PIri (vocabCurie TermHasRawBytes))
             (OStringLit (hexText rawBytes))
         )
+    case mVersion of
+        Nothing -> pure ()
+        Just v ->
+            tellTriple
+                ( Triple
+                    scriptSubj
+                    (PIri (vocabCurie TermHasVersion))
+                    (OIntLit (fromIntegral v))
+                )
+
+-- | Map ledger 'Language' to its Plutus version integer.
+plutusVersionInt :: Language -> Int
+plutusVersionInt = \case
+    PlutusV1 -> 1
+    PlutusV2 -> 2
+    PlutusV3 -> 3
+    PlutusV4 -> 4
 
 ----------------------------------------------------------------------
 -- Address decomposition blocks

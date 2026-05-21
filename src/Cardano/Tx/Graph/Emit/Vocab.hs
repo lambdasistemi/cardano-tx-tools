@@ -125,6 +125,13 @@ data VocabTerm
     | -- Collateral (T117 / S16)
       TermTotalCollateral
     | TermHasCollateralReturn
+    | -- Reference-script script-language discrimination
+      -- (T118 / S17). 'TermPlutusScript' / 'TermNativeScript'
+      -- are NOT yet declared canonically; they're invented
+      -- locally per A-006 and get exported upstream via T122b.
+      TermPlutusScript
+    | TermNativeScript
+    | TermHasVersion
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -189,6 +196,9 @@ vocabIri = \case
     TermHasRequiredSigner -> cardanoPrefix <> "hasRequiredSigner"
     TermTotalCollateral -> cardanoPrefix <> "totalCollateral"
     TermHasCollateralReturn -> cardanoPrefix <> "hasCollateralReturn"
+    TermPlutusScript -> cardanoPrefix <> "PlutusScript"
+    TermNativeScript -> cardanoPrefix <> "NativeScript"
+    TermHasVersion -> cardanoPrefix <> "hasVersion"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -252,6 +262,9 @@ vocabCurie = \case
     TermHasRequiredSigner -> "cardano:hasRequiredSigner"
     TermTotalCollateral -> "cardano:totalCollateral"
     TermHasCollateralReturn -> "cardano:hasCollateralReturn"
+    TermPlutusScript -> "cardano:PlutusScript"
+    TermNativeScript -> "cardano:NativeScript"
+    TermHasVersion -> "cardano:hasVersion"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

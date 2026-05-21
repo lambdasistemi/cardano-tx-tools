@@ -115,6 +115,17 @@ assertRefScriptShape bytes k refScript =
             outputBlockOfBytes bytes k
                 `shouldSatisfy` BS8.isInfixOf
                     (BS8.pack ("cardano:hasReferenceScript _:outputRefScript" <> show k))
+            -- T118 / S17: script bnodes carry one of two rdf:type
+            -- triples discriminating Plutus vs native scripts.
+            refScriptBlockOfBytes bytes k
+                `shouldSatisfy` ( \block ->
+                                    BS8.isInfixOf
+                                        "a cardano:PlutusScript"
+                                        block
+                                        || BS8.isInfixOf
+                                            "a cardano:NativeScript"
+                                            block
+                                )
             refScriptBlockOfBytes bytes k
                 `shouldSatisfy` BS8.isInfixOf "cardano:hasHash"
             refScriptBlockOfBytes bytes k
@@ -147,18 +158,18 @@ outputBlockOfBytes bs k =
     sectionBlock bs ("# Output " <> BS8.pack (show k))
 
 {- | The reference-script sub-block for output position @k@
-(1-based) — the slice of bytes from the
-@_:outputRefScriptK cardano:hasHash@ subject-position anchor to
-the next blank line. Skips the predicate-position occurrence
-inside the parent output block. Returns empty if no such
-sub-block exists.
+(1-based) — the slice of bytes from the @_:outputRefScriptK a@
+subject-position anchor (T118 / S17: script bnodes are typed
+@cardano:NativeScript@ or @cardano:PlutusScript@) to the next
+blank line. Skips the predicate-position occurrence inside the
+parent output block. Returns empty if no such sub-block exists.
 -}
 refScriptBlockOfBytes :: ByteString -> Int -> ByteString
 refScriptBlockOfBytes bs k =
     let needle =
             "_:outputRefScript"
                 <> BS8.pack (show k)
-                <> " cardano:hasHash"
+                <> " a "
      in case BS8.breakSubstring needle bs of
             (_, suf)
                 | BS.null suf -> ""
