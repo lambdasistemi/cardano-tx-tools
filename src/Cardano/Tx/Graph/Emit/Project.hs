@@ -285,6 +285,8 @@ projectBody entities lookupTbl tx utxo = do
         networkId = body ^. networkIdTxBodyL
         scriptDataHash = body ^. scriptIntegrityHashTxBodyL
         auxDataHash = body ^. auxDataHashTxBodyL
+        requiredSigners =
+            Set.toAscList (body ^. reqSignerHashesTxBodyL)
     -- Build per-input data + per-output data + per-collateral
     -- data with a single deduped address bnode registry.
     let (inputData, addrRegistry1) =
@@ -323,6 +325,7 @@ projectBody entities lookupTbl tx utxo = do
                     networkId
                     scriptDataHash
                     auxDataHash
+                    requiredSigners
         txSection =
             BodySection
                 { sectionHeader = "Transaction body."
@@ -439,32 +442,27 @@ clusterBlocks action =
 -- Empty-leaf probes (T007 detects non-T005/T007 coverage)
 ----------------------------------------------------------------------
 
-{- | Probe the tx's leaves not yet covered by the projection
-walker for emptiness. T005+T007+T008+T010+T103 cover @inputs@ +
-@outputs@ + @fee@ + @mint@ + @withdrawals@ + @certs@ +
-@collateralInputs@ + @proposalProcedures@ + @referenceInputs@.
-Anything else (required signers, total collateral) must be
-empty: a non-empty unhandled leaf surfaces as
-'PUnsupportedLeafType' so future slices extend coverage without
-silent drops (T008 D3 — fail loudly).
+{- | Probe the tx's leaves not yet covered by the emit walker
+for emptiness.
 
-T103 / S2 relaxes the @referenceInputs@ probe: reference inputs
-now decode and emit as @cardano:Input@ subject blocks bound to
-@_:tx@ via @cardano:hasReferenceInput@. Required-signers and
-total-collateral remain fail-loudly until a later slice covers
-them.
+Per A-006 (architectural correction): the load-bearing
+exhaustivity gate is the compiler itself
+(@-Wincomplete-patterns -Werror@). Every leaf the body walker
+can reach gets a real case-arm; constructors whose RDF shape is
+not yet designed emit an @cardano:OpaqueLeaf@ fallback (see
+@TermOpaqueLeaf@) rather than a 'PUnsupportedLeafType' failure.
+
+The remaining residue probed here is @totalCollateral@, which
+@T117@ replaces with positive emission. Required signers landed
+positive emission in @T116@. Once @T117..T122@ are in,
+this probe is empty and the function is removed.
 -}
 assertEmptyLeavesForT008 :: ConwayTx -> Either ProjectError ()
 assertEmptyLeavesForT008 tx = do
     let body = tx ^. bodyTxL
-    chk "ConwayRequiredSignersValue" (length (body ^. reqSignerHashesTxBodyL))
     case body ^. totalCollateralTxBodyL of
         SNothing -> pure ()
         SJust _ -> Left (PUnsupportedLeafType "ConwayTotalCollateralValue")
-  where
-    chk leaf n
-        | n == 0 = Right ()
-        | otherwise = Left (PUnsupportedLeafType leaf)
 
 ----------------------------------------------------------------------
 -- Per-input + per-output traversal
@@ -749,6 +747,7 @@ emitTxBlock ::
     StrictMaybe Network ->
     StrictMaybe ScriptIntegrityHash ->
     StrictMaybe TxAuxDataHash ->
+    [KeyHash Guard] ->
     Emit ()
 emitTxBlock
     nInputs
@@ -763,7 +762,8 @@ emitTxBlock
     validity
     networkId
     scriptDataHash
-    auxDataHash = do
+    auxDataHash
+    requiredSigners = do
         let txSubj = SBnode (BnodeName "tx")
             tt p o = tellTriple (Triple txSubj p o)
             -- Emit one @cardano:hasX _:xK@ edge per k in
@@ -790,6 +790,28 @@ emitTxBlock
         emitNetworkId txSubj networkId
         emitScriptDataHash txSubj scriptDataHash
         emitAuxiliaryDataHash txSubj auxDataHash
+        emitRequiredSigners txSubj requiredSigners
+
+{- | Emit one @cardano:hasRequiredSigner "\<hex\>"@ triple per
+required-signer key-hash declared on the body. The set is
+ascending-sorted so the emitted triples are deterministic across
+runs; an empty set elides the predicate entirely (no triple).
+
+T116 / S15. Closes the operator's 2026-05-21 crash mode
+(@UnsupportedLeafType: ConwayRequiredSignersValue@) — required
+signers are the key-hashes Plutus scripts consult via the script
+context to gate spending.
+-}
+emitRequiredSigners :: Subject -> [KeyHash Guard] -> Emit ()
+emitRequiredSigners txSubj = mapM_ emit1
+  where
+    emit1 (KeyHash h) =
+        tellTriple
+            ( Triple
+                txSubj
+                (PIri (vocabCurie TermHasRequiredSigner))
+                (OStringLit (hexText (hashToBytes h)))
+            )
 
 {- | Emit the @cardano:hasValidityInterval _:interval1@ edge plus
 the @_:interval1@ sub-block carrying @cardano:intervalStart@

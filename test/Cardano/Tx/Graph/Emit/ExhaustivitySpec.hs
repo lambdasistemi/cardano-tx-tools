@@ -409,9 +409,6 @@ witnessCoverageSpec =
 assertWitnessCovers :: Text -> Spec
 assertWitnessCovers name = it (Text.unpack name) $ do
     case name of
-        -- T116: required signers (cardano:hasRequiredSigner).
-        "ConwayKeyHashesValue" -> pendingWith "T116 — required-signers emission"
-        "ConwayKeyHashValue" -> pendingWith "T116 — required-signers emission"
         -- T117: totalCollateral (cardano:totalCollateral) and
         -- collateralReturn (cardano:hasCollateralReturn).
         "ConwayStrictMaybeCoinValue" ->

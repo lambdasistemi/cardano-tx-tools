@@ -120,6 +120,8 @@ data VocabTerm
     | TermNetworkId
     | TermScriptDataHash
     | TermAuxiliaryDataHash
+    | -- Required signers (T116 / S15)
+      TermHasRequiredSigner
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -181,6 +183,7 @@ vocabIri = \case
     TermNetworkId -> cardanoPrefix <> "networkId"
     TermScriptDataHash -> cardanoPrefix <> "scriptDataHash"
     TermAuxiliaryDataHash -> cardanoPrefix <> "auxiliaryDataHash"
+    TermHasRequiredSigner -> cardanoPrefix <> "hasRequiredSigner"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -241,6 +244,7 @@ vocabCurie = \case
     TermNetworkId -> "cardano:networkId"
     TermScriptDataHash -> "cardano:scriptDataHash"
     TermAuxiliaryDataHash -> "cardano:auxiliaryDataHash"
+    TermHasRequiredSigner -> "cardano:hasRequiredSigner"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.
