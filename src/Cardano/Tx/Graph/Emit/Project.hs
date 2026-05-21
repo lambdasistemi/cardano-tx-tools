@@ -270,6 +270,7 @@ import Cardano.Tx.Blueprint (
     BlueprintSchema (..),
     BlueprintValidator (..),
     blueprintValidators,
+    resolveBlueprintSchema,
  )
 import Cardano.Tx.Diff (
     OpenValue (..),
@@ -1764,15 +1765,18 @@ emitDecodedConstructor subj bnodeBase ctorTitle = \case
 emitting any sub-triples (e.g. an @Identifier@-typed bnode for a
 'OpenBytes' leaf) along the way.
 
-T102 minimum:
-
 * 'OpenInteger' / 'OpenText' — emit as a typed literal.
 * 'OpenBytes' — mint a fresh @cardano:Identifier@ sub-bnode with
   @cardano:leafType "Bytes"@ + @cardano:bytesHex "\<hex\>"@.
-  Richer leaf-type inference (e.g. @"PaymentScript"@ for a
-  script-credential-shaped bytes leaf) lands in T103.
-* 'OpenObject' / 'OpenArray' — mint an opaque-marker bnode (#50
-  defers recursive typed-emission to a later slice).
+  Richer leaf-type inference (e.g. @"PaymentKey"@ for a
+  pubkey-credential-shaped bytes leaf) is deferred to a future
+  slice that adds a small field-name lookup table.
+* 'OpenObject' — mint a per-position bnode and recurse via
+  'emitDecodedConstructor' with the @"_0"@ constructor-title
+  fallback (T103 / A-001 walker extension; the inner constructor's
+  title is not preserved through 'decodeBlueprintData').
+* 'OpenArray' — mint an opaque-marker bnode (#50 defers recursive
+  list emission until a fixture exercises it).
 -}
 openValueAsObject :: Text -> OpenValue -> Emit Object
 openValueAsObject _ (OpenInteger n) = pure (OIntLit n)
@@ -1794,7 +1798,11 @@ openValueAsObject base (OpenBytes hex) = do
             (OStringLit hex)
         )
     pure (OBnode bn)
-openValueAsObject base (OpenObject _) = pure (OBnode (BnodeName base))
+openValueAsObject base inner@(OpenObject _) = do
+    let bn = BnodeName base
+        s = SBnode bn
+    emitDecodedConstructor s base "_0" inner
+    pure (OBnode bn)
 openValueAsObject base (OpenArray _) = pure (OBnode (BnodeName base))
 
 {- | Emit a single @cardano:decodeError "\<show err\>"@ literal on
@@ -1815,6 +1823,14 @@ emitDecodeErrorLiteral subj err =
 {- | Constructor title for the top-level walk: prefer the matched
 validator's argument-schema title, fall back to the validator's
 own title, then to @"_0"@ (the FR-008 missing-title fallback).
+
+When the argument schema is a @$ref@ to a definition (the on-disk
+CIP-57 shape used by fixture 12's SwapOrder blueprint), the title
+is read off the RESOLVED definition rather than the bare @$ref@
+node — without resolution the title falls through to
+@validatorTitle@ (e.g. @"amaru.swap.v2.spend"@) and the typed
+predicates would mint as @:amaru.swap.v2.spend_recipient@ instead
+of @:SwapOrder_recipient@. T103 / A-001 walker extension.
 -}
 topConstructorTitle ::
     (BlueprintValidator -> Maybe BlueprintArgument) ->
@@ -1824,9 +1840,20 @@ topConstructorTitle pick blueprint =
     case firstValidatorAndArgument pick blueprint of
         Nothing -> "_0"
         Just (validator, argument) ->
-            case schemaTitle (argumentSchema argument) of
+            case schemaTitle (resolvedSchema blueprint argument) of
                 Just title -> title
                 Nothing -> Maybe.fromMaybe "_0" (validatorTitle validator)
+
+{- | The argument's schema with any top-level @$ref@ resolved to its
+definition. Falls back to the unresolved schema if resolution
+fails (cycle or missing definition) — the title-fallback chain in
+'topConstructorTitle' still applies on the unresolved node.
+-}
+resolvedSchema :: Blueprint -> BlueprintArgument -> BlueprintSchema
+resolvedSchema blueprint argument =
+    case resolveBlueprintSchema blueprint (argumentSchema argument) of
+        Right schema -> schema
+        Left _ -> argumentSchema argument
 
 {- | First @(validator, argument)@ pair from the blueprint whose
 @pick@ slot is non-'Nothing'. Mirrors

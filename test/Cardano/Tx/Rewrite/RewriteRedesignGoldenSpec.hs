@@ -49,6 +49,7 @@ import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
 import Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal qualified as S10
 import Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal qualified as S11
+import Fixtures.RewriteRedesign.S12BlueprintTyped qualified as S12
 
 spec :: Spec
 spec = do
@@ -140,6 +141,12 @@ fixtureRegistry =
         , feBuilder = S11.tx
         , fePaths = mkFixturePaths S11.storyId
         , feShape = S11.shape
+        }
+    , FixtureEntry
+        { feStoryId = S12.storyId
+        , feBuilder = S12.tx
+        , fePaths = mkFixturePaths S12.storyId
+        , feShape = S12.shape
         }
     ]
 

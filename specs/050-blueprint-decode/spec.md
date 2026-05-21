@@ -110,16 +110,24 @@ _:outputDatum1 a cardano:Datum ;
   cardano:hasHash _:hash_datum_9e1199a988ba72ff ;
   :SwapOrder_recipient _:datum1_recipient .
 
-_:datum1_recipient a cardano:Identifier ;
-  cardano:leafType "PaymentScript" ;
+_:datum1_recipient :_0_pubKeyHash _:datum1_recipient_pubKeyHash .
+
+_:datum1_recipient_pubKeyHash a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
   cardano:bytesHex "64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef" .
 ```
 
 The blueprint's `recipient` field is recognised as a `Credential`-shaped
-record; the decoded credential bytes flow into a `cardano:Identifier`-typed
-sub-bnode with the correct `leafType` (`PaymentScript` for a script
-credential, `PaymentKey` for a pubkey credential — same machinery the
-existing operator-entity overlay uses).
+record (an `anyOf` over `PubKeyCredential` and `ScriptCredential`); the
+decode picks `PubKeyCredential` and unfolds its inner constructor as a
+second-level bnode carrying the typed `:_0_pubKeyHash` predicate. The
+`"_0"` constructor-title fallback (FR-008 / D-001b) is used because the
+inner OpenObject's constructor title isn't preserved through
+`decodeBlueprintData`. The credential bytes flow into a
+`cardano:Identifier`-typed sub-bnode with `leafType "Bytes"`; a richer
+field-name-aware leaf-type lookup (`pubKeyHash` → `"PaymentKey"`,
+`scriptHash` → `"PaymentScript"`, etc.) is a follow-up refinement (see
+fixture 12's NOTES.md).
 
 **Acceptance**: a SPARQL query against the emitted Turtle returns the
 recipient bnode:

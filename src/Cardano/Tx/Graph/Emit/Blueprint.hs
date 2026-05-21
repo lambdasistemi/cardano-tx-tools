@@ -52,6 +52,7 @@ module Cardano.Tx.Graph.Emit.Blueprint (
 ) where
 
 import Data.Text (Text)
+import Data.Text qualified as Text
 import Lens.Micro ((^.))
 
 import Cardano.Ledger.Address (Addr (..))
@@ -67,10 +68,11 @@ import Cardano.Tx.Blueprint (
     Blueprint,
     BlueprintArgument (argumentSchema),
     BlueprintArgumentKind (BlueprintDatum, BlueprintRedeemer),
-    BlueprintDataError,
+    BlueprintDataError (..),
     BlueprintValidator (validatorDatum, validatorRedeemer),
     blueprintValidators,
     decodeBlueprintData,
+    resolveBlueprintSchema,
  )
 import Cardano.Tx.Diff (OpenValue)
 import Cardano.Tx.Graph.Emit.Triple (Predicate (PIri))
@@ -227,6 +229,18 @@ requested kind found on any of the blueprint's validators. Returns
 'NoBlueprintRegistered' if the blueprint declares no argument of
 that kind anywhere; otherwise lifts the decoder's 'Either' into
 'BlueprintDecodeResult'.
+
+A T103 / A-001 walker extension resolves @$ref@ schemas (via
+'resolveBlueprintSchema') before invoking 'decodeBlueprintData'.
+The on-disk CIP-57 blueprint for the @amaru.swap.v2@ SwapOrder
+datum (fixture 12) wires its argument schema as
+@{"$ref": "#/definitions/SwapOrder"}@; without ref resolution the
+decoder always falls through to 'BlueprintUnresolvedReference' and
+fixture 12's typed-emission invariants never hold. Resolution
+failures (cycle or missing definition) are surfaced as
+@DecodeFailed (BlueprintUnresolvedReference \<reference\>)@ — the
+T103 FR-005 / D-001d contract still emits one @cardano:decodeError@
+literal alongside @cardano:hasRawBytes@ on the failing subject.
 -}
 tryDecode ::
     BlueprintArgumentKind ->
@@ -237,9 +251,15 @@ tryDecode kind blueprint datum =
     case firstArgumentOfKind kind blueprint of
         Nothing -> NoBlueprintRegistered
         Just argument ->
-            case decodeBlueprintData (argumentSchema argument) datum of
-                Left err -> DecodeFailed err
-                Right openValue -> Decoded openValue blueprint
+            case resolveBlueprintSchema blueprint (argumentSchema argument) of
+                Left err ->
+                    DecodeFailed (BlueprintUnresolvedReference (matchErrText err))
+                Right resolved ->
+                    case decodeBlueprintData resolved datum of
+                        Left err -> DecodeFailed err
+                        Right openValue -> Decoded openValue blueprint
+  where
+    matchErrText = Text.pack . show
 
 {- | The first @datum:@ (or @redeemer:@) argument declared by any
 validator on the blueprint, in source order. The CIP-57 grammar
