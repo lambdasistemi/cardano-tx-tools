@@ -64,6 +64,7 @@ speckit-analyze pass before T100.
 
 ### T101 — S1: `Cardano.Tx.Graph.Emit.Blueprint` module (feat)
 
+- **Status**: [X] complete — landed at this commit; 589/0/23 examples green (6 new BlueprintSpec invariants); gate clean first try. Navigator pinned the IRI minter as **pure concatenation** (`PIri (':' <> ctor <> '_' <> field)`), with FR-008 title-missing fallbacks (`_<idx>` / `field<n>`) computed by the T102 caller before invoking the minter — captured as NOTE NAV-PIN-IRI-MINTER in the subagent log; T102's driver brief inherits this contract.
 - **Subject**: `feat(050): Emit.Blueprint — pure decoder + IRI minter (no emit wiring yet)`
 - **Tasks trailer**: `Tasks: T101`
 - **Files**:
