@@ -10,13 +10,13 @@ body emitter.
 - **File**: [`transactions.ttl`](./transactions.ttl)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `cfb599b7e9f83df821a4566573f46d83be118ffb` (kmaps
-  `main` after kmaps#56 squash-merged on 2026-05-21).
-- **Branch state**: merged. kmaps#56 (Phase A.2 — 17 classes +
-  16 properties with descriptions, parent-authored on top of
-  the Vocab.hs-derived patch) landed on kmaps main as a single
-  commit. Base of that commit was Phase A.1 merged @
-  `cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9`.
+- **SHA**: `f8ca27549f22b3bbfd42528439253a48182fca16` (kmaps
+  `main` after kmaps#57 squash-merged).
+- **Branch state**: merged. kmaps#57 (Phase A.3 — witness-set
+  seaboard, parent-authored with rich descriptions on top of
+  the Vocab.hs-derived patch) landed on kmaps main. Base of
+  that commit was Phase A.2 merged @
+  `cfb599b7e9f83df821a4566573f46d83be118ffb`.
 - **Version label** declared in the file: `0.1.0-phaseA` (now with
   Phase A.2 additions appended at the tail: `cardano:Certificate`
   parent + 11 Conway-era cert subclasses, `cardano:Proposal`
@@ -29,7 +29,15 @@ body emitter.
   `hasVotingAction`, `hasVerdict`, `hasReturnAddress`,
   `hasGovActionId`, plus the `cardano:Mint` / `Policy` /
   `Withdrawal` / `Pool` / `DRep` / `StakeDelegation` /
-  `VoteDelegation` #58-inherited drift classes).
+  `VoteDelegation` #58-inherited drift classes; and the Phase
+  A.3 witness-set seaboard: classes `cardano:KeyWitness`,
+  `cardano:BootstrapWitness`, `cardano:ExUnits`; properties
+  `cardano:hasRedeemer`, `cardano:hasKeyWitness`,
+  `cardano:hasDatumWitness`, `cardano:hasScriptWitness`,
+  `cardano:hasBootstrapWitness`, `cardano:hasPurpose`,
+  `cardano:hasData`, `cardano:hasExUnits`, `cardano:memoryUnits`,
+  `cardano:cpuUnits`, `cardano:hasSignature`,
+  `cardano:hasVerificationKey`).
 - **History** (previous pins):
   kmaps@`cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9` (Phase A.1
   merged main, vendored at T110b);
@@ -68,10 +76,21 @@ rationale).
    (operator A-008). The strict VocabTraceabilitySpec gate
    flipped ON at this slice — every emitted CURIE must trace to
    a declaration in this pin.
-7. **T123 (this commit)** — refresh to the merged kmaps `main`
+7. T123 — refresh to the merged kmaps `main`
    SHA `cfb599b7e9f83df821a4566573f46d83be118ffb` after the
-   parent squash-merged kmaps#56. This is the final stable pin
-   for PR #77 ready-for-review (T126).
+   parent squash-merged kmaps#56.
+8. **T128g (this commit)** — refresh to the merged kmaps `main`
+   SHA `f8ca27549f22b3bbfd42528439253a48182fca16` after the
+   parent merged kmaps#57 (Phase A.3 — witness-set seaboard).
+   Brings 15 net-new declarations into the pin: classes
+   `cardano:KeyWitness`, `cardano:BootstrapWitness`,
+   `cardano:ExUnits`; properties `cardano:hasRedeemer`,
+   `cardano:hasKeyWitness`, `cardano:hasDatumWitness`,
+   `cardano:hasScriptWitness`, `cardano:hasBootstrapWitness`,
+   `cardano:hasPurpose`, `cardano:hasData`, `cardano:hasExUnits`,
+   `cardano:memoryUnits`, `cardano:cpuUnits`,
+   `cardano:hasSignature`, `cardano:hasVerificationKey`.
+   `VocabTraceabilitySpec.pendingPhaseA3` empties on this slice.
 
 ## Refresh recipe
 

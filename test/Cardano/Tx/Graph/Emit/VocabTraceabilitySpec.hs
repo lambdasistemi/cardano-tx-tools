@@ -136,57 +136,19 @@ fixtureSpec (slug, tx) = describe slug $ do
     -- derived from Vocab.hs (T122b), so every Vocab term
     -- contributes one declaration here.
     --
-    -- T128b / S31: 16 new witness-set CURIEs (@Redeemer@,
-    -- @KeyWitness@, @BootstrapWitness@, @ExUnits@, @hasRedeemer@,
-    -- @hasKeyWitness@, @hasDatumWitness@, @hasScriptWitness@,
-    -- @hasBootstrapWitness@, @hasPurpose@, @hasData@,
-    -- @hasExUnits@, @memoryUnits@, @cpuUnits@, @hasSignature@,
-    -- @hasVerificationKey@) are invented locally per A-006 and
-    -- pending the Phase A.3 patch on kmaps (#57). They are
-    -- short-circuited via 'pendingPhaseA3' until T128g refreshes
-    -- the canonical pin downstream-first.
+    -- T128g / S32: kmaps#57 (Phase A.3 — witness-set seaboard)
+    -- merged at kmaps@f8ca275 and the pin refresh in that commit
+    -- landed the 15 net-new declarations canonically. The strict
+    -- gate now runs without a short-circuit.
     it "every emitted cardano: CURIE is declared in the canonical pin" $ do
         let emittedLocals = Set.fromList (extractCardanoLocalParts bytes)
             missing =
-                Set.toList
-                    ( (emittedLocals `Set.difference` canonicalLocals)
-                        `Set.difference` pendingPhaseA3
-                    )
+                Set.toList (emittedLocals `Set.difference` canonicalLocals)
         missing `shouldBe` []
 
 ----------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------
-
-{- | Witness-set CURIEs the emitter writes that are NOT yet
-declared in the canonical pin. Each entry must land in the pin
-via T128g's downstream-first kmaps#57 patch + pin refresh, at
-which point this set empties.
-
-Mirrors the @pendingTillT128b@ + similar pattern in
-'Cardano.Tx.Graph.Emit.ExhaustivitySpec' — a documented,
-short-lived elision the orchestrator owns lifting.
--}
-pendingPhaseA3 :: Set String
-pendingPhaseA3 =
-    Set.fromList
-        [ "Redeemer"
-        , "KeyWitness"
-        , "BootstrapWitness"
-        , "ExUnits"
-        , "hasRedeemer"
-        , "hasKeyWitness"
-        , "hasDatumWitness"
-        , "hasScriptWitness"
-        , "hasBootstrapWitness"
-        , "hasPurpose"
-        , "hasData"
-        , "hasExUnits"
-        , "memoryUnits"
-        , "cpuUnits"
-        , "hasSignature"
-        , "hasVerificationKey"
-        ]
 
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty
