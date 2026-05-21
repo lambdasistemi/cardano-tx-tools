@@ -20,7 +20,13 @@
 #    with canonical predicate names;
 #  * cert + proposal variants beyond StakeDelegation /
 #    TreasuryWithdrawals via the cardano:OpaqueLeaf fallback
-#    (T120 / T121).
+#    (T120 / T121);
+#  * witness-set walker (T128b) — Section 7 redeemer block
+#    (hasPurpose / hasIndex / hasData / hasExUnits with mem + cpu
+#    literals on the operator-paste swap-order tx); Section 8
+#    hasKeyWitness shared-bnode join with hasRequiredSigner via
+#    the same cardano:Identifier PaymentKey on the tx-sign signed
+#    fixture (1-hop SPARQL, no string surgery).
 #
 # The Section-* fixture excerpts are the EXACT byte-equal output
 # of `tx-graph --tx` on each rewrite-redesign harness-built tx.
@@ -30,6 +36,7 @@ export PATH="/tmp/cast-bin-070:$PATH"
 WORKTREE=/code/cardano-tx-tools-070-body-emit
 FIXTURES="$WORKTREE/test/fixtures/rewrite-redesign"
 CACHE="$WORKTREE/test/fixtures/blockfrost-cache"
+SIGNED="$WORKTREE/test/fixtures/tx-sign/signed.expected.cbor.hex"
 
 say() { printf '\033[1;32m$\033[0m %s\n' "$*"; sleep 0.4; }
 
@@ -69,4 +76,23 @@ sleep 5
 say '# Section 6 — real-chain acceptance: the operator-paste tx decodes + emits cleanly (T127).'
 say 'tx-graph --tx test/fixtures/blockfrost-cache/operator-paste-2026-05-21.cbor.hex | head -25'
 tx-graph --tx "$CACHE/operator-paste-2026-05-21.cbor.hex" | head -25
+sleep 6
+
+say '# Section 7 — witness-set walker (T128b): redeemer block on the operator-paste swap-order tx.'
+say '#            hasPurpose "Spend" + hasIndex + hasData + hasExUnits (mem + cpu) — opaque CBOR'
+say '#            until typed PlutusData lands (#50).'
+say 'tx-graph --tx test/fixtures/blockfrost-cache/operator-paste-2026-05-21.cbor.hex \'
+say '  | grep -B1 -A8 "hasRedeemer\|Redeemer\|ExUnits" | head -30'
+tx-graph --tx "$CACHE/operator-paste-2026-05-21.cbor.hex" \
+  | grep -B1 -A8 'cardano:hasRedeemer\|cardano:Redeemer\|cardano:ExUnits' | head -30
+sleep 6
+
+say '# Section 8 — key witnesses share the same cardano:Identifier (PaymentKey) bnode as'
+say '#            cardano:hasRequiredSigner — 1-hop SPARQL join, no string surgery.'
+say '#            Demonstrated on tx-sign/signed.expected.cbor.hex (the only end-to-end'
+say '#            signed Conway tx in the repo).'
+say 'tx-graph --tx test/fixtures/tx-sign/signed.expected.cbor.hex \'
+say '  | grep -B1 -A3 "hasKeyWitness\|hasVerificationKey\|hasRequiredSigner" | head -20'
+tx-graph --tx "$SIGNED" \
+  | grep -B1 -A3 'cardano:hasKeyWitness\|cardano:hasVerificationKey\|cardano:hasRequiredSigner' | head -20
 sleep 6
