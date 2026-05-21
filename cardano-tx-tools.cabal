@@ -374,6 +374,7 @@ test-suite unit-tests
     Cardano.Tx.DiffSpec
     Cardano.Tx.Graph.Emit.BlockfrostSampleSmokeSpec
     Cardano.Tx.Graph.Emit.BlueprintSpec
+    Cardano.Tx.Graph.Emit.BlueprintWiringSpec
     Cardano.Tx.Graph.Emit.BodyRootSpec
     Cardano.Tx.Graph.Emit.CertVariantsSpec
     Cardano.Tx.Graph.Emit.ExhaustivitySpec

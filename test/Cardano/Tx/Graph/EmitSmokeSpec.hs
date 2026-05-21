@@ -48,7 +48,7 @@ spec :: Spec
 spec =
     describe "Cardano.Tx.Graph.Emit.emit (post-T005 wiring)" $ do
         it "returns Right on the minimal fixture-02 builder + empty UTxO + no entities" $ do
-            let result = emit S02.tx emptyUtxo []
+            let result = emit S02.tx emptyUtxo [] []
             result
                 `shouldSatisfy` ( \case
                                     Right _ -> True

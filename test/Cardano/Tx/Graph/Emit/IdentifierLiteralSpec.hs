@@ -69,7 +69,7 @@ spec =
 
 emitBytes :: ConwayTx -> BS.ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "identifier-literal-spec" g
         Left e -> error ("IdentifierLiteralSpec.emit: " <> show e)
 

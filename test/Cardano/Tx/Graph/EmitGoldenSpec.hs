@@ -107,7 +107,7 @@ fixtureGoldenItem regen (slug, tx) = do
         runIO (loadEntitiesAndOverlay rulesPath)
     expected <- runIO (BS.readFile expectedPath)
     it (slug <> " — emit + serialize matches expected.ttl") $ do
-        case emit tx (fixtureUtxo slug) entities of
+        case emit tx (fixtureUtxo slug) entities [] of
             Left err ->
                 expectationFailure $
                     "emit returned Left " <> show err

@@ -98,7 +98,7 @@ regDepositCert =
 
 emitBytes :: ConwayTx -> ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "cert-variants-spec" g
         Left e -> error ("CertVariantsSpec.emit: " <> show e)
 

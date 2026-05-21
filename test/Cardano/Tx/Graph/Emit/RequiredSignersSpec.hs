@@ -120,7 +120,7 @@ stubKeyHash n =
 
 emitBytes :: ConwayTx -> ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "required-signers-spec" g
         Left e -> error ("RequiredSignersSpec.emit: " <> show e)
 

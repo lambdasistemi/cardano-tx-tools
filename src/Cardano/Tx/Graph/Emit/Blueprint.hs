@@ -73,7 +73,7 @@ import Cardano.Tx.Blueprint (
     decodeBlueprintData,
  )
 import Cardano.Tx.Diff (OpenValue)
-import Cardano.Tx.Graph.Emit (Predicate (PIri))
+import Cardano.Tx.Graph.Emit.Triple (Predicate (PIri))
 
 {- | Three-way result of consulting the blueprint index at a single
 datum or redeemer position.

@@ -119,7 +119,7 @@ stubAddr =
 
 emitBytes :: ConwayTx -> ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "total-collateral-spec" g
         Left e -> error ("TotalCollateralSpec.emit: " <> show e)
 

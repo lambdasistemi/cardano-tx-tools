@@ -441,7 +441,7 @@ assertWitnessCovers name =
     it (Text.unpack name) $
         if name `elem` pendingTillT128b
             then pendingWith "T128b: witness-set walker / diff fallback"
-            else case emit (witnessTx name) emptyUtxo [] of
+            else case emit (witnessTx name) emptyUtxo [] [] of
                 Left err ->
                     expectationFailure $
                         "witness for "

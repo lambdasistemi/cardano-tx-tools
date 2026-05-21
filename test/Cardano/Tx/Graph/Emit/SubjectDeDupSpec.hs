@@ -80,7 +80,7 @@ mkCase slug tx = do
         rulesPath = dir </> "rules.yaml"
     (entities, overlay) <- runIO (loadEntitiesAndOverlay rulesPath)
     it (slug <> " — every non-Identifier subject appears at most once") $ do
-        case emit tx emptyUtxo entities of
+        case emit tx emptyUtxo entities [] of
             Left err ->
                 expectationFailure $
                     "emit returned Left: " <> show err
