@@ -219,8 +219,23 @@ renderObject :: Object -> Builder
 renderObject = \case
     OBnode (BnodeName n) -> text "_:" <> text n
     OIri t -> text t
-    OStringLit s -> text "\"" <> text s <> text "\""
+    OStringLit s -> text "\"" <> text (escapeTurtleString s) <> text "\""
     OIntLit i -> text (Text.pack (show i))
+
+{- | Escape a Turtle string-literal payload: backslash first (so the
+quote-escape we insert next isn't double-escaped), then double
+quote. Latent on the pre-#50 fixtures (none of their literals
+carry either character), load-bearing on fixture
+@14-blueprint-decode-fail@ whose @cardano:decodeError@ literal
+embeds @show err@ output of the form
+@BlueprintDataTypeMismatch \"bytes\"@.
+-}
+escapeTurtleString :: Text -> Text
+escapeTurtleString = Text.concatMap escapeChar
+  where
+    escapeChar '\\' = "\\\\"
+    escapeChar '"' = "\\\""
+    escapeChar c = Text.singleton c
 
 ----------------------------------------------------------------------
 -- Builder helpers

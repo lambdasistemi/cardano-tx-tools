@@ -46,10 +46,16 @@ module Main (main) where
 
 import Cardano.Tx.Blueprint (Blueprint)
 import Cardano.Tx.Graph.Emit (
+    BnodeName (..),
+    BodySection (..),
     EmitError (..),
     EmitFormat (..),
     EmittedGraph (..),
+    Object (..),
+    Predicate (..),
     ResolvedUTxO,
+    Subject (..),
+    SubjectBlock (..),
     emit,
     renderEmitError,
     serialize,
@@ -311,6 +317,7 @@ bodyEmit opts txSource = do
         Just p -> loadOverlayAndEntitiesOrExit p
     utxo <- resolveUtxoOrExit opts tx
     g <- exitOnEmitError (emit tx utxo entities blueprints)
+    mapM_ (hPutStrLn stderr) (decodeErrorWarnings g)
     let joint = g{graphOverlayTurtle = overlay}
         rendered = serialize fmtChecked defaultSlug joint
     writeOutput (optOutFile opts) rendered
@@ -492,3 +499,34 @@ exitOnEmitError = \case
     Left e -> do
         hPutStrLn stderr (renderEmitError e)
         exitWith (ExitFailure 1)
+
+{- | Walk the emitted graph's body sections and project each
+@cardano:decodeError@ literal triple onto a single-line stderr
+warning of the form
+@warning: blueprint decode failed for \<subject\>: \<error\>@. The
+warning surfaces the FR-005 / D-001d failure to the operator
+without changing the exit code — the graph itself still carries
+the @cardano:hasRawBytes@ + @cardano:decodeError@ literals on the
+failing Datum subject (so byte-diff goldens stay GREEN), and the
+operator sees the failure on stderr at the same time. Subjects are
+rendered as @_:\<name\>@ for blank nodes and verbatim for IRIs,
+matching the Turtle surface a reviewer would see in the emitted
+graph.
+-}
+decodeErrorWarnings :: EmittedGraph -> [String]
+decodeErrorWarnings g =
+    [ "warning: blueprint decode failed for "
+        <> renderSubject (subjectBlockSubject block)
+        <> ": "
+        <> Text.unpack msg
+    | section <- graphBody g
+    , block <- sectionBlocks section
+    , (PIri predIri, OStringLit msg) <- subjectBlockPredicates block
+    , predIri == "cardano:decodeError"
+    ]
+
+-- | Render a 'Subject' in its native Turtle surface form.
+renderSubject :: Subject -> String
+renderSubject = \case
+    SBnode (BnodeName name) -> "_:" <> Text.unpack name
+    SIri iri -> Text.unpack iri

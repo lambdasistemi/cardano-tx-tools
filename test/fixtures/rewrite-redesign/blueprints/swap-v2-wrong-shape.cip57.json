@@ -1,0 +1,32 @@
+{
+  "preamble": {
+    "title": "amaru.swap.v2-wrong",
+    "description": "Deliberately wrong-shape CIP-57 blueprint for fixture 14-blueprint-decode-fail (T105 / S5). Declares the SwapOrder recipient field as a flat bytes leaf, with no Credential wrapper. The real on-chain SwapOrder payload carries Constr 0 [Constr 0 [B <pubKeyHash>]] (the Credential wrapper around the hash), so decodeBlueprintData hits BlueprintDataTypeMismatch \"bytes\" when it tries to read the inner Constr as a bytes leaf. Used to exercise the DecodeFailed branch in Cardano.Tx.Graph.Emit.Blueprint — the walker emits cardano:hasRawBytes plus exactly one cardano:decodeError literal on the Datum subject (FR-005 / D-001d).",
+    "version": "0.1.0",
+    "plutusVersion": "v3",
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "amaru.swap.v2.spend",
+      "datum": {
+        "title": "SwapOrder",
+        "schema": { "$ref": "#/definitions/SwapOrder" }
+      }
+    }
+  ],
+  "definitions": {
+    "SwapOrder": {
+      "title": "SwapOrder",
+      "description": "Wrong-shape: declares recipient as a flat bytes leaf at the top level, with no Credential / PubKeyCredential wrapper. The real payload's recipient is a Constr value, so the decoder rejects the field with BlueprintDataTypeMismatch \"bytes\".",
+      "dataType": "constructor",
+      "index": 0,
+      "fields": [
+        {
+          "title": "recipient",
+          "dataType": "bytes"
+        }
+      ]
+    }
+  }
+}

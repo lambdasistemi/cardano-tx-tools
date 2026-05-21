@@ -41,6 +41,21 @@ Six invariants (four decoder + two IRI minter):
   contract by asserting
   'blueprintFieldPredicate' \"_0\" \"field0\" '==' @'PIri'
   ":_0_field0"@ (see STATUS.md NAV-PIN-IRI-MINTER for the rationale).
+
+T105 / S5 extension — the @FIRST-error-only invariant
+(D-001d / FR-005)@ describe-group pins the contract that a single
+datum decode failing at multiple sub-positions produces __exactly
+one__ @cardano:decodeError@ literal on the Datum subject. The
+synthetic blueprint declares a two-field constructor whose fields
+are both @SchemaBytes@; the input 'Data' is
+@Constr 0 [I 1, I 2]@ — both fields would fail on their own. The
+decoder's 'traverse' across the field list short-circuits on the
+first 'Left', so 'decodeDatumForOutput' surfaces the FIRST-field
+error
+(@'DecodeFailed' ('BlueprintDataTypeMismatch' "bytes")@); the
+emitter piped through 'runEmit' then writes one and only one
+@cardano:decodeError@ triple regardless of how many sub-positions
+would have failed downstream.
 -}
 module Cardano.Tx.Graph.Emit.BlueprintSpec (spec) where
 
@@ -75,7 +90,13 @@ import Cardano.Tx.Blueprint (
     BlueprintValidator (..),
  )
 import Cardano.Tx.Diff (OpenValue (..))
-import Cardano.Tx.Graph.Emit (Predicate (..))
+import Cardano.Tx.Graph.Emit (
+    BnodeName (..),
+    Predicate (..),
+    Subject (..),
+    Triple (..),
+    runEmit,
+ )
 
 import Cardano.Tx.Graph.Emit.Blueprint (
     BlueprintDecodeResult (..),
@@ -83,6 +104,10 @@ import Cardano.Tx.Graph.Emit.Blueprint (
     blueprintFieldPredicate,
     decodeDatumForOutput,
     decodeRedeemerForPurpose,
+ )
+import Cardano.Tx.Graph.Emit.Project (
+    datumValidatorPick,
+    emitDecodedOrOpaque,
  )
 
 spec :: Spec
@@ -147,6 +172,35 @@ spec = describe "Cardano.Tx.Graph.Emit.Blueprint (T101 / S1)" $ do
             -- "_<constructor-index>" / "field<n>" fallback strings.
             blueprintFieldPredicate "_0" "field0"
                 `shouldBe` PIri ":_0_field0"
+
+    describe "FIRST-error-only invariant (D-001d / FR-005)" $ do
+        it
+            "decodeDatumForOutput surfaces the FIRST field's error \
+            \when multiple sub-positions would fail \
+            \(traverse short-circuits on the leftmost Left)"
+            $ decodeDatumForOutput
+                [(multiErrScriptHash, multiErrBlueprint, multiErrTitle)]
+                (swapOrderTxOut multiErrScriptHash)
+                multiErrDatum
+                `shouldBe` DecodeFailed (BlueprintDataTypeMismatch "bytes")
+
+        it
+            "emitDecodedOrOpaque writes exactly one cardano:decodeError \
+            \literal on the Datum subject regardless of how many \
+            \sub-positions would have failed downstream"
+            $ do
+                let (triples, _seen) =
+                        runEmit
+                            ( emitDecodedOrOpaque
+                                multiErrDatumSubject
+                                "outputDatum0"
+                                datumValidatorPick
+                                ( DecodeFailed
+                                    (BlueprintDataTypeMismatch "bytes")
+                                )
+                                multiErrRawBytes
+                            )
+                length (filter isDecodeErrorTriple triples) `shouldBe` 1
 
 ----------------------------------------------------------------------
 -- Fixtures
@@ -295,6 +349,94 @@ swapRedeemerScriptHash = mkScriptHash 3
 swapRedeemerDatum :: Data ConwayEra
 swapRedeemerDatum =
     Data (PLC.Constr 0 [PLC.I 42])
+
+{- | Synthetic blueprint with a two-field constructor where both
+fields are typed @SchemaBytes@. Paired with 'multiErrDatum' (a
+@Constr 0 [I 1, I 2]@), both fields would fail with
+@BlueprintDataTypeMismatch "bytes"@ if traversal continued past the
+first error. The decoder's 'traverse' across the field list
+short-circuits, so the FIRST-field error is what surfaces — the
+D-001d / FR-005 invariant pinned by the @FIRST-error-only@
+describe-group.
+-}
+multiErrBlueprint :: Blueprint
+multiErrBlueprint =
+    Blueprint
+        { blueprintPreamble =
+            BlueprintPreamble
+                { preambleTitle = "multi-err"
+                , preamblePlutusVersion = "v3"
+                }
+        , blueprintValidators =
+            [ BlueprintValidator
+                { validatorTitle = Just "multi-err"
+                , validatorDatum =
+                    Just
+                        BlueprintArgument
+                            { argumentTitle = Just "MultiErr"
+                            , argumentSchema =
+                                BlueprintSchema
+                                    { schemaTitle = Just "MultiErr"
+                                    , schemaKind =
+                                        SchemaConstructor
+                                            0
+                                            [ BlueprintSchema
+                                                { schemaTitle = Just "first"
+                                                , schemaKind = SchemaBytes
+                                                }
+                                            , BlueprintSchema
+                                                { schemaTitle = Just "second"
+                                                , schemaKind = SchemaBytes
+                                                }
+                                            ]
+                                    }
+                            }
+                , validatorRedeemer = Nothing
+                }
+            ]
+        , blueprintDefinitions = Map.empty
+        }
+
+multiErrTitle :: Text
+multiErrTitle = "multi-err"
+
+multiErrScriptHash :: ScriptHash
+multiErrScriptHash = mkScriptHash 4
+
+{- | Plutus 'Data' value whose top-level constructor matches
+'multiErrBlueprint' (constructor index 0, two fields) but whose
+fields are both integers — wrong-typed against the
+@SchemaBytes@ declared schema. Both positions would fail if the
+decoder visited them; only the first one surfaces.
+-}
+multiErrDatum :: Data ConwayEra
+multiErrDatum =
+    Data (PLC.Constr 0 [PLC.I 1, PLC.I 2])
+
+{- | Datum-subject blank node used by the emit-side FIRST-error
+invariant check. Mirrors the @outputDatum\<k\>@ naming convention
+'Cardano.Tx.Graph.Emit.Project.emitOutputDatum' applies at runtime.
+-}
+multiErrDatumSubject :: Subject
+multiErrDatumSubject = SBnode (BnodeName "outputDatum0")
+
+{- | Placeholder raw CBOR bytes for the @cardano:hasRawBytes@ side
+of the @DecodeFailed@ emit branch. Content is unobservable by the
+FIRST-error-only assertion — the count of @cardano:decodeError@
+triples is what the invariant pins.
+-}
+multiErrRawBytes :: BS.ByteString
+multiErrRawBytes = BS.pack [0x01]
+
+{- | Predicate identifying the @cardano:decodeError@ literal triple
+inside the flat emit stream. Used by the FIRST-error-only count
+assertion. Matched as @PIri t@ + equality check on @t@ so the test
+does not rely on string-literal pattern syntax for 'Text'.
+-}
+isDecodeErrorTriple :: Triple -> Bool
+isDecodeErrorTriple (Triple _ (PIri predIri) _) =
+    predIri == "cardano:decodeError"
+isDecodeErrorTriple _ = False
 
 ----------------------------------------------------------------------
 -- TxOut + ScriptHash helpers
