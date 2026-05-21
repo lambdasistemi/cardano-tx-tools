@@ -199,6 +199,39 @@ data RulesLoadError
       -- (in-progress) state on the DFS frontier and aborts on the
       -- first back-edge.
       RulesImportCycle ![FilePath]
+    | -- | A @blueprints:@ entry's @datum: \<path\>@ resolves to a file
+      -- the loader could not stat. Payload = rules.yaml path +
+      -- 1-based line of the offending @- script:@ key + the raw
+      -- @datum:@ path string the operator authored. Renders as
+      -- @\<rules-yaml\>:\<line\>: BlueprintFileMissing: \<path\>@
+      -- (spec FR-011 / Edge Case 6).
+      BlueprintFileMissing !FilePath !Int !Text
+    | -- | A @blueprints:@ entry's @datum:@ file failed CIP-57 JSON
+      -- decoding. Payload = rules.yaml path + 1-based line of the
+      -- @- script:@ key + the raw @datum:@ path + the underlying
+      -- aeson error message (spec FR-011 / Edge Case 7).
+      BlueprintParseError !FilePath !Int !Text !Text
+    | -- | A @blueprints:@ entry's @datum: \<path\>@ is an absolute
+      -- filesystem path or a @file://@ URI. The loader mirrors the
+      -- filesystem-only @owl:imports@ policy: every relative path is
+      -- resolved against the rules.yaml's directory, so the loader
+      -- stays within the worktree by construction. Payload = the
+      -- raw operator-authored string (spec FR-011 / Edge Case 8).
+      AbsoluteBlueprintPath !FilePath !Int !Text
+    | -- | A @blueprints:@ entry's @datum:@ targets an @http://@ or
+      -- @https://@ IRI. The loader is default-offline (FR-017) and
+      -- never fetches network resources. Payload = the raw URI
+      -- (spec FR-011 / Edge Case 8).
+      HttpsBlueprintPath !FilePath !Int !Text
+    | -- | Two blueprints in the loaded index would mint the same
+      -- @:\<ConstructorTitle\>_\<FieldTitle\>@ predicate (the
+      -- naming pinned in spec FR-008). The loader rejects rather
+      -- than silently picking a winner: predicate collisions are an
+      -- operator-side config bug surfaced at load time, before the
+      -- emitter runs (D-001b / A-001). Payload = rules.yaml path +
+      -- 1-based line of the second @- script:@ declaration + the
+      -- conflicting predicate name.
+      DuplicateBlueprintPredicate !FilePath !Int !Text
     deriving stock (Eq, Show)
 
 {- | Non-fatal warnings the loader emits while still returning a 'Right'
@@ -220,4 +253,12 @@ data RulesLoadWarning
       -- the path of the dropped file (both canonical absolute paths
       -- after the resolver's 'canonicalizePath' pass).
       DuplicateEntityAcrossFiles !Text !FilePath !FilePath
+    | -- | Two @blueprints:@ entries register against the same script
+      -- entity (spec Edge Case 5 / D-001f / A-001). The first
+      -- declaration wins; the second is dropped from the loaded
+      -- index. The warning carries the rules.yaml file path, the
+      -- 1-based source line of the second @- script:@ declaration,
+      -- and the offending entity name verbatim (the same string the
+      -- operator typed in the @script:@ key — not the slug).
+      DuplicateBlueprintForScript !FilePath !Int !Text
     deriving stock (Eq, Show)

@@ -45,11 +45,13 @@ module Cardano.Tx.Graph.Rules.Load (
     renderRulesLoadWarning,
 ) where
 
+import Cardano.Tx.Blueprint (Blueprint)
 import Cardano.Tx.Graph.Rules.Load.Emit.Overlay (emitOverlay)
 import Cardano.Tx.Graph.Rules.Load.Parse.Turtle (parseRulesTurtleText)
 import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (parseRulesYamlText)
 import Cardano.Tx.Graph.Rules.Load.Resolve.Imports (
     dedupAcrossFiles,
+    dedupBlueprints,
     resolveImports,
  )
 import Cardano.Tx.Graph.Rules.Load.Types (
@@ -60,7 +62,9 @@ import Cardano.Tx.Graph.Rules.Load.Types (
     RulesLoadWarning (..),
  )
 
+import Cardano.Ledger.Hashes (ScriptHash)
 import Data.ByteString (ByteString)
+import Data.Text (Text)
 import Data.Text qualified as Text
 import System.FilePath (takeBaseName, takeDirectory, takeExtension)
 
@@ -81,13 +85,23 @@ data RulesLoadResult = RulesLoadResult
     -- ^ The canonical Turtle byte stream the byte-diff golden checks
     -- against @expected.entities.ttl@.
     , rulesWarnings :: ![RulesLoadWarning]
-    -- ^ Non-fatal warnings (e.g. cross-file duplicate entity URIs).
+    -- ^ Non-fatal warnings (e.g. cross-file duplicate entity URIs,
+    -- first-wins blueprint registrations).
     , rulesEntities :: ![EntityDecl]
     -- ^ Deduped operator-declared entities in source order across the
     -- imports closure, the same list serialized into
     -- 'rulesOverlayTurtle'. Downstream consumers (body emitter #58)
     -- use this typed view to build credential → entity lookups
     -- without re-parsing the overlay Turtle.
+    , rulesBlueprints :: ![(ScriptHash, Blueprint, Text)]
+    -- ^ The loaded blueprint index, in source order across the imports
+    -- closure, post-first-wins-dedup on 'ScriptHash' collisions. Each
+    -- entry pairs the script hash that registers the blueprint with
+    -- the parsed CIP-57 'Blueprint' value and the blueprint's
+    -- preamble title (kept for diagnostic messages and predicate
+    -- naming downstream, per spec FR-001 / FR-008). The blueprint
+    -- emitter (#50 T101+) consults this list when an output's
+    -- payment-credential script hash matches a registered blueprint.
     }
     deriving stock (Eq, Show)
 
@@ -132,19 +146,22 @@ shape without filesystem effects (no resolver pass).
 -}
 loadWithResolver :: FilePath -> IO (Either RulesLoadError RulesLoadResult)
 loadWithResolver path = do
-    eEntities <- resolveImports path
-    pure $ case eEntities of
+    eResolved <- resolveImports path
+    pure $ case eResolved of
         Left err -> Left err
-        Right entities ->
+        Right (entities, blueprints) -> do
+            (dedupedBlueprints, blueprintWarnings) <-
+                dedupBlueprints blueprints
             let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))
-                (deduped, warnings) = dedupAcrossFiles entities
-                bytes = emitOverlay fixtureSlug deduped
-             in Right
-                    RulesLoadResult
-                        { rulesOverlayTurtle = bytes
-                        , rulesWarnings = warnings
-                        , rulesEntities = deduped
-                        }
+                (dedupedEntities, entityWarnings) = dedupAcrossFiles entities
+                bytes = emitOverlay fixtureSlug dedupedEntities
+            Right
+                RulesLoadResult
+                    { rulesOverlayTurtle = bytes
+                    , rulesWarnings = entityWarnings <> blueprintWarnings
+                    , rulesEntities = dedupedEntities
+                    , rulesBlueprints = dedupedBlueprints
+                    }
 
 ----------------------------------------------------------------------
 -- Diagnostic rendering (CLI surface)
@@ -223,6 +240,38 @@ renderRulesLoadError = \case
             <> show (Text.unpack raw)
     RulesImportCycle cyc ->
         "RulesImportCycle: " <> renderCycle cyc
+    BlueprintFileMissing file line raw ->
+        file
+            <> ":"
+            <> show line
+            <> ": BlueprintFileMissing: "
+            <> Text.unpack raw
+    BlueprintParseError file line raw msg ->
+        file
+            <> ":"
+            <> show line
+            <> ": BlueprintParseError: "
+            <> Text.unpack raw
+            <> ": "
+            <> Text.unpack msg
+    AbsoluteBlueprintPath file line raw ->
+        file
+            <> ":"
+            <> show line
+            <> ": AbsoluteBlueprintPath: "
+            <> show (Text.unpack raw)
+    HttpsBlueprintPath file line raw ->
+        file
+            <> ":"
+            <> show line
+            <> ": HttpsBlueprintPath: "
+            <> show (Text.unpack raw)
+    DuplicateBlueprintPredicate file line predName ->
+        file
+            <> ":"
+            <> show line
+            <> ": DuplicateBlueprintPredicate: "
+            <> Text.unpack predName
   where
     renderCycle = \case
         [] -> "<empty cycle>"
@@ -242,3 +291,9 @@ renderRulesLoadWarning = \case
             <> kept
             <> ", dropped from "
             <> dropped
+    DuplicateBlueprintForScript file line entity ->
+        file
+            <> ":"
+            <> show line
+            <> ": DuplicateBlueprintForScript: "
+            <> show (Text.unpack entity)

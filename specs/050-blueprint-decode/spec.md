@@ -360,10 +360,15 @@ involved.
 **FR-011** — New `RulesLoadError` variants land alongside the existing
 ones to cover blueprint-load failures: `BlueprintFileMissing`,
 `BlueprintParseError`, `AbsoluteBlueprintPath`, `HttpsBlueprintPath`,
-`DuplicateBlueprintForScript`, `DuplicateBlueprintPredicate`. Each carries
-the rules.yaml file path + 1-based source line of the offending `- script:`
-key + the offending value. `renderRulesLoadError` renders one stderr line
-per variant matching the existing format.
+`DuplicateBlueprintPredicate`. A new `RulesLoadWarning` variant
+`DuplicateBlueprintForScript` covers the first-wins case pinned by
+Edge Case 5 / D-001f / A-001 (operator-side dup blueprint
+registration against the same script — non-fatal, second declaration
+dropped, warning surfaced on stderr; mirrors the existing
+`DuplicateEntityAcrossFiles` shape). Each carries the rules.yaml file
+path + 1-based source line of the offending `- script:` key + the
+offending value. `renderRulesLoadError` and `renderRulesLoadWarning`
+render one stderr line per variant matching the existing format.
 
 **FR-012** — Three new test fixtures cover the three paths in User Stories
 1, 2, 3. Existing fixture 01 stays frozen (its `expected.ttl` is the

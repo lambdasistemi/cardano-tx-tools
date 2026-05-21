@@ -70,12 +70,25 @@ before any infinite recursion can occur.
 module Cardano.Tx.Graph.Rules.Load.Resolve.Imports (
     resolveImports,
     dedupAcrossFiles,
+    dedupBlueprints,
+    blueprintPredicates,
+    ResolvedBlueprint,
 ) where
 
+import Cardano.Tx.Blueprint (
+    Blueprint (..),
+    BlueprintArgument (..),
+    BlueprintPreamble (..),
+    BlueprintSchema (..),
+    BlueprintSchemaKind (..),
+    BlueprintValidator (..),
+    parseBlueprintJSON,
+ )
 import Cardano.Tx.Graph.Rules.Load.Parse.Turtle (
     parseRulesTurtleImportsWithFile,
  )
 import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
+    BlueprintStub (..),
     parseRulesYamlImportsWithFile,
  )
 import Cardano.Tx.Graph.Rules.Load.Types (
@@ -84,13 +97,17 @@ import Cardano.Tx.Graph.Rules.Load.Types (
     RulesLoadWarning (..),
  )
 
+import Cardano.Ledger.Hashes (ScriptHash)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT (..), runExceptT, throwE)
 import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, modify')
 import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
 import System.Directory (canonicalizePath, doesFileExist)
@@ -115,16 +132,36 @@ data VisitState
 -- | The DFS visit map keyed by canonical path.
 type VisitMap = Map FilePath VisitState
 
+{- | A blueprint-index entry produced by the resolver's IO stage,
+paired with its originating 'BlueprintStub' so downstream dedup can
+attach file:line provenance to the warnings and errors it emits.
+-}
+type ResolvedBlueprint = (BlueprintStub, ScriptHash, Blueprint, Text)
+
 {- | Resolve a top-level rules file's full import graph into a flat
-@['EntityDecl']@ list. Entities are returned in DFS post-order
-(children before parents); diamond imports are loaded exactly once.
+@['EntityDecl']@ list plus a flat list of resolved blueprint entries
+(each entry pairs the loaded @(ScriptHash, 'Blueprint', title)@ triple
+with the 'BlueprintStub' it came from, so 'dedupBlueprints' can mint
+its warnings and errors with the operator-typed source position).
+Entities and blueprints are returned in DFS post-order (children
+before parents); diamond imports are loaded exactly once.
 
 The argument is the file path the operator invoked the loader with;
 it can be either absolute or relative — the resolver canonicalizes
 it before the DFS starts so the visited-set comparison is reliable.
+
+For each @blueprints:@ stub produced by the per-file parser, the
+resolver performs the IO stage: resolves the @datum:@ relative path
+against the rules.yaml's directory, reads the file, and parses it
+via 'parseBlueprintJSON'. A missing file becomes
+'BlueprintFileMissing'; an aeson decode failure becomes
+'BlueprintParseError'. Successfully-loaded entries are appended to
+the result in source order — first-wins dedup and predicate-
+collision detection happen downstream in 'dedupBlueprints'.
 -}
 resolveImports ::
-    FilePath -> IO (Either RulesLoadError [EntityDecl])
+    FilePath ->
+    IO (Either RulesLoadError ([EntityDecl], [ResolvedBlueprint]))
 resolveImports topPath = do
     -- The caller's path may be relative — canonicalize once so the
     -- visit-map keys are consistent across the DFS.
@@ -151,11 +188,11 @@ dfs ::
     StateT
         VisitMap
         (ExceptT RulesLoadError IO)
-        [EntityDecl]
+        ([EntityDecl], [ResolvedBlueprint])
 dfs activePath canonicalPath = do
     visited <- get
     case Map.lookup canonicalPath visited of
-        Just Black -> pure []
+        Just Black -> pure ([], [])
         Just Grey ->
             lift
                 ( throwE
@@ -163,13 +200,19 @@ dfs activePath canonicalPath = do
                 )
         Nothing -> do
             modify' (Map.insert canonicalPath Grey)
-            (imports, ownEntities) <- parseFile canonicalPath
+            (imports, ownEntities, ownStubs) <- parseFile canonicalPath
+            ownBlueprints <- traverse loadBlueprintStub ownStubs
             let activePath' = activePath <> [canonicalPath]
-            childEntities <-
+            children <-
                 traverse (resolveChild activePath' canonicalPath) imports
             modify' (Map.insert canonicalPath Black)
             -- Reverse-post-order: children before parent.
-            pure (concat childEntities <> ownEntities)
+            let childEntities = concatMap fst children
+                childBlueprints = concatMap snd children
+            pure
+                ( childEntities <> ownEntities
+                , childBlueprints <> ownBlueprints
+                )
 
 {- | Build the cycle-path payload for a 'RulesImportCycle'.
 
@@ -194,22 +237,81 @@ cyclePath activePath revisited =
 
 {- | Parse the file at @canonicalPath@, dispatching on its extension.
 Bubbles up the per-parser 'RulesLoadError' on a malformed file.
+
+Turtle files do not carry @blueprints:@ entries; their stub list is
+always empty.
 -}
 parseFile ::
     FilePath ->
     StateT
         VisitMap
         (ExceptT RulesLoadError IO)
-        ([Text], [EntityDecl])
+        ([Text], [EntityDecl], [BlueprintStub])
 parseFile path = do
     blob <- liftIO (BS.readFile path)
     case takeExtension path of
-        ".ttl" -> liftEither (parseRulesTurtleImportsWithFile path blob)
+        ".ttl" ->
+            liftEither $
+                fmap
+                    (\(imp, ents) -> (imp, ents, []))
+                    (parseRulesTurtleImportsWithFile path blob)
         ".yaml" -> liftEither (parseRulesYamlImportsWithFile path blob)
         ".yml" -> liftEither (parseRulesYamlImportsWithFile path blob)
         _ -> liftEither (Left (UnsupportedExtension path))
   where
     liftEither = lift . ExceptT . pure
+
+{- | IO half of blueprint loading. Resolves the stub's raw @datum:@
+path against the rules.yaml's directory, reads the JSON, and parses
+it via 'parseBlueprintJSON'. Errors:
+
+* file does not exist → 'BlueprintFileMissing';
+* aeson decode failure → 'BlueprintParseError'.
+
+The third tuple element of the success result is the blueprint's
+preamble title — preserved for predicate naming and diagnostic
+messages per the brief.
+-}
+loadBlueprintStub ::
+    BlueprintStub ->
+    StateT
+        VisitMap
+        (ExceptT RulesLoadError IO)
+        ResolvedBlueprint
+loadBlueprintStub stub@BlueprintStub{stubRulesFile, stubLine, stubScriptHash, stubDatumRaw} = do
+    let importerDir = takeDirectory stubRulesFile
+        resolved = importerDir </> Text.unpack stubDatumRaw
+    exists <- liftIO (doesFileExist resolved)
+    if not exists
+        then
+            lift
+                ( throwE
+                    ( BlueprintFileMissing
+                        stubRulesFile
+                        stubLine
+                        stubDatumRaw
+                    )
+                )
+        else do
+            blob <- liftIO (LBS.readFile resolved)
+            case parseBlueprintJSON blob of
+                Left err ->
+                    lift
+                        ( throwE
+                            ( BlueprintParseError
+                                stubRulesFile
+                                stubLine
+                                stubDatumRaw
+                                (Text.pack err)
+                            )
+                        )
+                Right bp ->
+                    pure
+                        ( stub
+                        , stubScriptHash
+                        , bp
+                        , preambleTitle (blueprintPreamble bp)
+                        )
 
 {- | Resolve one raw import string against its importer's directory
 and recurse. Performs the URI / absolute / missing-file checks
@@ -222,7 +324,7 @@ resolveChild ::
     StateT
         VisitMap
         (ExceptT RulesLoadError IO)
-        [EntityDecl]
+        ([EntityDecl], [ResolvedBlueprint])
 resolveChild activePath importer importRaw
     | isHttpsLike importRaw =
         throw (HttpsImport importer importRaw)
@@ -253,6 +355,150 @@ isHttpsLike t =
 -- | True for @file://@ URIs. Treated as absolute (analyzer N2).
 isFileUri :: Text -> Bool
 isFileUri = Text.isPrefixOf "file://"
+
+{- | Enumerate every @\<ConstructorTitle\>_\<FieldTitle\>@ predicate
+name a blueprint would mint, in source-order-equivalent traversal
+order (preorder over the resolved schema tree reachable from the
+validators' datum and redeemer arguments).
+
+For each 'SchemaConstructor':
+
+* The constructor's title is @schemaTitle@ if present, otherwise
+  @"_\<index\>"@ (the FR-008 fallback for an unnamed constructor).
+* Each field's title is the field schema's @schemaTitle@ if present,
+  otherwise @"field\<n\>"@ at 0-based position @n@.
+* The minted predicate's local part is
+  @\<ctor\>_\<field\>@.
+
+Walks recurse into constructor fields, @anyOf@ alternatives, fixed-
+position @SchemaList@ items, and @SchemaListOf@ items so nested
+constructors contribute their own predicates.
+
+@$ref@ nodes are resolved through 'resolveBlueprintSchema'; a
+resolution failure (cyclic or dangling reference) drops the
+sub-tree silently — those failures surface at the emitter slice
+when the failing argument is actually walked.
+-}
+blueprintPredicates :: Blueprint -> [Text]
+blueprintPredicates bp =
+    concatMap validatorPredicates (blueprintValidators bp)
+  where
+    validatorPredicates v =
+        maybe [] argPredicates (validatorDatum v)
+            <> maybe [] argPredicates (validatorRedeemer v)
+    argPredicates arg = walkSchema Set.empty (argumentSchema arg)
+
+    -- Walk a schema tree in preorder, following @$ref@ nodes through
+    -- the blueprint's definitions map and enumerating one predicate per
+    -- @(constructor, field)@ pair encountered. The @seen@ set tracks
+    -- definition names currently on the resolution path so a cyclic
+    -- reference terminates rather than diverging.
+    walkSchema :: Set Text -> BlueprintSchema -> [Text]
+    walkSchema seen schema = case schemaKind schema of
+        SchemaReference ref
+            | Set.member ref seen -> []
+            | otherwise -> case Map.lookup ref (blueprintDefinitions bp) of
+                Nothing -> []
+                Just def -> walkSchema (Set.insert ref seen) def
+        SchemaConstructor index fields ->
+            let ctorName = case schemaTitle schema of
+                    Just t -> t
+                    Nothing -> Text.pack ("_" <> show index)
+                here =
+                    [ ctorName <> "_" <> fieldName idx fieldSchema
+                    | (idx, fieldSchema) <- zip [0 :: Int ..] fields
+                    ]
+                nested = concatMap (walkSchema seen) fields
+             in here <> nested
+        SchemaAnyOf alts -> concatMap (walkSchema seen) alts
+        SchemaList fields -> concatMap (walkSchema seen) fields
+        SchemaListOf item -> walkSchema seen item
+        SchemaInteger -> []
+        SchemaBytes -> []
+        SchemaData -> []
+    fieldName idx s = case schemaTitle s of
+        Just t -> t
+        Nothing -> Text.pack ("field" <> show idx)
+
+{- | Deduplicate a flat blueprint-index list keyed by 'ScriptHash',
+emitting first-wins warnings + a hard predicate-collision error.
+
+Strategy:
+
+1. Walk the list in source order. For each entry, look up its
+   'ScriptHash' in the accumulating map:
+
+    * Not seen → keep the entry, add its predicates to the
+      accumulating set, recurse.
+    * Seen → drop the second entry and emit
+      'DuplicateBlueprintForScript' (first-wins per spec Edge Case
+      5 / D-001f / A-001). The warning's payload uses the
+      corresponding 'BlueprintStub' for the dropped declaration so
+      it carries the rules.yaml path, line, and entity name.
+
+2. Before each entry's predicates are added to the accumulating set,
+   check whether any of them is already present. The first such
+   collision aborts with 'DuplicateBlueprintPredicate' (D-001b /
+   A-001: hard error; predicate collisions are an operator-side
+   config bug, surfaced at load time before the emitter runs). The
+   error's payload carries the colliding entry's rules.yaml path,
+   line, and the predicate name.
+
+The function consumes the stub list in parallel with the
+loaded-blueprint list so the diagnostic payloads can name the
+operator-authored source position; the two lists are produced in
+lockstep by the resolver.
+-}
+dedupBlueprints ::
+    [ResolvedBlueprint] ->
+    Either RulesLoadError ([(ScriptHash, Blueprint, Text)], [RulesLoadWarning])
+dedupBlueprints =
+    go Set.empty Set.empty [] []
+  where
+    go ::
+        Set ScriptHash ->
+        Set Text ->
+        [(ScriptHash, Blueprint, Text)] ->
+        [RulesLoadWarning] ->
+        [ResolvedBlueprint] ->
+        Either RulesLoadError ([(ScriptHash, Blueprint, Text)], [RulesLoadWarning])
+    go _ _ kept warns [] = Right (reverse kept, reverse warns)
+    go seenHashes seenPreds kept warns ((stub, sh, bp, title) : rest)
+        | Set.member sh seenHashes =
+            let w =
+                    DuplicateBlueprintForScript
+                        (stubRulesFile stub)
+                        (stubLine stub)
+                        (stubScriptName stub)
+             in go seenHashes seenPreds kept (w : warns) rest
+        | otherwise =
+            case firstCollision seenPreds (blueprintPredicates bp) of
+                Just predName ->
+                    Left $
+                        DuplicateBlueprintPredicate
+                            (stubRulesFile stub)
+                            (stubLine stub)
+                            predName
+                Nothing ->
+                    let newPreds =
+                            Set.union
+                                seenPreds
+                                (Set.fromList (blueprintPredicates bp))
+                     in go
+                            (Set.insert sh seenHashes)
+                            newPreds
+                            ((sh, bp, title) : kept)
+                            warns
+                            rest
+    -- Return the first predicate from the new blueprint that is
+    -- already in the accumulating set (in the new blueprint's
+    -- enumeration order, which is the source-equivalent preorder).
+    firstCollision :: Set Text -> [Text] -> Maybe Text
+    firstCollision seen = \case
+        [] -> Nothing
+        (p : ps)
+            | Set.member p seen -> Just p
+            | otherwise -> firstCollision seen ps
 
 {- | Deduplicate an 'EntityDecl' list by 'entitySlug' while emitting a
 'DuplicateEntityAcrossFiles' warning for every entity-slug collision
