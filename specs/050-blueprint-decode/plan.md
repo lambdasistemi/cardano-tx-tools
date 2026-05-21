@@ -63,8 +63,8 @@ The seven decisions from A-001 anchor every slice below. Quoted summaries
   OWL annotations**. Acceptance row 4 of ticket #50 is #49's integration
   test, not a #50 gate.
 - **D-001f — Test fixtures.** Three new fixtures with pinned slugs:
-  `11-blueprint-typed`, `12-blueprint-passthrough`,
-  `13-blueprint-decode-fail`. Existing fixture 01 stays frozen.
+  `12-blueprint-typed`, `13-blueprint-passthrough`,
+  `14-blueprint-decode-fail`. Existing fixture 01 stays frozen.
 - **D-001g — CLI surface.** No new flags. The existing `--rules <path>`
   is the single blueprint-input surface.
 
@@ -110,10 +110,10 @@ Tests:
 
 Fixtures (D-001f slugs pinned):
 
-- `test/fixtures/rewrite-redesign/11-blueprint-typed/` — typed path.
-- `test/fixtures/rewrite-redesign/12-blueprint-passthrough/` —
+- `test/fixtures/rewrite-redesign/12-blueprint-typed/` — typed path.
+- `test/fixtures/rewrite-redesign/13-blueprint-passthrough/` —
   no-blueprint passthrough.
-- `test/fixtures/rewrite-redesign/13-blueprint-decode-fail/` —
+- `test/fixtures/rewrite-redesign/14-blueprint-decode-fail/` —
   decode-failure path.
 - `test/fixtures/rewrite-redesign/blueprints/wrong-shape.cip57.json`
   (or per-fixture variant) — the deliberately-wrong blueprint for 13.
@@ -142,9 +142,9 @@ the predecessor's expectation (which is rolled forward in the same commit).
 | S0 | Extend `RulesLoadResult` with the blueprint-index field; loader reads + parses + threads (no emitter changes). New `RulesLoadError` variants ship in the same commit. Byte-diff GREEN on every existing fixture (no blueprint loaded → no behaviour change). | `chore(050):` | T100 |
 | S1 | `Cardano.Tx.Graph.Emit.Blueprint` module with `BlueprintDecodeResult`, `decodeDatumForOutput`, `decodeRedeemerForPurpose`. Pure functions, unit-tested with synthetic inputs. **No `emit` signature change yet.** | `feat(050):` | T101 |
 | S2 | Extend `emit` signature to accept the blueprint index; thread through `projectBody` + `projectWitness`; `emitOutputDatum` consults the index. Callers pass `[]` for existing fixtures → byte-diff still GREEN. | `feat(050):` | T102 |
-| S3 | Vendor fixture **11-blueprint-typed** + extend `EmitGoldenSpec` to cover it. **First operator-visible behavior-changing slice.** | `feat(050):` | T103 |
-| S4 | Vendor fixture **12-blueprint-passthrough**; `BlueprintPredicateTraceabilitySpec` asserts no `:_<>` predicates appear when no blueprint registered. | `feat(050):` | T104 |
-| S5 | Vendor fixture **13-blueprint-decode-fail**; `decodeError` literal + stderr warning + exit 0 asserted. | `feat(050):` | T105 |
+| S3 | Vendor fixture **12-blueprint-typed** + extend `EmitGoldenSpec` to cover it. **First operator-visible behavior-changing slice.** | `feat(050):` | T103 |
+| S4 | Vendor fixture **13-blueprint-passthrough**; `BlueprintPredicateTraceabilitySpec` asserts no `:_<>` predicates appear when no blueprint registered. | `feat(050):` | T104 |
+| S5 | Vendor fixture **14-blueprint-decode-fail**; `decodeError` literal + stderr warning + exit 0 asserted. | `feat(050):` | T105 |
 | S6 | Draft + publish Phase A.4 patch for `cardano:decodeError`. PARENT-ACTION on STATUS.md → parent files kmaps#58. | `chore(050):` | T106 |
 | S7 | Refresh canonical-vocab pin to kmaps#58 branch tip; flip `VocabTraceabilitySpec` from 33/33 to 34/34. | `chore(050):` | T107 |
 | S8 | Re-record `tx-graph.cast` on fixture 11; refresh `docs/tx-graph.md` + README. | `docs(050):` | T108 |
