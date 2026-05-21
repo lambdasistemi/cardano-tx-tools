@@ -10,15 +10,13 @@ body emitter.
 - **File**: [`transactions.ttl`](./transactions.ttl)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `e0602fe` (branch `phase-a2-tx-semantic-completeness`
-  tip on 2026-05-21, after the force-push to derived content).
-- **Branch state**: draft PR
-  [kmaps#56](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/56),
-  not yet merged to `main`. Base kmaps `main` @
-  `cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9` (Phase A.1 merged).
-  The branch HEAD is a single commit replacing the previous
-  Phase A.1.5 guess content with the Vocab.hs-derived patch
-  verbatim, per T122b/T123a + operator A-007/A-008 ordering.
+- **SHA**: `cfb599b7e9f83df821a4566573f46d83be118ffb` (kmaps
+  `main` after kmaps#56 squash-merged on 2026-05-21).
+- **Branch state**: merged. kmaps#56 (Phase A.2 — 17 classes +
+  16 properties with descriptions, parent-authored on top of
+  the Vocab.hs-derived patch) landed on kmaps main as a single
+  commit. Base of that commit was Phase A.1 merged @
+  `cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9`.
 - **Version label** declared in the file: `0.1.0-phaseA` (now with
   Phase A.2 additions appended at the tail: `cardano:Certificate`
   parent + 11 Conway-era cert subclasses, `cardano:Proposal`
@@ -65,14 +63,15 @@ rationale).
 5. T114b — refresh to kmaps@a9b5d96 (Phase A.2 branch tip,
    Phase A.1.5 guess content). Enabled the type-driven
    exhaustive ConwayDiffValue coverage work (T115..T122).
-6. **T123a (this commit)** — refresh to kmaps@e0602fe after the
-   parent force-pushed kmaps#56 to the Vocab.hs-derived patch
-   verbatim (operator A-008). The strict VocabTraceabilitySpec
-   gate flips ON at this slice — every emitted CURIE must trace
-   to a declaration in this pin.
-7. **T123 (finalization, after Path A merge)** — refresh to the
-   merged kmaps `main` SHA once kmaps#56 lands. Blocks PR #77
-   finalization (T126).
+6. T123a — refresh to kmaps@e0602fe after the parent
+   force-pushed kmaps#56 to the Vocab.hs-derived patch verbatim
+   (operator A-008). The strict VocabTraceabilitySpec gate
+   flipped ON at this slice — every emitted CURIE must trace to
+   a declaration in this pin.
+7. **T123 (this commit)** — refresh to the merged kmaps `main`
+   SHA `cfb599b7e9f83df821a4566573f46d83be118ffb` after the
+   parent squash-merged kmaps#56. This is the final stable pin
+   for PR #77 ready-for-review (T126).
 
 ## Refresh recipe
 
