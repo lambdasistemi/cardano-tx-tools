@@ -64,6 +64,7 @@ import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
 import Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal qualified as S10
 import Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal qualified as S11
 import Fixtures.RewriteRedesign.S12BlueprintTyped qualified as S12
+import Fixtures.RewriteRedesign.S13BlueprintPassthrough qualified as S13
 
 import Test.Hspec (
     Spec,
@@ -97,6 +98,7 @@ allFixtures =
     , ("10-governance-treasury-withdrawal", S10.tx)
     , ("11-amaru-treasury-swap-real", S11.tx)
     , ("12-blueprint-typed", S12.tx)
+    , ("13-blueprint-passthrough", S13.tx)
     ]
 
 {- | One Hspec @it@ per fixture: byte-diff the emitted Turtle
