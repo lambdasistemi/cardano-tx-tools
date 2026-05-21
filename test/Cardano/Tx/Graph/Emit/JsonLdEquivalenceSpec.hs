@@ -105,7 +105,7 @@ fixtureSpec (slug, tx) = describe slug $ do
     let dir = "test/fixtures/rewrite-redesign" </> slug
         rulesPath = dir </> "rules.yaml"
     (entities, overlay) <- runIO (loadEntitiesAndOverlay rulesPath)
-    case emit tx emptyUtxo entities of
+    case emit tx emptyUtxo entities [] of
         Left err ->
             it "emit produced Right" $
                 expectationFailure $

@@ -118,6 +118,11 @@ module Cardano.Tx.Graph.Emit.Project (
     idDatumWitnessBnode,
     idScriptWitnessBnode,
     idBootstrapWitnessBnode,
+
+    -- * Shared blueprint-decoded triple emission (#50 / T102)
+    emitDecodedOrOpaque,
+    datumValidatorPick,
+    redeemerValidatorPick,
 ) where
 
 import Data.ByteString (ByteString)
@@ -126,6 +131,7 @@ import Data.ByteString.Short qualified as SBS
 import Data.List (find)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Maybe qualified as Maybe
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -152,6 +158,7 @@ import Cardano.Ledger.Alonzo.TxWits (Redeemers (..), TxDats (..))
 import Cardano.Ledger.Api.Era (eraProtVerLow)
 import Cardano.Ledger.Api.Scripts.Data (
     Datum (Datum, DatumHash, NoDatum),
+    binaryDataToData,
     hashBinaryData,
  )
 import Cardano.Ledger.Api.Tx (
@@ -256,6 +263,22 @@ import Cardano.Ledger.Plutus.Language (
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Data.Foldable (toList)
 
+import Cardano.Tx.Blueprint (
+    Blueprint,
+    BlueprintArgument (..),
+    BlueprintDataError,
+    BlueprintSchema (..),
+    BlueprintValidator (..),
+    blueprintValidators,
+ )
+import Cardano.Tx.Diff (
+    OpenValue (..),
+ )
+import Cardano.Tx.Graph.Emit.Blueprint (
+    BlueprintDecodeResult (..),
+    blueprintFieldPredicate,
+    decodeDatumForOutput,
+ )
 import Cardano.Tx.Graph.Emit.Lookup (
     BnodeName (..),
     LookupTable,
@@ -302,10 +325,11 @@ address-decomposition section.
 projectBody ::
     [EntityDecl] ->
     LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
     ConwayTx ->
     Map TxIn (TxOut ConwayEra) ->
     [BodySection]
-projectBody entities lookupTbl tx utxo =
+projectBody entities lookupTbl blueprints tx utxo =
     let body = tx ^. bodyTxL
         inputs = Set.toAscList (body ^. inputsTxBodyL)
         refInputs =
@@ -353,11 +377,16 @@ projectBody entities lookupTbl tx utxo =
         (inputData, addrRegistry1) =
             buildInputs entities lookupTbl utxo inputs
         (outputData, addrRegistry2) =
-            buildOutputs entities lookupTbl outputs addrRegistry1
+            buildOutputs entities lookupTbl blueprints outputs addrRegistry1
         (collateralData, addrRegistry3) =
             buildCollaterals entities lookupTbl utxo collateralIns addrRegistry2
         (collateralReturnData, addrRegistry4) =
-            buildCollateralReturn entities lookupTbl collateralReturn addrRegistry3
+            buildCollateralReturn
+                entities
+                lookupTbl
+                blueprints
+                collateralReturn
+                addrRegistry3
         refInputData = buildReferenceInputs lookupTbl refInputs
         addrEntries = addrRegistryEntries addrRegistry4
         -- Per-cert clusters (T008 — fixtures 06, 07; T120 —
@@ -1508,10 +1537,11 @@ idRefInputTxOutRefBnode k =
 buildOutputs ::
     [EntityDecl] ->
     LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
     [TxOut ConwayEra] ->
     AddrRegistry ->
     ([[SubjectBlock]], AddrRegistry)
-buildOutputs entities lookupTbl outputs reg0 =
+buildOutputs entities lookupTbl blueprints outputs reg0 =
     go [] reg0 (zip [1 ..] outputs)
   where
     -- Strict iteration: 'outputs' is a small list.
@@ -1525,7 +1555,13 @@ buildOutputs entities lookupTbl outputs reg0 =
                     reg
             blocks =
                 clusterBlocks
-                    (emitOutput lookupTbl k (aeBnodeBase entry) txOut)
+                    ( emitOutput
+                        lookupTbl
+                        blueprints
+                        k
+                        (aeBnodeBase entry)
+                        txOut
+                    )
          in go (blocks : acc) reg' rest
 
 {- | Emit triples for a body output at position @k@. T104 attaches
@@ -1540,8 +1576,14 @@ a sub-block carrying @cardano:hasHash@ + @cardano:hasRawBytes@)
 when the output carries a reference script. Outputs with
 neither datum nor reference script keep their pre-T105 shape.
 -}
-emitOutput :: LookupTable -> Int -> Text -> TxOut ConwayEra -> Emit ()
-emitOutput lookupTbl k base txOut = do
+emitOutput ::
+    LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    Int ->
+    Text ->
+    TxOut ConwayEra ->
+    Emit ()
+emitOutput lookupTbl blueprints k base txOut = do
     let outSubj = SBnode (idOutputBnode k)
         value = txOut ^. valueTxOutL
         datum = txOut ^. datumTxOutL
@@ -1554,7 +1596,7 @@ emitOutput lookupTbl k base txOut = do
             (OBnode (BnodeName (base <> "Addr")))
         )
     emitOutputValue lookupTbl (ValueAnchor "output" k) outSubj value
-    emitOutputDatum lookupTbl k outSubj datum
+    emitOutputDatum lookupTbl blueprints k outSubj txOut datum
     emitOutputReferenceScript lookupTbl k outSubj refScript
 
 {- | Emit the @cardano:hasDatum@ edge + per-datum sub-block for an
@@ -1570,9 +1612,19 @@ flat hex literal, so datum hashes cross-reference cleanly on
 bnode equality between datum-hash-only outputs, inline datums,
 and the witness-set's datum bag (operator A-007).
 -}
-emitOutputDatum :: LookupTable -> Int -> Subject -> Datum ConwayEra -> Emit ()
-emitOutputDatum _ _ _ NoDatum = pure ()
-emitOutputDatum lookupTbl k outSubj (DatumHash dh) = do
+emitOutputDatum ::
+    LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    Int ->
+    Subject ->
+    TxOut ConwayEra ->
+    Datum ConwayEra ->
+    Emit ()
+emitOutputDatum _ _ _ _ _ NoDatum = pure ()
+emitOutputDatum lookupTbl _blueprints k outSubj _txOut (DatumHash dh) = do
+    -- DatumHash-only outputs: the datum body lives in the witness
+    -- set, so the blueprint consultation happens in the
+    -- datum-witness path (FR-006), not here.
     let datumBnode = idOutputDatumBnode k
         datumSubj = SBnode datumBnode
         hashBytes = hashToBytes (extractHash dh)
@@ -1591,11 +1643,14 @@ emitOutputDatum lookupTbl k outSubj (DatumHash dh) = do
             (PIri (vocabCurie TermHasHash))
             (OBnode hashBnode)
         )
-emitOutputDatum lookupTbl k outSubj (Datum binaryData) = do
+emitOutputDatum lookupTbl blueprints k outSubj txOut (Datum binaryData) = do
     let datumBnode = idOutputDatumBnode k
         datumSubj = SBnode datumBnode
         hashBytes = hashToBytes (extractHash (hashBinaryData binaryData))
         rawBytes = originalBytes binaryData
+        datumData = binaryDataToData binaryData
+        decodeResult = decodeDatumForOutput blueprints txOut datumData
+        bnodeBase = "outputDatum" <> Text.pack (show k)
     tellTriple
         ( Triple
             outSubj
@@ -1611,12 +1666,190 @@ emitOutputDatum lookupTbl k outSubj (Datum binaryData) = do
             (PIri (vocabCurie TermHasHash))
             (OBnode hashBnode)
         )
+    emitDecodedOrOpaque
+        datumSubj
+        bnodeBase
+        datumValidatorPick
+        decodeResult
+        rawBytes
+
+----------------------------------------------------------------------
+-- Blueprint-decoded triple emission (#50 / T102)
+----------------------------------------------------------------------
+
+{- | Project a 'BlueprintDecodeResult' onto the per-subject Datum
+or Redeemer triple set:
+
+* 'NoBlueprintRegistered' — emit @cardano:hasRawBytes@ alone
+  (pre-#50 opaque shape).
+* 'Decoded' — walk the decoded 'OpenValue' and emit one typed
+  @:\<ConstructorTitle\>_\<FieldTitle\>@ predicate per top-level
+  field; the typed emission supplants the @hasRawBytes@ triple
+  (FR-004 / spec User Story 1 example).
+* 'DecodeFailed' — emit @cardano:hasRawBytes@ AND a single
+  @cardano:decodeError "\<show err\>"@ literal (FR-005 / D-001d
+  FIRST-error-only).
+
+The @validatorPick@ argument selects which CIP-57 argument
+(@validatorDatum@ vs @validatorRedeemer@) feeds the
+constructor-title lookup — datum sites pass 'datumValidatorPick'
+and redeemer sites pass 'redeemerValidatorPick'.
+-}
+emitDecodedOrOpaque ::
+    Subject ->
+    Text ->
+    (BlueprintValidator -> Maybe BlueprintArgument) ->
+    BlueprintDecodeResult ->
+    ByteString ->
+    Emit ()
+emitDecodedOrOpaque subj bnodeBase validatorPick result rawBytes =
+    case result of
+        NoBlueprintRegistered ->
+            tellTriple
+                ( Triple
+                    subj
+                    (PIri (vocabCurie TermHasRawBytes))
+                    (OStringLit (hexText rawBytes))
+                )
+        Decoded openValue blueprint ->
+            emitDecodedConstructor
+                subj
+                bnodeBase
+                (topConstructorTitle validatorPick blueprint)
+                openValue
+        DecodeFailed err -> do
+            tellTriple
+                ( Triple
+                    subj
+                    (PIri (vocabCurie TermHasRawBytes))
+                    (OStringLit (hexText rawBytes))
+                )
+            emitDecodeErrorLiteral subj err
+
+{- | Emit one @:\<ctor\>_\<field\>@ triple per top-level field of a
+decoded constructor onto the given subject.
+
+T102 minimum: top-level 'OpenObject' is walked; nested
+'OpenObject' / 'OpenArray' renders as an opaque marker bnode.
+Richer recursion (FR-004 nested-constructor case, RDF-list
+emission per #70 T104) lands when a fixture demands it (T103+).
+-}
+emitDecodedConstructor ::
+    Subject ->
+    Text ->
+    Text ->
+    OpenValue ->
+    Emit ()
+emitDecodedConstructor subj bnodeBase ctorTitle = \case
+    OpenObject fields ->
+        mapM_
+            (emitField subj bnodeBase ctorTitle)
+            (zip [0 :: Int ..] (Map.toAscList fields))
+    -- Non-constructor top-level (e.g. an inline list or bare leaf):
+    -- no typed predicates to mint — the schema-vs-value mismatch
+    -- would have surfaced as a 'DecodeFailed' upstream.
+    _ -> pure ()
+  where
+    emitField parent base ctor (_idx, (fieldName, fieldVal)) = do
+        let fieldBase = base <> "_" <> fieldName
+        obj <- openValueAsObject fieldBase fieldVal
+        tellTriple
+            ( Triple
+                parent
+                (blueprintFieldPredicate ctor fieldName)
+                obj
+            )
+
+{- | Render an 'OpenValue' as an 'Object' (RHS of a triple),
+emitting any sub-triples (e.g. an @Identifier@-typed bnode for a
+'OpenBytes' leaf) along the way.
+
+T102 minimum:
+
+* 'OpenInteger' / 'OpenText' — emit as a typed literal.
+* 'OpenBytes' — mint a fresh @cardano:Identifier@ sub-bnode with
+  @cardano:leafType "Bytes"@ + @cardano:bytesHex "\<hex\>"@.
+  Richer leaf-type inference (e.g. @"PaymentScript"@ for a
+  script-credential-shaped bytes leaf) lands in T103.
+* 'OpenObject' / 'OpenArray' — mint an opaque-marker bnode (#50
+  defers recursive typed-emission to a later slice).
+-}
+openValueAsObject :: Text -> OpenValue -> Emit Object
+openValueAsObject _ (OpenInteger n) = pure (OIntLit n)
+openValueAsObject _ (OpenText t) = pure (OStringLit t)
+openValueAsObject base (OpenBytes hex) = do
+    let bn = BnodeName base
+        s = SBnode bn
+    tellTriple (Triple s PRdfType (OIri (vocabCurie TermIdentifier)))
     tellTriple
         ( Triple
-            datumSubj
-            (PIri (vocabCurie TermHasRawBytes))
-            (OStringLit (hexText rawBytes))
+            s
+            (PIri (vocabCurie TermLeafType))
+            (OStringLit "Bytes")
         )
+    tellTriple
+        ( Triple
+            s
+            (PIri (vocabCurie TermBytesHex))
+            (OStringLit hex)
+        )
+    pure (OBnode bn)
+openValueAsObject base (OpenObject _) = pure (OBnode (BnodeName base))
+openValueAsObject base (OpenArray _) = pure (OBnode (BnodeName base))
+
+{- | Emit a single @cardano:decodeError "\<show err\>"@ literal on
+the given subject (FR-005 / D-001d). The CURIE is hand-written
+because 'cardano:decodeError' joins the canonical vocab via the
+kmaps Phase A.4 patch (FR-009), wired into 'Vocab' by a later
+slice (T106).
+-}
+emitDecodeErrorLiteral :: Subject -> BlueprintDataError -> Emit ()
+emitDecodeErrorLiteral subj err =
+    tellTriple
+        ( Triple
+            subj
+            (PIri "cardano:decodeError")
+            (OStringLit (Text.pack (show err)))
+        )
+
+{- | Constructor title for the top-level walk: prefer the matched
+validator's argument-schema title, fall back to the validator's
+own title, then to @"_0"@ (the FR-008 missing-title fallback).
+-}
+topConstructorTitle ::
+    (BlueprintValidator -> Maybe BlueprintArgument) ->
+    Blueprint ->
+    Text
+topConstructorTitle pick blueprint =
+    case firstValidatorAndArgument pick blueprint of
+        Nothing -> "_0"
+        Just (validator, argument) ->
+            case schemaTitle (argumentSchema argument) of
+                Just title -> title
+                Nothing -> Maybe.fromMaybe "_0" (validatorTitle validator)
+
+{- | First @(validator, argument)@ pair from the blueprint whose
+@pick@ slot is non-'Nothing'. Mirrors
+'Cardano.Tx.Graph.Emit.Blueprint.firstArgumentOfKind' which
+returns only the argument; here we need the validator too so the
+title fallback (FR-008) can read @validatorTitle@ on miss.
+-}
+firstValidatorAndArgument ::
+    (BlueprintValidator -> Maybe BlueprintArgument) ->
+    Blueprint ->
+    Maybe (BlueprintValidator, BlueprintArgument)
+firstValidatorAndArgument pick blueprint =
+    case [(v, arg) | v <- blueprintValidators blueprint, Just arg <- [pick v]] of
+        [] -> Nothing
+        (p : _) -> Just p
+
+-- | Selects the @validatorDatum@ slot — used by datum-emission sites.
+datumValidatorPick :: BlueprintValidator -> Maybe BlueprintArgument
+datumValidatorPick = validatorDatum
+
+-- | Selects the @validatorRedeemer@ slot — used by redeemer-emission sites.
+redeemerValidatorPick :: BlueprintValidator -> Maybe BlueprintArgument
+redeemerValidatorPick = validatorRedeemer
 
 {- | Emit the @cardano:hasReferenceScript@ edge + per-script
 sub-block for an output at position @k@ when the output carries
@@ -2224,17 +2457,19 @@ addresses. Returns @[]@ when the body's collateral-return is
 buildCollateralReturn ::
     [EntityDecl] ->
     LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
     StrictMaybe (TxOut ConwayEra) ->
     AddrRegistry ->
     ([[SubjectBlock]], AddrRegistry)
-buildCollateralReturn _ _ SNothing reg = ([], reg)
-buildCollateralReturn entities lookupTbl (SJust txOut) reg =
+buildCollateralReturn _ _ _ SNothing reg = ([], reg)
+buildCollateralReturn entities lookupTbl blueprints (SJust txOut) reg =
     let (entry, reg') =
             insertAddr entities lookupTbl (txOut ^. addrTxOutL) reg
         blocks =
             clusterBlocks
                 ( emitCollateralReturn
                     lookupTbl
+                    blueprints
                     (aeBnodeBase entry)
                     txOut
                 )
@@ -2248,8 +2483,12 @@ but supported: the per-output datum / ref-script emission paths
 that 'emitOutput' uses are reused here verbatim.
 -}
 emitCollateralReturn ::
-    LookupTable -> Text -> TxOut ConwayEra -> Emit ()
-emitCollateralReturn lookupTbl base txOut = do
+    LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    Text ->
+    TxOut ConwayEra ->
+    Emit ()
+emitCollateralReturn lookupTbl blueprints base txOut = do
     let outSubj = SBnode idCollateralReturnBnode
         value = txOut ^. valueTxOutL
         datum = txOut ^. datumTxOutL
@@ -2270,7 +2509,7 @@ emitCollateralReturn lookupTbl base txOut = do
     -- with k = 0 so the bnode names (outputDatum0,
     -- outputRefScript0) do not collide with regular outputs at
     -- positions [1..]. T117 / S16.
-    emitOutputDatum lookupTbl 0 outSubj datum
+    emitOutputDatum lookupTbl blueprints 0 outSubj txOut datum
     emitOutputReferenceScript lookupTbl 0 outSubj refScript
 
 ----------------------------------------------------------------------

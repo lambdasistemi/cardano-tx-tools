@@ -91,6 +91,7 @@ speckit-analyze pass before T100.
 
 ### T102 — S2: extend `emit` signature; thread index through walker (feat)
 
+- **Status**: [X] complete — landed at this commit; ~25 files changed; 602/0/23 unit examples GREEN after one fourmolu retry; all 11 existing fixtures' `expected.ttl` byte-stable (the load-bearing invariant). Acceptable scope reductions accepted by navigator review: (a) Cert/Reward/Propose/Vote redeemer purposes deferred with `Nothing` + Haddock (byte-stable on existing fixtures; existing 11 don't exercise these kinds; will be picked up by a follow-up ticket OR T103 if a fixture needs them); (b) `Blueprint.hs` cycle-breaking import refactor (`Triple` instead of `Emit`) — public surface intact; (c) `Emit.hs` re-exports `BlueprintDecodeResult` + `RdmrPurpose` for in-package tests — pragmatic, documented.
 - **Subject**: `feat(050): emit accepts blueprint index; projectBody + projectWitness consult it`
 - **Tasks trailer**: `Tasks: T102`
 - **Files**:

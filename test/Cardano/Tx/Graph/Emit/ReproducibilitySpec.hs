@@ -130,7 +130,7 @@ emitOnce ::
     ByteString ->
     Either EmitError ByteString
 emitOnce slug tx utxo entities overlay =
-    case emit tx utxo entities of
+    case emit tx utxo entities [] of
         Left err -> Left err
         Right g ->
             Right

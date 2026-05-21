@@ -65,6 +65,7 @@ import Lens.Micro ((^.))
 import Cardano.Crypto.DSIGN (SignedDSIGN (..))
 import Cardano.Crypto.DSIGN.Class (rawSerialiseSigDSIGN)
 import Cardano.Crypto.Hash (hashToBytes)
+import Cardano.Ledger.Address (Addr (..))
 import Cardano.Ledger.Alonzo.Scripts (
     AsIx (..),
     plutusScriptLanguage,
@@ -72,8 +73,23 @@ import Cardano.Ledger.Alonzo.Scripts (
  )
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..), TxDats (..))
 import Cardano.Ledger.Api.Era (eraProtVerLow)
-import Cardano.Ledger.Api.Scripts.Data (Data, hashData)
-import Cardano.Ledger.Api.Tx (addrTxWitsL, bootAddrTxWitsL, witsTxL)
+import Cardano.Ledger.Api.Scripts.Data (
+    Data,
+    Datum (DatumHash),
+    hashData,
+ )
+import Cardano.Ledger.Api.Tx (
+    addrTxWitsL,
+    bodyTxL,
+    bootAddrTxWitsL,
+    witsTxL,
+ )
+import Cardano.Ledger.Api.Tx.Body (
+    inputsTxBodyL,
+    mintTxBodyL,
+    outputsTxBodyL,
+ )
+import Cardano.Ledger.Api.Tx.Out (TxOut, addrTxOutL, datumTxOutL)
 import Cardano.Ledger.Api.Tx.Wits (
     datsTxWitsL,
     rdmrsTxWitsL,
@@ -84,6 +100,7 @@ import Cardano.Ledger.Binary (serialize')
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
 import Cardano.Ledger.Core (Script, hashScript)
+import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import Cardano.Ledger.Hashes (
     DataHash,
     KeyHash (..),
@@ -92,21 +109,33 @@ import Cardano.Ledger.Hashes (
  )
 import Cardano.Ledger.Keys (KeyRole (..), WitVKey (..))
 import Cardano.Ledger.Keys.Bootstrap (BootstrapWitness)
+import Cardano.Ledger.Mary.Value (MultiAsset (..), PolicyID (..))
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.Plutus.Language (
     Language (PlutusV1, PlutusV2, PlutusV3, PlutusV4),
  )
+import Cardano.Ledger.TxIn (TxIn)
 
+import Cardano.Tx.Blueprint (Blueprint)
+import Cardano.Tx.Graph.Emit.Blueprint (
+    BlueprintDecodeResult (..),
+    RdmrPurpose (..),
+    decodeDatumForOutput,
+    decodeRedeemerForPurpose,
+ )
 import Cardano.Tx.Graph.Emit.Lookup (BnodeName (..), LookupTable)
 import Cardano.Tx.Graph.Emit.Monad (Emit, tellTriple)
 import Cardano.Tx.Graph.Emit.Project (
     clusterBlocks,
+    datumValidatorPick,
+    emitDecodedOrOpaque,
     hexText,
     idBootstrapWitnessBnode,
     idDatumWitnessBnode,
     idKeyWitnessBnode,
     idRedeemerBnode,
     idScriptWitnessBnode,
+    redeemerValidatorPick,
     resolveCredentialAndIntroduceIdent,
  )
 import Cardano.Tx.Graph.Emit.Triple (
@@ -160,19 +189,44 @@ witnessCounts tx =
 \"Witness set.\" 'BodySection' grouping every non-empty
 witness-type cluster. Returns @[]@ when every witness collection
 is empty so body-only fixtures stay byte-stable.
+
+T102 / S2 (#50): the @blueprints@ index is consulted on each
+redeemer (via 'decodeRedeemerForPurpose' keyed by purpose-resolved
+script hash) and on each datum witness (via
+'decodeDatumForOutput' keyed by the referencing output's
+payment-credential script hash — looked up by 'DataHash' against
+the body's outputs). Empty index ⇒ every consultation returns
+'NoBlueprintRegistered' ⇒ no behaviour change.
 -}
-projectWitness :: [EntityDecl] -> LookupTable -> ConwayTx -> [BodySection]
-projectWitness _entities lookupTbl tx =
-    let wits = tx ^. witsTxL
+projectWitness ::
+    [EntityDecl] ->
+    LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    ConwayTx ->
+    Map TxIn (TxOut ConwayEra) ->
+    [BodySection]
+projectWitness _entities lookupTbl blueprints tx utxo =
+    let body = tx ^. bodyTxL
+        wits = tx ^. witsTxL
         Redeemers redeemers = wits ^. rdmrsTxWitsL
         TxDats datums = wits ^. datsTxWitsL
         keyWits = wits ^. addrTxWitsL
         scripts = wits ^. scriptTxWitsL
         boots = wits ^. bootAddrTxWitsL
+        bodyOutputs = foldr (:) [] (body ^. outputsTxBodyL)
+        inputs = Set.toAscList (body ^. inputsTxBodyL)
+        MultiAsset mintMap = body ^. mintTxBodyL
+        mintPolicies = Map.keys mintMap
         action = do
-            emitRedeemers lookupTbl redeemers
+            emitRedeemers
+                lookupTbl
+                blueprints
+                utxo
+                inputs
+                mintPolicies
+                redeemers
             emitKeyWitnesses lookupTbl keyWits
-            emitDatumWitnesses lookupTbl datums
+            emitDatumWitnesses lookupTbl blueprints bodyOutputs datums
             emitScriptWitnesses lookupTbl scripts
             emitBootstrapWitnesses boots
         anyNonEmpty =
@@ -202,83 +256,122 @@ idExUnitsBnode k = BnodeName ("exUnits" <> Text.pack (show k))
 
 emitRedeemers ::
     LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    Map TxIn (TxOut ConwayEra) ->
+    [TxIn] ->
+    [PolicyID] ->
     Map (ConwayPlutusPurpose AsIx ConwayEra) (Data ConwayEra, ExUnits) ->
     Emit ()
-emitRedeemers lookupTbl rdmrs =
+emitRedeemers lookupTbl blueprints utxo inputs mintPolicies rdmrs =
     mapM_
-        (uncurry (emitRedeemerEntry lookupTbl))
+        ( uncurry
+            ( emitRedeemerEntry
+                lookupTbl
+                blueprints
+                utxo
+                inputs
+                mintPolicies
+            )
+        )
         (zip [1 ..] (Map.toAscList rdmrs))
 
 emitRedeemerEntry ::
     LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    Map TxIn (TxOut ConwayEra) ->
+    [TxIn] ->
+    [PolicyID] ->
     Int ->
     (ConwayPlutusPurpose AsIx ConwayEra, (Data ConwayEra, ExUnits)) ->
     Emit ()
-emitRedeemerEntry lookupTbl k (purpose, (datum, exUnits)) = do
-    let rdmrSubj = SBnode (idRedeemerBnode k)
-        dataSubj = SBnode (idRedeemerDataBnode k)
-        exUnitsSubj = SBnode (idExUnitsBnode k)
-        (purposeTag, purposeIx) = purposeDiscrimination purpose
-        ExUnits memUnits cpuUnits = exUnits
-        dataHashBytes = hashToBytes (extractHash (hashData datum))
-        dataBytes = serialize' (eraProtVerLow @ConwayEra) datum
-    tellTriple (Triple rdmrSubj PRdfType (OIri (vocabCurie TermRedeemer)))
-    tellTriple
-        ( Triple
-            rdmrSubj
-            (PIri (vocabCurie TermHasPurpose))
-            (OStringLit purposeTag)
-        )
-    tellTriple
-        ( Triple
-            rdmrSubj
-            (PIri (vocabCurie TermHasIndex))
-            (OIntLit purposeIx)
-        )
-    tellTriple
-        ( Triple
-            rdmrSubj
-            (PIri (vocabCurie TermHasData))
-            (OBnode (idRedeemerDataBnode k))
-        )
-    tellTriple
-        ( Triple
-            rdmrSubj
-            (PIri (vocabCurie TermHasExUnits))
-            (OBnode (idExUnitsBnode k))
-        )
-    tellTriple (Triple dataSubj PRdfType (OIri (vocabCurie TermDatum)))
-    hashBnode <-
-        resolveCredentialAndIntroduceIdent
-            lookupTbl
-            LtDatumHash
-            dataHashBytes
-    tellTriple
-        ( Triple
+emitRedeemerEntry
+    lookupTbl
+    blueprints
+    utxo
+    inputs
+    mintPolicies
+    k
+    (purpose, (datum, exUnits)) = do
+        let rdmrSubj = SBnode (idRedeemerBnode k)
+            dataSubj = SBnode (idRedeemerDataBnode k)
+            exUnitsSubj = SBnode (idExUnitsBnode k)
+            (purposeTag, purposeIx) = purposeDiscrimination purpose
+            ExUnits memUnits cpuUnits = exUnits
+            dataHashBytes = hashToBytes (extractHash (hashData datum))
+            dataBytes = serialize' (eraProtVerLow @ConwayEra) datum
+            mResolved =
+                resolveRedeemerPurposeHash
+                    utxo
+                    inputs
+                    mintPolicies
+                    purpose
+            decodeResult =
+                case mResolved of
+                    Nothing -> NoBlueprintRegistered
+                    Just (rdmrPurpose, sh) ->
+                        decodeRedeemerForPurpose
+                            blueprints
+                            rdmrPurpose
+                            sh
+                            datum
+            bnodeBase = "redeemerData" <> Text.pack (show k)
+        tellTriple (Triple rdmrSubj PRdfType (OIri (vocabCurie TermRedeemer)))
+        tellTriple
+            ( Triple
+                rdmrSubj
+                (PIri (vocabCurie TermHasPurpose))
+                (OStringLit purposeTag)
+            )
+        tellTriple
+            ( Triple
+                rdmrSubj
+                (PIri (vocabCurie TermHasIndex))
+                (OIntLit purposeIx)
+            )
+        tellTriple
+            ( Triple
+                rdmrSubj
+                (PIri (vocabCurie TermHasData))
+                (OBnode (idRedeemerDataBnode k))
+            )
+        tellTriple
+            ( Triple
+                rdmrSubj
+                (PIri (vocabCurie TermHasExUnits))
+                (OBnode (idExUnitsBnode k))
+            )
+        tellTriple (Triple dataSubj PRdfType (OIri (vocabCurie TermDatum)))
+        hashBnode <-
+            resolveCredentialAndIntroduceIdent
+                lookupTbl
+                LtDatumHash
+                dataHashBytes
+        tellTriple
+            ( Triple
+                dataSubj
+                (PIri (vocabCurie TermHasHash))
+                (OBnode hashBnode)
+            )
+        emitDecodedOrOpaque
             dataSubj
-            (PIri (vocabCurie TermHasHash))
-            (OBnode hashBnode)
-        )
-    tellTriple
-        ( Triple
-            dataSubj
-            (PIri (vocabCurie TermHasRawBytes))
-            (OStringLit (hexText dataBytes))
-        )
-    tellTriple
-        (Triple exUnitsSubj PRdfType (OIri (vocabCurie TermExUnits)))
-    tellTriple
-        ( Triple
-            exUnitsSubj
-            (PIri (vocabCurie TermMemoryUnits))
-            (OIntLit (toInteger memUnits))
-        )
-    tellTriple
-        ( Triple
-            exUnitsSubj
-            (PIri (vocabCurie TermCpuUnits))
-            (OIntLit (toInteger cpuUnits))
-        )
+            bnodeBase
+            redeemerValidatorPick
+            decodeResult
+            dataBytes
+        tellTriple
+            (Triple exUnitsSubj PRdfType (OIri (vocabCurie TermExUnits)))
+        tellTriple
+            ( Triple
+                exUnitsSubj
+                (PIri (vocabCurie TermMemoryUnits))
+                (OIntLit (toInteger memUnits))
+            )
+        tellTriple
+            ( Triple
+                exUnitsSubj
+                (PIri (vocabCurie TermCpuUnits))
+                (OIntLit (toInteger cpuUnits))
+            )
 
 {- | Map a Conway 'ConwayPlutusPurpose' to its @hasPurpose@ enum
 literal plus its 'AsIx' numeric component (cast to 'Integer' so
@@ -293,6 +386,59 @@ purposeDiscrimination = \case
     ConwayRewarding (AsIx ix) -> ("Withdraw", toInteger ix)
     ConwayVoting (AsIx ix) -> ("Vote", toInteger ix)
     ConwayProposing (AsIx ix) -> ("Propose", toInteger ix)
+
+{- | Resolve a Conway 'ConwayPlutusPurpose' to the script hash the
+blueprint index keys on, paired with the 'RdmrPurpose' tag the
+T101 decoder expects. Returns 'Nothing' when the resolution
+cannot be carried out from local state alone (e.g. the spend
+purpose's input is not in the resolved-UTxO map, or the
+certificate's script credential is not extractable in T102's
+minimal walker).
+
+T102 minimum:
+
+* 'Spend' — read the @AsIx@-th input (in the ledger's ascending
+  input order), look it up in the resolved-UTxO map, and extract
+  the payment-credential script hash. 'Nothing' when the input
+  is not in the map or the address has a key-credential payment
+  part.
+* 'Mint' — read the @AsIx@-th policy id from the body's mint
+  multi-asset map (already a 'ScriptHash').
+* 'Cert' / 'Reward' / 'Propose' / 'Vote' — 'Nothing' for T102.
+  T105+ wires these as the corresponding fixtures demand
+  (operator-side script-credentialed certs / withdrawals / votes /
+  proposals are rare and T103's happy-path fixture exercises
+  'Spend' only).
+-}
+resolveRedeemerPurposeHash ::
+    Map TxIn (TxOut ConwayEra) ->
+    [TxIn] ->
+    [PolicyID] ->
+    ConwayPlutusPurpose AsIx ConwayEra ->
+    Maybe (RdmrPurpose, ScriptHash)
+resolveRedeemerPurposeHash utxo inputs mintPolicies = \case
+    ConwaySpending (AsIx ix) -> do
+        txIn <- safeIndex (fromIntegral ix) inputs
+        txOut <- Map.lookup txIn utxo
+        sh <- paymentScriptHash (txOut ^. addrTxOutL)
+        pure (Spend, sh)
+    ConwayMinting (AsIx ix) -> do
+        PolicyID sh <- safeIndex (fromIntegral ix) mintPolicies
+        pure (Mint, sh)
+    -- T102 minimum: governance/cert/reward redeemer script-hash
+    -- resolution deferred to a later slice (see Haddock above).
+    ConwayCertifying _ -> Nothing
+    ConwayRewarding _ -> Nothing
+    ConwayVoting _ -> Nothing
+    ConwayProposing _ -> Nothing
+  where
+    safeIndex :: Int -> [a] -> Maybe a
+    safeIndex _ [] = Nothing
+    safeIndex 0 (x : _) = Just x
+    safeIndex n (_ : rest) = safeIndex (n - 1) rest
+    paymentScriptHash :: Addr -> Maybe ScriptHash
+    paymentScriptHash (Addr _network (ScriptHashObj sh) _stake) = Just sh
+    paymentScriptHash _ = Nothing
 
 ----------------------------------------------------------------------
 -- Key witnesses
@@ -337,21 +483,32 @@ emitKeyWitnessEntry lookupTbl k wit = do
 ----------------------------------------------------------------------
 
 emitDatumWitnesses ::
-    LookupTable -> Map DataHash (Data ConwayEra) -> Emit ()
-emitDatumWitnesses lookupTbl datums =
+    LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    [TxOut ConwayEra] ->
+    Map DataHash (Data ConwayEra) ->
+    Emit ()
+emitDatumWitnesses lookupTbl blueprints outputs datums =
     mapM_
-        (uncurry (emitDatumWitnessEntry lookupTbl))
+        (uncurry (emitDatumWitnessEntry lookupTbl blueprints outputs))
         (zip [1 ..] (Map.toAscList datums))
 
 emitDatumWitnessEntry ::
     LookupTable ->
+    [(ScriptHash, Blueprint, Text)] ->
+    [TxOut ConwayEra] ->
     Int ->
     (DataHash, Data ConwayEra) ->
     Emit ()
-emitDatumWitnessEntry lookupTbl k (dHash, datum) = do
+emitDatumWitnessEntry lookupTbl blueprints outputs k (dHash, datum) = do
     let datumSubj = SBnode (idDatumWitnessBnode k)
         hashBytes = hashToBytes (extractHash dHash)
         rawBytes = serialize' (eraProtVerLow @ConwayEra) datum
+        bnodeBase = "datumWitness" <> Text.pack (show k)
+        decodeResult =
+            case findOutputForDatumHash dHash outputs of
+                Nothing -> NoBlueprintRegistered
+                Just txOut -> decodeDatumForOutput blueprints txOut datum
     tellTriple (Triple datumSubj PRdfType (OIri (vocabCurie TermDatum)))
     hashBnode <-
         resolveCredentialAndIntroduceIdent
@@ -364,12 +521,31 @@ emitDatumWitnessEntry lookupTbl k (dHash, datum) = do
             (PIri (vocabCurie TermHasHash))
             (OBnode hashBnode)
         )
-    tellTriple
-        ( Triple
-            datumSubj
-            (PIri (vocabCurie TermHasRawBytes))
-            (OStringLit (hexText rawBytes))
-        )
+    emitDecodedOrOpaque
+        datumSubj
+        bnodeBase
+        datumValidatorPick
+        decodeResult
+        rawBytes
+
+{- | Find a body output whose 'DatumHash'-only datum references the
+given hash. Used by 'emitDatumWitnessEntry' to recover the
+payment-credential script hash the blueprint index keys on
+(FR-006).
+
+Inline-datum outputs do not contribute — their datum body emits
+in 'Cardano.Tx.Graph.Emit.Project.emitOutputDatum' against the
+output directly. Outputs with @NoDatum@ obviously don't either.
+-}
+findOutputForDatumHash ::
+    DataHash -> [TxOut ConwayEra] -> Maybe (TxOut ConwayEra)
+findOutputForDatumHash needle = go
+  where
+    go [] = Nothing
+    go (out : rest) =
+        case out ^. datumTxOutL of
+            DatumHash dh | dh == needle -> Just out
+            _ -> go rest
 
 ----------------------------------------------------------------------
 -- Script witnesses

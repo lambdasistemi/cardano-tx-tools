@@ -71,7 +71,7 @@ spec = describe "Cardano.Tx.Graph.Emit input semantic content (T103/S2)" $ do
         mapM_ assertFromTxOutRef allFixtures
     describe "fixture 11 emits successfully (no PUnsupportedLeafType ConwayReferenceInputValue)" $ do
         it "11-amaru-treasury-swap-real emits to Right _" $
-            isRight (emit S11.tx Map.empty []) `shouldBe` True
+            isRight (emit S11.tx Map.empty [] []) `shouldBe` True
 
 -- | All fixtures the body emitter currently covers.
 allFixtures :: [(String, ConwayTx)]
@@ -97,7 +97,7 @@ carry a @cardano:fromTxOutRef@ predicate.
 assertFromTxOutRef :: (String, ConwayTx) -> Spec
 assertFromTxOutRef (slug, tx) =
     it (slug <> " — every input/collateral/refInput block has fromTxOutRef") $
-        case emit tx Map.empty [] of
+        case emit tx Map.empty [] [] of
             Left err ->
                 expectationFailure $
                     "emit returned Left " <> show err

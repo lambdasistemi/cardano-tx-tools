@@ -57,6 +57,11 @@ module Cardano.Tx.Graph.Emit (
     EmitError (..),
     renderEmitError,
 
+    -- * Blueprint-decode seam (#50)
+    -- $blueprintSurface
+    BlueprintDecodeResult (..),
+    RdmrPurpose (..),
+
     -- * Credential lookup (T004)
     -- $lookupSurface
     BnodeName (..),
@@ -79,8 +84,14 @@ import Data.Text qualified as Text
 
 import Cardano.Ledger.Api.Tx.Out (TxOut)
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Hashes (ScriptHash)
 import Cardano.Ledger.TxIn (TxIn)
 
+import Cardano.Tx.Blueprint (Blueprint)
+import Cardano.Tx.Graph.Emit.Blueprint (
+    BlueprintDecodeResult (..),
+    RdmrPurpose (..),
+ )
 import Cardano.Tx.Graph.Emit.Lookup (
     BnodeName (..),
     LookupTable,
@@ -114,6 +125,16 @@ import Cardano.Tx.Graph.Emit.VocabExport (renderVocabFragment)
 import Cardano.Tx.Graph.Emit.Witness (projectWitness)
 import Cardano.Tx.Graph.Rules.Load (EntityDecl)
 import Cardano.Tx.Ledger (ConwayTx)
+
+{- $blueprintSurface
+The blueprint-decode seam introduced by feature #50 (T101 / T102).
+'BlueprintDecodeResult' is the three-way ADT the projection walker
+consults at each output-datum, datum-witness, and per-purpose
+redeemer position. 'RdmrPurpose' is the redeemer-purpose
+disambiguator. Both live in the private submodule
+@Cardano.Tx.Graph.Emit.Blueprint@; this re-export block exposes
+them to in-package tests without publishing the module path itself.
+-}
 
 {- $lookupSurface
 The credential-lookup machinery introduced by T004. The submodule
@@ -246,13 +267,24 @@ renderEmitError = \case
     UnsupportedLeafType leaf ->
         "UnsupportedLeafType: " <> Text.unpack leaf
 
-{- | Walk a 'ConwayTx' against a resolved-UTxO map and an
-operator-declared entity list, producing an 'EmittedGraph'.
+{- | Walk a 'ConwayTx' against a resolved-UTxO map, an
+operator-declared entity list, and a loaded blueprint index,
+producing an 'EmittedGraph'.
 
 T005 wires the credential lookup (T004) + projection walker
 (@Cardano.Tx.Graph.Emit.Project@). On a non-fixture-02 leaf the
 walker raises @UnsupportedLeafType@; T006-T010 add coverage as
 each leaf class lands.
+
+T102 / S2 (#50): the fourth parameter is the loaded blueprint
+index threaded through 'Cardano.Tx.Graph.Rules.Load.RulesLoadResult'
+(field @rulesBlueprints@). The projection walker consults the
+index at each per-output inline-datum position, each datum-witness
+position, and each per-purpose redeemer position via
+'Cardano.Tx.Graph.Emit.Blueprint.decodeDatumForOutput' /
+'decodeRedeemerForPurpose'. Callers passing @[]@ (no blueprints
+registered) see no behaviour change — the FR-003 contract that
+pins the existing 11 fixtures' @expected.ttl@ byte-stable.
 
 The returned 'EmittedGraph' has an empty 'graphPrefixes' field
 (the serializer derives the prefix block from the fixture slug
@@ -269,8 +301,9 @@ emit ::
     ConwayTx ->
     ResolvedUTxO ->
     [EntityDecl] ->
+    [(ScriptHash, Blueprint, Text)] ->
     Either EmitError EmittedGraph
-emit tx utxo entities =
+emit tx utxo entities blueprints =
     -- T122 / S21: 'projectBody' is total over @ConwayTx@; the
     -- 'Either' wrapper is preserved here for API compatibility
     -- with callers that still pattern-match on
@@ -283,8 +316,8 @@ emit tx utxo entities =
                 { graphPrefixes = []
                 , graphOverlayTurtle = BS.empty
                 , graphBody =
-                    projectBody entities lookupTbl tx utxo
-                        <> projectWitness entities lookupTbl tx
+                    projectBody entities lookupTbl blueprints tx utxo
+                        <> projectWitness entities lookupTbl blueprints tx utxo
                 }
 
 {- | Render an 'EmittedGraph' to a 'ByteString' in the requested

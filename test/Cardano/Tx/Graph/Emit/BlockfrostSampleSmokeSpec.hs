@@ -149,7 +149,7 @@ withEmittedTurtle path k = do
             expectationFailure $
                 "decodeConwayTxInput failed for " <> path <> ": " <> show err
         Right tx ->
-            case emit tx emptyUtxo [] of
+            case emit tx emptyUtxo [] [] of
                 Left err ->
                     expectationFailure $
                         "emit returned Left for "

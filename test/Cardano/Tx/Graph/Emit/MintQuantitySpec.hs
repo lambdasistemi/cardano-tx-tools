@@ -98,7 +98,7 @@ fixtureSpec (slug, tx) = describe slug $ do
     let dir = "test/fixtures/rewrite-redesign" </> slug
         rulesPath = dir </> "rules.yaml"
     entities <- runIO (loadEntities rulesPath)
-    let bytes = case emit tx emptyUtxo entities of
+    let bytes = case emit tx emptyUtxo entities [] of
             Right g -> serialize Turtle slug g
             Left _ -> BS.empty
         body = tx ^. bodyTxL

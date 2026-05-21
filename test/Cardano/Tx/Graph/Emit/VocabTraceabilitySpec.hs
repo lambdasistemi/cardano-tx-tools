@@ -104,12 +104,12 @@ fixtureSpec (slug, tx) = describe slug $ do
     let dir = "test/fixtures/rewrite-redesign" </> slug
         rulesPath = dir </> "rules.yaml"
     entities <- runIO (loadEntities rulesPath)
-    let bytes = case emit tx emptyUtxo entities of
+    let bytes = case emit tx emptyUtxo entities [] of
             Right g -> serialize Turtle slug g
             Left _ -> BS.empty
     canonicalLocals <- runIO loadCanonicalLocals
     runIO $
-        case emit tx emptyUtxo entities of
+        case emit tx emptyUtxo entities [] of
             Left err ->
                 fail $
                     "VocabTraceabilitySpec setup: "

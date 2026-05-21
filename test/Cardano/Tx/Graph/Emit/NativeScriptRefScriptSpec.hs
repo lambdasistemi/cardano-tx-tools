@@ -121,7 +121,7 @@ stubAddr =
 
 emitBytes :: ConwayTx -> ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "native-ref-script-spec" g
         Left e -> error ("NativeScriptRefScriptSpec.emit: " <> show e)
 

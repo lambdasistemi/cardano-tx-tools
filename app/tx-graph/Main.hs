@@ -44,6 +44,7 @@ Exit codes:
 -}
 module Main (main) where
 
+import Cardano.Tx.Blueprint (Blueprint)
 import Cardano.Tx.Graph.Emit (
     EmitError (..),
     EmitFormat (..),
@@ -61,6 +62,9 @@ import Cardano.Tx.Graph.Rules.Load (
     renderRulesLoadWarning,
     rulesEntities,
  )
+
+import Cardano.Ledger.Hashes (ScriptHash)
+import Data.Text (Text)
 
 import Control.Concurrent.Async (withAsync)
 import Control.Monad (void)
@@ -302,11 +306,11 @@ bodyEmit :: Options -> TxInputSource -> IO ()
 bodyEmit opts txSource = do
     fmtChecked <- exitOnEmitError (parseFormat (optFormat opts))
     tx <- loadTxOrExit txSource
-    (entities, overlay) <- case optRulesFile opts of
-        Nothing -> pure ([], BS.empty)
+    (entities, blueprints, overlay) <- case optRulesFile opts of
+        Nothing -> pure ([], [], BS.empty)
         Just p -> loadOverlayAndEntitiesOrExit p
     utxo <- resolveUtxoOrExit opts tx
-    g <- exitOnEmitError (emit tx utxo entities)
+    g <- exitOnEmitError (emit tx utxo entities blueprints)
     let joint = g{graphOverlayTurtle = overlay}
         rendered = serialize fmtChecked defaultSlug joint
     writeOutput (optOutFile opts) rendered
@@ -450,18 +454,31 @@ withN2cResolver socket magic k = do
         )
         $ \_ -> k (n2cResolver (mkN2CProvider lsqCh))
 
-{- | Load the operator-entity list AND the overlay Turtle bytes
-from a rules file. The overlay bytes are inlined into the joint
-Turtle output; the entity list drives the credential lookup.
+{- | Load the operator-entity list, the blueprint index, AND the
+overlay Turtle bytes from a rules file. The overlay bytes are
+inlined into the joint Turtle output; the entity list drives the
+credential lookup; the blueprint index (#50) drives typed
+emission for per-output inline datums, datum witnesses, and
+per-purpose redeemers.
 -}
 loadOverlayAndEntitiesOrExit ::
-    FilePath -> IO ([EntityDecl], BS.ByteString)
+    FilePath ->
+    IO ([EntityDecl], [(ScriptHash, Blueprint, Text)], BS.ByteString)
 loadOverlayAndEntitiesOrExit path = do
     result <- loadRulesFile path
     case result of
-        Right res@RulesLoadResult{rulesOverlayTurtle, rulesWarnings} -> do
-            mapM_ (hPutStrLn stderr . renderRulesLoadWarning) rulesWarnings
-            pure (rulesEntities res, rulesOverlayTurtle)
+        Right
+            res@RulesLoadResult
+                { rulesOverlayTurtle
+                , rulesBlueprints
+                , rulesWarnings
+                } -> do
+                mapM_ (hPutStrLn stderr . renderRulesLoadWarning) rulesWarnings
+                pure
+                    ( rulesEntities res
+                    , rulesBlueprints
+                    , rulesOverlayTurtle
+                    )
         Left err -> do
             hPutStrLn stderr (renderRulesLoadError err)
             exitWith (ExitFailure 1)

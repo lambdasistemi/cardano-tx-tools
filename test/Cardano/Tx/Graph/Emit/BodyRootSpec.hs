@@ -229,7 +229,7 @@ rawHash b =
 
 emitBytes :: ConwayTx -> ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "body-root-spec" g
         Left e -> error ("BodyRootSpec.emit: " <> show e)
 

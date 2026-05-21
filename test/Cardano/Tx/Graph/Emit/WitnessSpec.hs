@@ -141,7 +141,7 @@ baseTx = mkBasicTx mkBasicTxBody
 
 emitBytes :: ConwayTx -> ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "witness-spec" g
         Left e -> error ("WitnessSpec.emit: " <> show e)
 

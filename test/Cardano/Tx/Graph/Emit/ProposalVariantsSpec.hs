@@ -102,7 +102,7 @@ infoActionProposal =
 
 emitBytes :: ConwayTx -> ByteString
 emitBytes tx =
-    case emit tx emptyUtxo [] of
+    case emit tx emptyUtxo [] [] of
         Right g -> serialize Turtle "proposal-variants-spec" g
         Left e -> error ("ProposalVariantsSpec.emit: " <> show e)
 
