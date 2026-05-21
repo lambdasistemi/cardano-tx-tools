@@ -182,6 +182,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 - **RED**: `BodyRootSpec` fails — body-root predicates absent.
 - **GREEN**: object-shape interval per D-001; elision invariants.
 - **Owner**: paired subagents.
+- **Status**: [X] complete — landed at this commit. Path A confirmed per A-001 (no fixture-builder extensions): the 11-fixture goldens already pin the elision branch; `BodyRootSpec` synthesises 11 populated branches via lens-set on `mkBasicTx mkBasicTxBody`. Fixture 04 regenerated — its DSL build path computes a non-`SNothing` `scriptIntegrityHashTxBodyL` from its script witness, so the new emitter surfaces it; all other 10 fixtures stay byte-equal.
 
 ### T108 — S7: proposal fallback shape (TreasuryWithdrawals inline-datum) (feat)
 

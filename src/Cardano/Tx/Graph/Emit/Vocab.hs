@@ -112,6 +112,14 @@ data VocabTerm
     | TermHasReferenceScript
     | TermHasHash
     | TermHasRawBytes
+    | -- Body-root predicates (T107 / S6 — validity interval,
+      -- network id, script-data hash, aux-data hash)
+      TermHasValidityInterval
+    | TermIntervalStart
+    | TermIntervalEnd
+    | TermNetworkId
+    | TermScriptDataHash
+    | TermAuxiliaryDataHash
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -167,6 +175,12 @@ vocabIri = \case
     TermHasReferenceScript -> cardanoPrefix <> "hasReferenceScript"
     TermHasHash -> cardanoPrefix <> "hasHash"
     TermHasRawBytes -> cardanoPrefix <> "hasRawBytes"
+    TermHasValidityInterval -> cardanoPrefix <> "hasValidityInterval"
+    TermIntervalStart -> cardanoPrefix <> "intervalStart"
+    TermIntervalEnd -> cardanoPrefix <> "intervalEnd"
+    TermNetworkId -> cardanoPrefix <> "networkId"
+    TermScriptDataHash -> cardanoPrefix <> "scriptDataHash"
+    TermAuxiliaryDataHash -> cardanoPrefix <> "auxiliaryDataHash"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -221,6 +235,12 @@ vocabCurie = \case
     TermHasReferenceScript -> "cardano:hasReferenceScript"
     TermHasHash -> "cardano:hasHash"
     TermHasRawBytes -> "cardano:hasRawBytes"
+    TermHasValidityInterval -> "cardano:hasValidityInterval"
+    TermIntervalStart -> "cardano:intervalStart"
+    TermIntervalEnd -> "cardano:intervalEnd"
+    TermNetworkId -> "cardano:networkId"
+    TermScriptDataHash -> "cardano:scriptDataHash"
+    TermAuxiliaryDataHash -> "cardano:auxiliaryDataHash"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

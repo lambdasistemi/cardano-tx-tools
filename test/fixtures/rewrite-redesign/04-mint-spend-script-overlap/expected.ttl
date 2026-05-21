@@ -49,7 +49,8 @@ _:tx a cardano:Transaction ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasMint _:mint1 ;
-  cardano:hasFee 0 .
+  cardano:hasFee 0 ;
+  cardano:scriptDataHash "61a9c0106f3d796ea63f3be5f9d40bf5d47ad48f14a6ddb8f8e46a983462c8cf" .
 
 #
 # Input 1

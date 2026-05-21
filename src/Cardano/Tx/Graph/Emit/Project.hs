@@ -133,22 +133,28 @@ import Cardano.Ledger.Address (
     Withdrawals (..),
     serialiseAddr,
  )
+import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
+import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
 import Cardano.Ledger.Api.Scripts.Data (
     Datum (Datum, DatumHash, NoDatum),
     hashBinaryData,
  )
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
+    auxDataHashTxBodyL,
     certsTxBodyL,
     collateralInputsTxBodyL,
     feeTxBodyL,
     inputsTxBodyL,
     mintTxBodyL,
+    networkIdTxBodyL,
     outputsTxBodyL,
     proposalProceduresTxBodyL,
     referenceInputsTxBodyL,
     reqSignerHashesTxBodyL,
+    scriptIntegrityHashTxBodyL,
     totalCollateralTxBodyL,
+    vldtTxBodyL,
     withdrawalsTxBodyL,
  )
 import Cardano.Ledger.Api.Tx.Cert (
@@ -164,8 +170,10 @@ import Cardano.Ledger.Api.Tx.Out (
  )
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet, Testnet),
+    SlotNo (..),
     StrictMaybe (SJust, SNothing),
     TxIx (..),
+    networkToWord8,
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
@@ -184,6 +192,7 @@ import Cardano.Ledger.DRep (
 import Cardano.Ledger.Hashes (
     KeyHash (..),
     ScriptHash (..),
+    TxAuxDataHash (..),
     extractHash,
     originalBytes,
  )
@@ -270,6 +279,10 @@ projectBody entities lookupTbl tx utxo = do
         withdrawalPairs = Map.toAscList wmap
         certs = toList (body ^. certsTxBodyL)
         proposals = toList (body ^. proposalProceduresTxBodyL)
+        validity = body ^. vldtTxBodyL
+        networkId = body ^. networkIdTxBodyL
+        scriptDataHash = body ^. scriptIntegrityHashTxBodyL
+        auxDataHash = body ^. auxDataHashTxBodyL
     -- Build per-input data + per-output data + per-collateral
     -- data with a single deduped address bnode registry.
     let (inputData, addrRegistry1) =
@@ -304,6 +317,10 @@ projectBody entities lookupTbl tx utxo = do
                     (length collateralData)
                     (length proposals)
                     feeLovelace
+                    validity
+                    networkId
+                    scriptDataHash
+                    auxDataHash
         txSection =
             BodySection
                 { sectionHeader = "Transaction body."
@@ -699,9 +716,13 @@ emitAssetListCell lookupTbl va total (m, (policy, assetName, qty)) = do
 ----------------------------------------------------------------------
 
 {- | Emit the @_:tx@ subject block. Predicate order is fixed
-(see the module-header note); the @hasFee@ predicate always
-sits at the end so the byte layout matches the artisan
-@expected.ttl@ shape.
+(see the module-header note): the per-leaf @hasX@ edges first,
+then @hasFee@, then the optional body-root predicates T107
+introduced (validity interval, network id, script-data hash,
+auxiliary-data hash). Each of the four optional fields is
+elided when its body field is @SNothing@; the validity interval
+also emits a separate @_:interval1@ sub-block carrying
+@cardano:intervalStart@ and\/or @cardano:intervalEnd@.
 -}
 emitTxBlock ::
     Int ->
@@ -713,6 +734,10 @@ emitTxBlock ::
     Int ->
     Int ->
     Integer ->
+    ValidityInterval ->
+    StrictMaybe Network ->
+    StrictMaybe ScriptIntegrityHash ->
+    StrictMaybe TxAuxDataHash ->
     Emit ()
 emitTxBlock
     nInputs
@@ -723,7 +748,11 @@ emitTxBlock
     nCerts
     nCollaterals
     nProposals
-    feeLovelace = do
+    feeLovelace
+    validity
+    networkId
+    scriptDataHash
+    auxDataHash = do
         let txSubj = SBnode (BnodeName "tx")
             tt p o = tellTriple (Triple txSubj p o)
             -- Emit one @cardano:hasX _:xK@ edge per k in
@@ -746,6 +775,89 @@ emitTxBlock
         tt
             (PIri (vocabCurie TermHasFee))
             (OIntLit (fromIntegral feeLovelace))
+        emitValidityInterval txSubj validity
+        emitNetworkId txSubj networkId
+        emitScriptDataHash txSubj scriptDataHash
+        emitAuxiliaryDataHash txSubj auxDataHash
+
+{- | Emit the @cardano:hasValidityInterval _:interval1@ edge plus
+the @_:interval1@ sub-block carrying @cardano:intervalStart@
+and\/or @cardano:intervalEnd@. When both bounds are @SNothing@
+the predicate is elided and no sub-block is emitted; otherwise
+each bound is included only when @SJust@.
+-}
+emitValidityInterval :: Subject -> ValidityInterval -> Emit ()
+emitValidityInterval txSubj (ValidityInterval before after) =
+    case (before, after) of
+        (SNothing, SNothing) -> pure ()
+        _ -> do
+            let intervalBnode = BnodeName "interval1"
+                intervalSubj = SBnode intervalBnode
+            tellTriple
+                ( Triple
+                    txSubj
+                    (PIri (vocabCurie TermHasValidityInterval))
+                    (OBnode intervalBnode)
+                )
+            case before of
+                SNothing -> pure ()
+                SJust (SlotNo s) ->
+                    tellTriple
+                        ( Triple
+                            intervalSubj
+                            (PIri (vocabCurie TermIntervalStart))
+                            (OIntLit (fromIntegral s))
+                        )
+            case after of
+                SNothing -> pure ()
+                SJust (SlotNo s) ->
+                    tellTriple
+                        ( Triple
+                            intervalSubj
+                            (PIri (vocabCurie TermIntervalEnd))
+                            (OIntLit (fromIntegral s))
+                        )
+
+{- | Emit @cardano:networkId N@ when the body's network id is
+'SJust' (Testnet → 0, Mainnet → 1 per Cardano's wire encoding).
+-}
+emitNetworkId :: Subject -> StrictMaybe Network -> Emit ()
+emitNetworkId _ SNothing = pure ()
+emitNetworkId txSubj (SJust net) =
+    tellTriple
+        ( Triple
+            txSubj
+            (PIri (vocabCurie TermNetworkId))
+            (OIntLit (fromIntegral (networkToWord8 net)))
+        )
+
+{- | Emit @cardano:scriptDataHash \"\<hex\>\"@ when the body's
+script-integrity hash is 'SJust'. The 32-byte hash is rendered
+as a hex string literal.
+-}
+emitScriptDataHash :: Subject -> StrictMaybe ScriptIntegrityHash -> Emit ()
+emitScriptDataHash _ SNothing = pure ()
+emitScriptDataHash txSubj (SJust h) =
+    tellTriple
+        ( Triple
+            txSubj
+            (PIri (vocabCurie TermScriptDataHash))
+            (OStringLit (hexText (hashToBytes (extractHash h))))
+        )
+
+{- | Emit @cardano:auxiliaryDataHash \"\<hex\>\"@ when the body's
+aux-data hash is 'SJust'. The 32-byte hash is rendered as a hex
+string literal.
+-}
+emitAuxiliaryDataHash :: Subject -> StrictMaybe TxAuxDataHash -> Emit ()
+emitAuxiliaryDataHash _ SNothing = pure ()
+emitAuxiliaryDataHash txSubj (SJust (TxAuxDataHash h)) =
+    tellTriple
+        ( Triple
+            txSubj
+            (PIri (vocabCurie TermAuxiliaryDataHash))
+            (OStringLit (hexText (hashToBytes (extractHash h))))
+        )
 
 ----------------------------------------------------------------------
 -- Address registry — first-occurrence-wins de-dup
