@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Features
+
+* **graph:** body emitter Conway semantic completeness — WriterT/State seam, per-input `cardano:fromTxOutRef`, per-output `cardano:lovelace` + `cardano:hasAssetValue` multi-asset list + `cardano:hasDatum` + `cardano:hasReferenceScript`, body-root `cardano:hasValidityInterval` (object form) / `cardano:networkId` / `cardano:scriptDataHash` / `cardano:auxiliaryDataHash`, canonical `cardano:withdrawalAccount` + `cardano:lovelace` for withdrawals, signed `cardano:quantity` for mints, D-006 fallback shape for `TreasuryWithdrawals` proposals. Closes the "Completeness — non-negotiable" gate of epic [#46](https://github.com/lambdasistemi/cardano-tx-tools/issues/46) ([#70](https://github.com/lambdasistemi/cardano-tx-tools/pull/77)).
+* **graph:** ship `views/no-stub-triples.rq` SPARQL view + harness `NoStubViewSpec`; CI fails when any `cardano:Input` / `cardano:Output` carries only its `rdf:type` triple.
+* **graph:** vendored canonical-vocab pin at `test/fixtures/canonical-vocab/transactions.ttl` for offline / deterministic FR-013 strict vocab-traceability check; companion kmaps PR [lambdasistemi/cardano-knowledge-maps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55) merged at kmaps@cce9625b for the eleven Phase A.1 predicate declarations.
+* **docs:** asciinema cast re-recorded to demonstrate rich body emission (11 distinct predicates) across fixtures 11 / 01 / 04 / 05 per epic #46 Cast gate.
+
 ## [0.2.0.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.1.6.0...v0.2.0.0) (2026-05-20)
 
 ### Breaking Changes

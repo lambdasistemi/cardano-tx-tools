@@ -289,6 +289,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T112 — S11: CHANGELOG entry (docs)
 
+- **Status**: [X] complete — landed at this commit. Four CHANGELOG bullets under `## Unreleased`: body emitter Conway semantic completeness, no-stub SPARQL view, vendored canonical-vocab pin + kmaps#55 merge, asciinema cast re-record.
 - **Subject**: `docs(070): CHANGELOG entry for body-emitter semantic completeness`
 - **Tasks trailer**: `Tasks: T112`
 - **Files**:
