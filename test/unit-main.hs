@@ -29,6 +29,7 @@ import Cardano.Tx.Graph.Emit.VocabExportSpec qualified as GraphEmitVocabExportSp
 import Cardano.Tx.Graph.Emit.VocabTraceabilitySpec qualified as GraphEmitVocabTraceabilitySpec
 import Cardano.Tx.Graph.Emit.VoteSpec qualified as GraphEmitVoteSpec
 import Cardano.Tx.Graph.Emit.WithdrawalCanonicalSpec qualified as GraphEmitWithdrawalCanonicalSpec
+import Cardano.Tx.Graph.Emit.WitnessSpec qualified as GraphEmitWitnessSpec
 import Cardano.Tx.Graph.EmitGoldenSpec qualified as GraphEmitGoldenSpec
 import Cardano.Tx.Graph.EmitMonadSpec qualified as GraphEmitMonadSpec
 import Cardano.Tx.Graph.EmitSmokeSpec qualified as GraphEmitSmokeSpec
@@ -77,6 +78,7 @@ main = hspec $ do
     GraphEmitVocabTraceabilitySpec.spec
     GraphEmitVoteSpec.spec
     GraphEmitWithdrawalCanonicalSpec.spec
+    GraphEmitWitnessSpec.spec
     GraphEmitGoldenSpec.spec
     GraphEmitMonadSpec.spec
     GraphEmitSmokeSpec.spec

@@ -111,6 +111,7 @@ import Cardano.Tx.Graph.Emit.Triple (
     Triple (..),
  )
 import Cardano.Tx.Graph.Emit.VocabExport (renderVocabFragment)
+import Cardano.Tx.Graph.Emit.Witness (projectWitness)
 import Cardano.Tx.Graph.Rules.Load (EntityDecl)
 import Cardano.Tx.Ledger (ConwayTx)
 
@@ -276,12 +277,15 @@ emit tx utxo entities =
     -- @Left ('UnsupportedLeafType' _)@, and reserves the slot
     -- for future error modes (e.g. typed-datum decode failures
     -- when CIP-57 blueprint decoding lands, #50).
-    Right
-        EmittedGraph
-            { graphPrefixes = []
-            , graphOverlayTurtle = BS.empty
-            , graphBody = projectBody entities (buildLookup entities) tx utxo
-            }
+    let lookupTbl = buildLookup entities
+     in Right
+            EmittedGraph
+                { graphPrefixes = []
+                , graphOverlayTurtle = BS.empty
+                , graphBody =
+                    projectBody entities lookupTbl tx utxo
+                        <> projectWitness entities lookupTbl tx
+                }
 
 {- | Render an 'EmittedGraph' to a 'ByteString' in the requested
 'EmitFormat'.

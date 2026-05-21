@@ -171,6 +171,29 @@ data VocabTerm
       TermTxOutRef
     | TermHasTxId
     | TermHasIndex
+    | -- Witness-set seaboard (T128b / S31). PlutusData interpretation
+      -- is deferred to #50 — redeemers and datum witnesses carry
+      -- opaque CBOR rawBytes until then. All terms below are
+      -- invented locally per A-006 and tracked under
+      -- @pendingPhaseA3@ in 'VocabTraceabilitySpec' until kmaps#57
+      -- lands the Phase A.3 declarations and T128g refreshes the
+      -- canonical pin.
+      TermRedeemer
+    | TermKeyWitness
+    | TermBootstrapWitness
+    | TermExUnits
+    | TermHasRedeemer
+    | TermHasKeyWitness
+    | TermHasDatumWitness
+    | TermHasScriptWitness
+    | TermHasBootstrapWitness
+    | TermHasPurpose
+    | TermHasData
+    | TermHasExUnits
+    | TermMemoryUnits
+    | TermCpuUnits
+    | TermHasSignature
+    | TermHasVerificationKey
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -257,6 +280,22 @@ vocabIri = \case
     TermTxOutRef -> cardanoPrefix <> "TxOutRef"
     TermHasTxId -> cardanoPrefix <> "hasTxId"
     TermHasIndex -> cardanoPrefix <> "hasIndex"
+    TermRedeemer -> cardanoPrefix <> "Redeemer"
+    TermKeyWitness -> cardanoPrefix <> "KeyWitness"
+    TermBootstrapWitness -> cardanoPrefix <> "BootstrapWitness"
+    TermExUnits -> cardanoPrefix <> "ExUnits"
+    TermHasRedeemer -> cardanoPrefix <> "hasRedeemer"
+    TermHasKeyWitness -> cardanoPrefix <> "hasKeyWitness"
+    TermHasDatumWitness -> cardanoPrefix <> "hasDatumWitness"
+    TermHasScriptWitness -> cardanoPrefix <> "hasScriptWitness"
+    TermHasBootstrapWitness -> cardanoPrefix <> "hasBootstrapWitness"
+    TermHasPurpose -> cardanoPrefix <> "hasPurpose"
+    TermHasData -> cardanoPrefix <> "hasData"
+    TermHasExUnits -> cardanoPrefix <> "hasExUnits"
+    TermMemoryUnits -> cardanoPrefix <> "memoryUnits"
+    TermCpuUnits -> cardanoPrefix <> "cpuUnits"
+    TermHasSignature -> cardanoPrefix <> "hasSignature"
+    TermHasVerificationKey -> cardanoPrefix <> "hasVerificationKey"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -342,6 +381,22 @@ vocabCurie = \case
     TermTxOutRef -> "cardano:TxOutRef"
     TermHasTxId -> "cardano:hasTxId"
     TermHasIndex -> "cardano:hasIndex"
+    TermRedeemer -> "cardano:Redeemer"
+    TermKeyWitness -> "cardano:KeyWitness"
+    TermBootstrapWitness -> "cardano:BootstrapWitness"
+    TermExUnits -> "cardano:ExUnits"
+    TermHasRedeemer -> "cardano:hasRedeemer"
+    TermHasKeyWitness -> "cardano:hasKeyWitness"
+    TermHasDatumWitness -> "cardano:hasDatumWitness"
+    TermHasScriptWitness -> "cardano:hasScriptWitness"
+    TermHasBootstrapWitness -> "cardano:hasBootstrapWitness"
+    TermHasPurpose -> "cardano:hasPurpose"
+    TermHasData -> "cardano:hasData"
+    TermHasExUnits -> "cardano:hasExUnits"
+    TermMemoryUnits -> "cardano:memoryUnits"
+    TermCpuUnits -> "cardano:cpuUnits"
+    TermHasSignature -> "cardano:hasSignature"
+    TermHasVerificationKey -> "cardano:hasVerificationKey"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

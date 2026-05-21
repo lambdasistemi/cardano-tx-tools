@@ -50,7 +50,8 @@ _:tx a cardano:Transaction ;
   cardano:hasOutput _:output1 ;
   cardano:hasMint _:mint1 ;
   cardano:hasFee 0 ;
-  cardano:scriptDataHash _:hash_scriptdata_61a9c0106f3d796e .
+  cardano:scriptDataHash _:hash_scriptdata_61a9c0106f3d796e ;
+  cardano:hasRedeemer _:redeemer1 .
 
 _:hash_scriptdata_61a9c0106f3d796e a cardano:Identifier ;
   cardano:leafType "ScriptDataHash" ;
@@ -116,3 +117,25 @@ _:cred_paymentkey_0000000000000000 a cardano:Identifier ;
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .
+
+#
+# Witness set.
+#
+
+_:redeemer1 a cardano:Redeemer ;
+  cardano:hasPurpose "Mint" ;
+  cardano:hasIndex 0 ;
+  cardano:hasData _:redeemerData1 ;
+  cardano:hasExUnits _:exUnits1 .
+
+_:redeemerData1 a cardano:Datum ;
+  cardano:hasHash _:hash_datum_923918e403bf43c3 ;
+  cardano:hasRawBytes "d87980" .
+
+_:hash_datum_923918e403bf43c3 a cardano:Identifier ;
+  cardano:leafType "DatumHash" ;
+  cardano:bytesHex "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec" .
+
+_:exUnits1 a cardano:ExUnits ;
+  cardano:memoryUnits 0 ;
+  cardano:cpuUnits 0 .

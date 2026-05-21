@@ -108,6 +108,16 @@ leaves) MUST extend the list in place rather than re-shuffling.
 -}
 module Cardano.Tx.Graph.Emit.Project (
     projectBody,
+
+    -- * Shared with the witness-set walker (T128b)
+    clusterBlocks,
+    hexText,
+    resolveCredentialAndIntroduceIdent,
+    idRedeemerBnode,
+    idKeyWitnessBnode,
+    idDatumWitnessBnode,
+    idScriptWitnessBnode,
+    idBootstrapWitnessBnode,
 ) where
 
 import Data.ByteString (ByteString)
@@ -138,12 +148,18 @@ import Cardano.Ledger.Alonzo.Scripts (
     toPlutusScript,
  )
 import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
+import Cardano.Ledger.Alonzo.TxWits (Redeemers (..), TxDats (..))
 import Cardano.Ledger.Api.Era (eraProtVerLow)
 import Cardano.Ledger.Api.Scripts.Data (
     Datum (Datum, DatumHash, NoDatum),
     hashBinaryData,
  )
-import Cardano.Ledger.Api.Tx (bodyTxL)
+import Cardano.Ledger.Api.Tx (
+    addrTxWitsL,
+    bodyTxL,
+    bootAddrTxWitsL,
+    witsTxL,
+ )
 import Cardano.Ledger.Api.Tx.Body (
     auxDataHashTxBodyL,
     certsTxBodyL,
@@ -173,6 +189,11 @@ import Cardano.Ledger.Api.Tx.Out (
     datumTxOutL,
     referenceScriptTxOutL,
     valueTxOutL,
+ )
+import Cardano.Ledger.Api.Tx.Wits (
+    datsTxWitsL,
+    rdmrsTxWitsL,
+    scriptTxWitsL,
  )
 import Cardano.Ledger.BaseTypes (
     Network (Mainnet, Testnet),
@@ -313,6 +334,20 @@ projectBody entities lookupTbl tx utxo =
         totalCollateral = body ^. totalCollateralTxBodyL
         collateralReturn = body ^. collateralReturnTxBodyL
         votes = flattenVotingProcedures (body ^. votingProceduresTxBodyL)
+        -- Witness-set cardinalities (T128b / S31). Read on the
+        -- @_:tx@ block so the typed @hasRedeemer@ / @hasKeyWitness@
+        -- / @hasDatumWitness@ / @hasScriptWitness@ /
+        -- @hasBootstrapWitness@ edges land in the same predicate
+        -- group as @hasVote@. The witness-set blocks themselves are
+        -- emitted by 'Cardano.Tx.Graph.Emit.Witness.projectWitness'.
+        wits = tx ^. witsTxL
+        Redeemers redeemersMap = wits ^. rdmrsTxWitsL
+        TxDats datsMap = wits ^. datsTxWitsL
+        nRedeemers = Map.size redeemersMap
+        nKeyWitnesses = Set.size (wits ^. addrTxWitsL)
+        nDatumWitnesses = Map.size datsMap
+        nScriptWitnesses = Map.size (wits ^. scriptTxWitsL)
+        nBootstrapWitnesses = Set.size (wits ^. bootAddrTxWitsL)
         -- Build per-input data + per-output data + per-collateral
         -- data with a single deduped address bnode registry.
         (inputData, addrRegistry1) =
@@ -369,6 +404,11 @@ projectBody entities lookupTbl tx utxo =
                     totalCollateral
                     (not (null collateralReturnData))
                     (length votes)
+                    nRedeemers
+                    nKeyWitnesses
+                    nDatumWitnesses
+                    nScriptWitnesses
+                    nBootstrapWitnesses
         txSection =
             BodySection
                 { sectionHeader = "Transaction body."
@@ -679,6 +719,30 @@ idVoterBnode k = BnodeName ("voter" <> Text.pack (show k))
 idVoteAnchorBnode :: Int -> BnodeName
 idVoteAnchorBnode k = BnodeName ("voteAnchor" <> Text.pack (show k))
 
+-- | Bnode name a redeemer entry at position @k@ (1-based) gets (T128b).
+idRedeemerBnode :: Int -> BnodeName
+idRedeemerBnode k = BnodeName ("redeemer" <> Text.pack (show k))
+
+-- | Bnode name a key-witness entry at position @k@ (1-based) gets (T128b).
+idKeyWitnessBnode :: Int -> BnodeName
+idKeyWitnessBnode k =
+    BnodeName ("keyWitness" <> Text.pack (show k))
+
+-- | Bnode name a datum-witness entry at position @k@ (1-based) gets (T128b).
+idDatumWitnessBnode :: Int -> BnodeName
+idDatumWitnessBnode k =
+    BnodeName ("dataWitness" <> Text.pack (show k))
+
+-- | Bnode name a script-witness entry at position @k@ (1-based) gets (T128b).
+idScriptWitnessBnode :: Int -> BnodeName
+idScriptWitnessBnode k =
+    BnodeName ("scriptWitness" <> Text.pack (show k))
+
+-- | Bnode name a bootstrap-witness entry at position @k@ (1-based) gets (T128b).
+idBootstrapWitnessBnode :: Int -> BnodeName
+idBootstrapWitnessBnode k =
+    BnodeName ("bootstrapWitness" <> Text.pack (show k))
+
 {- | Bnode name the per-proposal inline-datum sub-block at proposal
 position @k@ (1-based) gets. T108 / S7 attaches it to the
 proposal subject via 'cardano:hasDatum'; the sub-block carries
@@ -887,6 +951,11 @@ emitTxBlock ::
     StrictMaybe Coin ->
     Bool ->
     Int ->
+    Int ->
+    Int ->
+    Int ->
+    Int ->
+    Int ->
     Emit ()
 emitTxBlock
     lookupTbl
@@ -906,7 +975,12 @@ emitTxBlock
     requiredSigners
     totalCollateral
     hasCollateralReturnFlag
-    nVotes = do
+    nVotes
+    nRedeemers
+    nKeyWitnesses
+    nDatumWitnesses
+    nScriptWitnesses
+    nBootstrapWitnesses = do
         let txSubj = SBnode (BnodeName "tx")
             tt p o = tellTriple (Triple txSubj p o)
             -- Emit one @cardano:hasX _:xK@ edge per k in
@@ -937,6 +1011,16 @@ emitTxBlock
         emitTotalCollateral txSubj totalCollateral
         emitCollateralReturnEdge txSubj hasCollateralReturnFlag
         edges TermHasVote idVoteBnode nVotes
+        -- Witness-set edges (T128b / S31). Bnode targets mirror
+        -- the names the witness walker emits in its own section.
+        edges TermHasRedeemer idRedeemerBnode nRedeemers
+        edges TermHasKeyWitness idKeyWitnessBnode nKeyWitnesses
+        edges TermHasDatumWitness idDatumWitnessBnode nDatumWitnesses
+        edges TermHasScriptWitness idScriptWitnessBnode nScriptWitnesses
+        edges
+            TermHasBootstrapWitness
+            idBootstrapWitnessBnode
+            nBootstrapWitnesses
 
 {- | Emit @cardano:totalCollateral N@ when the body's total
 collateral is @SJust@ (Conway's pre-declared collateral total in

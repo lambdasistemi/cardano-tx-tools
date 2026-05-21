@@ -13,6 +13,9 @@ cardano:Address a rdfs:Class ;
 cardano:Asset a rdfs:Class ;
   rdfs:label "Asset" .
 
+cardano:BootstrapWitness a rdfs:Class ;
+  rdfs:label "BootstrapWitness" .
+
 cardano:Certificate a rdfs:Class ;
   rdfs:label "Certificate" .
 
@@ -22,11 +25,17 @@ cardano:DRep a rdfs:Class ;
 cardano:Datum a rdfs:Class ;
   rdfs:label "Datum" .
 
+cardano:ExUnits a rdfs:Class ;
+  rdfs:label "ExUnits" .
+
 cardano:Identifier a rdfs:Class ;
   rdfs:label "Identifier" .
 
 cardano:Input a rdfs:Class ;
   rdfs:label "Input" .
+
+cardano:KeyWitness a rdfs:Class ;
+  rdfs:label "KeyWitness" .
 
 cardano:Mint a rdfs:Class ;
   rdfs:label "Mint" .
@@ -51,6 +60,9 @@ cardano:Policy a rdfs:Class ;
 
 cardano:Pool a rdfs:Class ;
   rdfs:label "Pool" .
+
+cardano:Redeemer a rdfs:Class ;
+  rdfs:label "Redeemer" .
 
 cardano:StakeCredential a rdfs:Class ;
   rdfs:label "StakeCredential" .
@@ -100,6 +112,9 @@ cardano:bech32 a rdf:Property ;
 cardano:bytesHex a rdf:Property ;
   rdfs:label "bytesHex" .
 
+cardano:cpuUnits a rdf:Property ;
+  rdfs:label "cpuUnits" .
+
 cardano:decodedAs a rdf:Property ;
   rdfs:label "decodedAs" .
 
@@ -115,6 +130,9 @@ cardano:hasAsset a rdf:Property ;
 cardano:hasAssetValue a rdf:Property ;
   rdfs:label "hasAssetValue" .
 
+cardano:hasBootstrapWitness a rdf:Property ;
+  rdfs:label "hasBootstrapWitness" .
+
 cardano:hasCertificate a rdf:Property ;
   rdfs:label "hasCertificate" .
 
@@ -124,8 +142,17 @@ cardano:hasCollateralInput a rdf:Property ;
 cardano:hasCollateralReturn a rdf:Property ;
   rdfs:label "hasCollateralReturn" .
 
+cardano:hasData a rdf:Property ;
+  rdfs:label "hasData" .
+
 cardano:hasDatum a rdf:Property ;
   rdfs:label "hasDatum" .
+
+cardano:hasDatumWitness a rdf:Property ;
+  rdfs:label "hasDatumWitness" .
+
+cardano:hasExUnits a rdf:Property ;
+  rdfs:label "hasExUnits" .
 
 cardano:hasFee a rdf:Property ;
   rdfs:label "hasFee" .
@@ -142,6 +169,9 @@ cardano:hasIndex a rdf:Property ;
 cardano:hasInput a rdf:Property ;
   rdfs:label "hasInput" .
 
+cardano:hasKeyWitness a rdf:Property ;
+  rdfs:label "hasKeyWitness" .
+
 cardano:hasMint a rdf:Property ;
   rdfs:label "hasMint" .
 
@@ -157,8 +187,14 @@ cardano:hasPolicy a rdf:Property ;
 cardano:hasProposal a rdf:Property ;
   rdfs:label "hasProposal" .
 
+cardano:hasPurpose a rdf:Property ;
+  rdfs:label "hasPurpose" .
+
 cardano:hasRawBytes a rdf:Property ;
   rdfs:label "hasRawBytes" .
+
+cardano:hasRedeemer a rdf:Property ;
+  rdfs:label "hasRedeemer" .
 
 cardano:hasReferenceInput a rdf:Property ;
   rdfs:label "hasReferenceInput" .
@@ -168,6 +204,12 @@ cardano:hasReferenceScript a rdf:Property ;
 
 cardano:hasRequiredSigner a rdf:Property ;
   rdfs:label "hasRequiredSigner" .
+
+cardano:hasScriptWitness a rdf:Property ;
+  rdfs:label "hasScriptWitness" .
+
+cardano:hasSignature a rdf:Property ;
+  rdfs:label "hasSignature" .
 
 cardano:hasStakeCredential a rdf:Property ;
   rdfs:label "hasStakeCredential" .
@@ -180,6 +222,9 @@ cardano:hasValidityInterval a rdf:Property ;
 
 cardano:hasVerdict a rdf:Property ;
   rdfs:label "hasVerdict" .
+
+cardano:hasVerificationKey a rdf:Property ;
+  rdfs:label "hasVerificationKey" .
 
 cardano:hasVersion a rdf:Property ;
   rdfs:label "hasVersion" .
@@ -207,6 +252,9 @@ cardano:leafType a rdf:Property ;
 
 cardano:lovelace a rdf:Property ;
   rdfs:label "lovelace" .
+
+cardano:memoryUnits a rdf:Property ;
+  rdfs:label "memoryUnits" .
 
 cardano:mintsAsset a rdf:Property ;
   rdfs:label "mintsAsset" .

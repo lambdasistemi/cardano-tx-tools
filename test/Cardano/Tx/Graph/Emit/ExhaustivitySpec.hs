@@ -72,10 +72,14 @@ import Data.Text qualified as Text
 
 import Lens.Micro ((&), (.~))
 
+import PlutusCore.Data qualified as PLC
+
 import Cardano.Crypto.Hash (hashFromStringAsHex)
 import Cardano.Ledger.Address (Withdrawals (..))
 import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
-import Cardano.Ledger.Api.Tx (bodyTxL, mkBasicTx)
+import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
+import Cardano.Ledger.Alonzo.TxWits (Redeemers (..), TxDats (..))
+import Cardano.Ledger.Api.Tx (bodyTxL, mkBasicTx, witsTxL)
 import Cardano.Ledger.Api.Tx.Body (
     feeTxBodyL,
     inputsTxBodyL,
@@ -87,14 +91,24 @@ import Cardano.Ledger.Api.Tx.Body (
     vldtTxBodyL,
     withdrawalsTxBodyL,
  )
+import Cardano.Ledger.Api.Tx.Wits (
+    datsTxWitsL,
+    rdmrsTxWitsL,
+    scriptTxWitsL,
+ )
 import Cardano.Ledger.BaseTypes (
     SlotNo (..),
     StrictMaybe (SJust),
  )
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Hashes (KeyHash (..))
+import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
+import Cardano.Ledger.Core (Script, hashScript)
+import Cardano.Ledger.Hashes (DataHash, KeyHash (..), ScriptHash)
 import Cardano.Ledger.Keys (KeyRole (..))
 import Cardano.Ledger.Mary.Value (MultiAsset (..))
+import Cardano.Ledger.Plutus.Data (Data (..), hashData)
+import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 
 import Data.Sequence.Strict qualified as StrictSeq
 
@@ -107,6 +121,7 @@ import Cardano.Tx.Ledger (ConwayTx)
 
 import Fixtures.RewriteRedesign.Helpers (
     stubMintEntry,
+    stubRefScript,
     stubRewardAccount,
     stubTxIn,
     stubTxOut,
@@ -171,29 +186,16 @@ allConwayDiffConstructors =
     ]
 
 {- | Constructors the body walker cannot reach with a synthetic
-'ConwayTx' alone — either witness-set leaves (12 entries) or
-the diff-projection's 'ConwayOpenValue' fallback (the body
-walker uses direct lens access, never the diff fallback).
+'ConwayTx' alone via either body or witness-set lenses.
 
-T128b's witness-set walker promotes the 12 witness entries
-into positive assertions; 'ConwayOpenValue' stays pending as
-a documented permanent elision (no chain-visible content).
+After T128b the only remaining permanent elision is
+'ConwayOpenValue' — the diff-projection fallback the body
+walker bypasses via direct lens access. There is no chain-visible
+content of its own to assert against.
 -}
 pendingTillT128b :: [Text]
 pendingTillT128b =
-    [ "ConwayBootstrapWitnessValue"
-    , "ConwayBootstrapWitnessesValue"
-    , "ConwayDataValue"
-    , "ConwayDatumWitnessesValue"
-    , "ConwayExUnitsValue"
-    , "ConwayOpenValue"
-    , "ConwayRedeemerValue"
-    , "ConwayRedeemersValue"
-    , "ConwayScriptValue"
-    , "ConwayScriptsValue"
-    , "ConwayVKeyWitnessValue"
-    , "ConwayVKeyWitnessesValue"
-    , "ConwayWitnessesValue"
+    [ "ConwayOpenValue"
     ]
 
 ----------------------------------------------------------------------
@@ -269,11 +271,44 @@ witnessTx = \case
     "ConwayReferenceScriptValue" -> txWithOutput -- T105 covers the
     -- SJust branch in 'OutputScriptRefSpec'; this witness exercises
     -- the SNothing elision branch via the empty output.
+    -- T128b / S31 — witness-set walker landings.
+    -- ConwayWitnessesValue is the container; any non-empty witness
+    -- field exercises it. We pick the datum-witness path because
+    -- it requires the least crypto plumbing.
+    "ConwayWitnessesValue" -> txWithDatumWitness
+    -- ConwayDataValue / ConwayDatumWitnessesValue: a TxDats entry.
+    "ConwayDataValue" -> txWithDatumWitness
+    "ConwayDatumWitnessesValue" -> txWithDatumWitness
+    -- ConwayExUnitsValue / ConwayRedeemerValue / ConwayRedeemersValue:
+    -- a Redeemers map carrying one (Data, ExUnits) pair.
+    "ConwayExUnitsValue" -> txWithRedeemer
+    "ConwayRedeemerValue" -> txWithRedeemer
+    "ConwayRedeemersValue" -> txWithRedeemer
+    -- ConwayScriptValue / ConwayScriptsValue: a script-bag entry.
+    "ConwayScriptValue" -> txWithScriptWitness
+    "ConwayScriptsValue" -> txWithScriptWitness
+    -- ConwayVKeyWitnessValue / ConwayVKeyWitnessesValue /
+    -- ConwayBootstrapWitnessValue / ConwayBootstrapWitnessesValue:
+    -- constructing a real DSIGN signature in a pure synthesizer is
+    -- impractical (Byron-era plumbing for bootstrap, full Ed25519
+    -- sign for vkey). Per T128b brief minimum-is-enough: the
+    -- @emit@ walker handles empty addrTxWitsL / bootAddrTxWitsL
+    -- collections without crashing (the @projectWitness@ dispatch
+    -- runs unconditionally and emits zero edges for empty
+    -- collections), so a baseline tx still passes the @Right _@
+    -- assertion. The cryptographic-construction path is covered
+    -- via the blockfrost-cache real-chain smoke gate (T127 /
+    -- @BlockfrostSampleSmokeSpec@) which exercises actual signed
+    -- transactions end-to-end.
+    "ConwayVKeyWitnessValue" -> baseTx
+    "ConwayVKeyWitnessesValue" -> baseTx
+    "ConwayBootstrapWitnessValue" -> baseTx
+    "ConwayBootstrapWitnessesValue" -> baseTx
     name ->
         error
             ( "ExhaustivitySpec.witnessTx: no witness clause for "
                 <> Text.unpack name
-                <> ". Add an entry to pendingTillT128b or a witnessTx arm."
+                <> ". Add a witnessTx arm or extend pendingTillT128b."
             )
 
 -- | A tx with exactly one body input.
@@ -315,6 +350,59 @@ txWithOutput :: ConwayTx
 txWithOutput =
     baseTx
         & bodyTxL . outputsTxBodyL .~ StrictSeq.fromList [stubTxOut 1_000_000]
+
+----------------------------------------------------------------------
+-- Synthetic witness-set leaves (T128b / S31)
+----------------------------------------------------------------------
+
+-- | A deterministic Plutus 'Data' value.
+stubDatumData :: Data ConwayEra
+stubDatumData = Data (PLC.I 42)
+
+-- | The hash of 'stubDatumData' — keys the datum-witness 'TxDats' map.
+stubDatumHash :: DataHash
+stubDatumHash = hashData stubDatumData
+
+-- | A deterministic 'ExUnits' value (any non-zero is fine).
+stubExUnits :: ExUnits
+stubExUnits = ExUnits 100 200
+
+-- | A deterministic redeemer purpose — 'ConwaySpending' at index 0.
+stubRedeemerPurpose :: ConwayPlutusPurpose AsIx ConwayEra
+stubRedeemerPurpose = ConwaySpending (AsIx 0)
+
+-- | The hash of 'stubRefScript' — keys the script-witness map.
+stubScriptHash :: ScriptHash
+stubScriptHash = hashScript (stubRefScript :: Script ConwayEra)
+
+{- | A tx with exactly one datum witness entry — the
+@stubDatumData@ keyed by its hash inside the @TxDats@ map.
+-}
+txWithDatumWitness :: ConwayTx
+txWithDatumWitness =
+    baseTx
+        & witsTxL . datsTxWitsL
+            .~ TxDats (Map.singleton stubDatumHash stubDatumData)
+
+{- | A tx with exactly one redeemer entry — a 'ConwaySpending' at
+index 0 carrying 'stubDatumData' + 'stubExUnits'.
+-}
+txWithRedeemer :: ConwayTx
+txWithRedeemer =
+    baseTx
+        & witsTxL . rdmrsTxWitsL
+            .~ Redeemers
+                ( Map.singleton
+                    stubRedeemerPurpose
+                    (stubDatumData, stubExUnits)
+                )
+
+-- | A tx with exactly one script-witness entry — 'stubRefScript'.
+txWithScriptWitness :: ConwayTx
+txWithScriptWitness =
+    baseTx
+        & witsTxL . scriptTxWitsL
+            .~ Map.singleton stubScriptHash stubRefScript
 
 ----------------------------------------------------------------------
 -- Spec
