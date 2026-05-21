@@ -118,7 +118,6 @@ import Test.Hspec (
     describe,
     expectationFailure,
     it,
-    pendingWith,
     shouldBe,
  )
 
@@ -407,20 +406,15 @@ witnessCoverageSpec =
         mapM_ assertWitnessCovers bodyReachableConstructors
 
 assertWitnessCovers :: Text -> Spec
-assertWitnessCovers name = it (Text.unpack name) $ do
-    case name of
-        -- T117: totalCollateral (cardano:totalCollateral) and
-        -- collateralReturn (cardano:hasCollateralReturn).
-        "ConwayStrictMaybeCoinValue" ->
-            pendingWith "T117 — total-collateral emission"
-        _ -> case emit (witnessTx name) emptyUtxo [] of
-            Left err ->
-                expectationFailure $
-                    "witness for "
-                        <> Text.unpack name
-                        <> " emitted Left: "
-                        <> renderEmitError err
-            Right _ -> pure ()
+assertWitnessCovers name = it (Text.unpack name) $
+    case emit (witnessTx name) emptyUtxo [] of
+        Left err ->
+            expectationFailure $
+                "witness for "
+                    <> Text.unpack name
+                    <> " emitted Left: "
+                    <> renderEmitError err
+        Right _ -> pure ()
 
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty

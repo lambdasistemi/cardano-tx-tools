@@ -122,6 +122,9 @@ data VocabTerm
     | TermAuxiliaryDataHash
     | -- Required signers (T116 / S15)
       TermHasRequiredSigner
+    | -- Collateral (T117 / S16)
+      TermTotalCollateral
+    | TermHasCollateralReturn
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 {- | The full IRI for a vocab term — e.g.
@@ -184,6 +187,8 @@ vocabIri = \case
     TermScriptDataHash -> cardanoPrefix <> "scriptDataHash"
     TermAuxiliaryDataHash -> cardanoPrefix <> "auxiliaryDataHash"
     TermHasRequiredSigner -> cardanoPrefix <> "hasRequiredSigner"
+    TermTotalCollateral -> cardanoPrefix <> "totalCollateral"
+    TermHasCollateralReturn -> cardanoPrefix <> "hasCollateralReturn"
 
 {- | The prefixed CURIE form, e.g. @"cardano:hasInput"@. Every
 term in this registry lives under the @cardano:@ prefix; the
@@ -245,6 +250,8 @@ vocabCurie = \case
     TermScriptDataHash -> "cardano:scriptDataHash"
     TermAuxiliaryDataHash -> "cardano:auxiliaryDataHash"
     TermHasRequiredSigner -> "cardano:hasRequiredSigner"
+    TermTotalCollateral -> "cardano:totalCollateral"
+    TermHasCollateralReturn -> "cardano:hasCollateralReturn"
 
 {- | Every vocab term registered in 'VocabTerm', in declaration
 order.

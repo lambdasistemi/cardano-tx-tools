@@ -145,6 +145,7 @@ import Cardano.Ledger.Api.Tx.Body (
     auxDataHashTxBodyL,
     certsTxBodyL,
     collateralInputsTxBodyL,
+    collateralReturnTxBodyL,
     feeTxBodyL,
     inputsTxBodyL,
     mintTxBodyL,
@@ -258,10 +259,6 @@ projectBody ::
     Map TxIn (TxOut ConwayEra) ->
     Either ProjectError [BodySection]
 projectBody entities lookupTbl tx utxo = do
-    -- Probe leaves not covered by any projection case for
-    -- emptiness; any non-empty unhandled leaf is a structural
-    -- mismatch the slice does not cover.
-    assertEmptyLeavesForT008 tx
     let body = tx ^. bodyTxL
         inputs = Set.toAscList (body ^. inputsTxBodyL)
         refInputs =
@@ -287,6 +284,8 @@ projectBody entities lookupTbl tx utxo = do
         auxDataHash = body ^. auxDataHashTxBodyL
         requiredSigners =
             Set.toAscList (body ^. reqSignerHashesTxBodyL)
+        totalCollateral = body ^. totalCollateralTxBodyL
+        collateralReturn = body ^. collateralReturnTxBodyL
     -- Build per-input data + per-output data + per-collateral
     -- data with a single deduped address bnode registry.
     let (inputData, addrRegistry1) =
@@ -295,8 +294,10 @@ projectBody entities lookupTbl tx utxo = do
             buildOutputs entities lookupTbl outputs addrRegistry1
         (collateralData, addrRegistry3) =
             buildCollaterals entities lookupTbl utxo collateralIns addrRegistry2
+        (collateralReturnData, addrRegistry4) =
+            buildCollateralReturn entities lookupTbl collateralReturn addrRegistry3
         refInputData = buildReferenceInputs refInputs
-        addrEntries = addrRegistryEntries addrRegistry3
+        addrEntries = addrRegistryEntries addrRegistry4
     -- Per-cert clusters (T008 — fixtures 06, 07).
     certClusters <-
         traverse (uncurry (buildCertCluster lookupTbl)) (zip [1 ..] certs)
@@ -326,6 +327,8 @@ projectBody entities lookupTbl tx utxo = do
                     scriptDataHash
                     auxDataHash
                     requiredSigners
+                    totalCollateral
+                    (not (null collateralReturnData))
         txSection =
             BodySection
                 { sectionHeader = "Transaction body."
@@ -385,6 +388,13 @@ projectBody entities lookupTbl tx utxo = do
                 }
             | (k, blocks) <- zip [1 :: Int ..] collateralData
             ]
+        collateralReturnSections =
+            [ BodySection
+                { sectionHeader = "Collateral return."
+                , sectionBlocks = blocks
+                }
+            | blocks <- collateralReturnData
+            ]
         proposalSections =
             [ BodySection
                 { sectionHeader = "Proposal " <> Text.pack (show k)
@@ -416,6 +426,7 @@ projectBody entities lookupTbl tx utxo = do
                 <> withdrawalSections
                 <> certSections
                 <> collateralSections
+                <> collateralReturnSections
                 <> proposalSections
                 <> addrSection
         )
@@ -437,32 +448,6 @@ clusterBlocks :: Emit () -> [SubjectBlock]
 clusterBlocks action =
     let (triples, _seen) = runEmit action
      in groupBySubject triples
-
-----------------------------------------------------------------------
--- Empty-leaf probes (T007 detects non-T005/T007 coverage)
-----------------------------------------------------------------------
-
-{- | Probe the tx's leaves not yet covered by the emit walker
-for emptiness.
-
-Per A-006 (architectural correction): the load-bearing
-exhaustivity gate is the compiler itself
-(@-Wincomplete-patterns -Werror@). Every leaf the body walker
-can reach gets a real case-arm; constructors whose RDF shape is
-not yet designed emit an @cardano:OpaqueLeaf@ fallback (see
-@TermOpaqueLeaf@) rather than a 'PUnsupportedLeafType' failure.
-
-The remaining residue probed here is @totalCollateral@, which
-@T117@ replaces with positive emission. Required signers landed
-positive emission in @T116@. Once @T117..T122@ are in,
-this probe is empty and the function is removed.
--}
-assertEmptyLeavesForT008 :: ConwayTx -> Either ProjectError ()
-assertEmptyLeavesForT008 tx = do
-    let body = tx ^. bodyTxL
-    case body ^. totalCollateralTxBodyL of
-        SNothing -> pure ()
-        SJust _ -> Left (PUnsupportedLeafType "ConwayTotalCollateralValue")
 
 ----------------------------------------------------------------------
 -- Per-input + per-output traversal
@@ -528,6 +513,15 @@ idDRepBnode k = BnodeName ("drep" <> Text.pack (show k))
 idCollateralBnode :: Int -> BnodeName
 idCollateralBnode k =
     BnodeName ("collateral" <> Text.pack (show k))
+
+{- | Bnode name the body's single collateral-return output gets.
+T117 / S16 — the collateral-return output is structurally
+unique (at most one per body), so it carries a 0-arity bnode
+name @collateralReturn1@ for byte-stability with future
+multi-collateral-return variants.
+-}
+idCollateralReturnBnode :: BnodeName
+idCollateralReturnBnode = BnodeName "collateralReturn1"
 
 -- | Bnode name a reference input at position @k@ (1-based) gets.
 idReferenceInputBnode :: Int -> BnodeName
@@ -748,6 +742,8 @@ emitTxBlock ::
     StrictMaybe ScriptIntegrityHash ->
     StrictMaybe TxAuxDataHash ->
     [KeyHash Guard] ->
+    StrictMaybe Coin ->
+    Bool ->
     Emit ()
 emitTxBlock
     nInputs
@@ -763,7 +759,9 @@ emitTxBlock
     networkId
     scriptDataHash
     auxDataHash
-    requiredSigners = do
+    requiredSigners
+    totalCollateral
+    hasCollateralReturnFlag = do
         let txSubj = SBnode (BnodeName "tx")
             tt p o = tellTriple (Triple txSubj p o)
             -- Emit one @cardano:hasX _:xK@ edge per k in
@@ -791,6 +789,42 @@ emitTxBlock
         emitScriptDataHash txSubj scriptDataHash
         emitAuxiliaryDataHash txSubj auxDataHash
         emitRequiredSigners txSubj requiredSigners
+        emitTotalCollateral txSubj totalCollateral
+        emitCollateralReturnEdge txSubj hasCollateralReturnFlag
+
+{- | Emit @cardano:totalCollateral N@ when the body's total
+collateral is @SJust@ (Conway's pre-declared collateral total in
+lovelace). @SNothing@ elides the predicate entirely.
+
+T117 / S16.
+-}
+emitTotalCollateral :: Subject -> StrictMaybe Coin -> Emit ()
+emitTotalCollateral _ SNothing = pure ()
+emitTotalCollateral txSubj (SJust (Coin n)) =
+    tellTriple
+        ( Triple
+            txSubj
+            (PIri (vocabCurie TermTotalCollateral))
+            (OIntLit (fromIntegral n))
+        )
+
+{- | Emit @_:tx cardano:hasCollateralReturn _:collateralReturn1@
+when the body carries a collateral-return output. The output's
+own subject block (typed @cardano:Output@, with @cardano:atAddress@
++ @cardano:lovelace@) lives in its own body section emitted by
+'buildCollateralReturn'.
+
+T117 / S16.
+-}
+emitCollateralReturnEdge :: Subject -> Bool -> Emit ()
+emitCollateralReturnEdge _ False = pure ()
+emitCollateralReturnEdge txSubj True =
+    tellTriple
+        ( Triple
+            txSubj
+            (PIri (vocabCurie TermHasCollateralReturn))
+            (OBnode idCollateralReturnBnode)
+        )
 
 {- | Emit one @cardano:hasRequiredSigner "\<hex\>"@ triple per
 required-signer key-hash declared on the body. The set is
@@ -1762,6 +1796,68 @@ emitResolvedCollateral lookupTbl k txIn base value = do
         (ValueAnchor "resolvedCollateral" k)
         resolvedSubj
         value
+
+----------------------------------------------------------------------
+-- Collateral return (T117 — single-output sub-block under _:tx)
+----------------------------------------------------------------------
+
+{- | Build the collateral-return output's sub-block when the body
+carries one. Threads through the shared address registry so the
+return output's address dedups against the rest of the body's
+addresses. Returns @[]@ when the body's collateral-return is
+'SNothing'.
+-}
+buildCollateralReturn ::
+    [EntityDecl] ->
+    LookupTable ->
+    StrictMaybe (TxOut ConwayEra) ->
+    AddrRegistry ->
+    ([[SubjectBlock]], AddrRegistry)
+buildCollateralReturn _ _ SNothing reg = ([], reg)
+buildCollateralReturn entities lookupTbl (SJust txOut) reg =
+    let (entry, reg') =
+            insertAddr entities lookupTbl (txOut ^. addrTxOutL) reg
+        blocks =
+            clusterBlocks
+                ( emitCollateralReturn
+                    lookupTbl
+                    (aeBnodeBase entry)
+                    txOut
+                )
+     in ([blocks], reg')
+
+{- | Emit the @_:collateralReturn1 a cardano:Output ;
+cardano:atAddress _:addr ; cardano:lovelace N@ sub-block for the
+body's single collateral-return output. Datum and reference
+scripts on a collateral-return output are unusual on real chain
+but supported: the per-output datum / ref-script emission paths
+that 'emitOutput' uses are reused here verbatim.
+-}
+emitCollateralReturn ::
+    LookupTable -> Text -> TxOut ConwayEra -> Emit ()
+emitCollateralReturn lookupTbl base txOut = do
+    let outSubj = SBnode idCollateralReturnBnode
+        value = txOut ^. valueTxOutL
+        datum = txOut ^. datumTxOutL
+        refScript = txOut ^. referenceScriptTxOutL
+    tellTriple (Triple outSubj PRdfType (OIri (vocabCurie TermOutput)))
+    tellTriple
+        ( Triple
+            outSubj
+            (PIri (vocabCurie TermAtAddress))
+            (OBnode (BnodeName (base <> "Addr")))
+        )
+    emitOutputValue
+        lookupTbl
+        (ValueAnchor "collateralReturn" 1)
+        outSubj
+        value
+    -- Reuse the per-output datum + ref-script emission paths
+    -- with k = 0 so the bnode names (outputDatum0,
+    -- outputRefScript0) do not collide with regular outputs at
+    -- positions [1..]. T117 / S16.
+    emitOutputDatum 0 outSubj datum
+    emitOutputReferenceScript 0 outSubj refScript
 
 ----------------------------------------------------------------------
 -- Reference inputs (T103 — fixture 11)

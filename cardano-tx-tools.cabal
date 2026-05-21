@@ -383,6 +383,7 @@ test-suite unit-tests
     Cardano.Tx.Graph.Emit.ReproducibilitySpec
     Cardano.Tx.Graph.Emit.RequiredSignersSpec
     Cardano.Tx.Graph.Emit.SubjectDeDupSpec
+    Cardano.Tx.Graph.Emit.TotalCollateralSpec
     Cardano.Tx.Graph.Emit.VocabTraceabilitySpec
     Cardano.Tx.Graph.Emit.WithdrawalCanonicalSpec
     Cardano.Tx.Graph.EmitGoldenSpec
