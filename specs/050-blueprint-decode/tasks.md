@@ -123,31 +123,31 @@ speckit-analyze pass before T100.
   with `[]`).
 - **Owner**: paired subagents.
 
-### T103 — S3: fixture 11-blueprint-typed + EmitGoldenSpec extension (feat)
+### T103 — S3: fixture 12-blueprint-typed + EmitGoldenSpec extension (feat)
 
-- **Subject**: `feat(050): fixture 11-blueprint-typed — typed SwapOrder datum emission`
+- **Subject**: `feat(050): fixture 12-blueprint-typed — typed SwapOrder datum emission`
 - **Tasks trailer**: `Tasks: T103`
 - **Files**:
-  - `test/fixtures/rewrite-redesign/11-blueprint-typed/rules.yaml` (NEW)
+  - `test/fixtures/rewrite-redesign/12-blueprint-typed/rules.yaml` (NEW)
     — declares the swap.v2 entity (re-using the fixture 01 script hash)
     and a `blueprints:` entry pointing to
     `./blueprints/swap-v2-datum.cip57.json` (re-used from
     `test/fixtures/rewrite-redesign/blueprints/swap-v2-datum.cip57.json`
     via a relative `../blueprints/` path).
-  - `test/fixtures/rewrite-redesign/11-blueprint-typed/NOTES.md` (NEW)
+  - `test/fixtures/rewrite-redesign/12-blueprint-typed/NOTES.md` (NEW)
     — provenance citing the operator-paste CBOR at
     `test/fixtures/blockfrost-cache/operator-paste-2026-05-21.cbor.hex`
     + an ADR-style note pinning the typed-emission byte shape.
-  - `test/fixtures/rewrite-redesign/11-blueprint-typed/expected.ttl`
+  - `test/fixtures/rewrite-redesign/12-blueprint-typed/expected.ttl`
     (NEW) — byte-diff golden showing
     `_:outputDatum1 a cardano:Datum ; cardano:hasHash <hash> ;
     :SwapOrder_recipient _:datum1_recipient .` plus the
     `_:datum1_recipient a cardano:Identifier` sub-block with the
     correct `leafType` ("PaymentScript" for a script credential) and
     `bytesHex`.
-  - `test/fixtures/rewrite-redesign/11-blueprint-typed/expected.entities.ttl`
+  - `test/fixtures/rewrite-redesign/12-blueprint-typed/expected.entities.ttl`
     (NEW) — entity overlay following the existing pattern.
-  - `test/fixtures/rewrite-redesign/11-blueprint-typed/expected.txt`
+  - `test/fixtures/rewrite-redesign/12-blueprint-typed/expected.txt`
     (NEW) — `tx-graph` exe stdout / stderr golden.
   - `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S11BlueprintTyped.hs`
     (NEW) — fixture builder following the existing
@@ -169,12 +169,12 @@ speckit-analyze pass before T100.
   (strongest live-boundary smoke in the plan).
 - **Owner**: paired subagents.
 
-### T104 — S4: fixture 12-blueprint-passthrough + traceability spec (feat)
+### T104 — S4: fixture 13-blueprint-passthrough + traceability spec (feat)
 
-- **Subject**: `feat(050): fixture 12-blueprint-passthrough — no-blueprint path stays opaque`
+- **Subject**: `feat(050): fixture 13-blueprint-passthrough — no-blueprint path stays opaque`
 - **Tasks trailer**: `Tasks: T104`
 - **Files**:
-  - `test/fixtures/rewrite-redesign/12-blueprint-passthrough/{rules.yaml,
+  - `test/fixtures/rewrite-redesign/13-blueprint-passthrough/{rules.yaml,
     expected.ttl, expected.entities.ttl, expected.txt, NOTES.md}` (NEW)
     — same datum body as fixture 11 but `rules.yaml` has NO
     `blueprints:` block. `expected.ttl` shows the post-#77 opaque
@@ -200,15 +200,15 @@ speckit-analyze pass before T100.
   set-equality check is the boundary smoke.
 - **Owner**: paired subagents.
 
-### T105 — S5: fixture 13-blueprint-decode-fail (feat)
+### T105 — S5: fixture 14-blueprint-decode-fail (feat)
 
-- **Subject**: `feat(050): fixture 13-blueprint-decode-fail — decodeError literal + stderr warn`
+- **Subject**: `feat(050): fixture 14-blueprint-decode-fail — decodeError literal + stderr warn`
 - **Tasks trailer**: `Tasks: T105`
 - **Files**:
   - `test/fixtures/rewrite-redesign/blueprints/swap-v2-wrong-shape.cip57.json`
     (NEW) — a deliberately wrong blueprint (e.g. expects a `bytes`
     leaf where the SwapOrder datum carries a constructor).
-  - `test/fixtures/rewrite-redesign/13-blueprint-decode-fail/{rules.yaml,
+  - `test/fixtures/rewrite-redesign/14-blueprint-decode-fail/{rules.yaml,
     expected.ttl, expected.entities.ttl, expected.txt, NOTES.md}` (NEW)
     — same datum body as fixture 11; `rules.yaml` points at the
     wrong-shape blueprint. `expected.ttl` carries both

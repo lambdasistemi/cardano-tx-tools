@@ -125,7 +125,7 @@ existing operator-entity overlay uses).
 recipient bnode:
 
 ```sparql
-PREFIX : <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/11-blueprint-typed#>
+PREFIX : <https://lambdasistemi.github.io/cardano-tx-tools/fixtures/12-blueprint-typed#>
 
 SELECT ?recipient ?bytes
 WHERE {
@@ -374,15 +374,15 @@ render one stderr line per variant matching the existing format.
 1, 2, 3. Existing fixture 01 stays frozen (its `expected.ttl` is the
 post-#77 byte-diff baseline). Pinned slugs (D-001f / A-001 micro-pin):
 
-- `test/fixtures/rewrite-redesign/11-blueprint-typed/` — happy path:
+- `test/fixtures/rewrite-redesign/12-blueprint-typed/` — happy path:
   SwapOrder datum body sourced from the operator-paste CBOR (or a
   stripped-down equivalent); `rules.yaml` declares the blueprint;
   `expected.ttl` shows `:SwapOrder_recipient _:recipient1 .` typed triples.
-- `test/fixtures/rewrite-redesign/12-blueprint-passthrough/` — no-blueprint
+- `test/fixtures/rewrite-redesign/13-blueprint-passthrough/` — no-blueprint
   path: same datum shape as fixture 11 but `rules.yaml` carries NO
   `blueprints:` entries. `expected.ttl` shows opaque `hasRawBytes`,
   byte-equal to what #77's emitter would have produced.
-- `test/fixtures/rewrite-redesign/13-blueprint-decode-fail/` — decode-failure
+- `test/fixtures/rewrite-redesign/14-blueprint-decode-fail/` — decode-failure
   path: fixture 11's tx + a deliberately-wrong-shape blueprint (e.g. expects
   `bytes` where the datum has `integer`). `expected.ttl` carries both
   `cardano:hasRawBytes` and `cardano:decodeError "<reason>"`;
