@@ -66,6 +66,9 @@ module Cardano.Tx.Graph.Emit (
     entityBnodeName,
     rawBytesBnodeName,
     rawBytesPrefixLength,
+
+    -- * Vocab export (T122b)
+    renderVocabFragment,
 ) where
 
 import Data.ByteString (ByteString)
@@ -107,6 +110,7 @@ import Cardano.Tx.Graph.Emit.Triple (
     SubjectBlock (..),
     Triple (..),
  )
+import Cardano.Tx.Graph.Emit.VocabExport (renderVocabFragment)
 import Cardano.Tx.Graph.Rules.Load (EntityDecl)
 import Cardano.Tx.Ledger (ConwayTx)
 

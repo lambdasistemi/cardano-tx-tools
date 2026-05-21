@@ -1,0 +1,240 @@
+# Derived from cardano-tx-tools src/Cardano/Tx/Graph/Emit/Vocab.hs
+# (T122b / S23). Regenerate via 'EMIT_GOLDEN_REGEN=1 just unit'.
+# Append to data/rdf/transactions.ttl in the kmaps repo; the
+# prefix declarations (cardano:, rdfs:, rdf:, owl:, dcterms:,
+# skos:, xsd:) are already at the top of that file. Descriptions
+# are left blank — kmaps maintainers author them.
+#
+# Base prefix: https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#
+
+cardano:Address a rdfs:Class ;
+  rdfs:label "Address" .
+
+cardano:Asset a rdfs:Class ;
+  rdfs:label "Asset" .
+
+cardano:Certificate a rdfs:Class ;
+  rdfs:label "Certificate" .
+
+cardano:DRep a rdfs:Class ;
+  rdfs:label "DRep" .
+
+cardano:Datum a rdfs:Class ;
+  rdfs:label "Datum" .
+
+cardano:Identifier a rdfs:Class ;
+  rdfs:label "Identifier" .
+
+cardano:Input a rdfs:Class ;
+  rdfs:label "Input" .
+
+cardano:Mint a rdfs:Class ;
+  rdfs:label "Mint" .
+
+cardano:NativeScript a rdfs:Class ;
+  rdfs:label "NativeScript" .
+
+cardano:OpaqueLeaf a rdfs:Class ;
+  rdfs:label "OpaqueLeaf" .
+
+cardano:Output a rdfs:Class ;
+  rdfs:label "Output" .
+
+cardano:PaymentCredential a rdfs:Class ;
+  rdfs:label "PaymentCredential" .
+
+cardano:PlutusScript a rdfs:Class ;
+  rdfs:label "PlutusScript" .
+
+cardano:Policy a rdfs:Class ;
+  rdfs:label "Policy" .
+
+cardano:Pool a rdfs:Class ;
+  rdfs:label "Pool" .
+
+cardano:StakeCredential a rdfs:Class ;
+  rdfs:label "StakeCredential" .
+
+cardano:StakeDelegation a rdfs:Class ;
+  rdfs:label "StakeDelegation" .
+
+cardano:Transaction a rdfs:Class ;
+  rdfs:label "Transaction" .
+
+cardano:TxOutRef a rdfs:Class ;
+  rdfs:label "TxOutRef" .
+
+cardano:Vote a rdfs:Class ;
+  rdfs:label "Vote" .
+
+cardano:VoteDelegation a rdfs:Class ;
+  rdfs:label "VoteDelegation" .
+
+cardano:VoterCommitteeCold a rdfs:Class ;
+  rdfs:label "VoterCommitteeCold" .
+
+cardano:VoterDRep a rdfs:Class ;
+  rdfs:label "VoterDRep" .
+
+cardano:VoterStakePool a rdfs:Class ;
+  rdfs:label "VoterStakePool" .
+
+cardano:Withdrawal a rdfs:Class ;
+  rdfs:label "Withdrawal" .
+
+cardano:anchorHash a rdf:Property ;
+  rdfs:label "anchorHash" .
+
+cardano:anchorUrl a rdf:Property ;
+  rdfs:label "anchorUrl" .
+
+cardano:atAddress a rdf:Property ;
+  rdfs:label "atAddress" .
+
+cardano:auxiliaryDataHash a rdf:Property ;
+  rdfs:label "auxiliaryDataHash" .
+
+cardano:bech32 a rdf:Property ;
+  rdfs:label "bech32" .
+
+cardano:bytesHex a rdf:Property ;
+  rdfs:label "bytesHex" .
+
+cardano:decodedAs a rdf:Property ;
+  rdfs:label "decodedAs" .
+
+cardano:fromTxOutRef a rdf:Property ;
+  rdfs:label "fromTxOutRef" .
+
+cardano:hasAnchor a rdf:Property ;
+  rdfs:label "hasAnchor" .
+
+cardano:hasAsset a rdf:Property ;
+  rdfs:label "hasAsset" .
+
+cardano:hasAssetValue a rdf:Property ;
+  rdfs:label "hasAssetValue" .
+
+cardano:hasCertificate a rdf:Property ;
+  rdfs:label "hasCertificate" .
+
+cardano:hasCollateralInput a rdf:Property ;
+  rdfs:label "hasCollateralInput" .
+
+cardano:hasCollateralReturn a rdf:Property ;
+  rdfs:label "hasCollateralReturn" .
+
+cardano:hasDatum a rdf:Property ;
+  rdfs:label "hasDatum" .
+
+cardano:hasFee a rdf:Property ;
+  rdfs:label "hasFee" .
+
+cardano:hasHash a rdf:Property ;
+  rdfs:label "hasHash" .
+
+cardano:hasIdentifier a rdf:Property ;
+  rdfs:label "hasIdentifier" .
+
+cardano:hasIndex a rdf:Property ;
+  rdfs:label "hasIndex" .
+
+cardano:hasInput a rdf:Property ;
+  rdfs:label "hasInput" .
+
+cardano:hasMint a rdf:Property ;
+  rdfs:label "hasMint" .
+
+cardano:hasOutput a rdf:Property ;
+  rdfs:label "hasOutput" .
+
+cardano:hasPaymentCredential a rdf:Property ;
+  rdfs:label "hasPaymentCredential" .
+
+cardano:hasPolicy a rdf:Property ;
+  rdfs:label "hasPolicy" .
+
+cardano:hasProposal a rdf:Property ;
+  rdfs:label "hasProposal" .
+
+cardano:hasRawBytes a rdf:Property ;
+  rdfs:label "hasRawBytes" .
+
+cardano:hasReferenceInput a rdf:Property ;
+  rdfs:label "hasReferenceInput" .
+
+cardano:hasReferenceScript a rdf:Property ;
+  rdfs:label "hasReferenceScript" .
+
+cardano:hasRequiredSigner a rdf:Property ;
+  rdfs:label "hasRequiredSigner" .
+
+cardano:hasStakeCredential a rdf:Property ;
+  rdfs:label "hasStakeCredential" .
+
+cardano:hasTxId a rdf:Property ;
+  rdfs:label "hasTxId" .
+
+cardano:hasValidityInterval a rdf:Property ;
+  rdfs:label "hasValidityInterval" .
+
+cardano:hasVerdict a rdf:Property ;
+  rdfs:label "hasVerdict" .
+
+cardano:hasVersion a rdf:Property ;
+  rdfs:label "hasVersion" .
+
+cardano:hasVote a rdf:Property ;
+  rdfs:label "hasVote" .
+
+cardano:hasVoter a rdf:Property ;
+  rdfs:label "hasVoter" .
+
+cardano:hasVotingAction a rdf:Property ;
+  rdfs:label "hasVotingAction" .
+
+cardano:hasWithdrawal a rdf:Property ;
+  rdfs:label "hasWithdrawal" .
+
+cardano:intervalEnd a rdf:Property ;
+  rdfs:label "intervalEnd" .
+
+cardano:intervalStart a rdf:Property ;
+  rdfs:label "intervalStart" .
+
+cardano:leafType a rdf:Property ;
+  rdfs:label "leafType" .
+
+cardano:lovelace a rdf:Property ;
+  rdfs:label "lovelace" .
+
+cardano:mintsAsset a rdf:Property ;
+  rdfs:label "mintsAsset" .
+
+cardano:networkId a rdf:Property ;
+  rdfs:label "networkId" .
+
+cardano:onCredential a rdf:Property ;
+  rdfs:label "onCredential" .
+
+cardano:quantity a rdf:Property ;
+  rdfs:label "quantity" .
+
+cardano:resolvedTo a rdf:Property ;
+  rdfs:label "resolvedTo" .
+
+cardano:scriptDataHash a rdf:Property ;
+  rdfs:label "scriptDataHash" .
+
+cardano:toDRep a rdf:Property ;
+  rdfs:label "toDRep" .
+
+cardano:toPool a rdf:Property ;
+  rdfs:label "toPool" .
+
+cardano:totalCollateral a rdf:Property ;
+  rdfs:label "totalCollateral" .
+
+cardano:withdrawalAccount a rdf:Property ;
+  rdfs:label "withdrawalAccount" .
+
