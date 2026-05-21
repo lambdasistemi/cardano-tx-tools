@@ -7,6 +7,7 @@ import Cardano.Tx.BuildSpec qualified as BuildSpec
 import Cardano.Tx.DiffSpec qualified as DiffSpec
 import Cardano.Tx.Graph.Emit.BlockfrostSampleSmokeSpec qualified as GraphEmitBlockfrostSampleSmokeSpec
 import Cardano.Tx.Graph.Emit.BlueprintSpec qualified as GraphEmitBlueprintSpec
+import Cardano.Tx.Graph.Emit.BlueprintTypedFixtureSpec qualified as GraphEmitBlueprintTypedFixtureSpec
 import Cardano.Tx.Graph.Emit.BlueprintWiringSpec qualified as GraphEmitBlueprintWiringSpec
 import Cardano.Tx.Graph.Emit.BodyRootSpec qualified as GraphEmitBodyRootSpec
 import Cardano.Tx.Graph.Emit.CertVariantsSpec qualified as GraphEmitCertVariantsSpec
@@ -60,6 +61,7 @@ main = hspec $ do
     BuildMinUtxoSpec.spec
     GraphEmitBlockfrostSampleSmokeSpec.spec
     GraphEmitBlueprintSpec.spec
+    GraphEmitBlueprintTypedFixtureSpec.spec
     GraphEmitBlueprintWiringSpec.spec
     GraphEmitBodyRootSpec.spec
     GraphEmitCertVariantsSpec.spec

@@ -28,9 +28,13 @@ module Cardano.Tx.Graph.EmitGoldenSpec (spec) where
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
+import Data.Text (Text)
 import System.Environment (lookupEnv)
 import System.FilePath ((</>))
 
+import Cardano.Ledger.Hashes (ScriptHash)
+
+import Cardano.Tx.Blueprint (Blueprint)
 import Cardano.Tx.Graph.Emit (
     EmitFormat (..),
     EmittedGraph (..),
@@ -42,6 +46,7 @@ import Cardano.Tx.Graph.Rules.Load (
     EntityDecl,
     RulesLoadResult (..),
     loadRulesFile,
+    rulesBlueprints,
     rulesEntities,
  )
 import Cardano.Tx.Ledger (ConwayTx)
@@ -58,6 +63,7 @@ import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
 import Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal qualified as S10
 import Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal qualified as S11
+import Fixtures.RewriteRedesign.S12BlueprintTyped qualified as S12
 
 import Test.Hspec (
     Spec,
@@ -90,6 +96,7 @@ allFixtures =
     , ("09-mpfs-facts-request", S09.tx)
     , ("10-governance-treasury-withdrawal", S10.tx)
     , ("11-amaru-treasury-swap-real", S11.tx)
+    , ("12-blueprint-typed", S12.tx)
     ]
 
 {- | One Hspec @it@ per fixture: byte-diff the emitted Turtle
@@ -103,11 +110,11 @@ fixtureGoldenItem regen (slug, tx) = do
     let dir = "test/fixtures/rewrite-redesign" </> slug
         rulesPath = dir </> "rules.yaml"
         expectedPath = dir </> "expected.ttl"
-    (entities, overlay) <-
+    (entities, overlay, blueprints) <-
         runIO (loadEntitiesAndOverlay rulesPath)
     expected <- runIO (BS.readFile expectedPath)
     it (slug <> " — emit + serialize matches expected.ttl") $ do
-        case emit tx (fixtureUtxo slug) entities [] of
+        case emit tx (fixtureUtxo slug) entities blueprints of
             Left err ->
                 expectationFailure $
                     "emit returned Left " <> show err
@@ -167,12 +174,16 @@ fixtureUtxo = \case
     _ -> emptyUtxo
 
 loadEntitiesAndOverlay ::
-    FilePath -> IO ([EntityDecl], ByteString)
+    FilePath -> IO ([EntityDecl], ByteString, [(ScriptHash, Blueprint, Text)])
 loadEntitiesAndOverlay path = do
     result <- loadRulesFile path
     case result of
         Right res@RulesLoadResult{rulesOverlayTurtle} ->
-            pure (rulesEntities res, rulesOverlayTurtle)
+            pure
+                ( rulesEntities res
+                , rulesOverlayTurtle
+                , rulesBlueprints res
+                )
         Left err ->
             fail $
                 "EmitGoldenSpec.loadEntitiesAndOverlay: "

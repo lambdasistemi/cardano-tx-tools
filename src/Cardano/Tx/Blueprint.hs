@@ -28,6 +28,7 @@ module Cardano.Tx.Blueprint (
     diffBlueprintData,
     matchBlueprintArgument,
     parseBlueprintJSON,
+    resolveBlueprintSchema,
 ) where
 
 import Data.Aeson (
@@ -478,7 +479,23 @@ resolveBlueprintSchema blueprint =
                         Nothing ->
                             Left (BlueprintDefinitionMissing reference)
                         Just definition ->
-                            go (Set.insert reference seen) definition
+                            -- A constructor field can attach a semantic title
+                            -- (e.g. @"recipient"@) at the outer schema node and
+                            -- nest the @$ref@ inside a @"schema"@ wrapper. When
+                            -- following the @$ref@, keep the outer title — it
+                            -- names the field through to 'decodeBlueprintValue'
+                            -- and pins the typed predicate
+                            -- (@:SwapOrder_recipient@ vs the definition title
+                            -- @:SwapOrder_Credential@). T103 / A-001
+                            -- correction-in-passing alongside the field-wrapper
+                            -- parser fix.
+                            let inheritedTitle =
+                                    case schemaTitle schema of
+                                        Just _ -> schemaTitle schema
+                                        Nothing -> schemaTitle definition
+                                titled =
+                                    definition{schemaTitle = inheritedTitle}
+                             in go (Set.insert reference seen) titled
             SchemaConstructor index fields ->
                 BlueprintSchema (schemaTitle schema)
                     . SchemaConstructor index
@@ -546,7 +563,24 @@ instance FromJSON BlueprintSchema where
     parseJSON =
         withObject "BlueprintSchema" $ \value -> do
             title <- value .:? "title"
-            kind <- schemaKindFromObject value
+            -- CIP-57 lets a constructor field wrap its inner schema under a
+            -- @\"schema\"@ key, e.g.
+            -- @{ \"title\": \"recipient\", \"schema\": { \"$ref\": \"...\" } }@.
+            -- Honour the wrapping by reading the inner schema's kind when the
+            -- key is present; the outer field's @\"title\"@ still names the
+            -- BlueprintSchema. Without this unwrap a wrapped field decodes as
+            -- 'SchemaData' (the no-@dataType@ fallback), which produces a
+            -- generic @{ constructor, fields }@ OpenObject and undoes the
+            -- typed-emission contract — surfaced by fixture
+            -- @12-blueprint-typed@'s SwapOrder.recipient field. T103 / A-001
+            -- walker-extension correction-in-passing.
+            wrapped <-
+                value
+                    .:? "schema" ::
+                    Parser (Maybe BlueprintSchema)
+            kind <- case wrapped of
+                Just inner -> pure (schemaKind inner)
+                Nothing -> schemaKindFromObject value
             pure
                 BlueprintSchema
                     { schemaTitle = title
