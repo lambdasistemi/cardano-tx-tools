@@ -300,6 +300,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T113 — S12: drop gate.sh (ready for review) (chore)
 
+- **Status**: [X] complete — landed at this commit. gate.sh deleted; PR #77 flipped from draft → ready via `gh pr ready 77`; sub-orchestrator halted per OPERATOR-DIRECTIVE.
 - **Subject**: `chore(070): drop gate.sh (ready for review)`
 - **Tasks trailer**: `Tasks: T113`
 - **Files**:
