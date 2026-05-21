@@ -264,6 +264,7 @@ answers structure replicates `/tmp/epic-046/tx-70/PROTOCOL.md`.
 
 ### T111 — S10: re-record asciinema cast + docs refresh (docs)
 
+- **Status**: [X] complete — landed at this commit. Cast (7032 B) demonstrates 11 distinct rich predicates (atAddress, fromTxOutRef, hasAssetValue, hasDatum, hasFee, hasHash, hasRawBytes, hasReferenceScript, lovelace, mintsAsset, withdrawalAccount) across fixtures 11/01/04/05.
 - **Subject**: `docs(070): re-record tx-graph cast against rich body emission; refresh docs`
 - **Tasks trailer**: `Tasks: T111`
 - **Files**:
