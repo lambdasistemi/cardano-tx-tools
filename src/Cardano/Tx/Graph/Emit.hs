@@ -95,7 +95,6 @@ import Cardano.Tx.Graph.Emit.Monad (
     tellTriple,
  )
 import Cardano.Tx.Graph.Emit.Project (
-    ProjectError (..),
     projectBody,
  )
 import Cardano.Tx.Graph.Emit.Serialize.JsonLd (renderJsonLd)
@@ -267,16 +266,18 @@ emit ::
     [EntityDecl] ->
     Either EmitError EmittedGraph
 emit tx utxo entities =
-    case projectBody entities (buildLookup entities) tx utxo of
-        Left (PUnsupportedLeafType leaf) ->
-            Left (UnsupportedLeafType leaf)
-        Right body ->
-            Right
-                EmittedGraph
-                    { graphPrefixes = []
-                    , graphOverlayTurtle = BS.empty
-                    , graphBody = body
-                    }
+    -- T122 / S21: 'projectBody' is total over @ConwayTx@; the
+    -- 'Either' wrapper is preserved here for API compatibility
+    -- with callers that still pattern-match on
+    -- @Left ('UnsupportedLeafType' _)@, and reserves the slot
+    -- for future error modes (e.g. typed-datum decode failures
+    -- when CIP-57 blueprint decoding lands, #50).
+    Right
+        EmittedGraph
+            { graphPrefixes = []
+            , graphOverlayTurtle = BS.empty
+            , graphBody = projectBody entities (buildLookup entities) tx utxo
+            }
 
 {- | Render an 'EmittedGraph' to a 'ByteString' in the requested
 'EmitFormat'.

@@ -107,7 +107,6 @@ predicate order verbatim. Future slices (T011+ JSON-LD, future
 leaves) MUST extend the list in place rather than re-shuffling.
 -}
 module Cardano.Tx.Graph.Emit.Project (
-    ProjectError (..),
     projectBody,
 ) where
 
@@ -264,15 +263,15 @@ import Cardano.Tx.Graph.Rules.Load (
  )
 import Cardano.Tx.Ledger (ConwayTx)
 
-{- | Errors the body walker raises before the public emitter
-wraps them in 'Cardano.Tx.Graph.Emit.EmitError'.
--}
-newtype ProjectError = PUnsupportedLeafType Text
-    deriving stock (Eq, Show)
-
 {- | Walk the @ConwayBodyValue tx@ projection and produce the
 body section list — transaction block, per-input + per-output
 clusters, and the deduped address-decomposition block.
+
+Per T122 / S21 the walker is total: every body leaf has a
+positive case-arm (either rich typed emission or the
+@cardano:OpaqueLeaf@ fallback shape with CBOR raw bytes), so
+'projectBody' is a pure 'IO'-free function returning
+@[BodySection]@ rather than @Either ProjectError [BodySection]@.
 
 Resolved-UTxO entries (when the input's @TxIn@ appears in
 @utxo@) attach a @cardano:resolvedTo@ predicate to the input's
@@ -284,8 +283,8 @@ projectBody ::
     LookupTable ->
     ConwayTx ->
     Map TxIn (TxOut ConwayEra) ->
-    Either ProjectError [BodySection]
-projectBody entities lookupTbl tx utxo = do
+    [BodySection]
+projectBody entities lookupTbl tx utxo =
     let body = tx ^. bodyTxL
         inputs = Set.toAscList (body ^. inputsTxBodyL)
         refInputs =
@@ -314,9 +313,9 @@ projectBody entities lookupTbl tx utxo = do
         totalCollateral = body ^. totalCollateralTxBodyL
         collateralReturn = body ^. collateralReturnTxBodyL
         votes = flattenVotingProcedures (body ^. votingProceduresTxBodyL)
-    -- Build per-input data + per-output data + per-collateral
-    -- data with a single deduped address bnode registry.
-    let (inputData, addrRegistry1) =
+        -- Build per-input data + per-output data + per-collateral
+        -- data with a single deduped address bnode registry.
+        (inputData, addrRegistry1) =
             buildInputs entities lookupTbl utxo inputs
         (outputData, addrRegistry2) =
             buildOutputs entities lookupTbl outputs addrRegistry1
@@ -326,30 +325,30 @@ projectBody entities lookupTbl tx utxo = do
             buildCollateralReturn entities lookupTbl collateralReturn addrRegistry3
         refInputData = buildReferenceInputs refInputs
         addrEntries = addrRegistryEntries addrRegistry4
-    -- Per-cert clusters (T008 — fixtures 06, 07; T120 — Conway
-    -- variants beyond the StakeDelegation / VoteDelegation
-    -- pair fall through the OpaqueLeaf cover).
-    let certClusters =
+        -- Per-cert clusters (T008 — fixtures 06, 07; T120 —
+        -- every Conway TxCert variant falls through the
+        -- OpaqueLeaf cover).
+        certClusters =
             [ buildCertCluster lookupTbl k cert
             | (k, cert) <- zip [1 ..] certs
             ]
-    -- Per-proposal clusters (T010 — fixture 10; T121 — every
-    -- Conway GovAction variant flows through the same fallback
-    -- shape).
-    let proposalBlocks =
+        -- Per-proposal clusters (T010 — fixture 10; T121 —
+        -- every Conway GovAction variant flows through the same
+        -- fallback shape).
+        proposalBlocks =
             [ buildProposalCluster k proposal
             | (k, proposal) <- zip [1 ..] proposals
             ]
-    -- Per-vote clusters (T119 / S18 — voting procedures).
-    let voteBlocks =
+        -- Per-vote clusters (T119 / S18 — voting procedures).
+        voteBlocks =
             [ clusterBlocks (buildVoteCluster k voter actionId procedure)
             | (k, (voter, actionId, procedure)) <- zip [1 ..] votes
             ]
-    -- Assemble the tx subject block via the Emit monad — the
-    -- per-predicate @tellTriple@ sequence preserves the
-    -- pre-T102 byte order (see the module-header note on
-    -- tx-block predicate order).
-    let txBlocks =
+        -- Assemble the tx subject block via the Emit monad —
+        -- the per-predicate @tellTriple@ sequence preserves the
+        -- pre-T102 byte order (see the module-header note on
+        -- tx-block predicate order).
+        txBlocks =
             clusterBlocks $
                 emitTxBlock
                     (length inputData)
@@ -464,8 +463,7 @@ projectBody entities lookupTbl tx utxo = do
                             )
                     }
                 ]
-    pure
-        ( txSection
+     in txSection
             : inputSections
                 <> referenceInputSections
                 <> outputSections
@@ -477,7 +475,6 @@ projectBody entities lookupTbl tx utxo = do
                 <> proposalSections
                 <> voteSections
                 <> addrSection
-        )
 
 ----------------------------------------------------------------------
 -- Monadic seam: run + group.
