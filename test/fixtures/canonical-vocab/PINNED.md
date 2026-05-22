@@ -16,6 +16,11 @@ body emitter.
   datatype property for CIP-57 blueprint typed-decoding failures)
   landed on kmaps main. Base of that commit was Phase A.3 merged @
   `f8ca27549f22b3bbfd42528439253a48182fca16`.
+- **T109 verification**: fetched kmaps `origin/main` on 2026-05-22;
+  `git rev-parse origin/main` returned
+  `51088551a73f4b92f6611879908a2ea1f2bcd105`, and
+  `data/rdf/transactions.ttl` was byte-identical to this vendored
+  snapshot.
 - **Version label** declared in the file: `0.1.0-phaseA` (now with
   Phase A.2 additions appended at the tail: `cardano:Certificate`
   parent + 11 Conway-era cert subclasses, `cardano:Proposal`
