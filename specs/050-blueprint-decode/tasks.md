@@ -375,6 +375,7 @@ speckit-analyze pass before T100.
 
 ### T111 — S11: drop gate.sh (ready for review) (chore)
 
+- **Status**: [X] complete — `gate.sh` removed; `./gate.sh` last ran green at T110/`5f6de27` immediately before this commit (build + unit suite + cabal-fmt + fourmolu + hlint + cabal check + cabal haddock — full pipeline); the T111 diff is `rm gate.sh` only, behavior-neutral, no test re-run needed since nothing else changed. PR #79 body rewritten + `gh pr ready` flips from draft.
 - **Subject**: `chore(050): drop gate.sh (ready for review)`
 - **Tasks trailer**: `Tasks: T111`
 - **Files**: removes `gate.sh`.
