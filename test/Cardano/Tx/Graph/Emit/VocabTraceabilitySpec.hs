@@ -41,8 +41,11 @@ import Data.List (nub, sort)
 import Data.Map.Strict qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
+import Data.Text (Text)
 import System.FilePath ((</>))
 
+import Cardano.Ledger.Hashes (ScriptHash)
+import Cardano.Tx.Blueprint (Blueprint)
 import Cardano.Tx.Graph.Emit (
     EmitFormat (..),
     ResolvedUTxO,
@@ -53,6 +56,7 @@ import Cardano.Tx.Graph.Rules.Load (
     EntityDecl,
     RulesLoadResult (..),
     loadRulesFile,
+    rulesBlueprints,
     rulesEntities,
  )
 import Cardano.Tx.Ledger (ConwayTx)
@@ -68,6 +72,7 @@ import Fixtures.RewriteRedesign.S08_ContingencyDisburse qualified as S08
 import Fixtures.RewriteRedesign.S09_MpfsFactsRequest qualified as S09
 import Fixtures.RewriteRedesign.S10_GovernanceTreasuryWithdrawal qualified as S10
 import Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal qualified as S11
+import Fixtures.RewriteRedesign.S14BlueprintDecodeFail qualified as S14
 
 import Test.Hspec (
     Spec,
@@ -92,6 +97,7 @@ enabledFixtures =
     , ("09-mpfs-facts-request", S09.tx)
     , ("10-governance-treasury-withdrawal", S10.tx)
     , ("11-amaru-treasury-swap-real", S11.tx)
+    , ("14-blueprint-decode-fail", S14.tx)
     ]
 
 spec :: Spec
@@ -103,13 +109,13 @@ fixtureSpec :: (String, ConwayTx) -> Spec
 fixtureSpec (slug, tx) = describe slug $ do
     let dir = "test/fixtures/rewrite-redesign" </> slug
         rulesPath = dir </> "rules.yaml"
-    entities <- runIO (loadEntities rulesPath)
-    let bytes = case emit tx emptyUtxo entities [] of
+    (entities, blueprints) <- runIO (loadRulesData rulesPath)
+    let bytes = case emit tx emptyUtxo entities blueprints of
             Right g -> serialize Turtle slug g
             Left _ -> BS.empty
     canonicalLocals <- runIO loadCanonicalLocals
     runIO $
-        case emit tx emptyUtxo entities [] of
+        case emit tx emptyUtxo entities blueprints of
             Left err ->
                 fail $
                     "VocabTraceabilitySpec setup: "
@@ -153,14 +159,16 @@ fixtureSpec (slug, tx) = describe slug $ do
 emptyUtxo :: ResolvedUTxO
 emptyUtxo = Map.empty
 
-loadEntities :: FilePath -> IO [EntityDecl]
-loadEntities path = do
+loadRulesData ::
+    FilePath ->
+    IO ([EntityDecl], [(ScriptHash, Blueprint, Text)])
+loadRulesData path = do
     result <- loadRulesFile path
     case result of
-        Right res -> pure (rulesEntities res)
+        Right res -> pure (rulesEntities res, rulesBlueprints res)
         Left err ->
             fail $
-                "VocabTraceabilitySpec.loadEntities: "
+                "VocabTraceabilitySpec.loadRulesData: "
                     <> path
                     <> ": "
                     <> show err

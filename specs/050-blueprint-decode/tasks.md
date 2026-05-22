@@ -240,45 +240,82 @@ speckit-analyze pass before T100.
 
 ### T106 — S6: draft Phase A.4 patch for `cardano:decodeError` (chore)
 
-- **Subject**: `chore(050): draft Phase A.4 patch for cardano:decodeError`
-- **Tasks trailer**: `Tasks: T106`
+- **Status**: [X] complete — closed as PARENT-ACTION satisfied by
+  kmaps#59. The parent (epic owner) authored and merged the Phase
+  A.4 declaration of `cardano:decodeError` directly into kmaps `main`
+  @ `51088551a73f4b92f6611879908a2ea1f2bcd105`, superseding the local
+  runtime-root draft mechanism this task originally specified. No
+  separate commit ships under T106 — T107 (this commit) absorbs both
+  trailers via `Tasks: T106, T107`.
+- **Subject**: n/a (absorbed into T107 commit).
+- **Tasks trailer**: `Tasks: T106` (carried by T107 commit).
 - **Files**:
-  - `/tmp/epic-046/tx-50/transactions-additions-phase-a4.ttl` (NEW —
-    not under the repo; lives in the runtime root). Body: a single
-    `cardano:decodeError a owl:DatatypeProperty ; rdfs:domain
-    cardano:Datum ; rdfs:range xsd:string ; rdfs:label
-    "decode error" ; rdfs:comment "..." .` block.
-  - STATUS.md: `NOTE PARENT-ACTION: kmaps Phase A.4 patch drafted at
-    /tmp/epic-046/tx-50/transactions-additions-phase-a4.ttl — parent to
-    open kmaps#58`.
+  - `/tmp/epic-046/tx-50/transactions-additions-phase-a4.ttl` — no
+    longer load-bearing; parent opened kmaps#59 directly from the
+    Vocab.hs-derived shape.
 - **RED**: n/a (pure draft + STATUS log).
-- **GREEN**: file exists; STATUS line written.
-- **Live-boundary**: n/a — cross-repo dependency surfaced via
-  PARENT-ACTION mechanism.
-- **Owner**: sub-orchestrator (self-execute; pure draft).
+- **GREEN**: closed by kmaps#59 merge at
+  `51088551a73f4b92f6611879908a2ea1f2bcd105`.
+- **Live-boundary**: n/a — cross-repo dependency satisfied at the
+  upstream `main` SHA consumed by T107.
+- **Owner**: parent (kmaps PR authored externally to this branch).
 
-### T107 — S7: refresh canonical-vocab pin to kmaps#58 branch tip (chore)
+### T107 — S7: refresh canonical-vocab pin to kmaps@51088551 + cover fixture 14 in vocab traceability (feat)
 
-- **Subject**: `chore(050): refresh canonical-vocab pin to kmaps#58 branch tip`
-- **Tasks trailer**: `Tasks: T107`
+- **Status**: [X] complete — landed at this commit; carries the
+  `Tasks: T106, T107` trailer because the parent-action chunk from
+  T106 was satisfied by kmaps#59 merging Phase A.4 directly into
+  kmaps `main`. Two correction-in-passing scope additions documented
+  in the commit body: (A-004 / Q-001) `VocabTraceabilitySpec`
+  enumerates fixture 14 alongside fixtures 01..11 — T105 left it
+  outside the strict gate because the T104 typed-predicate spec
+  held vacuously, but the strict `cardano:`-CURIE invariant was
+  never extended, so `cardano:decodeError` would have been
+  unconstrained; (A-005 / Q-002) the same spec now threads
+  `rulesBlueprints` from the rules.yaml loader through to the
+  `emit` call site (renaming the test helper `loadEntities` →
+  `loadRulesData`), replacing the placeholder `emit … []`
+  invocation. Without the second correction the spec passed even
+  with fixture 14 enumerated, because no blueprint registry was
+  attached and the `DecodeFailed` branch never fired.
+- **Subject**: `feat(050): refresh canonical-vocab pin to kmaps@5108855 + thread blueprint registry through strict vocab gate`
+- **Tasks trailer**: `Tasks: T106, T107`
 - **Files**:
   - `test/fixtures/canonical-vocab/transactions.ttl` — verbatim copy of
-    kmaps#58 branch tip `transactions.ttl` (the canonical file at the
-    PR's branch HEAD). Contains the new `cardano:decodeError` term.
-  - `test/fixtures/canonical-vocab/PINNED.md` — refresh header to cite
-    kmaps#58 + branch tip SHA + date.
-  - `test/Cardano/Tx/Graph/Emit/VocabTraceabilitySpec.hs` — invariant
-    count goes 33/33 → 34/34 strict.
-- **RED**: `VocabTraceabilitySpec` fails on the pre-T107 pin
-  (`cardano:decodeError` emitted by fixture 13 has no declaration in
-  the canonical vocab).
-- **GREEN**: pin refreshed; strict count = 34/34.
+    kmaps `main` at `51088551a73f4b92f6611879908a2ea1f2bcd105` (the
+    canonical file after kmaps#59 squash-merged). Adds exactly one
+    cardano: declaration: `cardano:decodeError` (datatype property,
+    `rdfs:range xsd:string`, no domain).
+  - `test/fixtures/canonical-vocab/PINNED.md` — Current-pin / history /
+    lifecycle / Related sections cite kmaps PR #59 + merged SHA.
+  - `test/Cardano/Tx/Graph/Emit/VocabTraceabilitySpec.hs` — (a) `S14`
+    import + `("14-blueprint-decode-fail", S14.tx)` entry in
+    `enabledFixtures`; (b) `loadEntities :: FilePath -> IO
+    [EntityDecl]` renamed to `loadRulesData :: FilePath -> IO
+    ([EntityDecl], [(ScriptHash, Blueprint, Text)])`; (c) both
+    `emit tx emptyUtxo entities []` call sites become
+    `emit tx emptyUtxo entities blueprints`. Strict gate goes
+    44 examples → 48 examples (12 fixtures × 4 invariants).
+- **RED**: focused `nix develop --quiet -c just unit "vocab
+  traceability"` exits non-zero on the pre-refresh pin —
+  fixture 14 emits `cardano:decodeError` through the threaded
+  blueprint registry, the pre-refresh pin
+  (kmaps@`f8ca27549f22b3bbfd42528439253a48182fca16`) declares only
+  `cardano:decodedAs`, the strict gate reports
+  `expected: [] but got: ["decodeError"]` on
+  `14-blueprint-decode-fail / every emitted cardano: CURIE is
+  declared in the canonical pin`. Fixtures 01..11 stay GREEN
+  under the threaded blueprint path, proving no
+  cardano:-namespace drift.
+- **GREEN**: pin refreshed to
+  kmaps@`51088551a73f4b92f6611879908a2ea1f2bcd105`; focused
+  command exits 0; 48 examples, 0 failures.
 - **Live-boundary**: canonical-vocab pin ↔ `VocabTraceabilitySpec`
-  strict CI gate. The pin refresh is byte-stable.
-- **Owner**: sub-orchestrator (self-execute; pure data vendoring).
-- **Depends on**: T106 PARENT-ACTION acknowledgement (parent confirms
-  kmaps#58 branch is ready). If kmaps#58 stalls > 48h: BLOCKED
-  Q-002-kmaps-phase-a4-stall.
+  strict CI gate. The pin refresh is byte-stable; the spec edit
+  is contained to one test file and does not perturb any
+  fixture's `expected.ttl`.
+- **Owner**: sub-orchestrator (driver+navigator pair).
+- **Depended on**: T106 PARENT-ACTION (closed by kmaps#59 merge).
 
 ### T108 — S8: re-record asciinema cast on fixture 11; refresh docs (docs)
 
@@ -355,7 +392,10 @@ deleted, only extended:
 - `JsonLdEquivalenceSpec` (#58 SC-002) — JSON-LD ≡ Turtle.
 - `VocabTraceabilitySpec` (#58 SC-006, narrowed by D-001c) — every
   emitted `cardano:` CURIE traces to a term declared in the canonical
-  vocab pin. Count: 33 → 34 at T107.
+  vocab pin. Strict-gate fixture coverage: 11 (T105) → 12 (T107, +
+  `14-blueprint-decode-fail`); spec also threads `rulesBlueprints`
+  from T107 onward so the blueprint-driven `cardano:decodeError`
+  predicate is actually observed.
 - `BlueprintPredicateTraceabilitySpec` (T104+) — set-equality between
   emitted `:_<>` predicates and declared blueprint `(constructor, field)`
   pairs, per fixture.
