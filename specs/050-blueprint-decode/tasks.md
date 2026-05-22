@@ -360,6 +360,7 @@ speckit-analyze pass before T100.
 
 ### T110 — S10: CHANGELOG entry (docs)
 
+- **Status**: [X] complete — one Unreleased/Features bullet added to `CHANGELOG.md` summarising blueprint-decoded datum emission, the `blueprints:` block, the new `RulesLoadError` variants (`BlueprintFileMissing` / `BlueprintParseError` / `AbsoluteBlueprintPath` / `HttpsBlueprintPath` / `DuplicateBlueprintPredicate`) + the `DuplicateBlueprintForScript` warning, fixtures 12/13/14, and the kmaps@5108855 / `cardano:decodeError` companion. Closes #50 (#79) link in-bullet.
 - **Subject**: `docs(050): CHANGELOG entry for blueprint-decoded datum emission`
 - **Tasks trailer**: `Tasks: T110`
 - **Files**:
