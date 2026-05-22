@@ -176,6 +176,7 @@ allConwayDiffConstructors =
     , "ConwayStrictMaybeCoinValue"
     , "ConwayTxInIdValue"
     , "ConwayTxInValue"
+    , "ConwayTxOutAssetsValue"
     , "ConwayTxOutValue"
     , "ConwayTxValue"
     , "ConwayVKeyWitnessValue"
@@ -251,8 +252,8 @@ witnessTx = \case
     -- exercised by a populated validity interval.
     "ConwayValidityIntervalValue" -> txWithValidity
     "ConwaySlotBoundValue" -> txWithValidity
-    -- ConwayOutputsValue / ConwayTxOutValue / ConwayAddressValue
-    -- are exercised by any output. ConwayDatumValue and
+    -- ConwayOutputsValue / ConwayTxOutValue / ConwayTxOutAssetsValue /
+    -- ConwayAddressValue are exercised by any output. ConwayDatumValue and
     -- ConwayReferenceScriptValue are exercised by an output that
     -- carries an inline datum / reference script — but the
     -- per-output base path itself (no datum, no refScript) is
@@ -262,6 +263,7 @@ witnessTx = \case
     -- OutputScriptRefSpec — pointing at the same fixture-side
     -- witness here avoids duplicating Datum / Script construction.
     "ConwayOutputsValue" -> txWithOutput
+    "ConwayTxOutAssetsValue" -> txWithOutput
     "ConwayTxOutValue" -> txWithOutput
     "ConwayAddressValue" -> txWithOutput
     "ConwayDatumValue" -> txWithOutput -- See note above; T105 covers

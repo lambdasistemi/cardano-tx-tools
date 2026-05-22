@@ -69,6 +69,7 @@ import Cardano.Ledger.Api.Tx.Out (
     coinTxOutL,
     datumTxOutL,
     referenceScriptTxOutL,
+    valueTxOutL,
  )
 import Cardano.Ledger.Api.Tx.Wits (
     datsTxWitsL,
@@ -108,6 +109,7 @@ import Cardano.Ledger.Keys.Bootstrap (
  )
 import Cardano.Ledger.Mary.Value (
     AssetName (..),
+    MaryValue (..),
     MultiAsset (..),
     PolicyID (..),
  )
@@ -305,6 +307,129 @@ spec =
                                                                         ^. coinTxOutL
                                                                 )
                                                                 (coinJson (Coin 42))
+                                                            )
+                                                        )
+                                                    )
+                                                    Map.empty
+                                                    Map.empty
+                                                )
+                                            )
+                                        ]
+                                        []
+                                        []
+                                    )
+                                )
+                            )
+
+        it "reports a Conway output asset quantity change at body.outputs.0.assets" $ do
+            tx <- loadFixture sampleHash
+            let outputs = toList (tx ^. bodyTxL . outputsTxBodyL)
+            case outputs of
+                [] ->
+                    expectationFailure "fixture has no outputs"
+                firstOutput : otherOutputs -> do
+                    let policyId = mkPolicyId 1
+                        assetName = AssetName (SBS.pack [0xCA, 0xFE])
+                        oldAssets =
+                            MultiAsset $
+                                Map.singleton
+                                    policyId
+                                    (Map.singleton assetName 50)
+                        newAssets =
+                            MultiAsset $
+                                Map.singleton
+                                    policyId
+                                    (Map.singleton assetName 60)
+                        oldOutput =
+                            firstOutput
+                                & valueTxOutL
+                                    .~ MaryValue (firstOutput ^. coinTxOutL) oldAssets
+                        newOutput =
+                            firstOutput
+                                & valueTxOutL
+                                    .~ MaryValue (firstOutput ^. coinTxOutL) newAssets
+                        txA =
+                            tx
+                                & bodyTxL
+                                    . outputsTxBodyL
+                                    .~ StrictSeq.fromList
+                                        (oldOutput : otherOutputs)
+                        txB =
+                            tx
+                                & bodyTxL
+                                    . outputsTxBodyL
+                                    .~ StrictSeq.fromList
+                                        (newOutput : otherOutputs)
+                        policyPath = policyIdKey policyId
+                        assetPath = assetNameKey assetName
+                    diffConwayTx txA txB
+                        `shouldBe` bodyDiff
+                            (bodyCommonExcept ["outputs"] txA)
+                            ( Map.singleton
+                                "outputs"
+                                ( DiffNode
+                                    (DiffPath ["body", "outputs"])
+                                    ( DiffArray
+                                        (indexedOutputSummaries otherOutputs)
+                                        [
+                                            ( 0
+                                            , DiffNode
+                                                (DiffPath ["body", "outputs", "0"])
+                                                ( DiffObject
+                                                    ( outputCommonExcept
+                                                        ["assets"]
+                                                        oldOutput
+                                                    )
+                                                    ( Map.singleton
+                                                        "assets"
+                                                        ( DiffNode
+                                                            ( DiffPath
+                                                                [ "body"
+                                                                , "outputs"
+                                                                , "0"
+                                                                , "assets"
+                                                                ]
+                                                            )
+                                                            ( DiffObject
+                                                                Map.empty
+                                                                ( Map.singleton
+                                                                    policyPath
+                                                                    ( DiffNode
+                                                                        ( DiffPath
+                                                                            [ "body"
+                                                                            , "outputs"
+                                                                            , "0"
+                                                                            , "assets"
+                                                                            , policyPath
+                                                                            ]
+                                                                        )
+                                                                        ( DiffObject
+                                                                            Map.empty
+                                                                            ( Map.singleton
+                                                                                assetPath
+                                                                                ( DiffNode
+                                                                                    ( DiffPath
+                                                                                        [ "body"
+                                                                                        , "outputs"
+                                                                                        , "0"
+                                                                                        , "assets"
+                                                                                        , policyPath
+                                                                                        , assetPath
+                                                                                        ]
+                                                                                    )
+                                                                                    ( DiffChanged
+                                                                                        (Aeson.toJSON (50 :: Integer))
+                                                                                        (Aeson.toJSON (60 :: Integer))
+                                                                                    )
+                                                                                )
+                                                                            )
+                                                                            Map.empty
+                                                                            Map.empty
+                                                                        )
+                                                                    )
+                                                                )
+                                                                Map.empty
+                                                                Map.empty
                                                             )
                                                         )
                                                     )
@@ -1894,6 +2019,7 @@ outputJson :: TxOut ConwayEra -> Aeson.Value
 outputJson output =
     Aeson.object
         [ "address" .= addressJson (output ^. addrTxOutL)
+        , "assets" .= txOutAssetsJson output
         , "coin" .= coinJson (output ^. coinTxOutL)
         , "datum" .= datumJson (output ^. datumTxOutL)
         , "referenceScript"
@@ -1918,6 +2044,10 @@ outputFieldValues output =
         , addressJson (output ^. addrTxOutL)
         )
     ,
+        ( "assets"
+        , txOutAssetsJson output
+        )
+    ,
         ( "coin"
         , coinJson (output ^. coinTxOutL)
         )
@@ -1930,6 +2060,12 @@ outputFieldValues output =
         , referenceScriptJson (output ^. referenceScriptTxOutL)
         )
     ]
+
+txOutAssetsJson :: TxOut ConwayEra -> Aeson.Value
+txOutAssetsJson output =
+    case output ^. valueTxOutL of
+        MaryValue _ assets ->
+            mintJson assets
 
 addressJson :: Addr -> Aeson.Value
 addressJson address =

@@ -4,6 +4,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- "user.recipient"
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  `- coin
 |     |     `- 96.825802 ADA (96825802 lovelace)
 |     `- txIn
@@ -15,6 +17,8 @@ body
 |  |  +- resolved
 |  |  |  +- address
 |  |  |  |  `- "amaru-treasury.network_compliance.account"
+|  |  |  +- assets
+|  |  |  |  `- "no native assets"
 |  |  |  `- coin
 |  |  |     `- 1137012.611931 ADA (1137012611931 lovelace)
 |  |  `- txIn
@@ -23,6 +27,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- "user.recipient"
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  `- coin
 |     |     `- 96.825802 ADA (96825802 lovelace)
 |     `- txIn
@@ -41,6 +47,8 @@ body
 |  +- 0
 |  |  +- address
 |  |  |  `- "amaru.swap-order"
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  `- datum
 |  |     `- fields
 |  |        +- 0
@@ -135,6 +143,8 @@ body
 |  +- 1
 |  |  +- address
 |  |  |  `- "amaru.swap-order"
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  `- datum
 |  |     `- fields
 |  |        +- 0
@@ -229,11 +239,15 @@ body
 |  +- 2
 |  |  +- address
 |  |  |  `- "amaru-treasury.network_compliance.account"
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  `- coin
 |  |     `- 1058398.969432 ADA (1058398969432 lovelace)
 |  `- 3
 |     +- address
 |     |  `- "user.recipient"
+|     +- assets
+|     |  `- "no native assets"
 |     `- coin
 |        `- 96.372937 ADA (96372937 lovelace)
 +- referenceInputs
@@ -241,6 +255,10 @@ body
 |  |  +- resolved
 |  |  |  +- address
 |  |  |  |  `- {"bytes":"715a7350fef97581498697d679aa1cbc4fb72f51991bde8ad535614365"}
+|  |  |  +- assets
+|  |  |  |  `- 5a7350fef97581498697d679aa1cbc4fb72f51991bde8ad535614365
+|  |  |  |     `- 616d61727520323032362073636f706573
+|  |  |  |        `- 1
 |  |  |  +- coin
 |  |  |  |  `- 2.000000 ADA (2000000 lovelace)
 |  |  |  `- datum
@@ -277,6 +295,8 @@ body
 |  |  +- resolved
 |  |  |  +- address
 |  |  |  |  `- {"bytes":"012613b73d0961f4a63e2ea0551a9689f8e42121b5f1705f1b72e1595423a476e5a8dbfffd3fb5e9026fba36c195ae5ab0fd9df92b2866ea06"}
+|  |  |  +- assets
+|  |  |  |  `- "no native assets"
 |  |  |  +- coin
 |  |  |  |  `- 25.000000 ADA (25000000 lovelace)
 |  |  |  `- referenceScript
@@ -287,6 +307,8 @@ body
 |  |  +- resolved
 |  |  |  +- address
 |  |  |  |  `- {"bytes":"012613b73d0961f4a63e2ea0551a9689f8e42121b5f1705f1b72e1595423a476e5a8dbfffd3fb5e9026fba36c195ae5ab0fd9df92b2866ea06"}
+|  |  |  +- assets
+|  |  |  |  `- "no native assets"
 |  |  |  +- coin
 |  |  |  |  `- 25.000000 ADA (25000000 lovelace)
 |  |  |  `- referenceScript
@@ -297,6 +319,10 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- {"bytes":"7138c627d45835744a2d6c727124f2b5852e5564aeab3f608e0e84ea6d"}
+|     |  +- assets
+|     |  |  `- 38c627d45835744a2d6c727124f2b5852e5564aeab3f608e0e84ea6d
+|     |  |     `- 5245474953545259
+|     |  |        `- 1
 |     |  +- coin
 |     |  |  `- 2.000000 ADA (2000000 lovelace)
 |     |  `- datum
