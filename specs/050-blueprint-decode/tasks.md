@@ -339,6 +339,10 @@ speckit-analyze pass before T100.
 
 ### T109 — S9: refresh canonical-vocab pin to merged kmaps#58 main SHA (chore — finalization-blocking)
 
+- **Status**: [X] complete — no-op pin refresh verified on 2026-05-22:
+  fetched kmaps `origin/main` = `51088551a73f4b92f6611879908a2ea1f2bcd105`,
+  matching T107's vendored pin exactly; `data/rdf/transactions.ttl`
+  byte-compares equal to `test/fixtures/canonical-vocab/transactions.ttl`.
 - **Subject**: `chore(050): refresh canonical-vocab pin to kmaps@<merged-sha>`
 - **Tasks trailer**: `Tasks: T109`
 - **Files**:
