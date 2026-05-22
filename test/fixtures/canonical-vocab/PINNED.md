@@ -10,13 +10,12 @@ body emitter.
 - **File**: [`transactions.ttl`](./transactions.ttl)
 - **Source**: `data/rdf/transactions.ttl`
 - **Repo**: `lambdasistemi/cardano-knowledge-maps`
-- **SHA**: `f8ca27549f22b3bbfd42528439253a48182fca16` (kmaps
-  `main` after kmaps#57 squash-merged).
-- **Branch state**: merged. kmaps#57 (Phase A.3 — witness-set
-  seaboard, parent-authored with rich descriptions on top of
-  the Vocab.hs-derived patch) landed on kmaps main. Base of
-  that commit was Phase A.2 merged @
-  `cfb599b7e9f83df821a4566573f46d83be118ffb`.
+- **SHA**: `51088551a73f4b92f6611879908a2ea1f2bcd105` (kmaps
+  `main` after kmaps#59 squash-merged).
+- **Branch state**: merged. kmaps#59 (Phase A.4 — `cardano:decodeError`
+  datatype property for CIP-57 blueprint typed-decoding failures)
+  landed on kmaps main. Base of that commit was Phase A.3 merged @
+  `f8ca27549f22b3bbfd42528439253a48182fca16`.
 - **Version label** declared in the file: `0.1.0-phaseA` (now with
   Phase A.2 additions appended at the tail: `cardano:Certificate`
   parent + 11 Conway-era cert subclasses, `cardano:Proposal`
@@ -37,8 +36,13 @@ body emitter.
   `cardano:hasBootstrapWitness`, `cardano:hasPurpose`,
   `cardano:hasData`, `cardano:hasExUnits`, `cardano:memoryUnits`,
   `cardano:cpuUnits`, `cardano:hasSignature`,
-  `cardano:hasVerificationKey`).
+  `cardano:hasVerificationKey`; and the Phase A.4 single
+  predicate: `cardano:decodeError` — the CIP-57 typed-decoding
+  failure literal emitted alongside the opaque-bytes fallback
+  whenever blueprint decoding fails).
 - **History** (previous pins):
+  kmaps@`f8ca27549f22b3bbfd42528439253a48182fca16` (Phase A.3
+  witness-set seaboard merged main, vendored at T128g);
   kmaps@`cce9625b7cf6f1215fcb0c29815ea2ad3176c0f9` (Phase A.1
   merged main, vendored at T110b);
   kmaps@`8ed218cf6dc905c7e3139b9f5a418d278b0acf9c` (382 lines,
@@ -79,7 +83,7 @@ rationale).
 7. T123 — refresh to the merged kmaps `main`
    SHA `cfb599b7e9f83df821a4566573f46d83be118ffb` after the
    parent squash-merged kmaps#56.
-8. **T128g (this commit)** — refresh to the merged kmaps `main`
+8. T128g — refresh to the merged kmaps `main`
    SHA `f8ca27549f22b3bbfd42528439253a48182fca16` after the
    parent merged kmaps#57 (Phase A.3 — witness-set seaboard).
    Brings 15 net-new declarations into the pin: classes
@@ -91,6 +95,23 @@ rationale).
    `cardano:memoryUnits`, `cardano:cpuUnits`,
    `cardano:hasSignature`, `cardano:hasVerificationKey`.
    `VocabTraceabilitySpec.pendingPhaseA3` empties on this slice.
+9. **T107 (this commit)** — refresh to the merged kmaps `main`
+   SHA `51088551a73f4b92f6611879908a2ea1f2bcd105` after the
+   parent merged kmaps#59 (Phase A.4 — `cardano:decodeError`).
+   Brings 1 net-new declaration into the pin: the
+   `cardano:decodeError` datatype property emitted by the
+   CIP-57 blueprint walker on the Datum / Redeemer / Script /
+   OpaqueLeaf subject whenever `decodeBlueprintData` returns
+   `Left`. Fixture 14 (`14-blueprint-decode-fail`) exercises
+   the emission via the wrong-shape `swap-v2-wrong-shape.cip57.json`
+   blueprint. `VocabTraceabilitySpec` is concurrently extended
+   (in this commit) to (a) enumerate fixture 14 and (b) thread
+   `rulesBlueprints` from the rules.yaml loader through to the
+   `emit` call site — without that wiring the strict gate
+   passes vacuously because the spec was previously calling
+   `emit … []`, masking blueprint-driven predicates. T106
+   (kmaps Phase A.4 patch draft) closes as the
+   PARENT-ACTION-satisfied parent of this slice.
 
 ## Refresh recipe
 
@@ -108,6 +129,8 @@ curl -sL "https://raw.githubusercontent.com/lambdasistemi/cardano-knowledge-maps
 - Spec FR-013 — strict vocab-traceability CI check
 - Plan D-001..D-006 — predicate-shape decisions consuming the pin
 - Companion kmaps PR — [kmaps#55](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/55)
-  (Phase A.1 additions, draft)
+  (Phase A.1 additions, draft);
+  [kmaps#59](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/59)
+  (Phase A.4 — `cardano:decodeError`, merged)
 - Sub-orchestrator's draft of the additions —
   `/tmp/epic-046/tx-70/transactions-additions.ttl` (out-of-tree)
