@@ -4,6 +4,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- {"bytes":"018bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c14c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"}
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  +- coin
 |     |  |  `- 92.557701 ADA (92557701 lovelace)
 |     |  +- datum
@@ -19,6 +21,8 @@ body
 |  |  +- resolved
 |  |  |  +- address
 |  |  |  |  `- {"bytes":"31fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f307732201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  |  +- assets
+|  |  |  |  `- "no native assets"
 |  |  |  +- coin
 |  |  |  |  `- 52819.860941 ADA (52819860941 lovelace)
 |  |  |  +- datum
@@ -124,6 +128,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- {"bytes":"018bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c14c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"}
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  +- coin
 |     |  |  `- 92.557701 ADA (92557701 lovelace)
 |     |  +- datum
@@ -136,6 +142,8 @@ body
 |  +- 0
 |  |  +- address
 |  |  |  `- {"bytes":"3132201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  +- coin
 |  |  |  `- 52819.860941 ADA (52819860941 lovelace)
 |  |  +- datum
@@ -145,6 +153,8 @@ body
 |  `- 1
 |     +- address
 |     |  `- {"bytes":"018bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c14c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"}
+|     +- assets
+|     |  `- "no native assets"
 |     +- coin
 |     |  `- 92.300108 ADA (92300108 lovelace)
 |     +- datum
@@ -156,6 +166,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- {"bytes":"016bb14aa14473d5398e74057fcbee366f553167938d670bb993ce53423c65a71bf205c0a9f847cca9fad1d560ffb50505080de08064057c35"}
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  +- coin
 |     |  |  `- 11.667170 ADA (11667170 lovelace)
 |     |  +- datum

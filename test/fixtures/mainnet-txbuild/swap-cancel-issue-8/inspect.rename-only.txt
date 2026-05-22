@@ -4,6 +4,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- "user"
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  +- coin
 |     |  |  `- 92.557701 ADA (92557701 lovelace)
 |     |  +- datum
@@ -19,6 +21,8 @@ body
 |  |  +- resolved
 |  |  |  +- address
 |  |  |  |  `- "swap-script-addr"
+|  |  |  +- assets
+|  |  |  |  `- "no native assets"
 |  |  |  +- coin
 |  |  |  |  `- 52819.860941 ADA (52819860941 lovelace)
 |  |  |  +- datum
@@ -124,6 +128,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- "user"
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  +- coin
 |     |  |  `- 92.557701 ADA (92557701 lovelace)
 |     |  +- datum
@@ -136,6 +142,8 @@ body
 |  +- 0
 |  |  +- address
 |  |  |  `- {"bytes":"3132201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d"}
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  +- coin
 |  |  |  `- 52819.860941 ADA (52819860941 lovelace)
 |  |  +- datum
@@ -145,6 +153,8 @@ body
 |  `- 1
 |     +- address
 |     |  `- "user"
+|     +- assets
+|     |  `- "no native assets"
 |     +- coin
 |     |  `- 92.300108 ADA (92300108 lovelace)
 |     +- datum
@@ -156,6 +166,8 @@ body
 |     +- resolved
 |     |  +- address
 |     |  |  `- "reference-script-host"
+|     |  +- assets
+|     |  |  `- "no native assets"
 |     |  +- coin
 |     |  |  `- 11.667170 ADA (11667170 lovelace)
 |     |  +- datum

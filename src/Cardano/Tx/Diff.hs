@@ -125,6 +125,7 @@ import Cardano.Ledger.Api.Tx.Out (
     coinTxOutL,
     datumTxOutL,
     referenceScriptTxOutL,
+    valueTxOutL,
  )
 import Cardano.Ledger.Api.Tx.Wits (
     datsTxWitsL,
@@ -157,6 +158,7 @@ import Cardano.Ledger.Keys (
 import Cardano.Ledger.Keys.Bootstrap (BootstrapWitness (..))
 import Cardano.Ledger.Mary.Value (
     AssetName (..),
+    MaryValue (..),
     MultiAsset (..),
     PolicyID (..),
  )
@@ -695,6 +697,7 @@ data ConwayDiffValue
     | ConwaySlotBoundValue (StrictMaybe SlotNo)
     | ConwayOutputsValue [TxOut ConwayEra]
     | ConwayTxOutValue (TxOut ConwayEra)
+    | ConwayTxOutAssetsValue MultiAsset
     | ConwayAddressValue Addr
     | ConwayDatumValue (Datum ConwayEra)
     | ConwayReferenceScriptValue (StrictMaybe (Script ConwayEra))
@@ -2243,6 +2246,10 @@ conwayDiffEqual (ConwayOutputsValue left) (ConwayOutputsValue right) =
     left == right
 conwayDiffEqual (ConwayTxOutValue left) (ConwayTxOutValue right) =
     left == right
+conwayDiffEqual
+    (ConwayTxOutAssetsValue left)
+    (ConwayTxOutAssetsValue right) =
+        left == right
 conwayDiffEqual (ConwayAddressValue left) (ConwayAddressValue right) =
     left == right
 conwayDiffEqual (ConwayDatumValue left) (ConwayDatumValue right) =
@@ -2321,6 +2328,8 @@ conwayDiffSummary (ConwayOutputsValue outputs) =
     Just (Aeson.toJSON (map txOutValue outputs))
 conwayDiffSummary (ConwayTxOutValue output) =
     Just (txOutValue output)
+conwayDiffSummary (ConwayTxOutAssetsValue assets) =
+    Just (mintValue assets)
 conwayDiffSummary (ConwayAddressValue address) =
     Just (addressValue address)
 conwayDiffSummary (ConwayDatumValue datum) =
@@ -2479,6 +2488,10 @@ conwayDiffProjection _ (ConwayTxOutValue output) =
                 , ConwayAddressValue (output ^. addrTxOutL)
                 )
             ,
+                ( "assets"
+                , ConwayTxOutAssetsValue (txOutAssets output)
+                )
+            ,
                 ( "coin"
                 , ConwayCoinValue (output ^. coinTxOutL)
                 )
@@ -2491,6 +2504,11 @@ conwayDiffProjection _ (ConwayTxOutValue output) =
                 , ConwayReferenceScriptValue (output ^. referenceScriptTxOutL)
                 )
             ]
+conwayDiffProjection _ (ConwayTxOutAssetsValue assets)
+    | multiAssetEmpty assets =
+        DiffAtomic noNativeAssetsValue
+    | otherwise =
+        DiffObjectChildren (mintChildren assets)
 conwayDiffProjection _ (ConwayAddressValue address) =
     DiffAtomic (addressValue address)
 conwayDiffProjection options (ConwayDatumValue datum) =
@@ -2728,11 +2746,26 @@ txOutValue :: TxOut ConwayEra -> Aeson.Value
 txOutValue output =
     Aeson.object
         [ "address" .= addressValue (output ^. addrTxOutL)
+        , "assets" .= mintValue (txOutAssets output)
         , "coin" .= coinValue (output ^. coinTxOutL)
         , "datum" .= datumValue (output ^. datumTxOutL)
         , "referenceScript"
             .= referenceScriptValue (output ^. referenceScriptTxOutL)
         ]
+
+txOutAssets :: TxOut ConwayEra -> MultiAsset
+txOutAssets output =
+    case output ^. valueTxOutL of
+        MaryValue _ assets ->
+            assets
+
+multiAssetEmpty :: MultiAsset -> Bool
+multiAssetEmpty (MultiAsset policies) =
+    Map.null policies
+
+noNativeAssetsValue :: Aeson.Value
+noNativeAssetsValue =
+    Aeson.String "no native assets"
 
 addressValue :: Addr -> Aeson.Value
 addressValue address =

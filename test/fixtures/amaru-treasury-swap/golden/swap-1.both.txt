@@ -23,6 +23,8 @@ body
 |  +- 0
 |  |  +- address
 |  |  |  `- "amaru.swap-order"
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  `- datum
 |  |     `- fields
 |  |        +- 0
@@ -117,6 +119,8 @@ body
 |  +- 1
 |  |  +- address
 |  |  |  `- "amaru.swap-order"
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  `- datum
 |  |     `- fields
 |  |        +- 0
@@ -211,11 +215,15 @@ body
 |  +- 2
 |  |  +- address
 |  |  |  `- "amaru-treasury.network_compliance.account"
+|  |  +- assets
+|  |  |  `- "no native assets"
 |  |  `- coin
 |  |     `- 1058398.969432 ADA (1058398969432 lovelace)
 |  `- 3
 |     +- address
 |     |  `- "user.recipient"
+|     +- assets
+|     |  `- "no native assets"
 |     `- coin
 |        `- 96.372937 ADA (96372937 lovelace)
 +- referenceInputs
