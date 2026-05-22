@@ -1,12 +1,13 @@
 # cardano-tx-tools
 
-Five command-line tools and a Haskell library for working with
+Six command-line tools and a Haskell library for working with
 Conway-era Cardano transactions: **diff** two unsigned bodies,
-**inspect** one body as a structured named report, **sign** with
-an encrypted vault, **validate** against the ledger Phase-1
-rule, and **generate** a workload of Conway transactions for
-soak testing. Each tool is a single self-contained executable;
-the library is the same code, exposed for in-process callers.
+**inspect** one body as a structured named report, **emit** an
+RDF graph, **sign** with an encrypted vault, **validate** against
+the ledger Phase-1 rule, and **generate** a workload of Conway
+transactions for soak testing. Each tool is a single self-contained
+executable; the library is the same code, exposed for in-process
+callers.
 
 Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 
@@ -20,6 +21,12 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 | [`tx-validate`](https://lambdasistemi.github.io/cardano-tx-tools/tx-validate/) | Conway Phase-1 pre-flight against a local `cardano-node` via Node-to-Client. Exit code is the contract: `0` clean, `1` structural failure, `≥2` configuration/resolver error. | `tx-validate --input unsigned.cbor.hex --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH"` |
 | [`tx-graph`](https://lambdasistemi.github.io/cardano-tx-tools/tx-graph/) | Emits a Conway transaction as RDF — the operator-entity overlay (from a rules file in Turtle or YAML sugar), the transaction body (inputs / outputs / certs / mints / withdrawals / collateral / proposals), and their cross-references in one canonical Turtle or JSON-LD graph. Three modes by flag presence: overlay-only (`--rules`), body-only (`--tx --utxo` or `--tx --n2c-socket-path`), joint (`--tx --rules` plus `--utxo` or `--n2c-socket-path`). | `tx-graph --tx tx.cbor --utxo resolved.json --rules rules.yaml --out graph.ttl` · live N2C: `tx-graph --tx tx.cbor --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH" --network-magic 764824073 --rules rules.yaml --out graph.ttl` |
 | [`cardano-tx-generator`](https://lambdasistemi.github.io/cardano-tx-tools/cardano-tx-generator/) | Long-running daemon that drives a configurable mix of Conway transactions against a node for soak / fuzz testing. | `cardano-tx-generator --config preprod.yaml` |
+
+Blueprint-aware decoding is shared by `tx-diff` and `tx-graph`.
+When a `rules.yaml` registers a CIP-57 blueprint for a script,
+Plutus datum and redeemer fields are decoded into typed predicates
+instead of remaining only as opaque CBOR bytes; decode failures stay
+non-fatal and surface as `cardano:decodeError` triples.
 
 ## A worked workflow
 
@@ -43,6 +50,11 @@ tx-inspect "$unsigned" --rules rules/amaru-treasury.yaml
 # file applies to both sides of the diff.
 tx-diff --collapse-rules rules/amaru-treasury.yaml golden.cbor.hex "$unsigned"
 
+# 4b. Emit RDF; a registered CIP-57 blueprint turns datum fields
+#     into typed predicates such as :SwapOrder_recipient.
+tx-graph --tx "$unsigned" --rules rules/swap-v2.yaml --out graph.ttl
+grep -E 'SwapOrder_recipient|_0_pubKeyHash' graph.ttl
+
 # 5. Sign the body with an encrypted vault.
 tx-sign --network mainnet witness \
     --tx "$unsigned" \
@@ -55,6 +67,16 @@ cardano-cli conway transaction assemble \
     --tx-body-file "$unsigned" \
     --witness-file core.witness.hex \
     --out-file signed.tx.json
+```
+
+A blueprint-typed datum in `graph.ttl` looks like:
+
+```turtle
+_:outputDatum1 a cardano:Datum ;
+  cardano:hasHash _:hash_datum_c9bc91a9f2f9d50c ;
+  :SwapOrder_recipient _:outputDatum1_recipient .
+
+_:outputDatum1_recipient :_0_pubKeyHash _:outputDatum1_recipient_pubKeyHash .
 ```
 
 ## Install
