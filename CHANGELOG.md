@@ -2,13 +2,20 @@
 
 ## Unreleased
 
+## [0.2.2.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.1.0...v0.2.2.0) (2026-05-22)
+
 ### Features
 
-* **graph:** blueprint-decoded datum emission for `tx-graph` — `rules.yaml` can now carry a top-level `blueprints:` block whose script-scoped CIP-57 datum files are loaded into the graph emitter. Registered script datums unfold into typed blueprint predicates such as `:SwapOrder_recipient`; missing blueprint registrations preserve the opaque `cardano:hasRawBytes` fallback; decode failures preserve raw bytes and add a single `cardano:decodeError` literal plus an operator stderr warning. The loader adds blueprint-specific `RulesLoadError` diagnostics (`BlueprintFileMissing`, `BlueprintParseError`, `AbsoluteBlueprintPath`, `HttpsBlueprintPath`, `DuplicateBlueprintPredicate`) and a first-wins `DuplicateBlueprintForScript` warning. Fixtures 12 / 13 / 14 pin the typed, no-blueprint, and wrong-shape paths. Companion kmaps PR [lambdasistemi/cardano-knowledge-maps#59](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/59) merged `cardano:decodeError`; the canonical-vocab pin is refreshed to kmaps@5108855. Closes [#50](https://github.com/lambdasistemi/cardano-tx-tools/issues/50) ([#79](https://github.com/lambdasistemi/cardano-tx-tools/pull/79)).
+* **050:** Emit.Blueprint — pure decoder + IRI minter (no emit wiring yet) ([17ed01c](https://github.com/lambdasistemi/cardano-tx-tools/commit/17ed01cdfb4035310691e2a02700bdf8e12b9459))
+* **050:** emit accepts blueprint index; walker consults Emit.Blueprint ([8421a21](https://github.com/lambdasistemi/cardano-tx-tools/commit/8421a218a8fb594812976652c04b84a75d317072))
+* **050:** fixture 12-blueprint-typed — typed SwapOrder datum emission ([9a715c1](https://github.com/lambdasistemi/cardano-tx-tools/commit/9a715c112925ac3ae74183eb5f7d826655f47540))
+* **050:** fixture 13-blueprint-passthrough — no-blueprint path stays opaque ([cc5c839](https://github.com/lambdasistemi/cardano-tx-tools/commit/cc5c8395eb81b3d41aeae356faf449eefd56b91b))
+* **050:** fixture 14-blueprint-decode-fail — decodeError literal + stderr warn ([39753c5](https://github.com/lambdasistemi/cardano-tx-tools/commit/39753c5ed7bba94f1592652b81a74920140530b7))
+* **050:** refresh canonical-vocab pin to kmaps@5108855 + thread blueprint registry through strict vocab gate ([0d7d9ad](https://github.com/lambdasistemi/cardano-tx-tools/commit/0d7d9adaf3ed75c6eb1e987d01e612f734cd4dd3))
 
 ### Bug Fixes
 
-* **tx-inspect:** render native assets on transaction outputs (#84)
+* **tx-inspect:** render output native assets ([f41c357](https://github.com/lambdasistemi/cardano-tx-tools/commit/f41c3575fed0d38489ca23a4da935b9c5866678b))
 
 ## [0.2.1.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.0.0...v0.2.1.0) (2026-05-22)
 
