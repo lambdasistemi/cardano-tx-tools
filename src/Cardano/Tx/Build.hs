@@ -145,7 +145,7 @@ import Data.Foldable (toList)
 import Data.Functor.Identity (
     runIdentity,
  )
-import Data.List (elemIndex, findIndex)
+import Data.List (elemIndex)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.OSet.Strict qualified as OSet
@@ -426,18 +426,25 @@ data TxInstr q e a where
     Reference :: TxIn -> TxInstr q e ()
     -- | Add a collateral input.
     Collateral :: TxIn -> TxInstr q e ()
-    -- | Add an output verbatim. No automatic
-    --     min-UTxO compensation.
+    -- | Add an output verbatim. Returns the output's
+    --     position in the body's output sequence,
+    --     assigned at instruction time from the
+    --     running output counter; the handle is
+    --     stable even when later passes mutate the
+    --     output (e.g. min-UTxO compensation) and is
+    --     unique even for outputs whose content
+    --     duplicates an earlier one.
     Send ::
-        TxOut ConwayEra -> TxInstr q e ()
+        TxOut ConwayEra -> TxInstr q e Word32
     -- | Add an output whose lovelace is auto-raised
     --     to @getMinCoinTxOut pp@ during assembly when
     --     it falls below the active threshold. The
     --     extra ADA is funded from regular inputs via
     --     the balancer; insufficient funds surfaces as
-    --     a typed 'BalanceFailed'.
+    --     a typed 'BalanceFailed'. Returns a
+    --     position-based output handle (see 'Send').
     SendMin ::
-        TxOut ConwayEra -> TxInstr q e ()
+        TxOut ConwayEra -> TxInstr q e Word32
     -- | Mint or burn tokens.
     MintI ::
         PolicyID ->
@@ -537,44 +544,27 @@ reference = singleton . Reference
 collateral :: TxIn -> TxBuild q e ()
 collateral txIn = singleton $ Collateral txIn
 
-{- | Equality on Conway @TxOut@s that ignores the
-lovelace component. Used by 'payTo' and 'payTo'' to
-recover the final output index from a body whose
-lovelace may have been raised by the min-UTxO
-compensation in 'assembleTxWith'.
--}
-matchIgnoringCoin ::
-    TxOut ConwayEra -> TxOut ConwayEra -> Bool
-matchIgnoringCoin a b =
-    (a & coinTxOutL .~ Coin 0)
-        == (b & coinTxOutL .~ Coin 0)
-
 {- | Pay value to an address. Returns the output
-index in the final output list (resolved via
-'Peek').
+index in the body's output sequence.
+
+The handle comes from the interpreter's running
+output counter at instruction time, so it is unique
+per call and remains valid even when
+'assembleTxWith' later raises the output's lovelace
+to @getMinCoinTxOut pp@ for min-UTxO compensation.
 
 Outputs emitted through 'payTo' are auto-compensated:
-when the lovelace falls below
-@getMinCoinTxOut pp txOut@, 'assembleTxWith' raises it
-to that threshold so the body is min-UTxO valid by
-construction. The compensation is funded by regular
-balancer inputs; if those cannot cover the raised
-lovelace, 'build' surfaces a 'BalanceFailed'
-'InsufficientFee' error. Existing high-lovelace
-outputs are left untouched.
+when the lovelace falls below the active threshold,
+'assembleTxWith' raises it. The compensation is
+funded by regular balancer inputs; if those cannot
+cover the raised lovelace, 'build' surfaces a
+'BalanceFailed' / 'InsufficientFee' error. Existing
+high-lovelace outputs are left untouched.
 -}
 payTo ::
     Addr -> MaryValue -> TxBuild q e Word32
-payTo addr val = do
-    let txOut = mkBasicTxOut addr val
-    singleton $ SendMin txOut
-    singleton $ Peek $ \tx ->
-        let outs = tx ^. bodyTxL . outputsTxBodyL
-         in case findIndex
-                (matchIgnoringCoin txOut)
-                (toList outs) of
-                Just i -> Ok (fromIntegral i)
-                Nothing -> Iterate 0
+payTo addr val =
+    singleton $ SendMin (mkBasicTxOut addr val)
 
 {- | Add a raw output. Returns the output index. No
 automatic min-UTxO compensation is applied; use
@@ -583,16 +573,10 @@ raised to @getMinCoinTxOut pp@ during assembly.
 -}
 output ::
     TxOut ConwayEra -> TxBuild q e Word32
-output txOut = do
-    singleton $ Send txOut
-    singleton $ Peek $ \tx ->
-        let outs = tx ^. bodyTxL . outputsTxBodyL
-         in case elemIndex txOut (toList outs) of
-                Just i -> Ok (fromIntegral i)
-                Nothing -> Iterate 0
+output = singleton . Send
 
-{- | Pay value with a typed inline datum.
-Returns the output index.
+{- | Pay value with a typed inline datum. Returns
+a position-based output index (see 'payTo').
 -}
 payTo' ::
     (ToData d) =>
@@ -600,19 +584,12 @@ payTo' ::
     MaryValue ->
     d ->
     TxBuild q e Word32
-payTo' addr val datum = do
-    let target =
+payTo' addr val datum =
+    singleton $
+        SendMin $
             mkBasicTxOut addr val
                 & datumTxOutL
                     .~ mkInlineDatum (toPlcData datum)
-    singleton $ SendMin target
-    singleton $ Peek $ \tx ->
-        let outs = tx ^. bodyTxL . outputsTxBodyL
-         in case findIndex
-                (matchIgnoringCoin target)
-                (toList outs) of
-                Just i -> Ok (fromIntegral i)
-                Nothing -> Iterate 0
 
 {- | Mint or burn tokens. Positive = mint,
 negative = burn. Zero-amount entries are skipped.
@@ -962,22 +939,26 @@ interpretWithM runCtx currentTx = go emptyState True
                 conv
                 (k ())
         Send txOut :>>= k ->
-            go
-                st
-                    { tsOuts =
-                        tsOuts st ++ [(SendRaw, txOut)]
-                    }
-                conv
-                (k ())
+            let ix =
+                    fromIntegral (length (tsOuts st))
+             in go
+                    st
+                        { tsOuts =
+                            tsOuts st ++ [(SendRaw, txOut)]
+                        }
+                    conv
+                    (k ix)
         SendMin txOut :>>= k ->
-            go
-                st
-                    { tsOuts =
-                        tsOuts st
-                            ++ [(SendCompensated, txOut)]
-                    }
-                conv
-                (k ())
+            let ix =
+                    fromIntegral (length (tsOuts st))
+             in go
+                    st
+                        { tsOuts =
+                            tsOuts st
+                                ++ [(SendCompensated, txOut)]
+                        }
+                    conv
+                    (k ix)
         MintI pid name qty w :>>= k ->
             go
                 st
