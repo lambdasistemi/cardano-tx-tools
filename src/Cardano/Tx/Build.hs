@@ -83,6 +83,7 @@ module Cardano.Tx.Build (
 
     -- * Deferred
     peek,
+    observeTxOutCoin,
     valid,
     ctx,
 
@@ -144,7 +145,7 @@ import Data.Foldable (toList)
 import Data.Functor.Identity (
     runIdentity,
  )
-import Data.List (elemIndex)
+import Data.List (elemIndex, findIndex)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.OSet.Strict qualified as OSet
@@ -402,6 +403,20 @@ newtype InterpretIO q = InterpretIO
 -- Instruction GADT
 -- ----------------------------------------------------
 
+{- | Internal tag distinguishing outputs that must be
+auto-compensated to the ledger min-UTxO threshold from
+outputs the user emitted verbatim. Used by
+'assembleTxWith' to decide whether to raise the
+output's lovelace before the body is finalised.
+-}
+data SendMode
+    = -- | Use the output's lovelace as-is.
+      SendRaw
+    | -- | Raise the lovelace to @getMinCoinTxOut pp@
+      --     when below the threshold.
+      SendCompensated
+    deriving (Eq, Show)
+
 -- | Transaction building instructions.
 data TxInstr q e a where
     -- | Spend an input with a witness.
@@ -411,8 +426,17 @@ data TxInstr q e a where
     Reference :: TxIn -> TxInstr q e ()
     -- | Add a collateral input.
     Collateral :: TxIn -> TxInstr q e ()
-    -- | Add an output.
+    -- | Add an output verbatim. No automatic
+    --     min-UTxO compensation.
     Send ::
+        TxOut ConwayEra -> TxInstr q e ()
+    -- | Add an output whose lovelace is auto-raised
+    --     to @getMinCoinTxOut pp@ during assembly when
+    --     it falls below the active threshold. The
+    --     extra ADA is funded from regular inputs via
+    --     the balancer; insufficient funds surfaces as
+    --     a typed 'BalanceFailed'.
+    SendMin ::
         TxOut ConwayEra -> TxInstr q e ()
     -- | Mint or burn tokens.
     MintI ::
@@ -513,22 +537,50 @@ reference = singleton . Reference
 collateral :: TxIn -> TxBuild q e ()
 collateral txIn = singleton $ Collateral txIn
 
+{- | Equality on Conway @TxOut@s that ignores the
+lovelace component. Used by 'payTo' and 'payTo'' to
+recover the final output index from a body whose
+lovelace may have been raised by the min-UTxO
+compensation in 'assembleTxWith'.
+-}
+matchIgnoringCoin ::
+    TxOut ConwayEra -> TxOut ConwayEra -> Bool
+matchIgnoringCoin a b =
+    (a & coinTxOutL .~ Coin 0)
+        == (b & coinTxOutL .~ Coin 0)
+
 {- | Pay value to an address. Returns the output
 index in the final output list (resolved via
 'Peek').
+
+Outputs emitted through 'payTo' are auto-compensated:
+when the lovelace falls below
+@getMinCoinTxOut pp txOut@, 'assembleTxWith' raises it
+to that threshold so the body is min-UTxO valid by
+construction. The compensation is funded by regular
+balancer inputs; if those cannot cover the raised
+lovelace, 'build' surfaces a 'BalanceFailed'
+'InsufficientFee' error. Existing high-lovelace
+outputs are left untouched.
 -}
 payTo ::
     Addr -> MaryValue -> TxBuild q e Word32
 payTo addr val = do
-    singleton $ Send $ mkBasicTxOut addr val
+    let txOut = mkBasicTxOut addr val
+    singleton $ SendMin txOut
     singleton $ Peek $ \tx ->
         let outs = tx ^. bodyTxL . outputsTxBodyL
-            target = mkBasicTxOut addr val
-         in case elemIndex target (toList outs) of
+         in case findIndex
+                (matchIgnoringCoin txOut)
+                (toList outs) of
                 Just i -> Ok (fromIntegral i)
                 Nothing -> Iterate 0
 
--- | Add a raw output. Returns the output index.
+{- | Add a raw output. Returns the output index. No
+automatic min-UTxO compensation is applied; use
+'payTo' or 'payTo'' when you want the lovelace
+raised to @getMinCoinTxOut pp@ during assembly.
+-}
 output ::
     TxOut ConwayEra -> TxBuild q e Word32
 output txOut = do
@@ -549,19 +601,16 @@ payTo' ::
     d ->
     TxBuild q e Word32
 payTo' addr val datum = do
-    singleton $
-        Send $
+    let target =
             mkBasicTxOut addr val
                 & datumTxOutL
                     .~ mkInlineDatum (toPlcData datum)
+    singleton $ SendMin target
     singleton $ Peek $ \tx ->
         let outs = tx ^. bodyTxL . outputsTxBodyL
-            target =
-                mkBasicTxOut addr val
-                    & datumTxOutL
-                        .~ mkInlineDatum
-                            (toPlcData datum)
-         in case elemIndex target (toList outs) of
+         in case findIndex
+                (matchIgnoringCoin target)
+                (toList outs) of
                 Just i -> Ok (fromIntegral i)
                 Nothing -> Iterate 0
 
@@ -733,6 +782,31 @@ peek ::
     TxBuild q e a
 peek = singleton . Peek
 
+{- | Convergence helper that returns the lovelace held
+by the output at the given body-output index, e.g.
+the handle returned by 'payTo' or 'payTo''.
+
+Designed to be used inside a 'peek' so script
+builders can read the post-compensation coin and
+feed it into a redeemer payload. Until the body has
+produced the output, the helper reports 'Iterate'
+'(Coin 0)' so the fix-point loop in 'build' keeps
+iterating; once the output is present the result
+flips to 'Ok'.
+
+@
+beneficiaryIx <- payTo beneficiary tokensOnly
+beneficiaryLov <- peek (observeTxOutCoin beneficiaryIx)
+spendScript treasuryIn (myRedeemer beneficiaryLov)
+@
+-}
+observeTxOutCoin ::
+    Word32 -> ConwayTx -> Convergence Coin
+observeTxOutCoin ix tx =
+    case txOutAt ix (tx ^. bodyTxL . outputsTxBodyL) of
+        Just txOut -> Ok (txOut ^. coinTxOutL)
+        Nothing -> Iterate (Coin 0)
+
 -- | Validate the final converged transaction.
 valid ::
     (ConwayTx -> Check e) ->
@@ -790,7 +864,7 @@ data TxState e = TxState
     { tsSpends :: [(TxIn, SpendWitness)]
     , tsRefIns :: [TxIn]
     , tsCollIns :: [TxIn]
-    , tsOuts :: [TxOut ConwayEra]
+    , tsOuts :: [(SendMode, TxOut ConwayEra)]
     , tsMints ::
         [ ( PolicyID
           , AssetName
@@ -891,7 +965,16 @@ interpretWithM runCtx currentTx = go emptyState True
             go
                 st
                     { tsOuts =
-                        tsOuts st ++ [txOut]
+                        tsOuts st ++ [(SendRaw, txOut)]
+                    }
+                conv
+                (k ())
+        SendMin txOut :>>= k ->
+            go
+                st
+                    { tsOuts =
+                        tsOuts st
+                            ++ [(SendCompensated, txOut)]
                     }
                 conv
                 (k ())
@@ -1034,7 +1117,9 @@ assembleTxWith extraIns refUtxos pp st =
                     map fst (tsSpends st)
         refIns = Set.fromList (tsRefIns st)
         collIns = Set.fromList (tsCollIns st)
-        outs = StrictSeq.fromList (tsOuts st)
+        outs =
+            StrictSeq.fromList $
+                map (uncurry (applySendMode pp)) (tsOuts st)
         mintMA = foldl' addMint mempty (tsMints st)
         withdrawalEntries =
             collectWithdrawalEntries
@@ -1136,6 +1221,41 @@ assembleTxWith extraIns refUtxos pp st =
                 .~ allRdmrs
             & auxDataTxL
                 .~ auxData
+
+{- | Apply the 'SendMode' tag to a recorded output.
+
+For 'SendRaw' the output is returned verbatim. For
+'SendCompensated' the lovelace is raised to
+@getMinCoinTxOut pp txOut@ when the current value is
+below the threshold, leaving outputs that already
+exceed it untouched.
+-}
+applySendMode ::
+    PParams ConwayEra ->
+    SendMode ->
+    TxOut ConwayEra ->
+    TxOut ConwayEra
+applySendMode _ SendRaw txOut = txOut
+applySendMode pp SendCompensated txOut =
+    -- The ledger min-coin threshold depends on the
+    -- encoded size of the output, so raising the coin
+    -- nudges the threshold up by a few bytes' worth
+    -- of lovelace. Iterate to a fix point. The loop
+    -- is monotone in 'actual' and bounded by the
+    -- encoded width of 'Coin'; capped here to guard
+    -- against pathological PParams.
+    let go !n t
+            | n <= 0 = t
+            | otherwise =
+                let actual = t ^. coinTxOutL
+                    required = getMinCoinTxOut pp t
+                 in if actual >= required
+                        then t
+                        else
+                            go
+                                (n - 1)
+                                (t & coinTxOutL .~ required)
+     in go (8 :: Int) txOut
 
 -- ----------------------------------------------------
 -- Assembly

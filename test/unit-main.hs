@@ -2,6 +2,7 @@ module Main (main) where
 
 import Test.Hspec (hspec)
 
+import Cardano.Tx.Build.MinUtxoSpec qualified as BuildMinUtxoSpec
 import Cardano.Tx.BuildSpec qualified as BuildSpec
 import Cardano.Tx.DiffSpec qualified as DiffSpec
 import Cardano.Tx.Graph.Emit.BlockfrostSampleSmokeSpec qualified as GraphEmitBlockfrostSampleSmokeSpec
@@ -53,6 +54,7 @@ main :: IO ()
 main = hspec $ do
     DiffSpec.spec
     BuildSpec.spec
+    BuildMinUtxoSpec.spec
     GraphEmitBlockfrostSampleSmokeSpec.spec
     GraphEmitBodyRootSpec.spec
     GraphEmitCertVariantsSpec.spec
