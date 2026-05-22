@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+* **graph:** blueprint-decoded datum emission for `tx-graph` — `rules.yaml` can now carry a top-level `blueprints:` block whose script-scoped CIP-57 datum files are loaded into the graph emitter. Registered script datums unfold into typed blueprint predicates such as `:SwapOrder_recipient`; missing blueprint registrations preserve the opaque `cardano:hasRawBytes` fallback; decode failures preserve raw bytes and add a single `cardano:decodeError` literal plus an operator stderr warning. The loader adds blueprint-specific `RulesLoadError` diagnostics (`BlueprintFileMissing`, `BlueprintParseError`, `AbsoluteBlueprintPath`, `HttpsBlueprintPath`, `DuplicateBlueprintPredicate`) and a first-wins `DuplicateBlueprintForScript` warning. Fixtures 12 / 13 / 14 pin the typed, no-blueprint, and wrong-shape paths. Companion kmaps PR [lambdasistemi/cardano-knowledge-maps#59](https://github.com/lambdasistemi/cardano-knowledge-maps/pull/59) merged `cardano:decodeError`; the canonical-vocab pin is refreshed to kmaps@5108855. Closes [#50](https://github.com/lambdasistemi/cardano-tx-tools/issues/50) ([#79](https://github.com/lambdasistemi/cardano-tx-tools/pull/79)).
+
 ## [0.2.1.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.0.0...v0.2.1.0) (2026-05-22)
 
 ### Features
