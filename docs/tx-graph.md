@@ -4,28 +4,40 @@ Emit a Conway transaction as RDF — the operator-entity overlay
 (from a rules file in Turtle or YAML sugar), the transaction body
 (inputs, outputs, addresses with payment + stake credentials, fee,
 mint, withdrawal, certificates, collateral, proposals), and their
-cross-references — in one canonical Turtle or JSON-LD graph.
+cross-references — in one canonical Turtle or JSON-LD graph. When
+the rules file registers a CIP-57 blueprint for a script, Plutus
+datum and redeemer fields are decoded into typed fixture-local
+predicates; decode failures keep the raw bytes and add a
+`cardano:decodeError` literal.
 
 ```text
-Usage: tx-graph [--rules FILE] [--tx PATH | -]
-                [--utxo FILE | --n2c-socket-path SOCKET]
-                [--network-magic WORD32]
-                [--out FILE] [--format turtle|json-ld]
+tx-graph — operator-entity overlay + body emitter
 
-  --rules FILE              Operator-authored rules file (.ttl / .yaml /
-                            .yml). Overlay-only mode when used alone.
-  --tx PATH | -             Conway tx CBOR (hex envelope, raw hex, or
-                            binary). '-' reads from stdin. Triggers the
-                            body-emitting dispatcher.
-  --utxo FILE               Pre-resolved UTxO JSON for the tx's inputs.
-                            Mutually exclusive with --n2c-socket-path.
-  --n2c-socket-path SOCKET  Local cardano-node Node-to-Client socket.
-                            Resolves the tx's inputs live against the
-                            node (requires --network-magic).
-  --network-magic WORD32    Network magic for the --n2c-socket-path
-                            session (default: mainnet, 764824073).
-  --out FILE                Output path (defaults to stdout).
-  --format turtle|json-ld   Output format (defaults to turtle).
+Usage: tx-graph [--rules FILE] [--tx PATH | -] [--utxo FILE]
+                [--n2c-socket-path SOCKET] [--network-magic WORD32] [--out FILE]
+                [--format FORMAT]
+
+  tx-graph — operator-entity overlay + body emitter. Loads operator-authored
+  rules (overlay-only mode) or drives the joint-graph body emitter on a Conway
+  tx + resolved UTxO. Output format defaults to Turtle.
+
+Available options:
+  --rules FILE             Operator-authored rules file (.yaml/.yml or .ttl).
+                           Overlay-only mode when used alone.
+  --tx PATH | -            Conway tx CBOR (hex text envelope, raw hex, or
+                           binary). '-' reads from stdin. Triggers the
+                           body-emitting dispatcher.
+  --utxo FILE              Resolved-UTxO JSON for the tx's inputs. Mutually
+                           exclusive with --n2c-socket-path.
+  --n2c-socket-path SOCKET Local cardano-node Node-to-Client socket. When
+                           supplied, the tx's inputs are resolved live against
+                           the node (requires --network-magic).
+  --network-magic WORD32   Network magic for the --n2c-socket-path session.
+                           Defaults to mainnet. (default: 764824073)
+  --out FILE               Output destination (default: stdout).
+  --format FORMAT          Output format: 'turtle' or 'json-ld'.
+                           (default: "turtle")
+  -h,--help                Show this help text
 ```
 
 ```asciinema-player
@@ -37,15 +49,15 @@ Usage: tx-graph [--rules FILE] [--tx PATH | -]
 }
 ```
 
-The cast above demonstrates the **overlay-only** mode — emitting
-operator-declared entities from a `rules.yaml`. The body-emitter
-and joint-graph modes are functional but their emitted shape is
-partial today (reference inputs unsupported, output amounts /
-datums / scriptRefs not yet emitted); rich body emission and a
-joint-mode demonstration cast land as part of the
-[transaction-to-RDF epic #46](https://github.com/lambdasistemi/cardano-tx-tools/issues/46) —
-see the epic's *Completeness — non-negotiable* section for the
-open gates.
+The cast above uses fixture `11-amaru-treasury-swap-real` and the
+mainnet `5fc04113...` CBOR it mirrors. It shows **overlay-only**
+rules, then **joint graph** emission with real fee, lovelace
+amounts, inline datums, withdrawals, collateral return, redeemers,
+execution units, key witnesses, and address decompositions. The
+last frames show the CIP-57 path added by issue #50: blueprint
+decoded datums mint typed predicates such as `:SwapOrder_recipient`,
+while decode failures preserve `cardano:hasRawBytes` and add
+`cardano:decodeError`.
 
 ## Three modes by flag presence
 
@@ -103,6 +115,29 @@ tx-graph \
   --out graph.jsonld
 ```
 
+Decode an inline datum against the blueprint registered by the
+rules file. The predicate names come from the blueprint constructor
+and field titles, and use the fixture-local `:` namespace rather
+than the canonical `cardano:` vocabulary:
+
+```bash
+tx-graph \
+  --tx swap-order.cbor.hex \
+  --rules rules/swap-v2.yaml
+```
+
+```turtle
+_:outputDatum1 a cardano:Datum ;
+  cardano:hasHash _:hash_datum_c9bc91a9f2f9d50c ;
+  :SwapOrder_recipient _:outputDatum1_recipient .
+
+_:outputDatum1_recipient :_0_pubKeyHash _:outputDatum1_recipient_pubKeyHash .
+
+_:outputDatum1_recipient_pubKeyHash a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef" .
+```
+
 ## Output shape
 
 The Turtle output is canonical (byte-stable) and structured as:
@@ -115,7 +150,12 @@ The Turtle output is canonical (byte-stable) and structured as:
 3. **Transaction body** — `_:tx a cardano:Transaction ; ...`,
    followed by per-cluster blocks for inputs, outputs, mints,
    withdrawals, certs, collateral inputs, and proposals.
-4. **Address decompositions** — one block per unique address,
+4. **Blueprint-decoded payloads** — datum and redeemer sub-blocks
+   use `:<Constructor>_<field>` predicates when a registered CIP-57
+   blueprint decodes the Plutus data; otherwise the graph keeps
+   `cardano:hasRawBytes`, with `cardano:decodeError` on decode
+   failure.
+5. **Address decompositions** — one block per unique address,
    linking the address to its payment and stake credentials, and
    each credential to the corresponding identifier blank node
    (entity-named or raw-bytes-named).
@@ -135,7 +175,8 @@ import Cardano.Tx.Graph.Rules.Load (loadRulesFile, RulesLoadResult (..))
 emitJoint :: FilePath -> ConwayTx -> ResolvedUTxO -> IO ByteString
 emitJoint rulesPath tx utxo = do
     Right result <- loadRulesFile rulesPath
-    let Right graph = emit tx utxo (rulesEntities result)
+    let Right graph =
+            emit tx utxo (rulesEntities result) (rulesBlueprints result)
     pure (serialize Turtle graph)
 ```
 
