@@ -150,13 +150,20 @@ exercises.
   where `<linker> = cardanoscan` is the only supported value in this
   ticket. Absence of the flag keeps the default rendering unchanged.
   Other values produce a parser error.
-- **FR-007 (Network inference)**. When `--links=cardanoscan` is
-  passed, `tx-inspect` infers the network from the `NetworkMagic`
-  reported by the N2C provider it already opens. If the magic is
-  not one of mainnet / preprod / preview, the run fails fast with
-  the typed error from FR-002 (not a silent fallback to mainnet).
-  The behavior and the typed error are documented in
-  `tx-inspect --help`.
+- **FR-007 (Network selection — corrected in slice S2)**. The
+  network is supplied by the new `--network=<m|p|pv>` flag and
+  defaults to `mainnet`. The original `infer from N2C` shape was
+  withdrawn during planning: `tx-inspect` runs in unresolved-render
+  mode (no N2C) as a first-class path, and forcing N2C-open
+  whenever `--links` is set would regress that path. Explicit
+  `--network=preprod` / `--network=preview` select the matching
+  Cardanoscan host. Other values produce a parser error. The
+  `parseNetworkMagic` function and its typed
+  `UnsupportedNetworkMagic` error remain exported by the library
+  for callers that *do* hold a magic — e.g. the `tx-validate`
+  surface — and may be used by a future tx-inspect enhancement
+  that infers the default. The behavior and the parser error are
+  documented in `tx-inspect --help`.
 - **FR-008 (Tree annotation)**. When the flag is set, every leaf
   whose `ConwayDiffValue` constructor (or the existing rename
   layer's leaf identification) classifies it as one of the

@@ -143,4 +143,21 @@ grep -F 'SwapOrder' "$tmp/inspect.amaru.out" >/dev/null \
 grep -F 'user.recipient' "$tmp/inspect.amaru.out" >/dev/null \
   || fail "render missing user.recipient rename"
 
+# Assertion 9: with --links=cardanoscan --network=mainnet, the render
+# of the Amaru swap-1 fixture annotates every Cardanoscan-classifiable
+# leaf with its mainnet URL. Covers specs/088 FR-006, FR-007, FR-008.
+# The S1 classifier covers tx-input references and payment addresses;
+# stake / policy / asset annotations are additive in a follow-up slice
+# and are NOT asserted here.
+"$exe" \
+  --rules "$amaru_rules" \
+  --links=cardanoscan --network=mainnet \
+  "$amaru_swap1" \
+  >"$tmp/inspect.amaru.links.out"
+
+grep -F 'https://cardanoscan.io/transaction/' "$tmp/inspect.amaru.links.out" >/dev/null \
+  || fail "--links=cardanoscan render missing cardanoscan.io /transaction/ URL"
+grep -F 'https://cardanoscan.io/address/' "$tmp/inspect.amaru.links.out" >/dev/null \
+  || fail "--links=cardanoscan render missing cardanoscan.io /address/ URL"
+
 printf 'tx-inspect smoke: OK\n'

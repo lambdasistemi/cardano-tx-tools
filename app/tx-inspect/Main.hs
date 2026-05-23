@@ -54,10 +54,15 @@ import Cardano.Tx.Diff.Resolver.Web2 (
     httpFetchTx,
     web2Resolver,
  )
+import Cardano.Tx.Diff.Scan (
+    Network (..),
+    scanLinker,
+ )
 import Cardano.Tx.Rewrite (
     applyRewriteRules,
     parseRewriteRulesYaml,
  )
+import Data.Maybe (fromMaybe)
 import GitHub.Release.Check (
     CliBanner (..),
     RepoSlug (..),
@@ -180,7 +185,7 @@ parseArgs argv
 
 parseInspectCliArgs :: [String] -> Either String InspectCliOptions
 parseInspectCliArgs args = do
-    (acc, positional) <- go emptyAccumulator args
+    (acc, positional) <- go emptyAccumulator (expandEqualsForm args)
     case positional of
         [txPath] ->
             buildOptions acc txPath
@@ -232,6 +237,16 @@ parseInspectCliArgs args = do
         go acc{accWeb2ApiKeyFile = Just path} rest
     go _ ["--web2-api-key-file"] =
         Left "missing value for --web2-api-key-file"
+    go acc ("--links" : value : rest) = do
+        linker <- parseLinkerKind value
+        go acc{accLinker = Just linker} rest
+    go _ ["--links"] =
+        Left "missing value for --links"
+    go acc ("--network" : value : rest) = do
+        network <- parseScanNetwork value
+        go acc{accScanNetwork = Just network} rest
+    go _ ["--network"] =
+        Left "missing value for --network"
     go acc rest =
         Right (acc, rest)
 
@@ -241,11 +256,24 @@ parseInspectCliArgs args = do
         Right
             InspectCliOptions
                 { inspectCliRulesPath = accRulesPath acc
-                , inspectCliRenderOptions = accRenderOptions acc
+                , inspectCliRenderOptions = withLinker acc (accRenderOptions acc)
                 , inspectCliN2cResolver = n2c
                 , inspectCliWeb2Resolver = web2
                 , inspectCliTxPath = txPath
                 }
+
+    -- When @--links=cardanoscan@ is set, install a Cardanoscan linker
+    -- on the render options. Network defaults to Mainnet when
+    -- @--network@ is absent (the dominant operator case is treasury
+    -- work on mainnet); explicit values pin the host. A network
+    -- supplied without @--links@ is parsed and stored but does not
+    -- install a linker — it is reserved for future use.
+    withLinker acc opts =
+        case accLinker acc of
+            Nothing -> opts
+            Just LinkerCardanoscan ->
+                let network = fromMaybe Mainnet (accScanNetwork acc)
+                 in opts{humanLeafLinker = Just (scanLinker network)}
 
     buildN2c acc =
         case (accN2cSocket acc, accNetworkMagic acc) of
@@ -265,6 +293,22 @@ parseInspectCliArgs args = do
             (Nothing, Just _) ->
                 Left "--web2-api-key-file requires --web2-url"
 
+{- | Pre-process argv so that @--flag=value@ tokens are split into
+the pair @--flag@, @value@ the hand-rolled parser already
+understands. Only splits on the first @=@ so values that themselves
+contain @=@ stay intact. Tokens that do not start with @--@, or
+that have no @=@, are passed through verbatim.
+-}
+expandEqualsForm :: [String] -> [String]
+expandEqualsForm = concatMap splitOne
+  where
+    splitOne tok
+        | take 2 tok == "--"
+        , (k, '=' : v) <- break (== '=') tok
+        , not (null v) =
+            [k, v]
+        | otherwise = [tok]
+
 data Accumulator = Accumulator
     { accRulesPath :: Maybe FilePath
     , accRenderOptions :: HumanRenderOptions
@@ -272,6 +316,8 @@ data Accumulator = Accumulator
     , accNetworkMagic :: Maybe Word32
     , accWeb2Url :: Maybe Text
     , accWeb2ApiKeyFile :: Maybe FilePath
+    , accLinker :: Maybe LinkerKind
+    , accScanNetwork :: Maybe Network
     }
 
 emptyAccumulator :: Accumulator
@@ -289,7 +335,27 @@ emptyAccumulator =
         , accNetworkMagic = Nothing
         , accWeb2Url = Nothing
         , accWeb2ApiKeyFile = Nothing
+        , accLinker = Nothing
+        , accScanNetwork = Nothing
         }
+
+{- | Linker selection from @--links=<kind>@. The only supported value
+in this slice is @cardanoscan@; other values are a parser error.
+-}
+data LinkerKind = LinkerCardanoscan
+    deriving stock (Eq, Show)
+
+parseLinkerKind :: String -> Either String LinkerKind
+parseLinkerKind "cardanoscan" = Right LinkerCardanoscan
+parseLinkerKind value =
+    Left ("unsupported --links value: " <> value)
+
+parseScanNetwork :: String -> Either String Network
+parseScanNetwork "mainnet" = Right Mainnet
+parseScanNetwork "preprod" = Right Preprod
+parseScanNetwork "preview" = Right Preview
+parseScanNetwork value =
+    Left ("unsupported --network value: " <> value)
 
 parseRenderShape :: String -> Either String RenderShape
 parseRenderShape "tree" = Right RenderTree
@@ -310,7 +376,19 @@ inspectCliUsage =
         <> " [--rules FILE]"
         <> " [--n2c-socket-path SOCKET --network-magic N]"
         <> " [--web2-url URL [--web2-api-key-file PATH]]"
+        <> " [--links cardanoscan [--network mainnet|preprod|preview]]"
         <> " TX"
+        <> "\n\n"
+        <> "  --links cardanoscan    annotate every Cardanoscan-classifiable"
+        <> " leaf with its URL.\n"
+        <> "                         Default off; existing render is byte-stable.\n"
+        <> "  --network mainnet|preprod|preview\n"
+        <> "                         pick the Cardanoscan host (mainnet =>"
+        <> " cardanoscan.io;\n"
+        <> "                         preprod / preview => the matching"
+        <> " subdomain). Default\n"
+        <> "                         mainnet. Only consulted when --links is"
+        <> " set."
 
 runInspect :: InspectCliOptions -> IO ()
 runInspect cliOptions = do

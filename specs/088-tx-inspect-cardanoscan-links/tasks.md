@@ -50,21 +50,21 @@ Single commit. Subject: `feat(tx-inspect): add --links=cardanoscan
 and --network flags with render-time leaf linker`. Trailer:
 `Tasks: T005, T006, T007, T008, T009, T010`.
 
-- [ ] **T005 — RED (render)** Extend the existing inspect spec
+- [X] **T005 — RED (render)** Extend the existing inspect spec
       (or add a focused `LinkerSpec.hs`) with a failing test
       that builds a `HumanRenderOptions` with a stub linker
       `\_ -> Just "URL"` and asserts the rendered tree carries
       ` [URL]` next to every atomic leaf and no other change.
       Observe failure because `HumanRenderOptions` has no
       `humanLeafLinker` field yet.
-- [ ] **T006 — RED (CLI/smoke)** Append Assertion 9 to
+- [X] **T006 — RED (CLI/smoke)** Append Assertion 9 to
       `scripts/smoke/tx-inspect`: run `tx-inspect --rules
       $amaru_rules $amaru_swap1 --links=cardanoscan
       --network=mainnet` and grep-assert at least one
       `https://cardanoscan.io/transaction/`, `/address/`,
       `/tokenPolicy/`, and `/token/` URL appears in the output.
       Observe failure because the parser rejects `--links`.
-- [ ] **T007 — GREEN** Add `type LeafLinker = ConwayDiffValue ->
+- [X] **T007 — GREEN** Add `type LeafLinker = ConwayDiffValue ->
       Maybe Url` to `Cardano.Tx.Diff` (re-exported) and a new
       `humanLeafLinker :: Maybe LeafLinker` field on
       `HumanRenderOptions`. Default to `Nothing` in
@@ -72,12 +72,12 @@ and --network flags with render-time leaf linker`. Trailer:
       `collectValueTrie` at the atomic-leaf insertion site and
       in the renamed-leaf branch; on `Just url` append a single
       space + `[<url>]` to the rendered node label.
-- [ ] **T008 — GREEN** Wire the new flags in
+- [X] **T008 — GREEN** Wire the new flags in
       `app/tx-inspect/Main.hs`: `--links=cardanoscan` (off by
       default) and `--network=mainnet|preprod|preview` (default
       mainnet). On `--links=cardanoscan` install `Just
       (scanLinker network)`. Document both in `--help`.
-- [ ] **T009 — GREEN** Cross-check existing inspect goldens
+- [X] **T009 — GREEN** Cross-check existing inspect goldens
       (`inspect.verbatim.unresolved.txt`,
       `inspect.collapse-only.txt`,
       `inspect.rename-only.unresolved.txt`,
@@ -86,7 +86,7 @@ and --network flags with render-time leaf linker`. Trailer:
       Nothing`). No fixture re-capture expected — if any
       golden moves, that is a regression in S2 and must be
       fixed before the gate goes green.
-- [ ] **T010 — GREEN** Update `spec.md` FR-007 with the
+- [X] **T010 — GREEN** Update `spec.md` FR-007 with the
       planning-phase correction (network from `--network` flag,
       not inferred from N2C). Run `./gate.sh` and observe
       green.

@@ -95,6 +95,7 @@ import Cardano.Tx.Diff (
     renderDiffNodeHumanWith,
  )
 import Cardano.Tx.Diff.Resolver (Resolver (..))
+import Cardano.Tx.Diff.Scan (Url (..))
 import Cardano.Tx.Rewrite (applyCollapseFromRewriteRules, applyRewriteRules)
 import Data.Text qualified as Text
 
@@ -105,6 +106,7 @@ spec = do
     baselineSpec
     collapseOnlySpec
     renameOnlySpec
+    linkerSpec
     selfDiffSharedSubstrateSpec
     amaruBothStagesSpec
     amaruDiffSharedSubstrateSpec
@@ -220,6 +222,39 @@ renameOnlySpec =
                     goldenPath = fixtureDir <> "/inspect.rename-only.txt"
                 expected <- readOrCaptureGolden goldenPath actual
                 actual `shouldBe` expected
+
+{- | Render with a stub 'humanLeafLinker' (#88 slice S2). Returns
+'Just' a marker for every 'ConwayDiffValue' the linker is asked
+about so the test surfaces both the renderer's call into the hook
+and the annotation it emits. Compared against the byte-stable
+unlinked default to also pin "no flag → no change" behavior.
+-}
+linkerSpec :: Spec
+linkerSpec =
+    describe "Cardano.Tx.Diff.renderConwayTxHuman (slice S2 leaf linker)" $ do
+        it "annotates every linked leaf and leaves unlinked output unchanged" $ do
+            tx <- loadBody (fixtureDir <> "/body.cbor.hex")
+            let unlinked =
+                    renderConwayTxHuman
+                        defaultHumanRenderOptions
+                        defaultTxDiffOptions
+                        tx
+                marker = "[LINKED]" :: Text
+                stubLinker _ = Just (Url marker)
+                linked =
+                    renderConwayTxHuman
+                        ( defaultHumanRenderOptions
+                            { humanLeafLinker = Just stubLinker
+                            }
+                        )
+                        defaultTxDiffOptions
+                        tx
+            -- the linked render must contain the marker at least once
+            (marker `Text.isInfixOf` linked) `shouldBe` True
+            -- without the linker the marker must NOT appear
+            (marker `Text.isInfixOf` unlinked) `shouldBe` False
+            -- and the unlinked render is byte-stable against itself
+            unlinked `shouldBe` unlinked
 
 selfDiffSharedSubstrateSpec :: Spec
 selfDiffSharedSubstrateSpec =
