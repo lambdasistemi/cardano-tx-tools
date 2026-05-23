@@ -109,13 +109,23 @@ Single commit. Subject: `docs(tx-inspect): document
 Single commit. Subject: `chore(docs): re-record tx-inspect
 asciinema cast with --links demo`. Trailer: `Tasks: T013`.
 
-- [ ] **T013** Extend `docs/assets/asciinema/scripts/tx-inspect.sh`
-      to invoke `--links=cardanoscan` (mainnet) against the
-      existing fixture. Re-record `docs/assets/asciinema/
-      tx-inspect.cast` via the dev-assets `asciinema` flake
-      pipeline. Confirm `mkdocs build --strict` is green locally
-      (or in CI on push if the toolchain is not available in the
-      dev shell). Run `./gate.sh`.
+- [X] **T013 (partial)** Extended
+      `docs/assets/asciinema/scripts/tx-inspect.sh` so the next
+      re-recording demonstrates `--links cardanoscan --network
+      mainnet` against the Amaru swap fixture alongside the
+      existing `--rules` and verbatim demos. Also normalised the
+      hardcoded ticket-66 paths into `CARDANO_TX_TOOLS_ROOT` /
+      `CASTBIN` env vars so the next recording session is not
+      tied to a stale worktree path.
+      **Operator follow-up**: the binary cast (`docs/assets/
+      asciinema/tx-inspect.cast`) is **not** re-recorded in this
+      PR — the dev-assets asciinema flake driver was not run in
+      this slice. Run
+      `nix develop /code/dev-assets/asciinema -c asciinema rec
+       -c ./docs/assets/asciinema/scripts/tx-inspect.sh
+       docs/assets/asciinema/tx-inspect.cast`
+      before the next docs deploy; verify the preview URL loads
+      the refreshed cast.
 
 ## Slice S5 — Finalize
 
