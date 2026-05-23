@@ -110,7 +110,7 @@ stability, and project-wide quality gates.
 
 ## Phase 4: Polish And Finalization
 
-- [ ] T400 [US1] Add one Unreleased / Features bullet summarizing the
+- [X] T400 [US1] Add one Unreleased / Features bullet summarizing the
   two amaru disburse fixtures in `CHANGELOG.md`, and coordinate the final
   behavior commit subject
   `feat(090): amaru-disburse fixtures (network_compliance + contingency)`
