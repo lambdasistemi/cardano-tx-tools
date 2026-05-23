@@ -30,7 +30,9 @@ metadata, and task checkbox amendments during acceptance.
 ## Phase 2: User Story 1 - Network-compliance fixture
 
 **Goal**: Fixture 15 mirrors the network-compliance disburse source
-transaction and pins current SchemaMap typed output.
+transaction at
+`/code/amaru-treasury-tx-issue-237/transactions/2026/network_compliance/affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982/`
+and pins current SchemaMap typed output.
 
 **Independent Test**: `nix develop --quiet -c just unit`, followed by
 `./gate.sh`, verifies the fixture golden, traceability, existing fixture
@@ -40,7 +42,10 @@ stability, and project-wide quality gates.
   absence in `WIP.md` before creating the fixture files
 - [ ] T201 [US1] Create
   `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S15_AmaruDisburseNetworkCompliance.hs`
-  as a DSL reconstruction of the source network-compliance transaction
+  as a DSL reconstruction of the A-002-approved source transaction shape
+  (5 treasury inputs, 1 wallet input, 3 outputs, 5 spend redeemers,
+  4 reference inputs, 1 collateral input, and 1 zero-lovelace
+  stake-script withdrawal)
 - [ ] T202 [US1] Add
   `test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/rules.yaml`
   registering the Sundae treasury blueprint for script
@@ -57,7 +62,8 @@ stability, and project-wide quality gates.
   from the current emitter
 - [ ] T206 [US4] Write fixture 15 provenance in
   `test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/NOTES.md`
-  with tx hash, source path, and blueprint source
+  with tx hash, the `affe90d1...` source path, source repo path
+  `amaru-treasury-tx-issue-237`, and blueprint source
 - [ ] T207 [US3] Verify fixtures 01 through 14 remain byte-stable and
   `BlueprintPredicateTraceabilitySpec` passes with fixture 15 included
 - [ ] T208 [US1] Run `./gate.sh`, commit the approved fixture 15 slice,

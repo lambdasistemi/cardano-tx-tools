@@ -13,6 +13,10 @@ contingency fixture 17. The fixtures pin the current SchemaMap typed
 output from #80, including the opaque child bnode for the
 `OpenArray [OpenObject {"key", "value"}]` amount shape. Per A-001, this
 PR does not change typed-emit walker semantics or blueprint decoding code.
+A-002 anchors fixture 15 to the available `affe90d1...`
+network-compliance disburse source with 5 treasury inputs, 1 wallet input,
+3 outputs, 5 spend redeemers, 4 reference inputs, 1 collateral input, and
+1 zero-lovelace stake-script withdrawal.
 
 ## Technical Context
 
@@ -122,7 +126,7 @@ Forbidden without Q-file:
 | S0 | Bootstrap committed `gate.sh` for this draft PR. | `chore: add gate.sh for issue 90` | T000 |
 | S1 | Spec Kit requirement artifacts. | `docs(090): specify amaru disburse fixture requirements` | T001 |
 | S2 | Plan, research, data model, quickstart, task list, and analysis. | `docs(090): plan amaru disburse fixture implementation` | T002-T004 |
-| S3 | Worker implementation: fixture 15 network-compliance DSL builder, fixture files, shared blueprint if not already present, golden enumeration, provenance notes, focused and full gate proof. | `feat(090): amaru-disburse network-compliance fixture` | T200-T208 |
+| S3 | Worker implementation: fixture 15 network-compliance DSL builder for the A-002 `affe90d1...` source shape, fixture files, shared blueprint if not already present, golden enumeration, provenance notes, focused and full gate proof. | `feat(090): amaru-disburse network-compliance fixture` | T200-T208 |
 | S4 | Worker implementation: fixture 17 contingency DSL builder, fixture files, golden enumeration/provenance, focused and full gate proof. | `feat(090): amaru-disburse contingency fixture` | T300-T307 |
 | S5 | Mechanical changelog and final accepted feature commit shape if slices are squashed by the pair or reviewer policy requires one final feature commit. | `feat(090): amaru-disburse fixtures (network_compliance + contingency)` | T400 |
 | S6 | Drop gate and mark PR ready after final audit. | `chore(090): drop gate.sh (ready for review)` | T401 |
@@ -171,10 +175,10 @@ recipes, but acceptance requires the full gate.
 
 The load-bearing boundary is real Conway transaction shape plus real
 CIP-57 blueprint metadata crossing into the typed RDF emitter. Fixture 15
-may use live/source inspection to reconstruct the shape, but committed
-fixtures remain offline. Fixture 17 is explicitly self-contained because
-the on-chain inputs are spent. If either source shape cannot be mirrored
-with the DSL, the worker pair must Q-file.
+uses the A-002-approved `affe90d1...` source path; committed fixtures
+remain offline. Fixture 17 is explicitly self-contained because the
+on-chain inputs are spent. If either source shape cannot be mirrored with
+the DSL, the worker pair must Q-file.
 
 ## PR Lifecycle
 
