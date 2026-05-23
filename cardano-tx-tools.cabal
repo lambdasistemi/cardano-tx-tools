@@ -438,6 +438,7 @@ test-suite unit-tests
     Fixtures.RewriteRedesign.S13BlueprintPassthrough
     Fixtures.RewriteRedesign.S14BlueprintDecodeFail
     Fixtures.RewriteRedesign.S15_AmaruDisburseNetworkCompliance
+    Fixtures.RewriteRedesign.S17_AmaruDisburseContingency
     Fixtures.RewriteRedesign.TurtleShim
     StaticResolver
 

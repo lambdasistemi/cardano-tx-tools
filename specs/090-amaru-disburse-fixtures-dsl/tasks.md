@@ -82,30 +82,30 @@ disburse source transaction and remains self-contained.
 `./gate.sh`, verifies the fixture golden, traceability, existing fixture
 stability, and project-wide quality gates.
 
-- [ ] T300 [US2] Add RED evidence for fixture 17 enumeration/golden
+- [X] T300 [US2] Add RED evidence for fixture 17 enumeration/golden
   absence in `WIP.md` before creating the fixture files
-- [ ] T301 [US2] Create
+- [X] T301 [US2] Create
   `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S17_AmaruDisburseContingency.hs`
   as a self-contained DSL reconstruction of the source contingency
   transaction
-- [ ] T302 [US2] Add
+- [X] T302 [US2] Add
   `test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/rules.yaml`
   registering the Sundae treasury blueprint for the treasury script
-- [ ] T303 [US2] Enumerate fixture 17 in
+- [X] T303 [US2] Enumerate fixture 17 in
   `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` and register
   `Fixtures.RewriteRedesign.S17_AmaruDisburseContingency` in the
   `test-suite unit-tests` `other-modules` stanza of
   `cardano-tx-tools.cabal` per A-003
-- [ ] T304 [US2] Generate fixture 17 `expected.ttl`,
+- [X] T304 [US2] Generate fixture 17 `expected.ttl`,
   `expected.entities.ttl`, and `expected.txt` under
   `test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/` from
   the current emitter
-- [ ] T305 [US4] Write fixture 17 provenance in
+- [X] T305 [US4] Write fixture 17 provenance in
   `test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/NOTES.md`
   with tx hash, source path, block/slot, and blueprint source
-- [ ] T306 [US3] Verify fixtures 01 through 14 remain byte-stable and
+- [X] T306 [US3] Verify fixtures 01 through 14 remain byte-stable and
   `BlueprintPredicateTraceabilitySpec` passes with fixture 17 included
-- [ ] T307 [US2] Run `./gate.sh`, commit the approved fixture 17 slice,
+- [X] T307 [US2] Run `./gate.sh`, commit the approved fixture 17 slice,
   and include `Tasks: T300, T301, T302, T303, T304, T305, T306, T307`
 
 ## Phase 4: Polish And Finalization

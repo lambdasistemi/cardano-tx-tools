@@ -1,0 +1,20 @@
+# Mirrors the on-chain 4-of-4 contingency disburse at
+# /code/amaru-treasury-tx/transactions/2026/contingency/
+#   18d57a4f104df4cc776104ce626958e2110122392e4c4c7671edc8861b48452e/
+# (A-002). One treasury script input (payment credential
+# e6dbff09...), one wallet pubkey input + collateral, three outputs
+# (treasury return + network-compliance beneficiary + wallet change),
+# four required signers (4-of-4 multisig), four reference inputs, and
+# one zero-lovelace withdrawal against the contingency permissions
+# stake script.
+
+entities:
+  - name: amaru-treasury.contingency
+    from-address: addr1x8ndhlcfy30t38z0tql64fpg8ply93r37xrgvdagfpsz5nhxm0lsjfz7hzwy7kpl42jzswr7gtz8ruvxscm6sjrq9f8qruq0ae
+  - name: amaru-treasury.network_compliance
+    from-address: addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
+  - name: amaru.network-wallet
+    from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+blueprints:
+  - script: amaru-treasury.contingency
+    datum: ../blueprints/sundae-treasury.cip57.json
