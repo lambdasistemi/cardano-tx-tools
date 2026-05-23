@@ -132,10 +132,19 @@ asciinema cast with --links demo`. Trailer: `Tasks: T013`.
 Single commit. Subject: `chore: drop gate.sh (ready for review)`.
 No `Tasks:` trailer required (no behavior change).
 
-- [ ] **T014** Re-read every artifact for the
-      Finalization-audit checks: every closed task in
-      `tasks.md` is `[X]`, every behavior-changing commit
-      carries a `Tasks:` trailer, `./gate.sh` is green at HEAD,
-      README / docs / metadata are aligned, PR body is current.
-- [ ] **T015** `git rm gate.sh`, commit the removal, push,
-      `gh pr ready 89`.
+- [X] **T014** Finalization audit:
+      * all tasks above marked `[X]` (S1-S4); T013 closed
+        partial with a named operator follow-up for the
+        cast binary;
+      * every behavior-changing commit (`feat(scan):` and
+        `feat(tx-inspect):`) carries a `Tasks:` trailer;
+      * `./gate.sh` green at HEAD (build + unit + smoke +
+        cabal-fmt + fourmolu + hlint);
+      * `docs/tx-inspect.md` and `CHANGELOG.md` aligned with
+        delivered behavior; `README.md` description unchanged
+        (the new flag is opt-in and the docs link is the
+        canonical reference);
+      * PR body updated to record `Specs/Plan/Tasks/Slices`
+        each landed, the deferred cast follow-up, and the
+        Command-Recovery declaration.
+- [X] **T015** `git rm gate.sh`, commit, push, `gh pr ready 89`.
