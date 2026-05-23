@@ -114,7 +114,7 @@ stability, and project-wide quality gates.
   two amaru disburse fixtures in `CHANGELOG.md`, and coordinate the final
   behavior commit subject
   `feat(090): amaru-disburse fixtures (network_compliance + contingency)`
-- [ ] T401 Drop `gate.sh` in the final ready-for-review commit after the
+- [X] T401 Drop `gate.sh` in the final ready-for-review commit after the
   final gate and commit-message audit pass
 
 ## Dependencies
