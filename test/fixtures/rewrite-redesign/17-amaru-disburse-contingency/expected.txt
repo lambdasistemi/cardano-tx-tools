@@ -1,0 +1,29 @@
+inputs:
+  - resolved.address: amaru.network-wallet
+  - resolved.address: amaru-treasury.contingency
+    resolved.coin: 4_057_000.000000 ADA
+    redeemer.TreasurySpendRedeemer.amount: { ada: 205_000_000_000 }
+outputs:
+  - address: amaru-treasury.contingency
+    coin: 3_852_000.000000 ADA
+  - address: amaru-treasury.network_compliance
+    coin: 205_000.000000 ADA
+  - address: amaru.network-wallet
+    coin: 92.141887 ADA
+required_signers:
+  - cred_paymentkey_7095faf3d48d582f
+  - cred_paymentkey_f3ab64b0f97dcf0f
+  - amaru.network-wallet
+  - cred_paymentkey_97e0f6d6c86dbebf
+reference_inputs:
+  - stubTxIn 200
+  - stubTxIn 201
+  - stubTxIn 202
+  - stubTxIn 203
+collateral:
+  - resolved.address: ?
+withdrawals:
+  - stake-script: 2810b46b73cb27292cd8511274b6930188eee61b7d8635af6b1b626a
+    coin: 0.000000 ADA
+    redeemer.rawBytes: 80
+fee: 0.000000 ADA
