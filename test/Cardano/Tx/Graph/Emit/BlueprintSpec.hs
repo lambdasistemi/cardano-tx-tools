@@ -92,6 +92,7 @@ import Cardano.Tx.Blueprint (
 import Cardano.Tx.Diff (OpenValue (..))
 import Cardano.Tx.Graph.Emit (
     BnodeName (..),
+    Object (..),
     Predicate (..),
     Subject (..),
     Triple (..),
@@ -201,6 +202,47 @@ spec = describe "Cardano.Tx.Graph.Emit.Blueprint (T101 / S1)" $ do
                                 multiErrRawBytes
                             )
                 length (filter isDecodeErrorTriple triples) `shouldBe` 1
+
+    describe
+        "OpenArray-of-OpenObject map-entry walker (T100 / S2, #95)"
+        $ it
+            "emits :_<i> from the array bnode and :key / :value triples \
+            \on the entry bnode for OpenArray [OpenObject {key, value}]"
+        $ do
+            let (triples, _seen) =
+                    runEmit
+                        ( emitDecodedOrOpaque
+                            mapEntryDatumSubject
+                            "datum0"
+                            datumValidatorPick
+                            ( Decoded
+                                mapEntryDatumValue
+                                mapEntryBlueprint
+                            )
+                            mapEntryRawBytes
+                        )
+                arrayBnode = SBnode (BnodeName "datum0_amount")
+                entryBnode = SBnode (BnodeName "datum0_amount_0")
+                hasArrayToEntry =
+                    Triple
+                        arrayBnode
+                        (PIri ":_0")
+                        (OBnode (BnodeName "datum0_amount_0"))
+                        `elem` triples
+                hasEntryKey =
+                    Triple
+                        entryBnode
+                        (PIri ":key")
+                        (OBnode (BnodeName "datum0_amount_0_key"))
+                        `elem` triples
+                hasEntryValue =
+                    Triple
+                        entryBnode
+                        (PIri ":value")
+                        (OIntLit 42)
+                        `elem` triples
+            (hasArrayToEntry, hasEntryKey, hasEntryValue)
+                `shouldBe` (True, True, True)
 
 ----------------------------------------------------------------------
 -- Fixtures
@@ -465,3 +507,91 @@ mkScriptHash n =
                     <> [fromIntegral (n `div` 256), fromIntegral (n `mod` 256)]
                 )
      in ScriptHash (fromJust (hashFromBytes bytes))
+
+----------------------------------------------------------------------
+-- T100 / S2 (#95) fixtures — OpenArray-of-OpenObject map-entry walker.
+----------------------------------------------------------------------
+
+{- | Synthetic blueprint shaping the top-level decoded value as
+@MapWrap { amount: <integer> }@. The walker reads only the
+constructor + field titles for @':MapWrap_amount'@; the @amount@
+sub-schema is a placeholder because the focused #95 invariant is
+structural — it asserts the walker reacts to the runtime shape
+@OpenArray [OpenObject {"key", "value"}]@ regardless of what the
+schema thinks the field type is.
+-}
+mapEntryBlueprint :: Blueprint
+mapEntryBlueprint =
+    Blueprint
+        { blueprintPreamble =
+            BlueprintPreamble
+                { preambleTitle = "map-entry-walker"
+                , preamblePlutusVersion = "v3"
+                }
+        , blueprintValidators =
+            [ BlueprintValidator
+                { validatorTitle = Just "map-entry"
+                , validatorDatum =
+                    Just
+                        BlueprintArgument
+                            { argumentTitle = Just "MapWrap"
+                            , argumentSchema =
+                                BlueprintSchema
+                                    { schemaTitle = Just "MapWrap"
+                                    , schemaKind =
+                                        SchemaConstructor
+                                            0
+                                            [ BlueprintSchema
+                                                { schemaTitle = Just "amount"
+                                                , schemaKind = SchemaInteger
+                                                }
+                                            ]
+                                    }
+                            }
+                , validatorRedeemer = Nothing
+                }
+            ]
+        , blueprintDefinitions = Map.empty
+        }
+
+{- | Synthetic decoded value shaped like a SchemaMap result: a top-level
+constructor with one field @amount@ whose value is an
+@OpenArray [OpenObject {"key", "value"}]@ with a single entry whose
+key is a bytes leaf and whose value is an integer literal.
+
+The single entry + scalar value choice keeps the focused invariant's
+three positional assertions readable: @:_0@, @:key@ (bytes leaf →
+bnode), @:value@ (integer → 'OIntLit' literal).
+-}
+mapEntryDatumValue :: OpenValue
+mapEntryDatumValue =
+    OpenObject
+        ( Map.fromList
+            [
+                ( "amount"
+                , OpenArray
+                    [ OpenObject
+                        ( Map.fromList
+                            [ ("key", OpenBytes "deadbeef")
+                            , ("value", OpenInteger 42)
+                            ]
+                        )
+                    ]
+                )
+            ]
+        )
+
+{- | Datum-subject blank node anchoring the #95 walker invariant.
+The @datum0@ name mirrors the @outputDatum\<k\>@ naming convention
+'Cardano.Tx.Graph.Emit.Project.emitOutputDatum' uses at runtime so
+the assertion reads at the same seam the goldens do.
+-}
+mapEntryDatumSubject :: Subject
+mapEntryDatumSubject = SBnode (BnodeName "datum0")
+
+{- | Placeholder raw CBOR bytes for the @hasRawBytes@ side of the
+@Decoded@ branch. The #95 invariant is about the typed-emit walker's
+output, not the raw-bytes companion, so the byte content is unobserved.
+-}
+mapEntryRawBytes :: BS.ByteString
+mapEntryRawBytes = BS.pack [0x02]
