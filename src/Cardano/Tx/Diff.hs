@@ -21,6 +21,7 @@ module Cardano.Tx.Diff (
     DiffPath (..),
     DiffProjection (..),
     HumanRenderOptions (..),
+    LeafLinker,
     OpenValue (..),
     RenameRule (..),
     RenameRules (..),
@@ -32,6 +33,7 @@ module Cardano.Tx.Diff (
     TxDiffOptions (..),
     TxInputDecodeError (..),
     TreeArt (..),
+    Url (..),
     defaultHumanRenderOptions,
     defaultRewriteRules,
     defaultTxDiffOptions,
@@ -75,6 +77,7 @@ import Data.Foldable (toList)
 import Data.List qualified as List
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Maybe (isJust)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -269,6 +272,21 @@ data TreeArt
     | TreeArtUnicode
     deriving stock (Eq, Show)
 
+{- | A URL emitted by a 'LeafLinker' (issue #88). Renderered alongside
+the matched leaf in tree- and path-shaped output when
+'humanLeafLinker' is set. See "Cardano.Tx.Diff.Scan" for the
+Cardanoscan linker that ships with the library.
+-}
+newtype Url = Url {getUrl :: Text}
+    deriving stock (Eq, Show)
+
+{- | Render-time hook from leaf substrate value to an optional URL.
+When set on 'HumanRenderOptions', the renderer consults it at every
+atomic-leaf insertion site; a 'Just' result appends @ [url]@ to the
+node label, a 'Nothing' result is a no-op.
+-}
+type LeafLinker = ConwayDiffValue -> Maybe Url
+
 -- | Options for human-oriented diff rendering.
 data HumanRenderOptions = HumanRenderOptions
     { humanRenderShape :: RenderShape
@@ -289,8 +307,48 @@ data HumanRenderOptions = HumanRenderOptions
     -- markers so a diff can surface "datum disappeared".
     -- @tx-inspect@ flips this to 'True' so single-tx renders are
     -- not visually swamped by @cbor: (0 bytes)@ and @null@ leaves.
+    , humanLeafLinker :: Maybe LeafLinker
+    -- ^ Optional render-time URL emitter (issue #88). When 'Just',
+    -- the trie walker consults it at every atomic-leaf insertion
+    -- site (both the renamed-leaf branch and the verbatim-leaf
+    -- branch) and appends @ [url]@ to the node label on a 'Just'
+    -- result. Default 'Nothing' — the renderer is byte-stable
+    -- against pre-#88 output when the field is left unset. Wired
+    -- by @tx-inspect@'s @--links=cardanoscan@ flag.
     }
-    deriving stock (Eq, Show)
+
+-- 'humanLeafLinker' carries a function, so 'HumanRenderOptions' no
+-- longer derives 'Eq' or 'Show' automatically. The hand-written
+-- instances below compare and print every field except the linker;
+-- the linker is presence-only (Nothing vs Just) for 'Eq' and prints
+-- as @<fn>@ for 'Show'. Two configurations are considered
+-- "equivalent options" if everything except the link function
+-- agrees; this matches how 'TxDiffCliOptions' tests use
+-- 'shouldBe' to compare parsed configurations structurally.
+instance Eq HumanRenderOptions where
+    a == b =
+        humanRenderShape a == humanRenderShape b
+            && humanTreeArt a == humanTreeArt b
+            && humanCollapseRules a == humanCollapseRules b
+            && humanRenameRules a == humanRenameRules b
+            && humanHideEmpty a == humanHideEmpty b
+            && isJust (humanLeafLinker a) == isJust (humanLeafLinker b)
+
+instance Show HumanRenderOptions where
+    show opts =
+        "HumanRenderOptions { humanRenderShape = "
+            <> show (humanRenderShape opts)
+            <> ", humanTreeArt = "
+            <> show (humanTreeArt opts)
+            <> ", humanCollapseRules = "
+            <> show (humanCollapseRules opts)
+            <> ", humanRenameRules = "
+            <> show (humanRenameRules opts)
+            <> ", humanHideEmpty = "
+            <> show (humanHideEmpty opts)
+            <> ", humanLeafLinker = "
+            <> maybe "Nothing" (const "Just <fn>") (humanLeafLinker opts)
+            <> " }"
 
 -- | Default human renderer: grouped tree output with portable ASCII art.
 defaultHumanRenderOptions :: HumanRenderOptions
@@ -301,6 +359,7 @@ defaultHumanRenderOptions =
         , humanCollapseRules = Nothing
         , humanRenameRules = Nothing
         , humanHideEmpty = False
+        , humanLeafLinker = Nothing
         }
 
 data CollapseRawView
@@ -1005,6 +1064,7 @@ renderConwayDiffValueHuman options diffOptions root =
                         diffOptions
                         (humanCollapseRules options)
                         (humanRenameRules options)
+                        (humanLeafLinker options)
                         (humanHideEmpty options)
                         (DiffPath [])
                         emptyRenderTrie
@@ -1055,27 +1115,28 @@ collectValueTrie ::
     TxDiffOptions ->
     Maybe CollapseRules ->
     Maybe RenameRules ->
+    Maybe LeafLinker ->
     -- | 'humanHideEmpty' — skip 'NoDatum' / 'SNothing' leaves.
     Bool ->
     DiffPath ->
     RenderTrie ->
     ConwayDiffValue ->
     RenderTrie
-collectValueTrie options collapseConfig renameConfig hideEmpty path trie value
+collectValueTrie options collapseConfig renameConfig linker hideEmpty path trie value
     | hideEmpty && isEmptyOptionalLeaf value = trie
     | otherwise =
         case renameValue renameConfig value of
             Just renamed ->
                 insertPath
                     (renderValuePathSegments path)
-                    [Tree.Node (renderJsonValue (renameLeafValue renamed)) []]
+                    [Tree.Node (annotateLeaf linker value (renderJsonValue (renameLeafValue renamed))) []]
                     trie
             Nothing ->
                 case conwayDiffProjection options value of
                     DiffAtomic atomic ->
                         insertPath
                             (renderValuePathSegments path)
-                            [Tree.Node (renderJsonValue atomic) []]
+                            [Tree.Node (annotateLeaf linker value (renderJsonValue atomic)) []]
                             trie
                     DiffObjectChildren children ->
                         foldl'
@@ -1084,6 +1145,7 @@ collectValueTrie options collapseConfig renameConfig hideEmpty path trie value
                                     options
                                     collapseConfig
                                     renameConfig
+                                    linker
                                     hideEmpty
                                     (path </> key)
                                     acc
@@ -1096,10 +1158,25 @@ collectValueTrie options collapseConfig renameConfig hideEmpty path trie value
                             options
                             collapseConfig
                             renameConfig
+                            linker
                             hideEmpty
                             path
                             trie
                             (zip [0 :: Int ..] children)
+
+{- | Append @ [url]@ to a rendered leaf label when the linker matches.
+A 'Nothing' linker (the default) is a no-op so renders stay
+byte-stable. The space + bracket framing matches the @[name]@
+convention rename uses, so a renamed-then-linked leaf reads
+@<rename> [https://...]@. Used at every atomic-leaf insertion in
+'collectValueTrie' and 'collectValueTriePruned'.
+-}
+annotateLeaf :: Maybe LeafLinker -> ConwayDiffValue -> Text -> Text
+annotateLeaf Nothing _ rendered = rendered
+annotateLeaf (Just linker) value rendered =
+    case linker value of
+        Nothing -> rendered
+        Just (Url url) -> rendered <> " [" <> url <> "]"
 
 {- | Identify a 'ConwayDiffValue' whose render is a structurally-empty
 optional leaf (the @TxOut@'s @datum@ when no datum is attached, and the
@@ -1197,12 +1274,13 @@ collectValueArray ::
     TxDiffOptions ->
     Maybe CollapseRules ->
     Maybe RenameRules ->
+    Maybe LeafLinker ->
     Bool ->
     DiffPath ->
     RenderTrie ->
     [(Int, ConwayDiffValue)] ->
     RenderTrie
-collectValueArray options collapseConfig renameConfig hideEmpty path trie indexedChildren =
+collectValueArray options collapseConfig renameConfig linker hideEmpty path trie indexedChildren =
     let matchingRules =
             collapseRulesAt collapseConfig path
         (withViews, hasView) =
@@ -1219,6 +1297,7 @@ collectValueArray options collapseConfig renameConfig hideEmpty path trie indexe
                         options
                         collapseConfig
                         renameConfig
+                        linker
                         hideEmpty
                         (basePath </> Text.pack (show idx))
                         innerAcc
@@ -1235,6 +1314,7 @@ collectValueArray options collapseConfig renameConfig hideEmpty path trie indexe
                             options
                             collapseConfig
                             renameConfig
+                            linker
                             hideEmpty
                             covered
                             (DiffPath [])
@@ -1405,6 +1485,7 @@ collectValueTriePruned ::
     TxDiffOptions ->
     Maybe CollapseRules ->
     Maybe RenameRules ->
+    Maybe LeafLinker ->
     Bool ->
     Set.Set DiffPath ->
     -- | relative path inside the current item (initially empty)
@@ -1414,7 +1495,7 @@ collectValueTriePruned ::
     RenderTrie ->
     ConwayDiffValue ->
     RenderTrie
-collectValueTriePruned options collapseConfig renameConfig hideEmpty covered relPath absPath trie value
+collectValueTriePruned options collapseConfig renameConfig linker hideEmpty covered relPath absPath trie value
     | relPath `Set.member` covered =
         trie
     | hideEmpty && isEmptyOptionalLeaf value =
@@ -1424,14 +1505,14 @@ collectValueTriePruned options collapseConfig renameConfig hideEmpty covered rel
             Just renamed ->
                 insertPath
                     (renderValuePathSegments absPath)
-                    [Tree.Node (renderJsonValue (renameLeafValue renamed)) []]
+                    [Tree.Node (annotateLeaf linker value (renderJsonValue (renameLeafValue renamed))) []]
                     trie
             Nothing ->
                 case conwayDiffProjection options value of
                     DiffAtomic atomic ->
                         insertPath
                             (renderValuePathSegments absPath)
-                            [Tree.Node (renderJsonValue atomic) []]
+                            [Tree.Node (annotateLeaf linker value (renderJsonValue atomic)) []]
                             trie
                     DiffObjectChildren children ->
                         foldl'
@@ -1440,6 +1521,7 @@ collectValueTriePruned options collapseConfig renameConfig hideEmpty covered rel
                                     options
                                     collapseConfig
                                     renameConfig
+                                    linker
                                     hideEmpty
                                     covered
                                     (relPath </> key)
@@ -1460,6 +1542,7 @@ collectValueTriePruned options collapseConfig renameConfig hideEmpty covered rel
                             options
                             collapseConfig
                             renameConfig
+                            linker
                             hideEmpty
                             absPath
                             trie

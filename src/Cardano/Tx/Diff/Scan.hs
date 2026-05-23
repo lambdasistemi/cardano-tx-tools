@@ -32,6 +32,9 @@ module Cardano.Tx.Diff.Scan (
     InspectLeaf (..),
 
     -- * URLs
+
+    -- (re-exported from "Cardano.Tx.Diff" so callers can build linkers
+    -- without touching the renderer module directly)
     Url (..),
     LeafLinker,
     cardanoscanUrl,
@@ -53,7 +56,7 @@ import Data.Text (Text)
 import Data.Text.Encoding qualified as TextEncoding
 import Data.Word (Word32, Word64)
 
-import Cardano.Tx.Diff (ConwayDiffValue (..))
+import Cardano.Tx.Diff (ConwayDiffValue (..), LeafLinker, Url (..))
 
 -- | The Cardanoscan-supported networks tx-inspect can link against.
 data Network
@@ -97,16 +100,6 @@ data InspectLeaf
     | -- | A CIP-14 asset fingerprint (@asset1...@).
       InspectAssetFingerprint Text
     deriving stock (Eq, Show)
-
--- | A Cardanoscan URL.
-newtype Url = Url {getUrl :: Text}
-    deriving stock (Eq, Show)
-
-{- | Render-time hook injected into 'Cardano.Tx.Diff.HumanRenderOptions'
-in slice S2. Wired here as a re-usable type alias so callers can
-construct linkers without reaching into the renderer module.
--}
-type LeafLinker = ConwayDiffValue -> Maybe Url
 
 {- | Total mapping from a leaf identifier to its Cardanoscan URL.
 
