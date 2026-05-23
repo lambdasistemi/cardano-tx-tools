@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+* **graph:** CIP-57 blueprint `"dataType": "map"` support in `Cardano.Tx.Blueprint`. New `SchemaMap BlueprintSchema BlueprintSchema` variant on `BlueprintSchemaKind`; parser reads `keys` + `values` sub-schemas; decoder materialises `PLC.Map` payloads as `OpenArray [OpenObject {"key" -> k, "value" -> v}, …]`; `resolveBlueprintSchema` recurses into key + value sub-schemas with the existing cycle detection. `parseBlueprintDefinitions` now surfaces parse failures via `BlueprintParseError` instead of silently dropping the failed entry (the silent drop hid the missing-map-support gap through every #50 slice — fixtures 12..14 happened not to use map-typed definitions). Live-fire on a real Conway treasury disburse (SundaeSwap treasury-contracts at commit `ad4316d0`) now emits `:TreasurySpendRedeemer_amount` typed predicates against the 5 Spend redeemers; pre-fix output was 5 `cardano:decodeError "BlueprintDefinitionMissing \"Pairs<…>\""` literals. Per-entry triple emission on the `OpenArray [OpenObject {key, value}]` shape (the typed-emit walker's OpenArray-of-OpenObject case) and the DSL-reconstructed real-Conway fixtures are deferred to sibling slices tracked via [#90](https://github.com/lambdasistemi/cardano-tx-tools/issues/90). Closes [#80](https://github.com/lambdasistemi/cardano-tx-tools/issues/80) ([#87](https://github.com/lambdasistemi/cardano-tx-tools/pull/87)).
+
 ## [0.2.2.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.1.0...v0.2.2.0) (2026-05-22)
 
 ### Features
