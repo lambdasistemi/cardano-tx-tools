@@ -38,35 +38,35 @@ and pins current SchemaMap typed output.
 `./gate.sh`, verifies the fixture golden, traceability, existing fixture
 stability, and project-wide quality gates.
 
-- [ ] T200 [US1] Add RED evidence for fixture 15 enumeration/golden
+- [X] T200 [US1] Add RED evidence for fixture 15 enumeration/golden
   absence in `WIP.md` before creating the fixture files
-- [ ] T201 [US1] Create
+- [X] T201 [US1] Create
   `test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S15_AmaruDisburseNetworkCompliance.hs`
   as a DSL reconstruction of the A-002-approved source transaction shape
   (5 treasury inputs, 1 wallet input, 3 outputs, 5 spend redeemers,
   4 reference inputs, 1 collateral input, and 1 zero-lovelace
   stake-script withdrawal)
-- [ ] T202 [US1] Add
+- [X] T202 [US1] Add
   `test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/rules.yaml`
   registering the Sundae treasury blueprint for script
   `32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d`
-- [ ] T203 [US1] Add or verify shared blueprint
+- [X] T203 [US1] Add or verify shared blueprint
   `test/fixtures/rewrite-redesign/blueprints/sundae-treasury.cip57.json`
   from `/code/amaru-treasury/treasury-contracts/plutus.json` or a
   documented single-validator extraction
-- [ ] T204 [US1] Enumerate fixture 15 in
+- [X] T204 [US1] Enumerate fixture 15 in
   `test/Cardano/Tx/Graph/EmitGoldenSpec.hs`
-- [ ] T205 [US1] Generate fixture 15 `expected.ttl`,
+- [X] T205 [US1] Generate fixture 15 `expected.ttl`,
   `expected.entities.ttl`, and `expected.txt` under
   `test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/`
   from the current emitter
-- [ ] T206 [US4] Write fixture 15 provenance in
+- [X] T206 [US4] Write fixture 15 provenance in
   `test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/NOTES.md`
   with tx hash, the `affe90d1...` source path, source repo path
   `amaru-treasury-tx-issue-237`, and blueprint source
-- [ ] T207 [US3] Verify fixtures 01 through 14 remain byte-stable and
+- [X] T207 [US3] Verify fixtures 01 through 14 remain byte-stable and
   `BlueprintPredicateTraceabilitySpec` passes with fixture 15 included
-- [ ] T208 [US1] Run `./gate.sh`, commit the approved fixture 15 slice,
+- [X] T208 [US1] Run `./gate.sh`, commit the approved fixture 15 slice,
   and include `Tasks: T200, T201, T202, T203, T204, T205, T206, T207,
   T208`
 

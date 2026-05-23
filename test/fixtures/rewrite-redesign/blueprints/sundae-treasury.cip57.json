@@ -1,0 +1,102 @@
+{
+  "preamble": {
+    "title": "amaru-treasury.network_compliance",
+    "description": "Single-validator extraction of treasury.treasury.spend from /code/amaru-treasury/treasury-contracts/plutus.json. Trimmed to the datum + redeemer + parameter definitions needed by the typed-emit walker. The full multi-validator blueprint exists upstream; the extraction here scopes blueprint dispatch to the treasury spend redeemer so the network-compliance fixture surfaces :TreasurySpendRedeemer_amount predicates instead of the upstream's first-validator (oneshot.oneshot.spend) Data passthrough.",
+    "version": "0.0.0",
+    "plutusVersion": "v3",
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "treasury.treasury.spend",
+      "datum": {
+        "title": "_d",
+        "schema": {
+          "$ref": "#/definitions/Data"
+        }
+      },
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/types~1TreasurySpendRedeemer"
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "Data": {
+      "title": "Data",
+      "description": "Any Plutus data."
+    },
+    "Int": {
+      "dataType": "integer"
+    },
+    "cardano/assets/AssetName": {
+      "title": "AssetName",
+      "dataType": "bytes"
+    },
+    "cardano/assets/PolicyId": {
+      "title": "PolicyId",
+      "dataType": "bytes"
+    },
+    "Pairs<cardano/assets/AssetName,Int>": {
+      "title": "Pairs<AssetName, Int>",
+      "dataType": "map",
+      "keys": {
+        "$ref": "#/definitions/cardano~1assets~1AssetName"
+      },
+      "values": {
+        "$ref": "#/definitions/Int"
+      }
+    },
+    "Pairs<cardano/assets/PolicyId,Pairs<cardano/assets/AssetName,Int>>": {
+      "title": "Pairs<PolicyId, Pairs<AssetName, Int>>",
+      "dataType": "map",
+      "keys": {
+        "$ref": "#/definitions/cardano~1assets~1PolicyId"
+      },
+      "values": {
+        "$ref": "#/definitions/Pairs<cardano~1assets~1AssetName,Int>"
+      }
+    },
+    "types/TreasurySpendRedeemer": {
+      "title": "TreasurySpendRedeemer",
+      "anyOf": [
+        {
+          "title": "Reorganize",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "SweepTreasury",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        },
+        {
+          "title": "Fund",
+          "dataType": "constructor",
+          "index": 2,
+          "fields": [
+            {
+              "title": "amount",
+              "$ref": "#/definitions/Pairs<cardano~1assets~1PolicyId,Pairs<cardano~1assets~1AssetName,Int>>"
+            }
+          ]
+        },
+        {
+          "title": "Disburse",
+          "dataType": "constructor",
+          "index": 3,
+          "fields": [
+            {
+              "title": "amount",
+              "$ref": "#/definitions/Pairs<cardano~1assets~1PolicyId,Pairs<cardano~1assets~1AssetName,Int>>"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

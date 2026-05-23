@@ -66,6 +66,7 @@ import Fixtures.RewriteRedesign.S11_AmaruTreasurySwapReal qualified as S11
 import Fixtures.RewriteRedesign.S12BlueprintTyped qualified as S12
 import Fixtures.RewriteRedesign.S13BlueprintPassthrough qualified as S13
 import Fixtures.RewriteRedesign.S14BlueprintDecodeFail qualified as S14
+import Fixtures.RewriteRedesign.S15_AmaruDisburseNetworkCompliance qualified as S15
 
 import Test.Hspec (
     Spec,
@@ -101,6 +102,7 @@ allFixtures =
     , ("12-blueprint-typed", S12.tx)
     , ("13-blueprint-passthrough", S13.tx)
     , ("14-blueprint-decode-fail", S14.tx)
+    , ("15-amaru-disburse-network-compliance", S15.tx)
     ]
 
 {- | One Hspec @it@ per fixture: byte-diff the emitted Turtle
@@ -175,6 +177,9 @@ fixtureUtxo = \case
                 1_137_000_000_000
                 [(S11.swapUsdmPolicy, S11.swapUsdmName, 2_500_000_000)]
             )
+    "15-amaru-disburse-network-compliance" ->
+        Map.fromList
+            [(txIn, S15.treasuryUtxoEntry) | txIn <- S15.treasuryInputs]
     _ -> emptyUtxo
 
 loadEntitiesAndOverlay ::
