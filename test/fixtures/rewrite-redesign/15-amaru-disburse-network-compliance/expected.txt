@@ -1,0 +1,46 @@
+inputs:
+  - resolved.address: amaru.network-wallet
+  - resolved.address: amaru-treasury.network_compliance
+    resolved.coin: 121.488832 ADA
+    resolved.assets: { usdm: 1_349_523_953 }
+    redeemer.TreasurySpendRedeemer.amount: { ada: 1_189_560, usdm: 400_000_000_000 }
+  - resolved.address: amaru-treasury.network_compliance
+    resolved.coin: 121.488832 ADA
+    resolved.assets: { usdm: 1_349_523_953 }
+    redeemer.TreasurySpendRedeemer.amount: { ada: 1_189_560, usdm: 400_000_000_000 }
+  - resolved.address: amaru-treasury.network_compliance
+    resolved.coin: 121.488832 ADA
+    resolved.assets: { usdm: 1_349_523_953 }
+    redeemer.TreasurySpendRedeemer.amount: { ada: 1_189_560, usdm: 400_000_000_000 }
+  - resolved.address: amaru-treasury.network_compliance
+    resolved.coin: 121.488832 ADA
+    resolved.assets: { usdm: 1_349_523_953 }
+    redeemer.TreasurySpendRedeemer.amount: { ada: 1_189_560, usdm: 400_000_000_000 }
+  - resolved.address: amaru-treasury.network_compliance
+    resolved.coin: 121.488832 ADA
+    resolved.assets: { usdm: 1_349_523_953 }
+    redeemer.TreasurySpendRedeemer.amount: { ada: 1_189_560, usdm: 400_000_000_000 }
+outputs:
+  - address: amaru-treasury.network_compliance
+    coin: 120.299272 ADA
+    assets: { usdm: 1_349_523_953 }
+  - address: amaru.cag-payee
+    coin: 1.189560 ADA
+    assets: { usdm: 400_000_000_000 }
+  - address: amaru.network-wallet
+    coin: 80.733583 ADA
+required_signers:
+  - amaru.network-wallet
+  - cred_paymentkey_f3ab64b0f97dcf0f
+reference_inputs:
+  - stubTxIn 200
+  - stubTxIn 201
+  - stubTxIn 202
+  - stubTxIn 203
+collateral:
+  - resolved.address: ?
+withdrawals:
+  - stake-script: a64d1b9e1aeffe54056034d84977061b45a92691efc282fbee3fc094
+    coin: 0.000000 ADA
+    redeemer.rawBytes: 80
+fee: 0.000000 ADA

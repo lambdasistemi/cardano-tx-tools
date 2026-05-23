@@ -1,0 +1,19 @@
+# Mirrors the on-chain network-compliance disburse at
+# /code/amaru-treasury-tx-issue-237/transactions/2026/network_compliance/
+#   affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982/
+# (A-002). Five treasury script inputs (payment credential
+# 32201dc1...), one wallet pubkey input + collateral, three outputs
+# (treasury return + CAG payee + wallet change), two required signers,
+# four reference inputs, and one zero-lovelace withdrawal against the
+# permissions stake script.
+
+entities:
+  - name: amaru-treasury.network_compliance
+    from-address: addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
+  - name: amaru.cag-payee
+    from-address: addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl
+  - name: amaru.network-wallet
+    from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+blueprints:
+  - script: amaru-treasury.network_compliance
+    datum: ../blueprints/sundae-treasury.cip57.json
