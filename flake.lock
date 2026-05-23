@@ -334,11 +334,11 @@
     },
     "dev-assets": {
       "locked": {
-        "lastModified": 1779303444,
-        "narHash": "sha256-GmMNr+9q/lhD7xr+z5ivvBAUlyj5YKHvl5wGhm5KWjY=",
+        "lastModified": 1779545911,
+        "narHash": "sha256-jFLh0zc0b6EqkJBNZx322Kw5mxLkqZWuDxoTKcSJ0Go=",
         "owner": "paolino",
         "repo": "dev-assets",
-        "rev": "41a598ad94d6b4b6aad0162f673786e4fc57db9b",
+        "rev": "d5fb7fdf72af169c75f91c7c01aa86f75e7c8950",
         "type": "github"
       },
       "original": {
@@ -1353,11 +1353,11 @@
       },
       "locked": {
         "dir": "mkdocs",
-        "lastModified": 1779303444,
-        "narHash": "sha256-GmMNr+9q/lhD7xr+z5ivvBAUlyj5YKHvl5wGhm5KWjY=",
+        "lastModified": 1779545911,
+        "narHash": "sha256-jFLh0zc0b6EqkJBNZx322Kw5mxLkqZWuDxoTKcSJ0Go=",
         "owner": "paolino",
         "repo": "dev-assets",
-        "rev": "41a598ad94d6b4b6aad0162f673786e4fc57db9b",
+        "rev": "d5fb7fdf72af169c75f91c7c01aa86f75e7c8950",
         "type": "github"
       },
       "original": {
