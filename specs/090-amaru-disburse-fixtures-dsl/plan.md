@@ -75,6 +75,7 @@ specs/090-amaru-disburse-fixtures-dsl/
 
 ```text
 test/Cardano/Tx/Graph/EmitGoldenSpec.hs
+cardano-tx-tools.cabal
 test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/
 test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/
 test/fixtures/rewrite-redesign/Fixtures/RewriteRedesign/S15_AmaruDisburseNetworkCompliance.hs
@@ -99,6 +100,9 @@ Worker-owned implementation files:
 - `test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/{rules.yaml,expected.ttl,expected.entities.ttl,expected.txt,NOTES.md}`.
 - `test/fixtures/rewrite-redesign/blueprints/sundae-treasury.cip57.json`.
 - `test/Cardano/Tx/Graph/EmitGoldenSpec.hs`.
+- `cardano-tx-tools.cabal`, only for the
+  `test-suite unit-tests` `other-modules` entries that register the new
+  fixture builder modules, per A-003.
 - `CHANGELOG.md`.
 - `specs/090-amaru-disburse-fixtures-dsl/tasks.md` checkbox updates only,
   amended into the worker commits during acceptance.
