@@ -385,6 +385,16 @@ walkSchema blueprint ctorTitle schema =
             Set.unions (map (resolveAndWalk blueprint "_0") items)
         SchemaListOf item ->
             resolveAndWalk blueprint "_0" item
+        SchemaMap keySchema valueSchema ->
+            -- Map entries decode as OpenArray of {"key", "value"} pairs
+            -- (Blueprint.hs decodeBlueprintValue). The current typed-emit
+            -- walker emits an opaque bnode for the OpenArray itself, so
+            -- the map keys/values do not surface as blueprint-predicate
+            -- sites — but recurse anyway so a future walker extension
+            -- that materializes per-entry triples is caught by the same
+            -- emitted ⊆ declared invariant.
+            resolveAndWalk blueprint "_0" keySchema
+                <> resolveAndWalk blueprint "_0" valueSchema
         SchemaReference _ ->
             -- A bare reference at this point is only reachable when
             -- 'resolveBlueprintSchema' failed upstream; treat it as
