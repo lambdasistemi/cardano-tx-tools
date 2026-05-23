@@ -11,7 +11,7 @@ checkbox update rides with the slice commit via `git commit
 Single commit. Subject: `feat(scan): add Cardano.Tx.Diff.Scan with
 cardanoscanUrl mapper`. Trailer: `Tasks: T001, T002, T003, T004`.
 
-- [ ] **T001 — RED** Add
+- [X] **T001 — RED** Add
       `test/unit/Cardano/Tx/Diff/ScanSpec.hs` with failing per-
       variant golden URL strings for every `InspectLeaf`
       constructor on mainnet, plus one preprod golden, plus a
@@ -20,7 +20,7 @@ cardanoscanUrl mapper`. Trailer: `Tasks: T001, T002, T003, T004`.
       the new spec in `cardano-tx-tools.cabal` `other-modules`
       of `unit-tests`. Observe the spec module is missing /
       tests fail / build fails because the module doesn't exist.
-- [ ] **T002 — GREEN** Add `src/Cardano/Tx/Diff/Scan.hs`. Exposes
+- [X] **T002 — GREEN** Add `src/Cardano/Tx/Diff/Scan.hs`. Exposes
       `InspectLeaf` (`InspectTxHash TxHash`, `InspectTxIn TxHash
       Word64`, `InspectPaymentAddress Bech32`, `InspectStakeAddress
       Bech32`, `InspectPolicyId PolicyId`, `InspectAssetFingerprint
@@ -30,7 +30,7 @@ cardanoscanUrl mapper`. Trailer: `Tasks: T001, T002, T003, T004`.
       UnsupportedNetworkMagic Network`; `type Url = Text` (or
       newtype if cleaner); `cardanoscanUrl :: Network ->
       InspectLeaf -> Url`. Total over all constructors.
-- [ ] **T003 — GREEN** In the same module add
+- [X] **T003 — GREEN** In the same module add
       `classifyConwayLeaf :: ConwayDiffValue -> Maybe InspectLeaf`
       and `scanLinker :: Network -> ConwayDiffValue -> Maybe Url`
       (= `fmap (cardanoscanUrl n) . classifyConwayLeaf`). For the
@@ -39,7 +39,7 @@ cardanoscanUrl mapper`. Trailer: `Tasks: T001, T002, T003, T004`.
       `cryptonite` dep pulled by the ledger stack. For
       `InspectTxIn`, the URL points at `/transaction/<hash>` (no
       output-index highlighting — spec non-goal).
-- [ ] **T004 — GREEN** Expose `Cardano.Tx.Diff.Scan` from the
+- [X] **T004 — GREEN** Expose `Cardano.Tx.Diff.Scan` from the
       library stanza in `cardano-tx-tools.cabal`. Run
       `./gate.sh` and observe green (build + unit + smoke +
       cabal-fmt + fourmolu + hlint).

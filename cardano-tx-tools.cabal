@@ -62,6 +62,7 @@ library
     Cardano.Tx.Diff.Cli
     Cardano.Tx.Diff.Resolver
     Cardano.Tx.Diff.Resolver.Web2
+    Cardano.Tx.Diff.Scan
     Cardano.Tx.Evaluate
     Cardano.Tx.Graph.Emit
     Cardano.Tx.Graph.Emit.Blueprint
@@ -370,6 +371,7 @@ test-suite unit-tests
     Cardano.Tx.Diff.ConwaySpec
     Cardano.Tx.Diff.CoreSpec
     Cardano.Tx.Diff.ResolverSpec
+    Cardano.Tx.Diff.ScanSpec
     Cardano.Tx.Diff.Web2Spec
     Cardano.Tx.DiffSpec
     Cardano.Tx.Graph.Emit.BlockfrostSampleSmokeSpec

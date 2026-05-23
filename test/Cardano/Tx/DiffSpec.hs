@@ -7,6 +7,7 @@ import Cardano.Tx.Diff.CliSpec qualified as CliSpec
 import Cardano.Tx.Diff.ConwaySpec qualified as ConwaySpec
 import Cardano.Tx.Diff.CoreSpec qualified as CoreSpec
 import Cardano.Tx.Diff.ResolverSpec qualified as ResolverSpec
+import Cardano.Tx.Diff.ScanSpec qualified as ScanSpec
 import Cardano.Tx.Diff.Web2Spec qualified as Web2Spec
 
 spec :: Spec
@@ -17,4 +18,5 @@ spec =
         CoreSpec.spec
         ConwaySpec.spec
         ResolverSpec.spec
+        ScanSpec.spec
         Web2Spec.spec
