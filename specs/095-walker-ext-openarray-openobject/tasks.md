@@ -72,7 +72,7 @@ regeneration.
 
 ## Phase 3: Finalization
 
-- [ ] T200 Drop `gate.sh` in the final ready-for-review commit after
+- [X] T200 Drop `gate.sh` in the final ready-for-review commit after
   all behavior tasks are checked, final `./gate.sh` is green, and the
   commit-message audit passes.
 
