@@ -96,12 +96,12 @@ and --network flags with render-time leaf linker`. Trailer:
 Single commit. Subject: `docs(tx-inspect): document
 --links=cardanoscan and --network`. Trailer: `Tasks: T011, T012`.
 
-- [ ] **T011** Extend `docs/tx-inspect.md` with a "Cardanoscan
+- [X] **T011** Extend `docs/tx-inspect.md` with a "Cardanoscan
       links" section: the two flags, the mainnet default, the
       typed error on unsupported `--network` values, the
       rename-vs-link ground-truth rule, and the non-goal list
       (no terminal hyperlinks, no output-index highlighting).
-- [ ] **T012** Add a CHANGELOG entry under the next unreleased
+- [X] **T012** Add a CHANGELOG entry under the next unreleased
       section. Run `./gate.sh`.
 
 ## Slice S4 — Asciinema cast refresh

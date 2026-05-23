@@ -14,7 +14,10 @@ rules file.
 ```text
 Usage: tx-inspect [TX_FILE] [--in PATH] [--rules FILE]
                   [--n2c-socket-path PATH] [--web2-url URL]
-                  [--web2-api-key-file PATH] [--version]
+                  [--web2-api-key-file PATH]
+                  [--links cardanoscan
+                       [--network mainnet|preprod|preview]]
+                  [--version]
 ```
 
 ```asciinema-player
@@ -136,6 +139,81 @@ is the loader, `applyRewriteRules`, and the per-leaf renderer —
 not byte-identical CLI output, because `tx-diff` emits diff
 format and `tx-inspect` emits a single-side render. See
 [rewriting-rules grammar — Cross-tool semantics](rewriting-rules.md#cross-tool-semantics).
+
+## Cardanoscan links
+
+`--links cardanoscan` annotates every Cardanoscan-classifiable
+leaf in the rendered tree with its
+[Cardanoscan](https://cardanoscan.io) URL. The annotation lands
+as a trailing ` [https://...]` after the leaf value, so a
+transaction-input row reads
+
+```text
+{"txId":"abcdef...","index":7} [https://cardanoscan.io/transaction/abcdef...]
+```
+
+and a payment-address row reads
+
+```text
+addr1q... [https://cardanoscan.io/address/addr1q...]
+```
+
+The flag is **opt-in**; without it the rendered output is
+byte-identical to the pre-#88 behaviour, and existing goldens
+continue to pass unchanged.
+
+### Network
+
+`--network mainnet|preprod|preview` selects the host
+(`cardanoscan.io`, `preprod.cardanoscan.io`,
+`preview.cardanoscan.io`). The default is `mainnet` — the
+dominant treasury-work case. Unsupported values produce a
+parser error (exit code 2).
+
+`--network` is only consulted when `--links cardanoscan` is set;
+passing it without `--links` is accepted but has no effect.
+
+### Rename + link interaction
+
+When a leaf is also renamed by a `rename:` rule, the rename
+controls the displayed identifier and the link still resolves
+against the **original** on-chain leaf:
+
+```text
+amaru.swap-order [https://cardanoscan.io/address/addr1q...]
+```
+
+Renames are presentation; links are ground truth.
+
+### Linker scope (this slice)
+
+The S2 slice classifies the leaves that map directly to a single
+substrate atom:
+
+| Leaf                     | Cardanoscan path                  |
+|--------------------------|------------------------------------|
+| Body transaction input   | `/transaction/<producer-hash>`     |
+| `txInId` references      | `/transaction/<producer-hash>`     |
+| Output / witness address | `/address/<bech32>`                |
+
+Other leaf classes (stake addresses, policy ids, asset
+fingerprints) are exported by the library
+(`Cardano.Tx.Diff.Scan.cardanoscanUrl`) and the URL shape is
+pinned for every variant, but the **renderer's classifier** does
+not yet emit them — adding them is additive and ships in a
+follow-up.
+
+### Non-goals
+
+- **Terminal hyperlinks** (OSC 8). The bracketed-URL form works
+  in any text-aware renderer (logs, terminals without OSC 8,
+  GitHub diffs, `less`, …) and is the safer default.
+- **Output-index highlighting** on transaction-input URLs. The
+  link points at the producing transaction page; opening the
+  specific output via `#ix=…` is out of scope.
+- **Other explorers** (`cexplorer.io`, …). The library exposes
+  the extension point (`type LeafLinker`) but only the
+  Cardanoscan linker ships in this slice.
 
 ## `--version`, `--help`, no-update env var
 
