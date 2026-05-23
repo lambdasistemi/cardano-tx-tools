@@ -438,6 +438,41 @@ _:hash_datum_41c4fab25c47cc66 a cardano:Identifier ;
   cardano:leafType "DatumHash" ;
   cardano:bytesHex "41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947" .
 
+_:redeemerData1_amount :_0 _:redeemerData1_amount_0 ;
+  :_1 _:redeemerData1_amount_1 .
+
+_:redeemerData1_amount_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData1_amount_0 :key _:redeemerData1_amount_0_key ;
+  :value _:redeemerData1_amount_0_value .
+
+_:redeemerData1_amount_0_value :_0 _:redeemerData1_amount_0_value_0 .
+
+_:redeemerData1_amount_0_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData1_amount_0_value_0 :key _:redeemerData1_amount_0_value_0_key ;
+  :value 1189560 .
+
+_:redeemerData1_amount_1_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad" .
+
+_:redeemerData1_amount_1 :key _:redeemerData1_amount_1_key ;
+  :value _:redeemerData1_amount_1_value .
+
+_:redeemerData1_amount_1_value :_0 _:redeemerData1_amount_1_value_0 .
+
+_:redeemerData1_amount_1_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "0014df105553444d" .
+
+_:redeemerData1_amount_1_value_0 :key _:redeemerData1_amount_1_value_0_key ;
+  :value 400000000000 .
+
 _:exUnits1 a cardano:ExUnits ;
   cardano:memoryUnits 0 ;
   cardano:cpuUnits 0 .
@@ -451,6 +486,41 @@ _:redeemer2 a cardano:Redeemer ;
 _:redeemerData2 a cardano:Datum ;
   cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
   :TreasurySpendRedeemer_amount _:redeemerData2_amount .
+
+_:redeemerData2_amount :_0 _:redeemerData2_amount_0 ;
+  :_1 _:redeemerData2_amount_1 .
+
+_:redeemerData2_amount_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData2_amount_0 :key _:redeemerData2_amount_0_key ;
+  :value _:redeemerData2_amount_0_value .
+
+_:redeemerData2_amount_0_value :_0 _:redeemerData2_amount_0_value_0 .
+
+_:redeemerData2_amount_0_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData2_amount_0_value_0 :key _:redeemerData2_amount_0_value_0_key ;
+  :value 1189560 .
+
+_:redeemerData2_amount_1_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad" .
+
+_:redeemerData2_amount_1 :key _:redeemerData2_amount_1_key ;
+  :value _:redeemerData2_amount_1_value .
+
+_:redeemerData2_amount_1_value :_0 _:redeemerData2_amount_1_value_0 .
+
+_:redeemerData2_amount_1_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "0014df105553444d" .
+
+_:redeemerData2_amount_1_value_0 :key _:redeemerData2_amount_1_value_0_key ;
+  :value 400000000000 .
 
 _:exUnits2 a cardano:ExUnits ;
   cardano:memoryUnits 0 ;
@@ -466,6 +536,41 @@ _:redeemerData3 a cardano:Datum ;
   cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
   :TreasurySpendRedeemer_amount _:redeemerData3_amount .
 
+_:redeemerData3_amount :_0 _:redeemerData3_amount_0 ;
+  :_1 _:redeemerData3_amount_1 .
+
+_:redeemerData3_amount_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData3_amount_0 :key _:redeemerData3_amount_0_key ;
+  :value _:redeemerData3_amount_0_value .
+
+_:redeemerData3_amount_0_value :_0 _:redeemerData3_amount_0_value_0 .
+
+_:redeemerData3_amount_0_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData3_amount_0_value_0 :key _:redeemerData3_amount_0_value_0_key ;
+  :value 1189560 .
+
+_:redeemerData3_amount_1_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad" .
+
+_:redeemerData3_amount_1 :key _:redeemerData3_amount_1_key ;
+  :value _:redeemerData3_amount_1_value .
+
+_:redeemerData3_amount_1_value :_0 _:redeemerData3_amount_1_value_0 .
+
+_:redeemerData3_amount_1_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "0014df105553444d" .
+
+_:redeemerData3_amount_1_value_0 :key _:redeemerData3_amount_1_value_0_key ;
+  :value 400000000000 .
+
 _:exUnits3 a cardano:ExUnits ;
   cardano:memoryUnits 0 ;
   cardano:cpuUnits 0 .
@@ -480,6 +585,41 @@ _:redeemerData4 a cardano:Datum ;
   cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
   :TreasurySpendRedeemer_amount _:redeemerData4_amount .
 
+_:redeemerData4_amount :_0 _:redeemerData4_amount_0 ;
+  :_1 _:redeemerData4_amount_1 .
+
+_:redeemerData4_amount_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData4_amount_0 :key _:redeemerData4_amount_0_key ;
+  :value _:redeemerData4_amount_0_value .
+
+_:redeemerData4_amount_0_value :_0 _:redeemerData4_amount_0_value_0 .
+
+_:redeemerData4_amount_0_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData4_amount_0_value_0 :key _:redeemerData4_amount_0_value_0_key ;
+  :value 1189560 .
+
+_:redeemerData4_amount_1_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad" .
+
+_:redeemerData4_amount_1 :key _:redeemerData4_amount_1_key ;
+  :value _:redeemerData4_amount_1_value .
+
+_:redeemerData4_amount_1_value :_0 _:redeemerData4_amount_1_value_0 .
+
+_:redeemerData4_amount_1_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "0014df105553444d" .
+
+_:redeemerData4_amount_1_value_0 :key _:redeemerData4_amount_1_value_0_key ;
+  :value 400000000000 .
+
 _:exUnits4 a cardano:ExUnits ;
   cardano:memoryUnits 0 ;
   cardano:cpuUnits 0 .
@@ -493,6 +633,41 @@ _:redeemer5 a cardano:Redeemer ;
 _:redeemerData5 a cardano:Datum ;
   cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
   :TreasurySpendRedeemer_amount _:redeemerData5_amount .
+
+_:redeemerData5_amount :_0 _:redeemerData5_amount_0 ;
+  :_1 _:redeemerData5_amount_1 .
+
+_:redeemerData5_amount_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData5_amount_0 :key _:redeemerData5_amount_0_key ;
+  :value _:redeemerData5_amount_0_value .
+
+_:redeemerData5_amount_0_value :_0 _:redeemerData5_amount_0_value_0 .
+
+_:redeemerData5_amount_0_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData5_amount_0_value_0 :key _:redeemerData5_amount_0_value_0_key ;
+  :value 1189560 .
+
+_:redeemerData5_amount_1_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad" .
+
+_:redeemerData5_amount_1 :key _:redeemerData5_amount_1_key ;
+  :value _:redeemerData5_amount_1_value .
+
+_:redeemerData5_amount_1_value :_0 _:redeemerData5_amount_1_value_0 .
+
+_:redeemerData5_amount_1_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "0014df105553444d" .
+
+_:redeemerData5_amount_1_value_0 :key _:redeemerData5_amount_1_value_0_key ;
+  :value 400000000000 .
 
 _:exUnits5 a cardano:ExUnits ;
   cardano:memoryUnits 0 ;

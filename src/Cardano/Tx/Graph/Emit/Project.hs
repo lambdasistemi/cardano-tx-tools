@@ -1775,8 +1775,14 @@ emitting any sub-triples (e.g. an @Identifier@-typed bnode for a
   'emitDecodedConstructor' with the @"_0"@ constructor-title
   fallback (T103 / A-001 walker extension; the inner constructor's
   title is not preserved through 'decodeBlueprintData').
-* 'OpenArray' — mint an opaque-marker bnode (#50 defers recursive
-  list emission until a fixture exercises it).
+* 'OpenArray' of @'OpenObject' { "key", "value" }@ entries — mint a
+  positional entry bnode per element under @':_\<i\>'@ and emit
+  @':key'@ + @':value'@ on each entry, recursing through
+  'openValueAsObject' on the key and value sub-values (#95 / T101).
+  An empty array and any array whose elements are not exactly the
+  two-field map-entry shape fall through to the opaque-marker bnode.
+* 'OpenArray' (non-map-entry) — mint an opaque-marker bnode (#50
+  defers recursive list emission until a fixture exercises it).
 -}
 openValueAsObject :: Text -> OpenValue -> Emit Object
 openValueAsObject _ (OpenInteger n) = pure (OIntLit n)
@@ -1803,7 +1809,63 @@ openValueAsObject base inner@(OpenObject _) = do
         s = SBnode bn
     emitDecodedConstructor s base "_0" inner
     pure (OBnode bn)
-openValueAsObject base (OpenArray _) = pure (OBnode (BnodeName base))
+openValueAsObject base (OpenArray elements) =
+    case mapEntryPairs elements of
+        Just pairs -> do
+            let arrayBn = BnodeName base
+                arraySubj = SBnode arrayBn
+            mapM_
+                (uncurry (emitMapEntry arraySubj base))
+                (zip [0 :: Int ..] pairs)
+            pure (OBnode arrayBn)
+        Nothing -> pure (OBnode (BnodeName base))
+
+{- | Emit one SchemaMap-decoded entry under the array bnode (#95 /
+T102-T103). The entry is anchored at the positional bnode
+@_:\<arrayBase\>_\<i\>@; the array bnode receives a @':_\<i\>'@ edge
+to the entry, and the entry receives @':key'@ + @':value'@ edges
+whose objects are rendered through 'openValueAsObject' with bases
+@\<entryBase\>_key@ and @\<entryBase\>_value@.
+-}
+emitMapEntry ::
+    Subject ->
+    Text ->
+    Int ->
+    (OpenValue, OpenValue) ->
+    Emit ()
+emitMapEntry arraySubj arrayBase idx (kVal, vVal) = do
+    let suffix = "_" <> Text.pack (show idx)
+        entryBase = arrayBase <> suffix
+        entryBn = BnodeName entryBase
+        entrySubj = SBnode entryBn
+        posPred = PIri (":" <> suffix)
+    tellTriple (Triple arraySubj posPred (OBnode entryBn))
+    keyObj <- openValueAsObject (entryBase <> "_key") kVal
+    tellTriple (Triple entrySubj (PIri ":key") keyObj)
+    valObj <- openValueAsObject (entryBase <> "_value") vVal
+    tellTriple (Triple entrySubj (PIri ":value") valObj)
+
+{- | Recognise the SchemaMap-decoded shape @OpenArray [OpenObject
+{ "key", "value" }, ...]@ (#95 / T101). Returns the per-entry
+@(key, value)@ pairs in array order on a match, or 'Nothing' for
+empty arrays and any array whose elements do not all carry exactly
+the two map-entry fields.
+
+Empty arrays fall through deliberately: the spec FR-009 / edge-case
+"Empty map arrays remain a referenced bnode with no entry links"
+matches the existing opaque fall-through, so the walker keeps the
+single-bnode output without minting positional edges.
+-}
+mapEntryPairs :: [OpenValue] -> Maybe [(OpenValue, OpenValue)]
+mapEntryPairs [] = Nothing
+mapEntryPairs values = traverse asMapEntry values
+  where
+    asMapEntry (OpenObject fields)
+        | Map.size fields == 2
+        , Just kVal <- Map.lookup "key" fields
+        , Just vVal <- Map.lookup "value" fields =
+            Just (kVal, vVal)
+    asMapEntry _ = Nothing
 
 {- | Emit a single @cardano:decodeError "\<show err\>"@ literal on
 the given subject (FR-005 / D-001d). The CURIE is hand-written

@@ -33,39 +33,39 @@ stable.
 then `./gate.sh` passes after the walker extension and golden
 regeneration.
 
-- [ ] T100 [US1] Record RED evidence in `WIP.md` before GREEN: add a
+- [X] T100 [US1] Record RED evidence in `WIP.md` before GREEN: add a
   focused emit-side invariant for an `OpenArray [OpenObject {"key",
   "value"}]` value that currently lacks `:_0`, `:key`, and `:value`
   triples.
-- [ ] T101 [US1] Implement structural recognition for map-entry arrays
+- [X] T101 [US1] Implement structural recognition for map-entry arrays
   in `src/Cardano/Tx/Graph/Emit/Project.hs` and/or
   `src/Cardano/Tx/Graph/Emit/Witness.hs`.
-- [ ] T102 [US1] Emit positional array-to-entry triples with `:_<i>`
+- [X] T102 [US1] Emit positional array-to-entry triples with `:_<i>`
   predicates using zero-based decoded array order.
-- [ ] T103 [US1] Emit `:key` and `:value` triples on each entry bnode,
+- [X] T103 [US1] Emit `:key` and `:value` triples on each entry bnode,
   rendering key and value objects through the existing OpenValue object
   path.
-- [ ] T104 [US1] Preserve opaque behavior for all non-matching
+- [X] T104 [US1] Preserve opaque behavior for all non-matching
   `OpenArray` values and for `OpenObject` values with extra or missing
   fields.
-- [ ] T105 [US1] Keep `OpenValue` stable; do not add an `OpenMap`
+- [X] T105 [US1] Keep `OpenValue` stable; do not add an `OpenMap`
   constructor or downstream consumer changes.
-- [ ] T106 [US2] Regenerate
+- [X] T106 [US2] Regenerate
   `test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/expected.ttl`
   only after the walker case is green.
-- [ ] T107 [US2] Regenerate
+- [X] T107 [US2] Regenerate
   `test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/expected.ttl`
   only after the walker case is green.
-- [ ] T108 [US3] Verify fixture `expected.ttl` files outside 15 and 17
+- [X] T108 [US3] Verify fixture `expected.ttl` files outside 15 and 17
   are byte-stable and record the check in `WIP.md`.
-- [ ] T109 [US3] Extend
+- [X] T109 [US3] Extend
   `test/Cardano/Tx/Graph/Emit/BlueprintPredicateTraceabilitySpec.hs` if
   `:key` / `:value` need deliberate traceability handling.
-- [ ] T110 [US1] Add one Unreleased / Features bullet in
+- [X] T110 [US1] Add one Unreleased / Features bullet in
   `CHANGELOG.md` for #95.
-- [ ] T111 [US1] Run focused commands and then `./gate.sh`, recording
+- [X] T111 [US1] Run focused commands and then `./gate.sh`, recording
   command outcomes in `WIP.md`.
-- [ ] T112 [US1] Commit the approved slice with subject
+- [X] T112 [US1] Commit the approved slice with subject
   `feat(095): typed-emit walker per-entry triples for OpenArray-of-OpenObject`
   and trailer `Tasks: T100, T101, T102, T103, T104, T105, T106, T107,
   T108, T109, T110, T111, T112`.

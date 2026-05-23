@@ -276,6 +276,24 @@ _:hash_datum_0f51726b15beaa5a a cardano:Identifier ;
   cardano:leafType "DatumHash" ;
   cardano:bytesHex "0f51726b15beaa5a0b6dfe7c9eb67f31e25b2ef8d510ea387fb88f4899feb010" .
 
+_:redeemerData1_amount :_0 _:redeemerData1_amount_0 .
+
+_:redeemerData1_amount_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData1_amount_0 :key _:redeemerData1_amount_0_key ;
+  :value _:redeemerData1_amount_0_value .
+
+_:redeemerData1_amount_0_value :_0 _:redeemerData1_amount_0_value_0 .
+
+_:redeemerData1_amount_0_value_0_key a cardano:Identifier ;
+  cardano:leafType "Bytes" ;
+  cardano:bytesHex "" .
+
+_:redeemerData1_amount_0_value_0 :key _:redeemerData1_amount_0_value_0_key ;
+  :value 205000000000 .
+
 _:exUnits1 a cardano:ExUnits ;
   cardano:memoryUnits 0 ;
   cardano:cpuUnits 0 .
