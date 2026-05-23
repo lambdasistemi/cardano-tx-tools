@@ -17,6 +17,9 @@ Review checklist:
 
 - Confirm fixtures `15-amaru-disburse-network-compliance` and
   `17-amaru-disburse-contingency` are enumerated by the golden suite.
+- Confirm fixture 15 provenance points at
+  `/code/amaru-treasury-tx-issue-237/transactions/2026/network_compliance/affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982/`
+  and records the 5-treasury-input / 3-output source shape.
 - Confirm each fixture has `rules.yaml`, `expected.ttl`,
   `expected.entities.ttl`, `expected.txt`, and `NOTES.md`.
 - Confirm builder modules exist for S15 and S17 and use DSL

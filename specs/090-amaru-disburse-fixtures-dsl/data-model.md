@@ -26,13 +26,16 @@ Validation rules:
 
 Fields:
 
-- treasury inputs: 6 spends at script
+- source directory:
+  `/code/amaru-treasury-tx-issue-237/transactions/2026/network_compliance/affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982/`
+- treasury inputs: 5 spends at script
   `32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d`
 - wallet inputs: 1 spend
-- outputs: treasury return, payee, and 2 change outputs
+- outputs: treasury return, payee, and 1 change output
 - required signers: 2
 - spend redeemers: 5 `TreasurySpendRedeemer` values
 - reference inputs: 4
+- collateral: 1 collateral input
 - withdrawals: one zero-lovelace withdrawal against the stake script
 
 Validation rules:

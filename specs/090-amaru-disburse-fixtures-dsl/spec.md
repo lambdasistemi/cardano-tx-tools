@@ -16,10 +16,10 @@ production-shaped network-compliance disburse transaction to exercise the
 SchemaMap-decoded treasury spend redeemer path, so future emitter or
 blueprint changes cannot silently lose the current output shape.
 
-**Why this priority**: This is the first requested fixture and mirrors a
-live `antithesis-disburse-draft` transaction with multiple treasury spend
-inputs, required signers, reference inputs, and a zero-lovelace
-withdrawal.
+**Why this priority**: This is the first requested fixture and mirrors the
+available `affe90d1...` network-compliance disburse transaction with
+multiple treasury spend inputs, required signers, reference inputs, and a
+zero-lovelace withdrawal.
 
 **Independent Test**: Run the rewrite-redesign golden suite with fixture
 `15-amaru-disburse-network-compliance` enumerated and verify its
@@ -151,10 +151,11 @@ names the source transaction hash, source path, and blueprint source.
   `test/fixtures/rewrite-redesign/blueprints/sundae-treasury.cip57.json`,
   sourced from `/code/amaru-treasury/treasury-contracts/plutus.json` or a
   documented single-validator extraction.
-- **FR-007**: Fixture 15 MUST mirror the source transaction shape:
-  6 treasury script inputs plus 1 wallet input, 4 outputs, 2 required
-  signers, 5 spend redeemers, 4 reference inputs, and one zero-lovelace
-  withdrawal against the stake script.
+- **FR-007**: Fixture 15 MUST mirror the source transaction shape from
+  `/code/amaru-treasury-tx-issue-237/transactions/2026/network_compliance/affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982/`:
+  5 treasury script inputs plus 1 wallet input, 3 outputs, 2 required
+  signers, 5 spend redeemers, 4 reference inputs, 1 collateral input, and
+  one zero-lovelace withdrawal against the stake script.
 - **FR-008**: Fixture 17 MUST mirror the source contingency disburse shape
   from the specified on-chain run directory and remain self-contained.
 - **FR-009**: New fixture outputs MUST pin the current SchemaMap typed
@@ -223,8 +224,9 @@ names the source transaction hash, source path, and blueprint source.
 
 - PR #87 / child #80 is merged into `origin/main` at `b2ecf6a`, so
   SchemaMap support is available before this branch starts.
-- The network-compliance source transaction lives at
-  `/code/amaru-treasury-tx-issue-237/transactions/2026/network_compliance/antithesis-disburse-draft/tx.cbor.hex`.
+- The network-compliance source transaction lives under
+  `/code/amaru-treasury-tx-issue-237/transactions/2026/network_compliance/affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982/`;
+  A-002 supersedes the removed `antithesis-disburse-draft` path.
 - The contingency source transaction lives under
   `/code/amaru-treasury-tx/transactions/2026/contingency/18d57a4f104df4cc776104ce626958e2110122392e4c4c7671edc8861b48452e/`.
 - The implementation workers may inspect source transaction artifacts and

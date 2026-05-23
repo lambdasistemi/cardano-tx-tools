@@ -5,6 +5,7 @@
 | ID | Category | Severity | Location(s) | Summary | Recommendation |
 |----|----------|----------|-------------|---------|----------------|
 | C1 | Coverage | LOW | plan.md Vertical Slices, tasks.md T400 | The handoff asks for the final behavior subject `feat(090): amaru-disburse fixtures (network_compliance + contingency)`, while the plan splits fixture implementation into two worker commits for reviewability. | Coordinate with the epic owner before final history shaping. The task plan records per-slice subjects and the required final subject so this remains explicit. |
+| C2 | Consistency | RESOLVED | spec.md FR-007, data-model.md Network-Compliance Shape, tasks.md T201/T206 | A-002 superseded the removed `antithesis-disburse-draft` path and authorizes the available `affe90d1...` source shape. | Spec/plan/tasks now name the canonical `affe90d1...` source and observed 5-treasury-input / 3-output shape. |
 
 ## Coverage Summary
 
