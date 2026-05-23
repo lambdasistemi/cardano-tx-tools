@@ -55,7 +55,10 @@ stability, and project-wide quality gates.
   from `/code/amaru-treasury/treasury-contracts/plutus.json` or a
   documented single-validator extraction
 - [X] T204 [US1] Enumerate fixture 15 in
-  `test/Cardano/Tx/Graph/EmitGoldenSpec.hs`
+  `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` and register
+  `Fixtures.RewriteRedesign.S15_AmaruDisburseNetworkCompliance` in the
+  `test-suite unit-tests` `other-modules` stanza of
+  `cardano-tx-tools.cabal` per A-003
 - [X] T205 [US1] Generate fixture 15 `expected.ttl`,
   `expected.entities.ttl`, and `expected.txt` under
   `test/fixtures/rewrite-redesign/15-amaru-disburse-network-compliance/`
@@ -89,7 +92,10 @@ stability, and project-wide quality gates.
   `test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/rules.yaml`
   registering the Sundae treasury blueprint for the treasury script
 - [ ] T303 [US2] Enumerate fixture 17 in
-  `test/Cardano/Tx/Graph/EmitGoldenSpec.hs`
+  `test/Cardano/Tx/Graph/EmitGoldenSpec.hs` and register
+  `Fixtures.RewriteRedesign.S17_AmaruDisburseContingency` in the
+  `test-suite unit-tests` `other-modules` stanza of
+  `cardano-tx-tools.cabal` per A-003
 - [ ] T304 [US2] Generate fixture 17 `expected.ttl`,
   `expected.entities.ttl`, and `expected.txt` under
   `test/fixtures/rewrite-redesign/17-amaru-disburse-contingency/` from
