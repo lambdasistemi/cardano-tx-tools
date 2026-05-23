@@ -161,6 +161,51 @@ spec =
                                 }
                             )
 
+        it "parses CIP-57 \"dataType\": \"map\" definitions into SchemaMap" $
+            -- Closes the SundaeSwap treasury-contracts gap surfaced
+            -- 2026-05-22 on a real Conway disburse tx: definitions with
+            -- @"dataType": "map"@ (e.g. @Pairs<PolicyId,Pairs<AssetName,
+            -- Int>>@) previously failed to parse and were silently
+            -- dropped, turning every downstream @$ref@ to them into a
+            -- @BlueprintDefinitionMissing@ that blocked typed-emit.
+            case parseBlueprintJSON pairsMapBlueprintJson of
+                Left err ->
+                    expectationFailure err
+                Right blueprint ->
+                    Map.lookup
+                        "Pairs<PolicyId,Pairs<AssetName,Int>>"
+                        (blueprintDefinitions blueprint)
+                        `shouldBe` Just
+                            BlueprintSchema
+                                { schemaTitle =
+                                    Just "Pairs<PolicyId, Pairs<AssetName, Int>>"
+                                , schemaKind =
+                                    SchemaMap
+                                        BlueprintSchema
+                                            { schemaTitle = Nothing
+                                            , schemaKind = SchemaReference "PolicyId"
+                                            }
+                                        BlueprintSchema
+                                            { schemaTitle = Nothing
+                                            , schemaKind =
+                                                SchemaReference
+                                                    "Pairs<AssetName,Int>"
+                                            }
+                                }
+
+        it "surfaces blueprint definition parse failures instead of silently dropping" $ do
+            -- Previously parseBlueprintDefinitions silently dropped any
+            -- definition whose schema failed to parse, leaving every
+            -- \$ref to it dangling as BlueprintDefinitionMissing at
+            -- typed-emit time. Convert to a parse-time failure surfaced
+            -- through the loader's BlueprintParseError path.
+            case parseBlueprintJSON unknownDataTypeBlueprintJson of
+                Left _ -> pure ()
+                Right _ ->
+                    expectationFailure
+                        "expected parse failure on unknown dataType, but the \
+                        \definition was silently dropped"
+
         it "selects the only matching blueprint argument that decodes the datum" $ do
             let wrongDatum =
                     BlueprintArgument
@@ -374,6 +419,50 @@ blueprintJson =
     \        {\"title\": \"owner\", \"dataType\": \"bytes\"}\
     \      ]\
     \    }\
+    \  }\
+    \}"
+
+{- | SundaeSwap-style blueprint snippet: a @Pairs<PolicyId,
+Pairs<AssetName,Int>>@ definition whose @"dataType": "map"@ must
+parse into a 'SchemaMap'. JSON-Pointer @~1@ escapes round-trip
+per RFC 6901 through 'jsonPointerToken'.
+-}
+pairsMapBlueprintJson :: LBS8.ByteString
+pairsMapBlueprintJson =
+    "{\
+    \  \"preamble\": {\"title\": \"Pairs map\", \"plutusVersion\": \"v3\"},\
+    \  \"validators\": [],\
+    \  \"definitions\": {\
+    \    \"PolicyId\": {\"dataType\": \"bytes\"},\
+    \    \"AssetName\": {\"dataType\": \"bytes\"},\
+    \    \"Int\": {\"dataType\": \"integer\"},\
+    \    \"Pairs<AssetName,Int>\": {\
+    \      \"title\": \"Pairs<AssetName, Int>\",\
+    \      \"dataType\": \"map\",\
+    \      \"keys\": {\"$ref\": \"#/definitions/AssetName\"},\
+    \      \"values\": {\"$ref\": \"#/definitions/Int\"}\
+    \    },\
+    \    \"Pairs<PolicyId,Pairs<AssetName,Int>>\": {\
+    \      \"title\": \"Pairs<PolicyId, Pairs<AssetName, Int>>\",\
+    \      \"dataType\": \"map\",\
+    \      \"keys\": {\"$ref\": \"#/definitions/PolicyId\"},\
+    \      \"values\": {\"$ref\": \"#/definitions/Pairs<AssetName,Int>\"}\
+    \    }\
+    \  }\
+    \}"
+
+{- | A blueprint containing a definition with an unsupported
+@dataType@. Used to verify that 'parseBlueprintDefinitions'
+surfaces the parse failure rather than silently dropping the
+definition.
+-}
+unknownDataTypeBlueprintJson :: LBS8.ByteString
+unknownDataTypeBlueprintJson =
+    "{\
+    \  \"preamble\": {\"title\": \"Bad\", \"plutusVersion\": \"v3\"},\
+    \  \"validators\": [],\
+    \  \"definitions\": {\
+    \    \"Mystery\": {\"dataType\": \"this-is-not-a-real-data-type\"}\
     \  }\
     \}"
 

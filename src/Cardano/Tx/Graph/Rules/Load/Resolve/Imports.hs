@@ -413,6 +413,8 @@ blueprintPredicates bp =
         SchemaAnyOf alts -> concatMap (walkSchema seen) alts
         SchemaList fields -> concatMap (walkSchema seen) fields
         SchemaListOf item -> walkSchema seen item
+        SchemaMap keySchema valueSchema ->
+            walkSchema seen keySchema <> walkSchema seen valueSchema
         SchemaInteger -> []
         SchemaBytes -> []
         SchemaData -> []

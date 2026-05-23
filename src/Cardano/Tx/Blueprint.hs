@@ -150,6 +150,11 @@ data BlueprintSchemaKind
     | SchemaAnyOf [BlueprintSchema]
     | SchemaList [BlueprintSchema]
     | SchemaListOf BlueprintSchema
+    | -- | CIP-57 @"dataType": "map"@ — a Plutus 'PLC.Map' payload whose keys
+      -- match the first sub-schema and values the second. Decodes as
+      -- @OpenArray [OpenObject {"key" -> k, "value" -> v}, ...]@ so the
+      -- typed-emit walker treats each entry as a named-field record.
+      SchemaMap BlueprintSchema BlueprintSchema
     | SchemaData
     | SchemaReference Text
     deriving stock (Eq, Show)
@@ -344,6 +349,13 @@ decodeBlueprintValue schema value =
                     OpenArray <$> traverse (decodeBlueprintValue item) values
                 _ ->
                     Left (BlueprintDataTypeMismatch "list")
+        SchemaMap keySchema valueSchema ->
+            case value of
+                PLC.Map entries ->
+                    OpenArray
+                        <$> traverse (decodeMapEntry keySchema valueSchema) entries
+                _ ->
+                    Left (BlueprintDataTypeMismatch "map")
         SchemaData ->
             Right (plutusDataOpenValue value)
         SchemaReference reference ->
@@ -352,6 +364,15 @@ decodeBlueprintValue schema value =
     decodeField (index, (fieldSchema, fieldValue)) = do
         decodedValue <- decodeBlueprintValue fieldSchema fieldValue
         pure (fieldName index fieldSchema, decodedValue)
+    decodeMapEntry kSchema vSchema (k, v) = do
+        decodedKey <- decodeBlueprintValue kSchema k
+        decodedValue <- decodeBlueprintValue vSchema v
+        pure $
+            OpenObject $
+                Map.fromList
+                    [ ("key", decodedKey)
+                    , ("value", decodedValue)
+                    ]
 
 decodeAnyOf ::
     [BlueprintSchema] -> PLC.Data -> Either BlueprintDataError OpenValue
@@ -512,6 +533,12 @@ resolveBlueprintSchema blueprint =
                 BlueprintSchema (schemaTitle schema)
                     . SchemaListOf
                     <$> go seen item
+            SchemaMap keySchema valueSchema ->
+                BlueprintSchema (schemaTitle schema)
+                    <$> ( SchemaMap
+                            <$> go seen keySchema
+                            <*> go seen valueSchema
+                        )
             SchemaInteger ->
                 Right schema
             SchemaBytes ->
@@ -530,12 +557,25 @@ instance FromJSON Blueprint where
 parseBlueprintDefinitions :: Object -> Parser (Map Text BlueprintSchema)
 parseBlueprintDefinitions value = do
     definitions <- value .:? "definitions" .!= KeyMap.empty
-    pure $
-        Map.fromList
-            [ (Key.toText key, schema)
-            | (key, definitionValue) <- KeyMap.toList definitions
-            , Right schema <- [parseEither parseJSON definitionValue]
-            ]
+    -- Surface parse failures instead of silently dropping the definition.
+    -- A dropped definition turns into a downstream
+    -- `BlueprintDefinitionMissing` when any `$ref` follows it, which is
+    -- invisible to the operator until typed-emit runs against the blueprint
+    -- on a real datum / redeemer. Failing at parse time means the
+    -- rules-loader surfaces a `BlueprintParseError` immediately.
+    Map.fromList <$> traverse parseEntry (KeyMap.toList definitions)
+  where
+    parseEntry (key, definitionValue) =
+        case parseEither parseJSON definitionValue of
+            Right schema ->
+                pure (Key.toText key, schema)
+            Left err ->
+                fail
+                    ( "blueprint definition "
+                        <> Text.unpack (Key.toText key)
+                        <> ": "
+                        <> err
+                    )
 
 instance FromJSON BlueprintPreamble where
     parseJSON =
@@ -618,6 +658,10 @@ schemaKindBody value = do
                         <*> value .:? "fields" .!= []
                 Just "list" ->
                     listSchemaKind value
+                Just "map" ->
+                    SchemaMap
+                        <$> value .: "keys"
+                        <*> value .: "values"
                 Just unknown ->
                     fail
                         ( "unsupported Plutus blueprint dataType: "
