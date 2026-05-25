@@ -72,12 +72,10 @@ spec = describe "Cardano.Tx.Graph.Emit.Lookup (T004)" $ do
         resolveCredential table PaymentKey aliceBytes
             `shouldBe` BnodeName "alice_paymentKey"
 
-    it "raw-bytes-named: unknown bytes project to cred_<role>_<16hex>" $ do
+    it "raw-bytes-named: unknown bytes project to cred_<role>_<full-hex>" $ do
         let bytes = unsafeHex unknownHex
-            expectedSuffix =
-                Text.take rawBytesPrefixLength (Text.pack unknownHex)
         rawBytesBnodeName PaymentKey bytes
-            `shouldBe` BnodeName ("cred_paymentkey_" <> expectedSuffix)
+            `shouldBe` BnodeName ("cred_paymentkey_" <> Text.pack unknownHex)
 
     it "shared-identity: first entity wins; both lookups agree" $ do
         let sharedHex =

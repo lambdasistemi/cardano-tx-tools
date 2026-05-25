@@ -50,10 +50,10 @@ _:tx a cardano:Transaction ;
   cardano:hasOutput _:output1 ;
   cardano:hasMint _:mint1 ;
   cardano:hasFee 0 ;
-  cardano:scriptDataHash _:hash_scriptdata_61a9c0106f3d796e ;
+  cardano:scriptDataHash _:hash_scriptdata_61a9c0106f3d796ea63f3be5f9d40bf5d47ad48f14a6ddb8f8e46a983462c8cf ;
   cardano:hasRedeemer _:redeemer1 .
 
-_:hash_scriptdata_61a9c0106f3d796e a cardano:Identifier ;
+_:hash_scriptdata_61a9c0106f3d796ea63f3be5f9d40bf5d47ad48f14a6ddb8f8e46a983462c8cf a cardano:Identifier ;
   cardano:leafType "ScriptDataHash" ;
   cardano:bytesHex "61a9c0106f3d796ea63f3be5f9d40bf5d47ad48f14a6ddb8f8e46a983462c8cf" .
 
@@ -65,10 +65,10 @@ _:input1 a cardano:Input ;
   cardano:fromTxOutRef _:inputTxOutRef1 .
 
 _:inputTxOutRef1 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000001" .
 
@@ -92,7 +92,7 @@ _:assetEntry_output1_1 a cardano:Asset ;
 # Mint 1
 #
 
-_:cred_assetclass_0000000000000000 a cardano:Identifier ;
+_:cred_assetclass_000000000000000000000000000000000000000000000000000000015553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "000000000000000000000000000000000000000000000000000000015553444d" .
 
@@ -101,7 +101,7 @@ _:mint1 a cardano:Mint ;
   cardano:quantity 1000 .
 
 _:asset1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_0000000000000000 .
+  cardano:hasIdentifier _:cred_assetclass_000000000000000000000000000000000000000000000000000000015553444d .
 
 #
 # Address decompositions — payment + stake credential per leaf.
@@ -111,12 +111,12 @@ _:cred_paymentkey_0000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
   cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
 
-_:cred_paymentkey_0000000000000000 a cardano:Identifier ;
+_:cred_paymentkey_00000000000000000000000000000000000000000000000000000000 a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
   cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
 _:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:cred_paymentkey_0000000000000000 .
+  cardano:hasIdentifier _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000 .
 
 #
 # Witness set.
@@ -129,10 +129,10 @@ _:redeemer1 a cardano:Redeemer ;
   cardano:hasExUnits _:exUnits1 .
 
 _:redeemerData1 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_923918e403bf43c3 ;
+  cardano:hasHash _:hash_datum_923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec ;
   cardano:hasRawBytes "d87980" .
 
-_:hash_datum_923918e403bf43c3 a cardano:Identifier ;
+_:hash_datum_923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec a cardano:Identifier ;
   cardano:leafType "DatumHash" ;
   cardano:bytesHex "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec" .
 
