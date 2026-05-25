@@ -40,6 +40,14 @@ executables plus the Haskell library that backs them.
   daemon that drives a configurable mix of Conway transactions
   against a node for soak / fuzz testing.
 
+Plus one shell-script tool, shipped under `scripts/`:
+
+- [**tx-lattice**](tx-lattice.md) — thin Bash wrapper around
+  `tx-graph` that resolves a batch of mainnet / testnet transactions
+  (plus their direct inputs) via Blockfrost into one canonical
+  Turtle file per tx, ready for cross-tx SPARQL queries. Stop-gap
+  prototype for a future Haskell executable.
+
 The [rewriting-rules grammar](rewriting-rules.md) document pins
 the shared YAML language consumed by both `tx-inspect --rules`
 and `tx-diff --collapse-rules`, and is the same rules format

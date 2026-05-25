@@ -64,4 +64,5 @@ nav:
   - tx-validate: tx-validate.md
   - tx-graph: tx-graph.md
   - tx-view: tx-view.md
+  - tx-lattice: tx-lattice.md
   - cardano-tx-generator: cardano-tx-generator.md
