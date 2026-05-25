@@ -1,0 +1,106 @@
+# views/asset-flow.rq — packaged contract for the asset-flow view
+#
+# License: Apache-2.0
+#
+# The asset-flow view renders a flat per-asset summary of value
+# movement carried by the transaction graph. Each row is a single
+# tab-separated record terminated by a newline:
+#
+#   <assetClass>\t<quantity>\t<source>\t<destination>\n
+#
+# * assetClass: the entity label of the asset (when bound to a
+#   cardano:Entity), or its cardano:bytesHex leaf, or the literal
+#   "ada" for output lovelace and withdrawal lovelace.
+# * quantity: the integer amount (lovelace count for ada rows, asset
+#   quantity for native-asset rows, signed mint quantity for mint
+#   rows).
+# * source: the entity label that produced the value (resolved through
+#   the withdrawal account's identifier for withdrawal rows), or
+#   "<mint>" for mint rows, or the explicit "<unknown>" placeholder
+#   when no input UTxO resolution is on the canonical graph.
+# * destination: the entity label of the recipient (resolved through
+#   the output address' payment credential), or the address bech32,
+#   or "<unknown>".
+#
+# The contract is vendor-neutral: any SPARQL runtime that understands
+# the operator-level structure documented below can produce the same
+# bytes. In this repository the projection is implemented in Haskell
+# by Cardano.Tx.View.AssetFlow (no SPARQL runtime is on the
+# cardano-tx-tools classpath; see issue #51 plan D-002 and the
+# no-stub-triples precedent at views/no-stub-triples.rq).
+#
+# Empty-result invariant (FR-008): if the graph has no subject of
+# type cardano:Transaction the projection emits no bytes and the
+# CLI exits 0.
+
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+# === Algorithm (informal) ===
+#
+# 1. Locate the tx subject:
+#
+#      ?tx a cardano:Transaction .
+#
+# 2. Build an entity-label JOIN map from operator-declared entities:
+#
+#      ?ent a cardano:Entity ;
+#           rdfs:label ?label ;
+#           cardano:hasIdentifier ?id .
+#
+# 3. For every output the tx points at, emit one row per asset class
+#    carried by the output:
+#
+#      ?tx cardano:hasOutput ?out .
+#      ?out cardano:atAddress ?addr ;
+#           cardano:lovelace ?coin .
+#      ?addr cardano:bech32 ?bech32 ;
+#            cardano:hasPaymentCredential [ cardano:hasIdentifier ?payId ] .
+#      Optional: ?out cardano:hasAssetValue ?listHead with rdf:first /
+#      rdf:rest entries of the form
+#        ?entry a cardano:Asset ;
+#               cardano:hasIdentifier ?assetId ;
+#               cardano:quantity ?qty .
+#
+#    Render the destination as the entity label bound to ?payId when
+#    present, else the address bech32, else "<unknown>". Emit one
+#    "ada\t<coin>\t<unknown>\t<destination>" row for any non-zero
+#    ?coin, then one row per asset list entry of the form
+#    "<assetLabel>\t<qty>\t<unknown>\t<destination>".
+#
+# 4. For every mint the tx carries:
+#
+#      ?tx cardano:hasMint ?m .
+#      ?m cardano:mintsAsset [ cardano:hasIdentifier ?assetId ] ;
+#         cardano:quantity ?qty .
+#
+#    Emit "<assetLabel>\t<qty>\t<mint>\t<unknown>".
+#
+# 5. For every withdrawal the tx carries:
+#
+#      ?tx cardano:hasWithdrawal ?w .
+#      ?w cardano:withdrawalAccount ?acct ;
+#         cardano:lovelace ?coin .
+#
+#    Emit "ada\t<coin>\t<account-label>\t<unknown>".
+#
+# === Reference projection (illustrative) ===
+#
+# The view does not lend itself to a single closed SPARQL query
+# because it produces a flat TSV joining several disjoint movement
+# kinds (outputs, mints, withdrawals) with optional list-walking. The
+# illustrative query below selects the output-level facts the
+# renderer drives off of; the rest of the algorithm is described
+# above.
+
+SELECT ?asset ?qty ?dest
+WHERE {
+  ?tx a cardano:Transaction ;
+      cardano:hasOutput ?out .
+  ?out cardano:atAddress ?addr ;
+       cardano:lovelace ?qty .
+  ?addr cardano:bech32 ?dest .
+  BIND ("ada" AS ?asset)
+}
+ORDER BY ?dest ?asset ?qty

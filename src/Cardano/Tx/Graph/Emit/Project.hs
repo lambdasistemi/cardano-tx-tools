@@ -1309,7 +1309,7 @@ mkAddrEntry entities _lookupTbl addr@(Addr network paymentCred stakeRef) =
   where
     pl = paymentLeaf paymentCred
     sl = stakeLeaf stakeRef
-    base = pickAddrBase entities pl
+    base = pickAddrBase entities pl sl
 mkAddrEntry _ _ (AddrBootstrap _) =
     error "Cardano.Tx.Graph.Emit.Project: Byron address unexpected in Conway fixture"
 
@@ -1330,26 +1330,44 @@ stakeLeaf = \case
 
 {- | Pick the bnode base name for an address.
 
-When an entity in @entities@ covers the payment credential's
-@(leafType, bytes)@ pair, the base is the entity's slug (so the
-address bnode becomes @\<slug\>Addr@ — matching the artisan
-@_:aliceAddr@ form). Otherwise the base is the raw-bytes
-credential identifier name (@cred_\<role\>_\<bytes16\>@) so the
-generated triples share the namespace anchor with the
-identifier bnode 'resolveCredential' returns.
+The base must be unique per /address/, not per payment credential —
+two addresses that share a payment credential but differ in their
+stake credential are distinct addresses and must mint distinct
+@\<base\>Addr@ blank-node labels. Otherwise their @cardano:Address@
+declarations collapse onto one node with conflicting @cardano:bech32@
+and @cardano:hasStakeCredential@ properties.
 
-Both forms produce uniform downstream suffixes:
+When an entity in @entities@ covers the payment credential's
+@(leafType, bytes)@ pair, the base starts with the entity's slug
+(so the address bnode becomes @\<slug\>Addr@ — matching the artisan
+@_:aliceAddr@ form when only one stake credential is in play).
+Otherwise the base starts with the raw-bytes credential identifier
+name (@cred_\<role\>_\<full-hex\>@).
+
+A stake-credential suffix (@_s\<role\>\<full-hex\>@) is appended
+when 'StakeReference' is non-null, guaranteeing uniqueness across
+all (payment-cred, stake-cred) pairs.
+
+All forms produce uniform downstream suffixes:
 @\<base\>Addr@, @\<base\>CredPayment@, @\<base\>CredStake@.
 -}
-pickAddrBase :: [EntityDecl] -> PaymentLeaf -> Text
-pickAddrBase entities pl =
-    case findEntityForLeaf entities (plLeafType pl) (plBytes pl) of
-        Just slug -> slug
-        Nothing ->
-            "cred_"
-                <> rolePrefixText (plLeafType pl)
-                <> "_"
-                <> Text.take 16 (hexText (plBytes pl))
+pickAddrBase :: [EntityDecl] -> PaymentLeaf -> Maybe StakeLeaf -> Text
+pickAddrBase entities pl ml =
+    paymentBase <> stakeSuffix
+  where
+    paymentBase =
+        case findEntityForLeaf entities (plLeafType pl) (plBytes pl) of
+            Just slug -> slug
+            Nothing ->
+                "cred_"
+                    <> rolePrefixText (plLeafType pl)
+                    <> "_"
+                    <> hexText (plBytes pl)
+    stakeSuffix =
+        case ml of
+            Nothing -> ""
+            Just (StakeLeaf lt bs) ->
+                "_s" <> rolePrefixText lt <> hexText bs
 
 findEntityForLeaf ::
     [EntityDecl] -> LeafType -> ByteString -> Maybe Text

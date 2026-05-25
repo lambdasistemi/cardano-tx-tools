@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# tx-lattice — fetch a *closure* of Conway transactions and emit one
+# canonical Turtle file per tx.
+#
+# Architecture:
+#
+#   The only Blockfrost endpoint used is /txs/<hash>/cbor.  Every input
+#   in a Conway tx references its parent UTxO by (txid, ix); tx-graph
+#   already emits those references as `cardano:fromTxOutRef →
+#   cardano:hasTxId _:hash_txid_<HEX>`.  This script walks those
+#   references, fetches each parent's CBOR, emits it as its own
+#   canonical Turtle file, and recurses up to --depth.  The on-disk
+#   bundle is then a real lattice: a SPARQL query that joins an input
+#   in tx A with the matching output of tx B finds both sides in the
+#   default graph, with full tx-graph fidelity (multi-asset values,
+#   datums, redeemers — everything tx-graph emits on outputs).
+#
+#   No /utxos call, no hand-built "resolved input" bridge: the parent
+#   tx's outputs ARE the resolved inputs.
+#
+# Usage:
+#   tx-lattice --rules rules.yaml --out-dir DIR \
+#              [--network mainnet|preprod|preview] [--depth N] \
+#              <txId1> <txId2> ... <txIdN>
+#
+# Env:
+#   BLOCKFROST_PROJECT_ID  required
+#   TX_GRAPH_EXE           override path to tx-graph binary
+#                          (default: tx-graph on PATH, else result/bin/tx-graph)
+#
+# For each tx in the closure the script writes  DIR/<txid>.ttl
+# (created via tx-graph) plus a trailing `_:tx cardano:hasTxId "<hex>"`
+# triple so SPARQL can identify each tx by its on-chain hash.
+#
+# Then query across the whole closure with:
+#   nix-shell -p apache-jena --run \
+#     "sparql $(printf -- '--data %s ' DIR/*.ttl) --query foo.rq"
+#
+# Or project a single tx with the packaged views:
+#   tx-view --graph DIR/<txid>.ttl --view cli-tree
+
+set -euo pipefail
+
+NETWORK="mainnet"
+RULES=""
+OUT_DIR=""
+DEPTH=1
+TXIDS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --rules)   RULES="$2"; shift 2 ;;
+    --out-dir) OUT_DIR="$2"; shift 2 ;;
+    --network) NETWORK="$2"; shift 2 ;;
+    --depth)   DEPTH="$2"; shift 2 ;;
+    --help|-h)
+      sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
+      exit 0 ;;
+    -*) echo "tx-lattice: unknown flag $1" >&2; exit 2 ;;
+    *)  TXIDS+=("$1"); shift ;;
+  esac
+done
+
+[[ -n "$RULES" ]] || { echo "tx-lattice: --rules required" >&2; exit 2; }
+[[ -n "$OUT_DIR" ]] || { echo "tx-lattice: --out-dir required" >&2; exit 2; }
+[[ ${#TXIDS[@]} -gt 0 ]] || { echo "tx-lattice: pass at least one txId" >&2; exit 2; }
+[[ -n "${BLOCKFROST_PROJECT_ID:-}" ]] || {
+  echo "tx-lattice: BLOCKFROST_PROJECT_ID env required" >&2; exit 2; }
+
+if [[ -n "${TX_GRAPH_EXE:-}" ]]; then
+  TXG="$TX_GRAPH_EXE"
+elif command -v tx-graph >/dev/null 2>&1; then
+  TXG="$(command -v tx-graph)"
+elif [[ -x "result/bin/tx-graph" ]]; then
+  TXG="result/bin/tx-graph"
+else
+  echo "tx-lattice: tx-graph not found — set TX_GRAPH_EXE, put tx-graph on PATH, or run 'nix build .#tx-graph' first" >&2
+  exit 2
+fi
+
+case "$NETWORK" in
+  mainnet) BASE_URL="https://cardano-mainnet.blockfrost.io/api/v0" ;;
+  preprod) BASE_URL="https://cardano-preprod.blockfrost.io/api/v0" ;;
+  preview) BASE_URL="https://cardano-preview.blockfrost.io/api/v0" ;;
+  *) echo "tx-lattice: unknown network $NETWORK" >&2; exit 2 ;;
+esac
+
+mkdir -p "$OUT_DIR"
+WORK=$(mktemp -d /tmp/tx-lattice.XXXXXX)
+trap 'rm -rf "$WORK"' EXIT
+
+bf_cbor() {
+  curl -fsS -H "project_id: $BLOCKFROST_PROJECT_ID" \
+    "$BASE_URL/txs/$1/cbor"
+}
+
+emit_one() {
+  local txid="$1"
+  local role="$2"   # "seed" | "parent"
+  local out="$OUT_DIR/$txid.ttl"
+  if [[ -f "$out" ]]; then
+    return 0
+  fi
+
+  echo "tx-lattice: emit ($role) $txid" >&2
+
+  local cbor="$WORK/$txid.cbor"
+  bf_cbor "$txid" | jq -r '.cbor' | xxd -r -p > "$cbor"
+  "$TXG" --rules "$RULES" --tx "$cbor" > "$out"
+
+  # Inject:
+  #   * the tx's on-chain hash, so SPARQL can identify the tx
+  #   * the lattice role marker ("seed" = the user's input set; "parent"
+  #     = a tx pulled in by closure walk because some seed consumed
+  #     its output). The marker is the join key for "consumption that
+  #     actually happened during this lattice's time window"
+  #   * an explicit `cardano:hasIndex` triple on every `_:output<N>`
+  #     bnode so SPARQL can join an input's (txid, ix) target to the
+  #     matching output of the parent tx.  tx-graph numbers outputs
+  #     in bnode-label order from 1; subtract 1 for Cardano's
+  #     zero-based output index.
+  {
+    printf '\n_:tx cardano:hasTxId "%s" .\n' "$txid"
+    printf '_:tx cardano:hasLatticeRole "%s" .\n' "$role"
+    grep -oE '^_:output[0-9]+\b' "$out" | sort -u | while IFS= read -r bnode; do
+      n="${bnode#_:output}"
+      printf '%s cardano:hasIndex %s .\n' "$bnode" "$((n - 1))"
+    done
+  } >> "$out"
+}
+
+# Extract every parent txid referenced inside an emitted TTL.  The
+# tx-graph emit uses `_:hash_txid_<HEX>` bnodes for every input,
+# reference input, and collateral input; the bnode label IS the
+# parent hash, so we just collect them.
+extract_parents() {
+  grep -oE '_:hash_txid_[a-f0-9]+' "$1" \
+    | sed 's/^_:hash_txid_//' \
+    | sort -u
+}
+
+# BFS closure walk. Three parallel lists (txid, depth, role) form the
+# queue. Seeds enter at depth 0 with role="seed"; their direct parents
+# enter at depth 1 with role="parent"; deeper layers (if --depth > 1)
+# all keep role="parent".
+declare -A seen
+queue=()
+queue_depth=()
+queue_role=()
+for t in "${TXIDS[@]}"; do
+  queue+=("$t")
+  queue_depth+=("0")
+  queue_role+=("seed")
+done
+
+emitted=0
+while [[ ${#queue[@]} -gt 0 ]]; do
+  txid="${queue[0]}"
+  depth="${queue_depth[0]}"
+  role="${queue_role[0]}"
+  queue=("${queue[@]:1}")
+  queue_depth=("${queue_depth[@]:1}")
+  queue_role=("${queue_role[@]:1}")
+
+  if [[ -n "${seen[$txid]:-}" ]]; then
+    continue
+  fi
+  seen[$txid]=1
+
+  emit_one "$txid" "$role"
+  emitted=$((emitted + 1))
+
+  if (( depth < DEPTH )); then
+    next_depth=$((depth + 1))
+    while IFS= read -r parent; do
+      if [[ -n "$parent" && -z "${seen[$parent]:-}" ]]; then
+        queue+=("$parent")
+        queue_depth+=("$next_depth")
+        queue_role+=("parent")
+      fi
+    done < <(extract_parents "$OUT_DIR/$txid.ttl")
+  fi
+done
+
+echo "tx-lattice: done. $emitted tx(s) in closure (depth=$DEPTH) → $OUT_DIR/" >&2

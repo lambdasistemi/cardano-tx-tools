@@ -80,7 +80,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a c
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -88,7 +88,7 @@ _:output1 a cardano:Output ;
 #
 
 _:output2 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -96,7 +96,7 @@ _:output2 a cardano:Output ;
 #
 
 _:output3 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -104,7 +104,7 @@ _:output3 a cardano:Output ;
 #
 
 _:output4 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -112,7 +112,7 @@ _:output4 a cardano:Output ;
 #
 
 _:output5 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -120,7 +120,7 @@ _:output5 a cardano:Output ;
 #
 
 _:output6 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -128,7 +128,7 @@ _:output6 a cardano:Output ;
 #
 
 _:output7 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -136,7 +136,7 @@ _:output7 a cardano:Output ;
 #
 
 _:output8 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -144,7 +144,7 @@ _:output8 a cardano:Output ;
 #
 
 _:output9 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -152,7 +152,7 @@ _:output9 a cardano:Output ;
 #
 
 _:output10 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 .
 
 #
@@ -160,20 +160,20 @@ _:output10 a cardano:Output ;
 #
 
 _:output11 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 19825000 .
 
 #
 # Address decompositions — payment + stake credential per leaf.
 #
 
-_:cred_paymentkey_0000000000000000Addr a cardano:Address ;
+_:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
-  cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+  cardano:hasPaymentCredential _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000CredPayment .
 
 _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000 a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
   cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
-_:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
+_:cred_paymentkey_00000000000000000000000000000000000000000000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000 .

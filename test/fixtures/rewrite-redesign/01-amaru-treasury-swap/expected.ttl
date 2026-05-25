@@ -613,7 +613,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000022 a c
 #
 
 _:output1 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 ;
   cardano:hasDatum _:outputDatum1 ;
   cardano:hasReferenceScript _:outputRefScript1 .
@@ -639,7 +639,7 @@ _:hash_script_5334c8c55ec6518f2e262da617d3170bf0722f43813d64dbaf0ff0b9 a cardano
 #
 
 _:output2 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_0000000000000000Addr ;
+  cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 850000 .
 
 #
@@ -661,13 +661,13 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000064 a c
 # Address decompositions — payment + stake credential per leaf.
 #
 
-_:cred_paymentkey_0000000000000000Addr a cardano:Address ;
+_:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr a cardano:Address ;
   cardano:bech32 "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t" ;
-  cardano:hasPaymentCredential _:cred_paymentkey_0000000000000000CredPayment .
+  cardano:hasPaymentCredential _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000CredPayment .
 
 _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000 a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
   cardano:bytesHex "00000000000000000000000000000000000000000000000000000000" .
 
-_:cred_paymentkey_0000000000000000CredPayment a cardano:PaymentCredential ;
+_:cred_paymentkey_00000000000000000000000000000000000000000000000000000000CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000 .
