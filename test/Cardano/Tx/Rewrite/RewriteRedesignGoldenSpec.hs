@@ -70,7 +70,48 @@ spec = do
                 it "Turtle byte-equivalence with the future emitter (#47)" $
                     pendingWith "awaits #47 emitter MVP"
                 it "Text byte-equivalence via cli-tree SPARQL view (#51)" $
-                    pendingWith "awaits #51 cli-tree SPARQL view"
+                    pendingWith (cliTreeRowMessage (feStoryId fe))
+
+{- | Per-fixture pendingWith message for the #51 cli-tree row. Per
+A-001 (recorded in commit 14f3f4f and #98), this row's active
+byte-equivalence assertion lives in
+'Cardano.Tx.View.CliTreeGoldenSpec' for fixtures 01-10; fixtures
+11+ are deferred to follow-on #98.
+-}
+cliTreeRowMessage :: StoryId -> String
+cliTreeRowMessage sid =
+    let slug = Text.unpack (unStoryId sid)
+     in if slug `elem` cliTreeCorpus
+            then
+                "active in Cardano.Tx.View.CliTreeGoldenSpec: compares "
+                    <> "tx-view --view cli-tree against "
+                    <> "test/fixtures/views/"
+                    <> slug
+                    <> "/cli-tree.txt; legacy 044 expected.txt "
+                    <> "byte-equivalence deferred to #98"
+            else
+                "deferred to follow-on #98 (fixture "
+                    <> slug
+                    <> " is not in the cli-tree corpus accepted for #51 "
+                    <> "per A-001)"
+
+{- | The 10-fixture cli-tree corpus accepted by A-001 for the
+behaviour slice. Kept in sync with the same list in
+'Cardano.Tx.View.CliTreeGoldenSpec'.
+-}
+cliTreeCorpus :: [String]
+cliTreeCorpus =
+    [ "01-amaru-treasury-swap"
+    , "02-alice-bob-ada"
+    , "03-multi-asset-transfer"
+    , "04-mint-spend-script-overlap"
+    , "05-withdrawal-script-stake"
+    , "06-stake-pool-delegation"
+    , "07-vote-delegation"
+    , "08-contingency-disburse"
+    , "09-mpfs-facts-request"
+    , "10-governance-treasury-withdrawal"
+    ]
 
 {- | The fixture registry — one entry per 044 user story whose A-side has
 landed. Registry order mirrors the 044 story numbers so the Hspec output

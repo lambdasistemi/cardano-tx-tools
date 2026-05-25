@@ -1,0 +1,26 @@
+inputs:
+  - txOutRef: 0000000000000000000000000000000000000000000000000000000000000001#0
+outputs:
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 1.500000 ADA
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 19.825000 ADA
+fee: 0.000000 ADA

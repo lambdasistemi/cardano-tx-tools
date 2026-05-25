@@ -1,0 +1,14 @@
+inputs:
+  - txOutRef: 0000000000000000000000000000000000000000000000000000000000000001#0
+outputs:
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 50.000000 ADA
+    assets:
+      - meme: 1000000
+      - usdm: 100
+  - address: addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t
+    coin: 149.825000 ADA
+    assets:
+      - meme: 4000000
+      - usdm: 400
+fee: 0.000000 ADA

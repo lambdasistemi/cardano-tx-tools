@@ -272,6 +272,25 @@
               ];
             }
             {
+              # tx-view is the offline packaged-view runner. Like
+              # tx-graph it does no HTTPS today, so no CA-bundle
+              # wrapper is needed; if a future view ever calls out
+              # over the network, wrap it like txInspect.
+              name = "tx-view";
+              package = components.exes.tx-view;
+              desc =
+                "Project canonical Turtle graphs through packaged SPARQL views";
+              formulaClass = "TxView";
+              formulaTest = ''
+                output = shell_output("#{bin}/tx-view 2>&1", 1)
+                assert_match "packaged-view dispatcher", output
+              '';
+              usageGreps = [
+                "Usage:"
+                "packaged-view dispatcher"
+              ];
+            }
+            {
               name = "cardano-tx-generator";
               package = components.exes.cardano-tx-generator;
               desc =
@@ -428,6 +447,7 @@
             tx-sign = components.exes.tx-sign;
             tx-validate = txValidate;
             tx-graph = components.exes.tx-graph;
+            tx-view = components.exes.tx-view;
             cardano-tx-generator =
               components.exes.cardano-tx-generator;
           } // darwinReleasePackages // linuxReleasePackages
@@ -435,7 +455,29 @@
               cardano-tx-generator-image = cardanoTxGeneratorImage;
               tx-validate-image = txValidateImage;
             };
-          checks = checkSuite.checks;
+          # The cli-tree slice of #51 needs the tx-view binary on the
+          # unit check's PATH so Cardano.Tx.View.CliTreeGoldenSpec can
+          # spawn it. The nix-check sandbox has no cabal on PATH, so
+          # the check is replaced with a tx-view-aware wrapper. The
+          # base unit script (built by nix/checks.nix) still runs
+          # underneath; this wrapper just adds TX_VIEW_EXE to the
+          # environment first.
+          checks = checkSuite.checks // {
+            unit = pkgs.runCommand "unit-check"
+              {
+                nativeBuildInputs =
+                  pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux
+                    [ pkgs.glibcLocales ];
+                LANG = "C.UTF-8";
+                LC_ALL = "C.UTF-8";
+              } ''
+                set -euo pipefail
+                cd ${./.}
+                export TX_VIEW_EXE=${components.exes.tx-view}/bin/tx-view
+                ${pkgs.lib.getExe checkSuite.scripts.unit}
+                touch "$out"
+              '';
+          };
           apps = checkApps // {
             tx-diff = {
               type = "app";
@@ -456,6 +498,10 @@
             tx-graph = {
               type = "app";
               program = "${components.exes.tx-graph}/bin/tx-graph";
+            };
+            tx-view = {
+              type = "app";
+              program = "${components.exes.tx-view}/bin/tx-view";
             };
             cardano-tx-generator = {
               type = "app";

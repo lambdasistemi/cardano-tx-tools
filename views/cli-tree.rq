@@ -1,0 +1,120 @@
+# views/cli-tree.rq — packaged contract for the cli-tree view
+#
+# License: Apache-2.0
+#
+# The cli-tree view renders a text-tree projection of the transaction
+# subject's body sections — inputs, reference inputs, outputs (with
+# address, coin, assets, datum, and reference script), collateral,
+# mint, withdrawals, certificates, proposals, and fee.
+#
+# The contract is vendor-neutral: any SPARQL runtime that understands
+# the operator-level structure documented below can produce the same
+# bytes. In this repository the projection is implemented in Haskell
+# by Cardano.Tx.View.CliTree (no SPARQL runtime is on the
+# cardano-tx-tools classpath; see issue #51 plan D-002 and the
+# no-stub-triples precedent at views/no-stub-triples.rq).
+#
+# Empty-result invariant (FR-008): if the graph has no subject of
+# type cardano:Transaction the projection emits no bytes and the
+# CLI exits 0.
+
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+# === Algorithm (informal) ===
+#
+# 1. Locate the tx subject:
+#
+#      ?tx a cardano:Transaction .
+#
+# 2. Build an entity-label JOIN map from operator-declared entities:
+#
+#      ?ent a cardano:Entity ;
+#           rdfs:label ?label ;
+#           cardano:hasIdentifier ?id .
+#
+#    The map keys are the ?id bnode names; each ?id may also carry a
+#    cardano:bytesHex literal that downstream sections fall back to
+#    when no label binds.
+#
+# 3. For each container predicate on ?tx, emit a top-level section in
+#    the order:
+#
+#      cardano:hasInput            inputs:
+#      cardano:hasReferenceInput   referenceInputs:
+#      cardano:hasOutput           outputs:
+#      cardano:hasMint             mint:
+#      cardano:hasWithdrawal       withdrawals:
+#      cardano:hasCertificate      certificates:
+#      cardano:hasCollateralInput  collateral:
+#      cardano:hasProposal         proposals:
+#
+#    A section is omitted entirely when it has no rows.
+#
+# 4. Per-section rendering:
+#
+#    inputs / referenceInputs / collateral:
+#      ?in cardano:fromTxOutRef ?ref .
+#      ?ref cardano:hasTxId ?tid ; cardano:hasIndex ?ix .
+#      ?tid cardano:bytesHex ?hex .
+#      Emit "  - txOutRef: <hex>#<ix>".
+#
+#    outputs:
+#      ?out cardano:atAddress ?addr ;
+#           cardano:lovelace ?coin .
+#      ?addr cardano:bech32 ?bech32 ;
+#            cardano:hasPaymentCredential [ cardano:hasIdentifier ?payId ] .
+#      Render address as the entity label bound to ?payId when present,
+#      else the bech32 literal.
+#      Render coin as N.NNNNNN ADA (lovelace / 1_000_000 with six-digit
+#      fractional padding).
+#      For ?out cardano:hasAssetValue ?listHead, walk the rdf:first /
+#      rdf:rest list and emit "      - <classLabel>: <quantity>" per
+#      Asset entry.
+#      For ?out cardano:hasDatum ?datum, emit "    datum:" with
+#      decodedAs, hash, rawBytes sub-fields.
+#      For ?out cardano:hasReferenceScript ?rs, emit "    refScript:"
+#      with type and hash sub-fields.
+#
+#    mint:
+#      ?m cardano:mintsAsset ?asset ;
+#         cardano:quantity ?q .
+#      ?asset cardano:hasIdentifier ?id .
+#      Emit "  - <classLabel>: <signed-quantity>".
+#
+#    withdrawals:
+#      ?w cardano:withdrawalAccount ?acct ;
+#         cardano:lovelace ?coin .
+#      Emit "  - account: <label or bytesHex>" / "    amount: N.NNNNNN ADA".
+#
+#    certificates:
+#      ?c a ?type .
+#      ?c cardano:onCredential ?cred .
+#      Optional: ?c cardano:toPool ?pool ; cardano:toDRep ?drep .
+#      Emit "  - <Type stripped of cardano: prefix>:" followed by
+#      "      onCredential: <label or bytesHex>" and the optional
+#      toPool / toDRep sub-fields.
+#
+#    proposals:
+#      ?p cardano:hasDatum ?datum .
+#      Emit "  - datum:" with decodedAs, hash, rawBytes sub-fields.
+#
+# 5. Always emit the fee field as the last line:
+#
+#      ?tx cardano:hasFee ?fee .
+#      Emit "fee: N.NNNNNN ADA".
+#
+# === Reference projection (illustrative) ===
+#
+# The view does not lend itself to a single closed SPARQL query
+# because it produces hierarchical text. The illustrative query below
+# selects the tx-level predicate-object pairs the renderer drives off
+# of; the rest of the algorithm is described above.
+
+SELECT ?pred ?obj
+WHERE {
+  ?tx a cardano:Transaction .
+  ?tx ?pred ?obj .
+}
+ORDER BY ?pred ?obj

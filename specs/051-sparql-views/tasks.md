@@ -33,32 +33,32 @@ plan.md for fixtures 01 through 10.
 view runner exists, then passes after `tx-view --view cli-tree` matches
 view-side fixture goldens modulo whitespace canonicalisation.
 
-- [ ] T100 [US1] Record RED evidence in `WIP.md` before GREEN for the
+- [x] T100 [US1] Record RED evidence in `WIP.md` before GREEN for the
   missing `tx-view` / missing `cli-tree` behavior.
-- [ ] T101 [US1] Add packaged `views/cli-tree.rq` with the SPARQL
+- [x] T101 [US1] Add packaged `views/cli-tree.rq` with the SPARQL
   contract for the text-tree projection.
-- [ ] T102 [US1] Add `app/tx-view/Main.hs` with `--graph`, `--view`,
+- [x] T102 [US1] Add `app/tx-view/Main.hs` with `--graph`, `--view`,
   and `--out` flags; default `--view` to `cli-tree` and default output
   to stdout.
-- [ ] T103 [US1] Add cabal and nix app wiring for `tx-view` without
+- [x] T103 [US1] Add cabal and nix app wiring for `tx-view` without
   adding a new SPARQL runtime dependency.
-- [ ] T104 [US1] Add `Cardano.Tx.View` support code for loading the
+- [x] T104 [US1] Add `Cardano.Tx.View` support code for loading the
   canonical Turtle subset needed by packaged views.
-- [ ] T105 [US1] Implement the `cli-tree` projection over the canonical
+- [x] T105 [US1] Implement the `cli-tree` projection over the canonical
   graph reader.
-- [ ] T106 [US1] Replace or supplement the pending #51 text
+- [x] T106 [US1] Replace or supplement the pending #51 text
   byte-equivalence check with active tests in
   `test/Cardano/Tx/View/CliTreeGoldenSpec.hs` against view-side goldens
   for fixtures 01 through 10.
-- [ ] T107 [US1] Add an empty-match graph test proving `cli-tree` exits
+- [x] T107 [US1] Add an empty-match graph test proving `cli-tree` exits
   0 with an empty result.
-- [ ] T108 [US1] Add CLI tests for unknown view, missing graph file,
+- [x] T108 [US1] Add CLI tests for unknown view, missing graph file,
   and `--out` behavior.
-- [ ] T109 [US1] Ensure prior graph and inspect test suites remain
+- [x] T109 [US1] Ensure prior graph and inspect test suites remain
   green; do not modify emitter, rules-loader, or vocabulary files.
-- [ ] T110 [US1] Run focused tests and then `./gate.sh`, recording
+- [x] T110 [US1] Run focused tests and then `./gate.sh`, recording
   command outcomes in `WIP.md`.
-- [ ] T111 [US1] Commit the approved slice with subject
+- [x] T111 [US1] Commit the approved slice with subject
   `feat(051): add tx-view cli-tree view` and trailer
   `Tasks: T100, T101, T102, T103, T104, T105, T106, T107, T108, T109, T110, T111`.
 
