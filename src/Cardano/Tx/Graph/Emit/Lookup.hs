@@ -161,7 +161,7 @@ rawBytesBnodeName lt bytes =
             <> "_"
             <> rolePrefix lt
             <> "_"
-            <> Text.take rawBytesPrefixLength hex
+            <> hex
   where
     hex =
         TextEncoding.decodeLatin1 (Base16.encode bytes)
