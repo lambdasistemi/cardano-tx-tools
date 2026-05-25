@@ -129,11 +129,11 @@ files to parseable JSON-LD preserving supported triples.
 **Goal**: User-visible release notes are present and the full branch is
 ready for final audit.
 
-- [ ] T450 Add one Unreleased / Features bullet in `CHANGELOG.md` for
+- [x] T450 Add one Unreleased / Features bullet in `CHANGELOG.md` for
   #51 and one Deferred / known limitations bullet referencing follow-on
   #98 for legacy 044 `expected.txt` byte-equivalence.
-- [ ] T451 Run `./gate.sh`, recording outcome in `WIP.md`.
-- [ ] T452 Commit the approved slice with subject
+- [x] T451 Run `./gate.sh`, recording outcome in `WIP.md`.
+- [x] T452 Commit the approved slice with subject
   `docs(051): document tx-view SPARQL views` and trailer
   `Tasks: T450, T451, T452`.
 
