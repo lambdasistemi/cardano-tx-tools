@@ -33,10 +33,10 @@ _:input1 a cardano:Input ;
   cardano:fromTxOutRef _:inputTxOutRef1 .
 
 _:inputTxOutRef1 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000001" .
 
@@ -50,10 +50,10 @@ _:output1 a cardano:Output ;
   cardano:hasDatum _:outputDatum1 .
 
 _:outputDatum1 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_c9bc91a9f2f9d50c ;
+  cardano:hasHash _:hash_datum_c9bc91a9f2f9d50ce4972df3f798f41b114375b22b1829cef28e3ef94ba0675f ;
   cardano:hasRawBytes "d8799fd8799f581c64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540efffff" .
 
-_:hash_datum_c9bc91a9f2f9d50c a cardano:Identifier ;
+_:hash_datum_c9bc91a9f2f9d50ce4972df3f798f41b114375b22b1829cef28e3ef94ba0675f a cardano:Identifier ;
   cardano:leafType "DatumHash" ;
   cardano:bytesHex "c9bc91a9f2f9d50ce4972df3f798f41b114375b22b1829cef28e3ef94ba0675f" .
 
@@ -80,9 +80,9 @@ _:cred_paymentkey_64f35d26b237ad58Addr a cardano:Address ;
   cardano:bech32 "addr_test1vpj0xhfxkgm66k8qnyzphs2vdpl20lw9395a04dkdcj5pmcmpvre6" ;
   cardano:hasPaymentCredential _:cred_paymentkey_64f35d26b237ad58CredPayment .
 
-_:cred_paymentkey_64f35d26b237ad58 a cardano:Identifier ;
+_:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
   cardano:bytesHex "64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef" .
 
 _:cred_paymentkey_64f35d26b237ad58CredPayment a cardano:PaymentCredential ;
-  cardano:hasIdentifier _:cred_paymentkey_64f35d26b237ad58 .
+  cardano:hasIdentifier _:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef .

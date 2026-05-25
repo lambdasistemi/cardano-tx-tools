@@ -67,9 +67,9 @@ _:tx a cardano:Transaction ;
   cardano:hasWithdrawal _:withdrawal1 ;
   cardano:hasCollateralInput _:collateral1 ;
   cardano:hasFee 0 ;
-  cardano:scriptDataHash _:hash_scriptdata_3988a24f1de530b6 ;
+  cardano:scriptDataHash _:hash_scriptdata_3988a24f1de530b686f667a10ef7ae82f366d169b3f5da4e944188f5633e1b6f ;
   cardano:hasRequiredSigner _:amaru_network_wallet_paymentKey ;
-  cardano:hasRequiredSigner _:cred_paymentkey_f3ab64b0f97dcf0f ;
+  cardano:hasRequiredSigner _:cred_paymentkey_f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e ;
   cardano:hasRedeemer _:redeemer1 ;
   cardano:hasRedeemer _:redeemer2 ;
   cardano:hasRedeemer _:redeemer3 ;
@@ -77,11 +77,11 @@ _:tx a cardano:Transaction ;
   cardano:hasRedeemer _:redeemer5 ;
   cardano:hasRedeemer _:redeemer6 .
 
-_:hash_scriptdata_3988a24f1de530b6 a cardano:Identifier ;
+_:hash_scriptdata_3988a24f1de530b686f667a10ef7ae82f366d169b3f5da4e944188f5633e1b6f a cardano:Identifier ;
   cardano:leafType "ScriptDataHash" ;
   cardano:bytesHex "3988a24f1de530b686f667a10ef7ae82f366d169b3f5da4e944188f5633e1b6f" .
 
-_:cred_paymentkey_f3ab64b0f97dcf0f a cardano:Identifier ;
+_:cred_paymentkey_f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
   cardano:bytesHex "f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e" .
 
@@ -93,10 +93,10 @@ _:input1 a cardano:Input ;
   cardano:fromTxOutRef _:inputTxOutRef1 .
 
 _:inputTxOutRef1 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000001" .
 
@@ -109,10 +109,10 @@ _:input2 a cardano:Input ;
   cardano:resolvedTo _:resolvedInput2 .
 
 _:inputTxOutRef2 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000002 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000002 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000002" .
 
@@ -121,7 +121,7 @@ _:resolvedInput2 a cardano:Output ;
   cardano:lovelace 121488832 ;
   cardano:hasAssetValue _:resolvedInputMultiAsset2 .
 
-_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+_:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
 
@@ -129,7 +129,7 @@ _:resolvedInputMultiAsset2 rdf:first _:assetEntry_resolvedInput2_1 ;
   rdf:rest rdf:nil .
 
 _:assetEntry_resolvedInput2_1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d ;
   cardano:quantity 1349523953 .
 
 #
@@ -141,10 +141,10 @@ _:input3 a cardano:Input ;
   cardano:resolvedTo _:resolvedInput3 .
 
 _:inputTxOutRef3 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000003 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000003 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000003" .
 
@@ -153,7 +153,7 @@ _:resolvedInput3 a cardano:Output ;
   cardano:lovelace 121488832 ;
   cardano:hasAssetValue _:resolvedInputMultiAsset3 .
 
-_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+_:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
 
@@ -161,7 +161,7 @@ _:resolvedInputMultiAsset3 rdf:first _:assetEntry_resolvedInput3_1 ;
   rdf:rest rdf:nil .
 
 _:assetEntry_resolvedInput3_1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d ;
   cardano:quantity 1349523953 .
 
 #
@@ -173,10 +173,10 @@ _:input4 a cardano:Input ;
   cardano:resolvedTo _:resolvedInput4 .
 
 _:inputTxOutRef4 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000004 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000004 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000004" .
 
@@ -185,7 +185,7 @@ _:resolvedInput4 a cardano:Output ;
   cardano:lovelace 121488832 ;
   cardano:hasAssetValue _:resolvedInputMultiAsset4 .
 
-_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+_:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
 
@@ -193,7 +193,7 @@ _:resolvedInputMultiAsset4 rdf:first _:assetEntry_resolvedInput4_1 ;
   rdf:rest rdf:nil .
 
 _:assetEntry_resolvedInput4_1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d ;
   cardano:quantity 1349523953 .
 
 #
@@ -205,10 +205,10 @@ _:input5 a cardano:Input ;
   cardano:resolvedTo _:resolvedInput5 .
 
 _:inputTxOutRef5 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000005 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000005 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000005" .
 
@@ -217,7 +217,7 @@ _:resolvedInput5 a cardano:Output ;
   cardano:lovelace 121488832 ;
   cardano:hasAssetValue _:resolvedInputMultiAsset5 .
 
-_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+_:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
 
@@ -225,7 +225,7 @@ _:resolvedInputMultiAsset5 rdf:first _:assetEntry_resolvedInput5_1 ;
   rdf:rest rdf:nil .
 
 _:assetEntry_resolvedInput5_1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d ;
   cardano:quantity 1349523953 .
 
 #
@@ -237,10 +237,10 @@ _:input6 a cardano:Input ;
   cardano:resolvedTo _:resolvedInput6 .
 
 _:inputTxOutRef6 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000006 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000006 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000006" .
 
@@ -249,7 +249,7 @@ _:resolvedInput6 a cardano:Output ;
   cardano:lovelace 121488832 ;
   cardano:hasAssetValue _:resolvedInputMultiAsset6 .
 
-_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+_:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
 
@@ -257,7 +257,7 @@ _:resolvedInputMultiAsset6 rdf:first _:assetEntry_resolvedInput6_1 ;
   rdf:rest rdf:nil .
 
 _:assetEntry_resolvedInput6_1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d ;
   cardano:quantity 1349523953 .
 
 #
@@ -268,10 +268,10 @@ _:refInput1 a cardano:Input ;
   cardano:fromTxOutRef _:refInputTxOutRef1 .
 
 _:refInputTxOutRef1 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_00000000000000000000000000000000000000000000000000000000000000c8 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_00000000000000000000000000000000000000000000000000000000000000c8 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "00000000000000000000000000000000000000000000000000000000000000c8" .
 
@@ -283,10 +283,10 @@ _:refInput2 a cardano:Input ;
   cardano:fromTxOutRef _:refInputTxOutRef2 .
 
 _:refInputTxOutRef2 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_00000000000000000000000000000000000000000000000000000000000000c9 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_00000000000000000000000000000000000000000000000000000000000000c9 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "00000000000000000000000000000000000000000000000000000000000000c9" .
 
@@ -298,10 +298,10 @@ _:refInput3 a cardano:Input ;
   cardano:fromTxOutRef _:refInputTxOutRef3 .
 
 _:refInputTxOutRef3 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_00000000000000000000000000000000000000000000000000000000000000ca ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_00000000000000000000000000000000000000000000000000000000000000ca a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "00000000000000000000000000000000000000000000000000000000000000ca" .
 
@@ -313,10 +313,10 @@ _:refInput4 a cardano:Input ;
   cardano:fromTxOutRef _:refInputTxOutRef4 .
 
 _:refInputTxOutRef4 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_00000000000000000000000000000000000000000000000000000000000000cb ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_00000000000000000000000000000000000000000000000000000000000000cb a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "00000000000000000000000000000000000000000000000000000000000000cb" .
 
@@ -329,7 +329,7 @@ _:output1 a cardano:Output ;
   cardano:lovelace 120299272 ;
   cardano:hasAssetValue _:outputMultiAsset1 .
 
-_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+_:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
 
@@ -337,7 +337,7 @@ _:outputMultiAsset1 rdf:first _:assetEntry_output1_1 ;
   rdf:rest rdf:nil .
 
 _:assetEntry_output1_1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d ;
   cardano:quantity 1349523953 .
 
 #
@@ -349,7 +349,7 @@ _:output2 a cardano:Output ;
   cardano:lovelace 1189560 ;
   cardano:hasAssetValue _:outputMultiAsset2 .
 
-_:cred_assetclass_c48cbb3d5e57ed56 a cardano:Identifier ;
+_:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d a cardano:Identifier ;
   cardano:leafType "AssetClass" ;
   cardano:bytesHex "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
 
@@ -357,7 +357,7 @@ _:outputMultiAsset2 rdf:first _:assetEntry_output2_1 ;
   rdf:rest rdf:nil .
 
 _:assetEntry_output2_1 a cardano:Asset ;
-  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56 ;
+  cardano:hasIdentifier _:cred_assetclass_c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d ;
   cardano:quantity 400000000000 .
 
 #
@@ -372,12 +372,12 @@ _:output3 a cardano:Output ;
 # Withdrawal 1
 #
 
-_:cred_stakescript_a64d1b9e1aeffe54 a cardano:Identifier ;
+_:cred_stakescript_a64d1b9e1aeffe54056034d84977061b45a92691efc282fbee3fc094 a cardano:Identifier ;
   cardano:leafType "StakeScript" ;
   cardano:bytesHex "a64d1b9e1aeffe54056034d84977061b45a92691efc282fbee3fc094" .
 
 _:withdrawal1 a cardano:Withdrawal ;
-  cardano:withdrawalAccount _:cred_stakescript_a64d1b9e1aeffe54 ;
+  cardano:withdrawalAccount _:cred_stakescript_a64d1b9e1aeffe54056034d84977061b45a92691efc282fbee3fc094 ;
   cardano:lovelace 0 .
 
 #
@@ -388,10 +388,10 @@ _:collateral1 a cardano:Input ;
   cardano:fromTxOutRef _:collateralTxOutRef1 .
 
 _:collateralTxOutRef1 a cardano:TxOutRef ;
-  cardano:hasTxId _:hash_txid_0000000000000000 ;
+  cardano:hasTxId _:hash_txid_0000000000000000000000000000000000000000000000000000000000000064 ;
   cardano:hasIndex 0 .
 
-_:hash_txid_0000000000000000 a cardano:Identifier ;
+_:hash_txid_0000000000000000000000000000000000000000000000000000000000000064 a cardano:Identifier ;
   cardano:leafType "TxId" ;
   cardano:bytesHex "0000000000000000000000000000000000000000000000000000000000000064" .
 
@@ -431,10 +431,10 @@ _:redeemer1 a cardano:Redeemer ;
   cardano:hasExUnits _:exUnits1 .
 
 _:redeemerData1 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
+  cardano:hasHash _:hash_datum_41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947 ;
   :TreasurySpendRedeemer_amount _:redeemerData1_amount .
 
-_:hash_datum_41c4fab25c47cc66 a cardano:Identifier ;
+_:hash_datum_41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947 a cardano:Identifier ;
   cardano:leafType "DatumHash" ;
   cardano:bytesHex "41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947" .
 
@@ -484,7 +484,7 @@ _:redeemer2 a cardano:Redeemer ;
   cardano:hasExUnits _:exUnits2 .
 
 _:redeemerData2 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
+  cardano:hasHash _:hash_datum_41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947 ;
   :TreasurySpendRedeemer_amount _:redeemerData2_amount .
 
 _:redeemerData2_amount :_0 _:redeemerData2_amount_0 ;
@@ -533,7 +533,7 @@ _:redeemer3 a cardano:Redeemer ;
   cardano:hasExUnits _:exUnits3 .
 
 _:redeemerData3 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
+  cardano:hasHash _:hash_datum_41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947 ;
   :TreasurySpendRedeemer_amount _:redeemerData3_amount .
 
 _:redeemerData3_amount :_0 _:redeemerData3_amount_0 ;
@@ -582,7 +582,7 @@ _:redeemer4 a cardano:Redeemer ;
   cardano:hasExUnits _:exUnits4 .
 
 _:redeemerData4 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
+  cardano:hasHash _:hash_datum_41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947 ;
   :TreasurySpendRedeemer_amount _:redeemerData4_amount .
 
 _:redeemerData4_amount :_0 _:redeemerData4_amount_0 ;
@@ -631,7 +631,7 @@ _:redeemer5 a cardano:Redeemer ;
   cardano:hasExUnits _:exUnits5 .
 
 _:redeemerData5 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_41c4fab25c47cc66 ;
+  cardano:hasHash _:hash_datum_41c4fab25c47cc666b5d7eec2f8dc1e04bed65818bcaa7f798f2589d8856c947 ;
   :TreasurySpendRedeemer_amount _:redeemerData5_amount .
 
 _:redeemerData5_amount :_0 _:redeemerData5_amount_0 ;
@@ -680,10 +680,10 @@ _:redeemer6 a cardano:Redeemer ;
   cardano:hasExUnits _:exUnits6 .
 
 _:redeemerData6 a cardano:Datum ;
-  cardano:hasHash _:hash_datum_45b0cfc220ceec5b ;
+  cardano:hasHash _:hash_datum_45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0 ;
   cardano:hasRawBytes "80" .
 
-_:hash_datum_45b0cfc220ceec5b a cardano:Identifier ;
+_:hash_datum_45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0 a cardano:Identifier ;
   cardano:leafType "DatumHash" ;
   cardano:bytesHex "45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0" .
 

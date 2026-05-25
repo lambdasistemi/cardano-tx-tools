@@ -47,11 +47,17 @@ spec =
     describe "Cardano.Tx.Graph.Emit raw-bytes identifier literals (T119b)" $ do
         it "emits a cardano:Identifier block per raw-bytes credential" $ do
             let bytes = emitBytes S02.tx
-            -- Fixture 02 references _:cred_paymentkey_0000000000000000
-            -- across its address-decomposition section.
+            -- Fixture 02 references _:cred_paymentkey_<full-28-byte-hex>
+            -- (56 zero hex chars) across its address-decomposition section.
+            -- The full-hex bnode label is what
+            -- 'Cardano.Tx.Graph.Emit.Lookup.rawBytesBnodeName' mints
+            -- post-fix(emit): use full hex for raw-bytes bnode labels.
             bytes
                 `shouldSatisfy` BS8.isInfixOf
-                    "_:cred_paymentkey_0000000000000000 a cardano:Identifier"
+                    ( "_:cred_paymentkey_"
+                        <> BS8.replicate 56 '0'
+                        <> " a cardano:Identifier"
+                    )
         it "the identifier block carries cardano:leafType" $ do
             let bytes = emitBytes S02.tx
             bytes
