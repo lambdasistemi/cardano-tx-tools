@@ -79,6 +79,14 @@ ada	92141887	<unknown>	amaru.network-wallet
 input UTxO resolution — supply `--utxo` / `--n2c-socket-path` on
 `tx-graph` to fill those in.)
 
+> **Note** — for swap-order outputs, asset-flow's destination
+> column reports the *script* the funds are locked into
+> (`amaru.swap.v2`), not the human recipient credential carried
+> inside the swap-order datum. See [tx-lattice / Known
+> limitations](tx-lattice.md#known-limitations) for the two
+> ways to surface the real recipient (scoop-tx JOIN today, typed
+> datum decode when the live swap-v2 blueprint lands).
+
 ### entity-occurrences
 
 ```bash

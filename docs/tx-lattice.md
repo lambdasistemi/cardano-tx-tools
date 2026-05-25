@@ -124,3 +124,91 @@ contract — a directory of canonical-Turtle files keyed by txid.
 - [rewriting-rules grammar](rewriting-rules.md) — the
   operator-entity overlay format both `tx-graph` and (via
   `tx-graph`) `tx-lattice` consume.
+
+## Known limitations
+
+The lattice gives you the canonical body + the resolved-input
+bridges. A few semantic questions still cannot be answered from
+those triples alone today. They are listed here so that nothing
+in the demo pipeline lies by omission.
+
+### 1. Asset-flow recipients of swap orders show the script, not the human
+
+When a transaction opens a swap order, the on-chain output is at the
+swap script's address. Asset-flow's *destination* column therefore
+reports `amaru.swap.v2` (the script entity) on every order-opening
+output — that is what the chain itself stores. The real recipient
+credential sits inside the swap-order datum, which the emitter
+leaves as raw CBOR in `cardano:hasRawBytes` whenever a typed
+blueprint isn't decoding it (see #3 below).
+
+So `tx-view --view asset-flow` on an order-opening tx tells you
+*"X ADA was locked into a swap order placed by network_compliance"*,
+not *"X ADA will end up at addr1qabc…"*.
+
+Two paths to the human recipient:
+
+1. **Follow the scoop in the lattice.** Every swap-order output is
+   later consumed by a scooper batch tx, which sends the swapped
+   value to the real recipient. If both txs are in the lattice, a
+   single SPARQL JOIN unwraps order → scoop input → recipient
+   output without any blueprint:
+
+   ```sparql
+   SELECT ?recipient ?asset ?qty WHERE {
+     ?orderOut cardano:atAddress _:amaru_swap_v2Addr .
+     ?scoopInput cardano:resolvedTo ?orderOut .
+     ?scoopTx cardano:hasInput ?scoopInput ;
+              cardano:hasOutput ?recipientOut .
+     ?recipientOut cardano:atAddress/cardano:bech32 ?recipient ;
+                   cardano:hasAssetValue/rdf:first* ?asset .
+   }
+   ```
+
+   Cost: one extra `tx-lattice` fetch per order (the scoop that
+   executes it). Works today, blueprint-free.
+
+2. **Typed datum decode.** When a blueprint matching the live
+   swap-v2 datum shape is registered against `amaru.swap.v2` via
+   `rules.yaml`'s `blueprints:` block, the emitter materialises a
+   `:SwapOrder_recipient` triple directly on the order-opening tx —
+   no scoop join required.
+
+### 2. Typed-redeemer decode on treasury spends
+
+The Amaru `TreasurySpendRedeemer` is typed (`Reorganize`,
+`SweepTreasury`, `Fund`, `Disburse`) and registers against the
+treasury entities via `blueprints:` without parse error. The
+typed-decode pathway is verified against local fixture 17 but is
+not currently materialising typed predicates on the live mainnet
+lattice (the redeemer's `cardano:hasRawBytes` carries the CBOR but
+no `:Reorganize` / `:Disburse_amount` companion triples appear).
+Tracked as a separate bug; until fixed, SPARQL questions like
+*"was this a Disburse or a Reorganize?"* must be answered by
+recognising the raw CBOR shape (`d87980` = constructor 0 =
+`Reorganize`, `d87a9f…ff` = constructor 1, etc.) rather than by
+joining on typed predicates.
+
+### 3. Stale shipped blueprints for swap-v2
+
+The blueprint shipped at
+`test/fixtures/rewrite-redesign/blueprints/swap-v2-datum.cip57.json`
+declares a 1-field `SwapOrder` (recipient only). The live mainnet
+swap-v2 datum is a 6-field record. Registering the shipped
+blueprint against `amaru.swap.v2` therefore produces a
+`BlueprintFieldCountMismatch` warning on every order-opening
+output, and the datum stays raw. The fix is to ship a blueprint
+that matches the live contract version; until then, route around
+this via path #1 above (the scoop join).
+
+### 4. Treasury output datum is intentionally untyped
+
+This is a property of the contract, not of the tool: the live
+`treasury.treasury.spend` validator declares its datum as the
+top-level `Data` type (untyped passthrough). There is nothing
+typed to decode on the treasury-side txout datum — the contract's
+authorisation logic is carried by the redeemer + reference
+scripts, not the datum payload. SPARQL questions about treasury
+UTxOs therefore have to be answered via *address + value +
+ancillary metadata* (signers, certs, reference inputs), not via
+the datum.
