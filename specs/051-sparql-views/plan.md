@@ -98,14 +98,13 @@ only if the focused proof changes.
 
 ### D-004 Fixture corpus for cli-tree
 
-The acceptance issue says "10 harness #45 fixtures"; the current repo
-has more rewrite-redesign fixture directories after later epic work.
-The cli-tree slice must cover fixtures 01 through 10 at minimum and may
-include fixture 11 if the existing `RewriteRedesignGoldenSpec` registry
-already treats it as part of the 044-compatible text corpus. Fixtures
-12 and later are blueprint/typed follow-ons and are not required for the
-initial byte-equivalence target unless the worker pair can include them
-without widening scope.
+Parent answer A-001 accepted view-side cli-tree goldens for #51 because
+the current `expected.ttl` files cannot reproduce the legacy 044
+`expected.txt` files: the body graph carries stub credential bytes while
+the rules overlay carries real entity bytes. The cli-tree slice must
+cover fixtures 01 through 10 with graph-derived goldens under
+`test/fixtures/views/<slug>/cli-tree.txt`. Byte-equivalence to the
+legacy 044 `expected.txt` corpus is deferred to follow-on issue #98.
 
 ## Current Code Shape
 
@@ -143,6 +142,7 @@ views/entity-occurrences.rq
 views/json-ld.rq
 src/Cardano/Tx/View/*.hs
 test/Cardano/Tx/ViewSpec.hs
+test/Cardano/Tx/View/CliTreeGoldenSpec.hs
 test/fixtures/views/**
 cardano-tx-tools.cabal
 nix/apps.nix
@@ -192,7 +192,7 @@ specs/051-sparql-views/tasks.md
 ### Slice S1
 
 RED must assert that no `tx-view` executable exists or that `cli-tree`
-does not yet satisfy at least one fixture's expected text.
+does not yet satisfy at least one fixture's view-side cli-tree golden.
 
 Focused proof:
 
@@ -203,6 +203,9 @@ nix develop --quiet -c just unit "RewriteRedesignGoldens"
 ```
 
 The pair may refine Hspec match strings after inspecting test names.
+The active golden contract is
+`test/Cardano/Tx/View/CliTreeGoldenSpec.hs` comparing fixtures 01
+through 10 against `test/fixtures/views/<slug>/cli-tree.txt`.
 
 ### Slice S2
 

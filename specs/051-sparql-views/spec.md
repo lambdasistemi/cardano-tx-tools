@@ -17,17 +17,17 @@ pipeline can replace `tx-inspect` without changing reviewer-facing text.
 **Why this priority**: This is the acceptance anchor for #51 and the
 bridge from the graph emitter back to the 044 text surface.
 
-**Independent Test**: For each rewrite-redesign fixture covered by the
-044 harness, run `tx-view --graph <expected.ttl> --view cli-tree` and
-compare output to that fixture's `expected.txt` after whitespace
-canonicalisation.
+**Independent Test**: For each accepted rewrite-redesign stub fixture,
+run `tx-view --graph <expected.ttl> --view cli-tree` and compare output
+to a view-side golden under `test/fixtures/views/<slug>/cli-tree.txt`
+after whitespace canonicalisation.
 
 **Acceptance Scenarios**:
 
 1. **Given** a fixture graph with the current canonical Turtle layout,
    **When** `tx-view --graph expected.ttl --view cli-tree` runs,
-   **Then** the output is byte-equivalent to `expected.txt` modulo
-   whitespace canonicalisation.
+   **Then** the output is byte-equivalent to that fixture's view-side
+   `cli-tree.txt` golden modulo whitespace canonicalisation.
 2. **Given** a graph with no triples matching the cli-tree view,
    **When** `tx-view` runs,
    **Then** it exits 0 and emits an empty result.
@@ -111,8 +111,9 @@ covers the same subject/predicate/object set as the Turtle input.
 - **FR-002**: The PR MUST add executable `tx-view` with flags
   `--graph <file>`, `--view <name>` defaulting to `cli-tree`, and
   `--out <file>` defaulting to stdout.
-- **FR-003**: `cli-tree` MUST produce the 044 expected text for the
-  accepted rewrite-redesign fixtures modulo whitespace canonicalisation.
+- **FR-003**: `cli-tree` MUST produce graph-derived text for fixtures
+  01 through 10 and compare against view-side `cli-tree.txt` goldens
+  modulo whitespace canonicalisation.
 - **FR-004**: `asset-flow` MUST produce a per-asset movement summary on
   the Amaru swap fixture.
 - **FR-005**: `entity-occurrences` MUST produce per-entity occurrence
@@ -131,6 +132,9 @@ covers the same subject/predicate/object set as the Turtle input.
   packaged view and CLI error path.
 - **FR-013**: The PR MUST add one Unreleased / Features bullet in
   `CHANGELOG.md`.
+- **FR-014**: The PR MUST document the deferred legacy 044
+  `expected.txt` byte-equivalence target as follow-on issue #98 under
+  `CHANGELOG.md` Deferred / known limitations.
 
 ### Key Entities
 
@@ -147,6 +151,8 @@ covers the same subject/predicate/object set as the Turtle input.
 - `app/tx-view/Main.hs` and cabal/nix app wiring for `tx-view`.
 - `src/Cardano/Tx/View/*.hs` support modules if useful.
 - `test/Cardano/Tx/ViewSpec.hs` or equivalent focused specs.
+- `test/Cardano/Tx/View/CliTreeGoldenSpec.hs` for view-side cli-tree
+  fixture goldens.
 - Golden outputs under `test/fixtures/views/` if the worker pair chooses
   file-based goldens over inline assertions.
 - `CHANGELOG.md` feature bullet.
@@ -155,8 +161,8 @@ covers the same subject/predicate/object set as the Turtle input.
 
 - **SC-001**: `./gate.sh` exits successfully at the accepted
   implementation head.
-- **SC-002**: The cli-tree tests cover the 044 rewrite-redesign fixture
-  corpus accepted in plan.md.
+- **SC-002**: The cli-tree tests cover fixtures 01 through 10 with
+  view-side graph-derived goldens accepted in plan.md.
 - **SC-003**: Asset-flow and entity-occurrences produce non-empty,
   structurally distinct Amaru swap outputs.
 - **SC-004**: JSON-LD output parses and preserves supported triples.
@@ -172,3 +178,6 @@ covers the same subject/predicate/object set as the Turtle input.
   runtime dependency unless a future ticket proves it necessary. This
   ticket starts from the same constraint: packaged `.rq` files are the
   contract, and the Haskell runner is the in-repo execution engine.
+- Parent answer A-001 accepted view-side cli-tree goldens for #51 and
+  deferred byte-equivalence to the legacy 044 `expected.txt` corpus to
+  follow-on issue #98.

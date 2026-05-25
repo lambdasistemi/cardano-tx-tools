@@ -16,7 +16,8 @@ scope, slice order, forbidden surfaces, and verification strategy.
 
 - FR-001 packaged `.rq` files maps to T101, T201, T301, and T401.
 - FR-002 `tx-view` CLI maps to T102 and T108.
-- FR-003 `cli-tree` byte-equivalence maps to T105 and T106.
+- FR-003 `cli-tree` graph-derived view-side byte-equivalence maps to
+  T105 and T106.
 - FR-004 `asset-flow` maps to T202 and T203.
 - FR-005 `entity-occurrences` maps to T302 and T303.
 - FR-006 and FR-007 `json-ld` maps to T402 through T404.
@@ -28,6 +29,7 @@ scope, slice order, forbidden surfaces, and verification strategy.
   worker acceptance requirements.
 - FR-012 tests map to each worker slice's focused test tasks.
 - FR-013 changelog maps to T450.
+- FR-014 deferred #98 limitation maps to T450.
 
 ### Slice Consistency
 
@@ -50,9 +52,8 @@ documentation into one of the view behavior commits.
 - The SPARQL runtime strategy is pinned as D-002, including the Q-file
   escalation rule for dependencies or non-Haskell runtimes.
 - Sequential slice cadence is pinned as D-003 and reflected in tasks.
-- Fixture corpus ambiguity is pinned as D-004 so the worker pair starts
-  from fixtures 01 through 10 and may include 11 if it is already in the
-  active text corpus.
+- Fixture corpus ambiguity is pinned as D-004 so the worker pair covers
+  fixtures 01 through 10 with view-side goldens.
 
 ### Risk Review
 
@@ -61,13 +62,13 @@ documentation into one of the view behavior commits.
   include tests that prove the intended behavior over real fixture
   graphs, and any need for a real SPARQL runtime requires Q-file
   approval.
-- **cli-tree size risk**: Rebuilding 044 text from graph triples may be
-  the widest slice. Mitigation: make `cli-tree` first and let later
-  slices depend on a stable graph reader and CLI skeleton.
+- **cli-tree acceptance risk**: Current graph fixtures cannot reproduce
+  legacy 044 `expected.txt` output. Mitigation: A-001 accepted
+  view-side graph-derived goldens for #51 and deferred legacy
+  byte-equivalence to #98.
 - **Fixture corpus ambiguity**: The issue says 10 harness #45 fixtures,
   but the repo now has later fixture directories. Mitigation: D-004
-  scopes mandatory coverage to 01 through 10 and allows fixture 11 only
-  if already active in the 044-compatible registry.
+  scopes mandatory coverage to fixtures 01 through 10.
 - **Dependency drift risk**: Cabal/nix edits are permitted only for
   exposing `tx-view` and tests. Runtime/tool additions need Q-file
   approval.

@@ -26,12 +26,12 @@ metadata, and task checkbox amendments only.
 ## Phase 2: Worker Slice - tx-view Skeleton And cli-tree
 
 **Goal**: `tx-view` exists, dispatches packaged view names, and
-`cli-tree` reproduces the rewrite-redesign text corpus accepted by
-plan.md.
+`cli-tree` reproduces the graph-derived view-side goldens accepted by
+plan.md for fixtures 01 through 10.
 
 **Independent Test**: A focused `Cardano.Tx.View` spec fails before the
 view runner exists, then passes after `tx-view --view cli-tree` matches
-fixture `expected.txt` modulo whitespace canonicalisation.
+view-side fixture goldens modulo whitespace canonicalisation.
 
 - [ ] T100 [US1] Record RED evidence in `WIP.md` before GREEN for the
   missing `tx-view` / missing `cli-tree` behavior.
@@ -47,8 +47,9 @@ fixture `expected.txt` modulo whitespace canonicalisation.
 - [ ] T105 [US1] Implement the `cli-tree` projection over the canonical
   graph reader.
 - [ ] T106 [US1] Replace or supplement the pending #51 text
-  byte-equivalence check with active tests for the accepted fixture
-  corpus.
+  byte-equivalence check with active tests in
+  `test/Cardano/Tx/View/CliTreeGoldenSpec.hs` against view-side goldens
+  for fixtures 01 through 10.
 - [ ] T107 [US1] Add an empty-match graph test proving `cli-tree` exits
   0 with an empty result.
 - [ ] T108 [US1] Add CLI tests for unknown view, missing graph file,
@@ -129,7 +130,8 @@ files to parseable JSON-LD preserving supported triples.
 ready for final audit.
 
 - [ ] T450 Add one Unreleased / Features bullet in `CHANGELOG.md` for
-  #51.
+  #51 and one Deferred / known limitations bullet referencing follow-on
+  #98 for legacy 044 `expected.txt` byte-equivalence.
 - [ ] T451 Run `./gate.sh`, recording outcome in `WIP.md`.
 - [ ] T452 Commit the approved slice with subject
   `docs(051): document tx-view SPARQL views` and trailer
@@ -239,3 +241,6 @@ Tasks: T450, T451, T452
 - No forbidden surface is touched.
 - Any need for a SPARQL runtime, new vocabulary, `--view-file`, or
   emitter/rules-loader change stops the pair for a Q-file.
+- For cli-tree, compare graph-derived output to view-side goldens under
+  `test/fixtures/views/**`; legacy 044 `expected.txt` byte-equivalence
+  is deferred to #98 per A-001.
