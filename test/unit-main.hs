@@ -54,6 +54,7 @@ import Cardano.Tx.Rewrite.LoadSpec qualified as RewriteLoadSpec
 import Cardano.Tx.Rewrite.RewriteRedesignGoldenSpec qualified as RewriteRedesignGoldenSpec
 import Cardano.Tx.Validate.LoadUtxoSpec qualified as LoadUtxoSpec
 import Cardano.Tx.ValidateSpec qualified as ValidateSpec
+import Cardano.Tx.View.AssetFlowSpec qualified as ViewAssetFlowSpec
 import Cardano.Tx.View.CliTreeGoldenSpec qualified as ViewCliTreeGoldenSpec
 
 main :: IO ()
@@ -110,4 +111,5 @@ main = hspec $ do
     RewriteLoadSpec.spec
     RewriteRedesignGoldenSpec.spec
     ValidateSpec.spec
+    ViewAssetFlowSpec.spec
     ViewCliTreeGoldenSpec.spec

@@ -105,6 +105,7 @@ library
     Cardano.Tx.Graph.Rules.Load.Types
     Cardano.Tx.Inputs
     Cardano.Tx.Scripts
+    Cardano.Tx.View.AssetFlow
     Cardano.Tx.View.CliTree
     Cardano.Tx.View.Turtle
     Cardano.Tx.Witnesses
@@ -441,6 +442,7 @@ test-suite unit-tests
     Cardano.Tx.Validate.LoadUtxo
     Cardano.Tx.Validate.LoadUtxoSpec
     Cardano.Tx.ValidateSpec
+    Cardano.Tx.View.AssetFlowSpec
     Cardano.Tx.View.CliTreeGoldenSpec
     Fixtures.RewriteRedesign.Helpers
     Fixtures.RewriteRedesign.S01_AmaruTreasurySwap

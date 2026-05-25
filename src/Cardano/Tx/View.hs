@@ -7,8 +7,8 @@ Public API of the in-repo view runner. Loads a canonical Turtle
 graph file produced by @tx-graph@, dispatches on a named view, and
 returns the projected byte stream.
 
-The runner ships the @cli-tree@ view in #51's first behaviour slice;
-subsequent slices add @asset-flow@, @entity-occurrences@, and
+The runner ships @cli-tree@ and @asset-flow@ in #51's first two
+behaviour slices; subsequent slices add @entity-occurrences@ and
 @json-ld@ under the same dispatcher.
 
 The packaged @.rq@ files under @views\/@ are the vendor-neutral
@@ -36,6 +36,7 @@ import Data.ByteString (ByteString)
 import Data.Text (Text)
 import Data.Text qualified as Text
 
+import Cardano.Tx.View.AssetFlow (renderAssetFlow)
 import Cardano.Tx.View.CliTree (renderCliTree)
 import Cardano.Tx.View.Turtle (parseTurtle)
 
@@ -47,23 +48,28 @@ import Cardano.Tx.View.Turtle (parseTurtle)
 extend this enumeration as new @views\/\<name\>.rq@ contracts ship.
 -}
 data ViewName
-    = -- | The @cli-tree@ projection (this slice).
+    = -- | The @cli-tree@ projection.
       CliTree
+    | -- | The @asset-flow@ projection.
+      AssetFlow
     deriving stock (Eq, Show)
 
 -- | Parse a CLI string into a 'ViewName', or report it as unknown.
 parseViewName :: String -> Either ViewError ViewName
 parseViewName = \case
     "cli-tree" -> Right CliTree
+    "asset-flow" -> Right AssetFlow
     other -> Left (UnknownView (Text.pack other))
 
 -- | Inverse of 'parseViewName' — the canonical CLI surface name.
 renderViewName :: ViewName -> Text
-renderViewName CliTree = "cli-tree"
+renderViewName = \case
+    CliTree -> "cli-tree"
+    AssetFlow -> "asset-flow"
 
 -- | The list of view names this build recognises.
 knownViewNames :: [Text]
-knownViewNames = ["cli-tree"]
+knownViewNames = ["cli-tree", "asset-flow"]
 
 ----------------------------------------------------------------------
 -- Errors
@@ -109,3 +115,4 @@ renderView view bs = do
         Left err -> Left (TurtleParseError err)
     pure $ case view of
         CliTree -> renderCliTree graph
+        AssetFlow -> renderAssetFlow graph

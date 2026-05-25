@@ -67,17 +67,17 @@ view-side fixture goldens modulo whitespace canonicalisation.
 **Goal**: `asset-flow` is packaged and produces useful asset movement
 rows for the Amaru swap fixture.
 
-- [ ] T200 [US2] Record RED evidence in `WIP.md` for absent or empty
+- [x] T200 [US2] Record RED evidence in `WIP.md` for absent or empty
   `asset-flow`.
-- [ ] T201 [US2] Add `views/asset-flow.rq` with the SPARQL contract.
-- [ ] T202 [US2] Implement `asset-flow` in the view projection layer.
-- [ ] T203 [US2] Add focused tests over the Amaru swap fixture proving
+- [x] T201 [US2] Add `views/asset-flow.rq` with the SPARQL contract.
+- [x] T202 [US2] Implement `asset-flow` in the view projection layer.
+- [x] T203 [US2] Add focused tests over the Amaru swap fixture proving
   deterministic asset, quantity, source entity, and destination entity
   output.
-- [ ] T204 [US2] Add an empty-match graph test proving exit 0.
-- [ ] T205 [US2] Run focused tests and then `./gate.sh`, recording
+- [x] T204 [US2] Add an empty-match graph test proving exit 0.
+- [x] T205 [US2] Run focused tests and then `./gate.sh`, recording
   command outcomes in `WIP.md`.
-- [ ] T206 [US2] Commit the approved slice with subject
+- [x] T206 [US2] Commit the approved slice with subject
   `feat(051): add asset-flow view` and trailer
   `Tasks: T200, T201, T202, T203, T204, T205, T206`.
 
