@@ -107,20 +107,20 @@ references on the Amaru swap fixture.
 **Goal**: `json-ld` is packaged and converts canonical Turtle graph
 files to parseable JSON-LD preserving supported triples.
 
-- [ ] T400 [US4] Record RED evidence in `WIP.md` for absent `json-ld`
+- [x] T400 [US4] Record RED evidence in `WIP.md` for absent `json-ld`
   view behavior.
-- [ ] T401 [US4] Add `views/json-ld.rq` with the SPARQL/CONSTRUCT
+- [x] T401 [US4] Add `views/json-ld.rq` with the SPARQL/CONSTRUCT
   contract or documented projection contract.
-- [ ] T402 [US4] Implement `json-ld` projection from the canonical graph
+- [x] T402 [US4] Implement `json-ld` projection from the canonical graph
   reader.
-- [ ] T403 [US4] Add tests proving parseable JSON output for at least
+- [x] T403 [US4] Add tests proving parseable JSON output for at least
   one fixture graph.
-- [ ] T404 [US4] Add supported triple-content equivalence tests between
+- [x] T404 [US4] Add supported triple-content equivalence tests between
   Turtle input and JSON-LD output.
-- [ ] T405 [US4] Add an empty graph/result test proving exit 0.
-- [ ] T406 [US4] Run focused tests and then `./gate.sh`, recording
+- [x] T405 [US4] Add an empty graph/result test proving exit 0.
+- [x] T406 [US4] Run focused tests and then `./gate.sh`, recording
   command outcomes in `WIP.md`.
-- [ ] T407 [US4] Commit the approved slice with subject
+- [x] T407 [US4] Commit the approved slice with subject
   `feat(051): add json-ld view` and trailer
   `Tasks: T400, T401, T402, T403, T404, T405, T406, T407`.
 

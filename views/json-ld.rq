@@ -1,0 +1,57 @@
+# views/json-ld.rq - packaged contract for the json-ld view
+#
+# License: Apache-2.0
+#
+# The json-ld view projects an existing canonical Turtle graph file to
+# a deterministic JSON-LD document for browser consumers. It does not
+# regenerate the transaction graph from CBOR; it reads the graph supplied
+# through `tx-view --graph`.
+#
+# Output shape:
+#
+#   {
+#     "@context": {
+#       "cardano": "https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#",
+#       "rdf":     "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+#       "rdfs":    "http://www.w3.org/2000/01/rdf-schema#",
+#       "":        "https://lambdasistemi.github.io/cardano-tx-tools/fixtures/view#"
+#     },
+#     "@graph": [
+#       {
+#         "@id": "_:tx",
+#         "@type": "cardano:Transaction",
+#         "cardano:hasOutput": [{"@id": "_:output1"}]
+#       }
+#     ]
+#   }
+#
+# Mapping contract:
+#
+# * Turtle subject tokens become JSON-LD object "@id" values.
+# * Turtle `a` predicate becomes JSON-LD "@type".
+# * Other predicates remain CURIE / IRI JSON keys.
+# * Blank-node and IRI objects become {"@id": "..."} references.
+# * String literals become JSON strings.
+# * Integer literals become JSON numbers.
+# * Repeated predicate-object pairs on a subject become JSON arrays
+#   under that predicate key, preserving the canonical reader order.
+#
+# The contract is vendor-neutral. In this repository the projection is
+# implemented in Haskell by Cardano.Tx.View.JsonLd over the same bounded
+# canonical Turtle reader as the other #51 views. No SPARQL runtime is
+# required (see plan D-002).
+#
+# Empty-result invariant (FR-008 / T405): an empty canonical graph emits
+# a parseable document with an empty "@graph" array and exits 0.
+
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+CONSTRUCT {
+  ?subject ?predicate ?object .
+}
+WHERE {
+  ?subject ?predicate ?object .
+}
+ORDER BY ?subject ?predicate ?object

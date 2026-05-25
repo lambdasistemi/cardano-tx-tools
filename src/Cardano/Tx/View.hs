@@ -39,6 +39,7 @@ import Data.Text qualified as Text
 import Cardano.Tx.View.AssetFlow (renderAssetFlow)
 import Cardano.Tx.View.CliTree (renderCliTree)
 import Cardano.Tx.View.EntityOccurrences (renderEntityOccurrences)
+import Cardano.Tx.View.JsonLd (renderJsonLd)
 import Cardano.Tx.View.Turtle (parseTurtle)
 
 ----------------------------------------------------------------------
@@ -55,6 +56,8 @@ data ViewName
       AssetFlow
     | -- | The @entity-occurrences@ projection.
       EntityOccurrences
+    | -- | The @json-ld@ projection.
+      JsonLd
     deriving stock (Eq, Show)
 
 -- | Parse a CLI string into a 'ViewName', or report it as unknown.
@@ -63,6 +66,7 @@ parseViewName = \case
     "cli-tree" -> Right CliTree
     "asset-flow" -> Right AssetFlow
     "entity-occurrences" -> Right EntityOccurrences
+    "json-ld" -> Right JsonLd
     other -> Left (UnknownView (Text.pack other))
 
 -- | Inverse of 'parseViewName' — the canonical CLI surface name.
@@ -71,10 +75,11 @@ renderViewName = \case
     CliTree -> "cli-tree"
     AssetFlow -> "asset-flow"
     EntityOccurrences -> "entity-occurrences"
+    JsonLd -> "json-ld"
 
 -- | The list of view names this build recognises.
 knownViewNames :: [Text]
-knownViewNames = ["cli-tree", "asset-flow", "entity-occurrences"]
+knownViewNames = ["cli-tree", "asset-flow", "entity-occurrences", "json-ld"]
 
 ----------------------------------------------------------------------
 -- Errors
@@ -122,3 +127,4 @@ renderView view bs = do
         CliTree -> renderCliTree graph
         AssetFlow -> renderAssetFlow graph
         EntityOccurrences -> renderEntityOccurrences bs graph
+        JsonLd -> renderJsonLd graph

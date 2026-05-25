@@ -108,6 +108,7 @@ library
     Cardano.Tx.View.AssetFlow
     Cardano.Tx.View.CliTree
     Cardano.Tx.View.EntityOccurrences
+    Cardano.Tx.View.JsonLd
     Cardano.Tx.View.Turtle
     Cardano.Tx.Witnesses
 
@@ -446,6 +447,7 @@ test-suite unit-tests
     Cardano.Tx.View.AssetFlowSpec
     Cardano.Tx.View.CliTreeGoldenSpec
     Cardano.Tx.View.EntityOccurrencesSpec
+    Cardano.Tx.View.JsonLdSpec
     Fixtures.RewriteRedesign.Helpers
     Fixtures.RewriteRedesign.S01_AmaruTreasurySwap
     Fixtures.RewriteRedesign.S02_AliceBobAda
