@@ -479,6 +479,22 @@
               '';
           };
           apps = checkApps // {
+            # Override apps.unit so `nix run .#unit` (what CI calls)
+            # exports TX_VIEW_EXE before invoking the script — same
+            # treatment the checks.unit derivation above gets. Without
+            # this the unit-tests fail in CI on the four Cardano.Tx.View
+            # spec families that spawn tx-view as a subprocess.
+            unit = {
+              type = "app";
+              program = "${pkgs.writeShellApplication {
+                name = "unit-with-tx-view";
+                runtimeInputs = [ checkSuite.scripts.unit ];
+                text = ''
+                  export TX_VIEW_EXE=${components.exes.tx-view}/bin/tx-view
+                  exec ${pkgs.lib.getExe checkSuite.scripts.unit} "$@"
+                '';
+              }}/bin/unit-with-tx-view";
+            };
             tx-diff = {
               type = "app";
               program = "${txDiff}/bin/tx-diff";
