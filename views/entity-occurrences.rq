@@ -1,0 +1,47 @@
+# views/entity-occurrences.rq - packaged contract for the entity-occurrences view
+#
+# License: Apache-2.0
+#
+# The entity-occurrences view renders a flat per-entity summary of
+# operator-declared identifier leaf sites carried by the canonical
+# transaction graph. Each row is a single tab-separated record
+# terminated by a newline:
+#
+#   <entityLabel>\t<leafSiteCount>\n
+#
+# * entityLabel: the rdfs:label on a subject declared as
+#   cardano:Entity.
+# * leafSiteCount: the number of explicit cardano:hasIdentifier
+#   resource links on that entity declaration.
+#
+# The contract is conservative: counts are derived only from explicit
+# graph leaves tied to declared cardano:Entity identifiers. If the
+# canonical graph does not justify a leaf-site count, the projection
+# does not invent one.
+#
+# Row order is the canonical declaration order of cardano:Entity
+# subjects in the input Turtle graph. This matches the operator-authored
+# rules overlay order and the in-repo runner's byte output. Do not sort
+# by entity IRI: that would move :amaru_network_wallet ahead of
+# :amaru_swap_order in the Amaru swap fixture and produce different
+# bytes from the packaged view contract.
+#
+# The contract is vendor-neutral. In this repository the projection is
+# implemented in Haskell by Cardano.Tx.View.EntityOccurrences (no
+# SPARQL runtime is on the cardano-tx-tools classpath; see issue #51
+# plan D-002 and the no-stub-triples precedent at
+# views/no-stub-triples.rq).
+#
+# The SELECT below captures the grouped facts. A byte renderer applies
+# the declaration-order rule above when serializing rows.
+
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?entityLabel (COUNT(?identifier) AS ?leafSiteCount)
+WHERE {
+  ?entity a cardano:Entity ;
+          rdfs:label ?entityLabel ;
+          cardano:hasIdentifier ?identifier .
+}
+GROUP BY ?entity ?entityLabel

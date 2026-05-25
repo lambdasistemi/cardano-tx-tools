@@ -86,19 +86,19 @@ rows for the Amaru swap fixture.
 **Goal**: `entity-occurrences` is packaged and counts entity leaf-site
 references on the Amaru swap fixture.
 
-- [ ] T300 [US3] Record RED evidence in `WIP.md` for absent or empty
+- [x] T300 [US3] Record RED evidence in `WIP.md` for absent or empty
   `entity-occurrences`.
-- [ ] T301 [US3] Add `views/entity-occurrences.rq` with the SPARQL
+- [x] T301 [US3] Add `views/entity-occurrences.rq` with the SPARQL
   contract.
-- [ ] T302 [US3] Implement `entity-occurrences` in the view projection
+- [x] T302 [US3] Implement `entity-occurrences` in the view projection
   layer.
-- [ ] T303 [US3] Add focused tests proving per-entity count rows on the
+- [x] T303 [US3] Add focused tests proving per-entity count rows on the
   Amaru swap fixture.
-- [ ] T304 [US3] Add a structural-distinctness assertion against
+- [x] T304 [US3] Add a structural-distinctness assertion against
   `asset-flow`.
-- [ ] T305 [US3] Run focused tests and then `./gate.sh`, recording
+- [x] T305 [US3] Run focused tests and then `./gate.sh`, recording
   command outcomes in `WIP.md`.
-- [ ] T306 [US3] Commit the approved slice with subject
+- [x] T306 [US3] Commit the approved slice with subject
   `feat(051): add entity-occurrences view` and trailer
   `Tasks: T300, T301, T302, T303, T304, T305, T306`.
 

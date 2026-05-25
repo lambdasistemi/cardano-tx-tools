@@ -56,6 +56,7 @@ import Cardano.Tx.Validate.LoadUtxoSpec qualified as LoadUtxoSpec
 import Cardano.Tx.ValidateSpec qualified as ValidateSpec
 import Cardano.Tx.View.AssetFlowSpec qualified as ViewAssetFlowSpec
 import Cardano.Tx.View.CliTreeGoldenSpec qualified as ViewCliTreeGoldenSpec
+import Cardano.Tx.View.EntityOccurrencesSpec qualified as ViewEntityOccurrencesSpec
 
 main :: IO ()
 main = hspec $ do
@@ -113,3 +114,4 @@ main = hspec $ do
     ValidateSpec.spec
     ViewAssetFlowSpec.spec
     ViewCliTreeGoldenSpec.spec
+    ViewEntityOccurrencesSpec.spec
