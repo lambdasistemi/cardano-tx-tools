@@ -166,6 +166,160 @@ flat array of subject-grouped objects). `--format turtle` and
 `--format json-ld` produce set-equivalent triple sets; Turtle is
 the byte-diff anchor in the test harness.
 
+### Per-section triple coverage
+
+The body emitter walks every Conway-era body field that carries
+semantic content. The triples below are emitted regardless of whether
+operator rules are supplied; rules.yaml only changes how the bytes are
+*labelled* (entity-named vs raw-bytes-named bnodes).
+
+#### Transaction-level predicates
+
+- `cardano:hasInput`, `cardano:hasReferenceInput`,
+  `cardano:hasCollateralInput` — one edge per `TxIn` in the
+  corresponding ledger field.
+- `cardano:hasOutput`, `cardano:hasCollateralReturn` — one edge per
+  body output. The collateral-return output is on the same predicate
+  family but distinguishable by its anchor predicate (used by
+  `tx-view --view cli-tree` to elide it from the spending-output
+  list).
+- `cardano:hasFee` — integer lovelace literal.
+- `cardano:hasValidityInterval` — sub-block with
+  `cardano:invalidBefore` / `cardano:invalidHereafter` integers when
+  set.
+- `cardano:hasWithdrawal` — one edge per `Withdrawal`.
+- `cardano:hasMint` — one edge per minted asset class (positive or
+  negative quantity).
+- `cardano:hasCertificate` — one edge per `Certificate` (stake
+  registration / delegation / pool registration / drep declaration
+  / vote delegation / governance authorisation).
+- `cardano:hasRequiredSigner` — one edge per required-signer
+  identifier (PaymentKey leaf).
+- `cardano:hasProposal`, `cardano:hasVote` — one edge each per
+  governance proposal / vote.
+- `cardano:hasRedeemer` — one edge per Plutus redeemer with its
+  `cardano:hasPurpose`, `cardano:hasIndex`, `cardano:hasData`, and
+  `cardano:hasExUnits` sub-blocks.
+- `cardano:scriptDataHash`, `cardano:auxiliaryDataHash` — when set.
+- `cardano:totalCollateral` — integer lovelace when set.
+- `cardano:hasReferenceScript` (per output) — emitted on the
+  output's body when the output carries an attached reference script.
+
+#### Input triples
+
+- `cardano:fromTxOutRef` → typed `cardano:TxOutRef` sub-block.
+- `cardano:hasTxId` (on the `TxOutRef`) → `_:hash_txid_<full-hex>`
+  bnode carrying `cardano:leafType "TxId"` + `cardano:bytesHex`.
+- `cardano:hasIndex` (on the `TxOutRef`) — integer.
+- `cardano:resolvedTo` → resolved-`cardano:Output` sub-block when
+  the input's UTxO is supplied (`--utxo` or `--n2c-socket-path`).
+  Carries the parent's address + value at the time of consumption.
+
+#### Output triples
+
+- `cardano:atAddress` → typed `cardano:Address` sub-block (see
+  *Address decompositions* below).
+- `cardano:lovelace` — integer.
+- `cardano:hasAssetValue` → typed RDF list of `cardano:Asset`
+  entries when the output carries native tokens.
+- `cardano:hasDatum` → typed `cardano:Datum` sub-block when the
+  output carries either an inline datum (with `cardano:hasRawBytes`
+  and/or blueprint-decoded predicates) or a datum hash (with
+  `cardano:hasHash`).
+- `cardano:hasReferenceScript` → typed sub-block when the output
+  has an attached reference script (inline or hash-only).
+
+#### Asset / multi-asset triples
+
+The `cardano:hasAssetValue` payload is an RDF list. Each entry is a
+typed `cardano:Asset` block:
+
+- `cardano:hasIdentifier` → `_:cred_assetclass_<full-hex>` bnode
+  with the concatenated `policy-id ++ asset-name` bytes and
+  `cardano:leafType "AssetClass"`.
+- `cardano:quantity` — integer (positive on outputs, signed on
+  `hasMint`).
+
+#### Address decomposition
+
+Each unique `(payment-cred, stake-ref)` pair emits one
+`cardano:Address` block:
+
+- `cardano:bech32` — full bech32 address literal.
+- `cardano:hasPaymentCredential` → `<base>CredPayment` sub-block.
+- `cardano:hasStakeCredential` → `<base>CredStake` sub-block (when
+  the stake reference is non-null).
+
+Each credential sub-block carries one
+`cardano:hasIdentifier` edge to the underlying identifier bnode
+(entity-named when `rules.yaml` covers the credential's
+`(leafType, bytesHex)` pair, otherwise raw-bytes-named).
+
+#### Blueprint-decoded datum / redeemer payloads
+
+When the rules file registers a CIP-57 blueprint for the script
+controlling the datum, the walker emits a typed-emit projection of
+the Plutus data tree:
+
+- Each constructor's titled fields become
+  `:<ConstructorTitle>_<fieldTitle>` predicates rooted at the
+  enclosing data subject.
+- A constructor without a `title` falls back to a positional
+  `:_<index>` predicate.
+- **`"dataType": "map"` (CIP-57 SchemaMap)** — a Plutus `Map`
+  payload renders as an RDF list of `cardano:Asset`-shaped
+  `OpenObject {"key" -> k, "value" -> v}` entries; the walker
+  materialises each entry as a positional `:_<i>` bnode with the
+  decoded `:key` and `:value` triples on the entry.
+- Plutus byte fields → `_:<scope>_<field>_<i>` bnodes with
+  `cardano:bytesHex` literal and `cardano:leafType "Bytes"`.
+- Plutus integer fields → integer literals directly on the
+  enclosing predicate.
+- Decode failure → `cardano:decodeError "<reason>"` literal on the
+  enclosing data subject; raw bytes are preserved on
+  `cardano:hasRawBytes`.
+
+#### Bnode-label naming scheme
+
+Bnode labels are file-local and only need to be unique inside the
+Turtle document. The emitter mints them deterministically from the
+underlying bytes so that the same identifier emitted from two
+positions in a tx collapses to a single RDF node (intentional
+deduplication for the operator overlay) while distinct identifiers
+never collide on label:
+
+- **Identifier leaves** (TxId, datum hash, script hash, payment /
+  stake credentials, asset classes) →
+  `_:<family>_<role>_<full-hex>` where:
+  - `<family>` is `cred` for operator-declarable credential leaves
+    (payment / stake key / script, asset class, policy, pool id,
+    drep key / script) and `hash` for body-walker hash leaves (TxId,
+    datum hash, script hash, scriptdata hash, auxiliarydata hash).
+  - `<role>` is the leafType in lowercase (`paymentkey`,
+    `paymentscript`, `stakekey`, `stakescript`, `assetclass`,
+    `txid`, …).
+  - `<full-hex>` is the lowercase base16 encoding of the bytes,
+    *not* truncated. (Earlier emitter versions truncated to 16 hex
+    chars; that was a bnode-collision hazard for stub or
+    long-zero-prefix byte sets and is fixed in 0.2.3.0.)
+- **Address-level bnodes** → `<base>Addr`, `<base>CredPayment`,
+  `<base>CredStake` where `<base>` is the entity slug (when
+  rules.yaml binds the payment credential) or the raw-bytes form,
+  *concatenated with* the stake credential when present:
+  `<paymentBase>_s<stakeRole><stakeFullHex>` for non-null stake.
+  This pinning is what makes two addresses sharing a payment
+  credential but differing in stake credential mint distinct bnodes
+  (the SundaeSwap V3 order-book pattern surfaced the
+  payment-cred-only collision in 0.2.2.0; fixed in 0.2.3.0).
+- **Per-tx-position bnodes** — `_:input<N>`, `_:output<N>`,
+  `_:refInput<N>`, `_:collateral<N>`, `_:withdrawal<N>`,
+  `_:certificate<N>`, etc. — are *positional* (1-based on the
+  ledger body). These collide across distinct Turtle files emitted
+  for distinct transactions (each tx's body has its own
+  `_:input1`); for cross-tx SPARQL the recommended pattern is one
+  Turtle file per tx + multiple `--data` files at query time, which
+  lets the SPARQL engine rename per-file blank nodes uniquely.
+
 ## Library entry point
 
 ```haskell
