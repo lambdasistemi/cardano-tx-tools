@@ -68,7 +68,7 @@ _:outputDatum1_recipient :_0_pubKeyHash _:outputDatum1_recipient_pubKeyHash .
 #
 
 _:output2 a cardano:Output ;
-  cardano:atAddress _:cred_paymentkey_64f35d26b237ad58Addr ;
+  cardano:atAddress _:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540efAddr ;
   cardano:lovelace 2000000 .
 
 #
@@ -82,13 +82,13 @@ _:amaru_swap_v2Addr a cardano:Address ;
 _:amaru_swap_v2CredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:amaru_swap_v2_paymentScript .
 
-_:cred_paymentkey_64f35d26b237ad58Addr a cardano:Address ;
+_:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540efAddr a cardano:Address ;
   cardano:bech32 "addr_test1vpj0xhfxkgm66k8qnyzphs2vdpl20lw9395a04dkdcj5pmcmpvre6" ;
-  cardano:hasPaymentCredential _:cred_paymentkey_64f35d26b237ad58CredPayment .
+  cardano:hasPaymentCredential _:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540efCredPayment .
 
 _:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef a cardano:Identifier ;
   cardano:leafType "PaymentKey" ;
   cardano:bytesHex "64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef" .
 
-_:cred_paymentkey_64f35d26b237ad58CredPayment a cardano:PaymentCredential ;
+_:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540efCredPayment a cardano:PaymentCredential ;
   cardano:hasIdentifier _:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef .
