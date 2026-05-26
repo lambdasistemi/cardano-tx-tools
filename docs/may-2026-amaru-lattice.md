@@ -68,7 +68,7 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 |------|-------------|----------------|
 | Query 0 — ADA conservation | [`what / why / how`](may-2026-amaru-lattice/queries/00-ada-conservation.md) | [`queries/00-ada-conservation.rq`](may-2026-amaru-lattice/queries/00-ada-conservation.rq) |
 | Query 1 — Monthly totals | [`what / why / how`](may-2026-amaru-lattice/queries/01-monthly-totals.md) | [`queries/01-monthly-totals.rq`](may-2026-amaru-lattice/queries/01-monthly-totals.rq) |
-| Query 2 — USDM output addresses | [`what / why / how`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.md) | [`queries/02-usdm-output-addresses.rq`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq) |
+| Query 2 — Treasury USDM payees | [`what / why / how`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.md) | [`queries/02-usdm-output-addresses.rq`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq) |
 | Query 3 — ADA role flow | [`what / why / how`](may-2026-amaru-lattice/queries/03-ada-role-flow.md) | [`queries/03-ada-role-flow.rq`](may-2026-amaru-lattice/queries/03-ada-role-flow.rq) |
 | Query 4 — Required signer distribution | [`what / why / how`](may-2026-amaru-lattice/queries/04-required-signer-distribution.md) | [`queries/04-required-signer-distribution.rq`](may-2026-amaru-lattice/queries/04-required-signer-distribution.rq) |
 | Query 5 — Vendor-payment overlay | [`what / why / how`](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.md) | [`queries/05-vendor-payment-overlay.rq`](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.rq) |
