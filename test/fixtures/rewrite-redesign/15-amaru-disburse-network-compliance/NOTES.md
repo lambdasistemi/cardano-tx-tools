@@ -51,7 +51,7 @@ DSL counts produced by `S15_AmaruDisburseNetworkCompliance.tx`:
 ## Blueprint registration
 
 `rules.yaml` registers the trimmed single-validator extraction at
-`blueprints/sundae-treasury.cip57.json` for the treasury payment
+`blueprints/amaru-treasury.cip57.json` for the treasury payment
 script (`32201dc1...`). The extraction is intentionally narrower than
 the upstream `plutus.json`: the full file declares 13 validators and
 the typed-emit walker would otherwise pick `oneshot.oneshot.spend`

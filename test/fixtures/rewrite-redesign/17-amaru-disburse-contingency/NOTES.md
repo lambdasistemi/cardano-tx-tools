@@ -62,7 +62,7 @@ DSL counts produced by `S17_AmaruDisburseContingency.tx`:
 ## Blueprint registration
 
 `rules.yaml` registers the trimmed single-validator extraction at
-`blueprints/sundae-treasury.cip57.json` (the same shared file fixture
+`blueprints/amaru-treasury.cip57.json` (the same shared file fixture
 15 uses) for the contingency treasury payment script (`e6dbff09…`).
 The extraction keeps only `treasury.treasury.spend` plus the
 `TreasurySpendRedeemer` / `Pairs<PolicyId, Pairs<AssetName, Int>>`

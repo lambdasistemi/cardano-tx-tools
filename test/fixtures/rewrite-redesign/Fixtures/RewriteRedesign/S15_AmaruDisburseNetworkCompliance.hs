@@ -413,5 +413,5 @@ shape =
         , esCollateral = 1
         , esReferenceIns = 4
         , esBlueprintRef =
-            Just "test/fixtures/rewrite-redesign/blueprints/sundae-treasury.cip57.json"
+            Just "test/fixtures/rewrite-redesign/blueprints/amaru-treasury.cip57.json"
         }
