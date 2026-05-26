@@ -96,7 +96,8 @@ renderEntity
     table
     EntityDecl{entityName, entitySlug, entityIdentifiers, entityBech32}
     emitted =
-        let -- Issue #100: emit @cardano:bech32 "<addr>"@ on the
+        let
+            -- Issue #100: emit @cardano:bech32 "<addr>"@ on the
             -- entity node when the entity was declared via
             -- @from-address:@ (carrying its resolved bech32
             -- string). Skipped for @script:@ / @asset:@ /
@@ -116,7 +117,8 @@ renderEntity
             idLines = renderIdentifierLines table entityIdentifiers
             (idBlocksText, emitted') =
                 renderEntityIdentifierBlocks table entityIdentifiers emitted
-         in ( entityHead <> idLines <> "\n" <> idBlocksText
+         in
+            ( entityHead <> idLines <> "\n" <> idBlocksText
             , emitted'
             )
 

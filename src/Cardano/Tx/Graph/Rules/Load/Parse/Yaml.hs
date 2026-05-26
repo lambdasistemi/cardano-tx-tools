@@ -679,10 +679,11 @@ parseShape ctx ln slug obj =
                                 <> Text.intercalate ", " labels
                             )
 
--- | Parse a single-shape entity. Returns the entity's identifiers
--- plus a 'Just' bech32 for the @from-address@ shape (so the
--- overlay emitter can publish a @cardano:bech32@ triple on the
--- entity node, issue #100) or 'Nothing' for the other shapes.
+{- | Parse a single-shape entity. Returns the entity's identifiers
+plus a 'Just' bech32 for the @from-address@ shape (so the
+overlay emitter can publish a @cardano:bech32@ triple on the
+entity node, issue #100) or 'Nothing' for the other shapes.
+-}
 parseSingleShape ::
     Ctx ->
     Int ->
