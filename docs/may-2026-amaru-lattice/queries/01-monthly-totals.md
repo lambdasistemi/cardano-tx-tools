@@ -62,3 +62,27 @@ in all loaded transactions."
 The result is a diagnostic header for the rest of the bundle. If this
 row is wrong, do not interpret the later business queries until the seed
 list and lattice-role tagging are fixed.
+
+## SPARQL
+
+```sparql
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+
+SELECT (COUNT(?tx) AS ?seedTxCount)
+       (SUM(?fee) AS ?totalFeeLovelace)
+       (MIN(?fee) AS ?minFee)
+       (MAX(?fee) AS ?maxFee)
+WHERE {
+  ?tx cardano:hasLatticeRole "seed" ;
+      cardano:hasFee ?fee .
+}
+
+```
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+
+| seedTxCount | totalFeeLovelace | minFee | maxFee |
+|---|---|---|---|
+| 30 | 19931398 | 244261 | 1572508 |

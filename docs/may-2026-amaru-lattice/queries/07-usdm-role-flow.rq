@@ -9,8 +9,9 @@ SELECT ?role
        (SUM(?qOut) AS ?usdm_out)
        ((SUM(?qIn) - SUM(?qOut)) AS ?net_usdm)
 WHERE {
-  ?usdmEntity rdfs:label "usdm" ;
-              cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
+  VALUES ?usdmAssetId {
+    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+  }
 
   {
     ?seed cardano:hasLatticeRole "seed" ;

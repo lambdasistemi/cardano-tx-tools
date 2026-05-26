@@ -2,17 +2,17 @@ PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/ca
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 
 # This is deliberately named "consumer" rather than "scoop": it finds
-# seed transactions that consume swap.v2 UTxOs. A swap cancel and a
-# batch scoop both satisfy that pattern.
-SELECT ?seedTxId ?swapV2InputsConsumed
+# seed transactions that consume SundaeSwap V3 order UTxOs. A swap
+# cancel and a batch scoop both satisfy that pattern.
+SELECT ?seedTxId ?orderInputsConsumed
        (COUNT(DISTINCT ?out) AS ?outputCount)
-       (COUNT(DISTINCT ?nonSwapOut) AS ?nonSwapOutputCount)
+       (COUNT(DISTINCT ?nonOrderOut) AS ?nonOrderOutputCount)
 WHERE {
   {
-    SELECT ?seed ?seedTxId ?swapV2Hash (COUNT(DISTINCT ?parentOut) AS ?swapV2InputsConsumed)
+    SELECT ?seed ?seedTxId ?orderScriptHash (COUNT(DISTINCT ?parentOut) AS ?orderInputsConsumed)
     WHERE {
-      ?swapV2 rdfs:label "amaru.swap.v2" ;
-              cardano:hasIdentifier/cardano:bytesHex ?swapV2Hash .
+      ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                   cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
 
       ?seed cardano:hasLatticeRole "seed" ;
             cardano:hasTxId/cardano:bytesHex ?seedTxId ;
@@ -24,9 +24,9 @@ WHERE {
               cardano:hasOutput ?parentOut .
       ?parentOut cardano:hasIndex ?ix ;
                  cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
-                   ?swapV2Hash .
+                   ?orderScriptHash .
     }
-    GROUP BY ?seed ?seedTxId ?swapV2Hash
+    GROUP BY ?seed ?seedTxId ?orderScriptHash
   }
 
   ?seed cardano:hasOutput ?out .
@@ -34,10 +34,10 @@ WHERE {
     ?out cardano:atAddress ?outAddr .
     FILTER NOT EXISTS {
       ?outAddr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
-                 ?swapV2Hash .
+                 ?orderScriptHash .
     }
-    BIND (?out AS ?nonSwapOut)
+    BIND (?out AS ?nonOrderOut)
   }
 }
-GROUP BY ?seedTxId ?swapV2InputsConsumed
-ORDER BY DESC(?swapV2InputsConsumed) ?seedTxId
+GROUP BY ?seedTxId ?orderInputsConsumed
+ORDER BY DESC(?orderInputsConsumed) ?seedTxId

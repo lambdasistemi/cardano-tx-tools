@@ -9,14 +9,10 @@ entities:
     from-address: addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl
   - name: amaru.swap-order
     from-address: addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n
-  - name: amaru.swap.v2
+  - name: sundae.swap.v3.order
     script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077
   - name: amaru.network-operator
     from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
-  - name: usdm
-    asset:
-      policy: c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad
-      name: USDM
   - name: amaru.antithesis
     role: fuzz-testing vendor
     paid-via: amaru.cag-payee
@@ -26,11 +22,11 @@ entities:
 
 blueprints:
   - script: amaru-treasury.contingency
-    datum: ../../test/fixtures/rewrite-redesign/blueprints/sundae-treasury.cip57.json
+    datum: ../../test/fixtures/rewrite-redesign/blueprints/amaru-treasury.cip57.json
   - script: amaru-treasury.network_compliance
-    datum: ../../test/fixtures/rewrite-redesign/blueprints/sundae-treasury.cip57.json
-  - script: amaru.swap.v2
-    datum: ../../test/fixtures/rewrite-redesign/blueprints/swap-v2-datum.cip57.json
+    datum: ../../test/fixtures/rewrite-redesign/blueprints/amaru-treasury.cip57.json
+  - script: sundae.swap.v3.order
+    datum: ../../test/fixtures/rewrite-redesign/blueprints/sundaeswap-v3/plutus.json
 
 attestations:
   - ipfs: ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam

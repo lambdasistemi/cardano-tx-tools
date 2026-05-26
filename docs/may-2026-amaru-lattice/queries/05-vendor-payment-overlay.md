@@ -67,9 +67,9 @@ The subquery finds the bridge entity by label:
               cardano:bech32 ?bridgeBech32 .
 ```
 
-It also finds the USDM asset id from the `usdm` entity. It then scans
-seed outputs at the bridge address, follows the multi-asset RDF list,
-and sums USDM quantity.
+It also pins the full on-chain USDM asset id in a `VALUES` block. It
+then scans seed outputs at the bridge address, follows the multi-asset
+RDF list, and sums USDM quantity.
 
 The outer query joins vendors to the same bridge entity:
 
@@ -87,3 +87,51 @@ Then it joins attestations to those vendors:
 The important correctness property is that the bridge amount and the
 vendor evidence are not stitched together by a presentation script. They
 are joined inside SPARQL over one emitted graph.
+
+## SPARQL
+
+```sparql
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?vendor ?vendorLabel ?attestation ?attestationLabel ?ipfs ?usdmTotalAtBridge
+WHERE {
+  {
+    SELECT ?bridgeEntity (SUM(?qty) AS ?usdmTotalAtBridge)
+    WHERE {
+      ?bridgeEntity rdfs:label "amaru.cag-payee" ;
+                    cardano:bech32 ?bridgeBech32 .
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+
+      ?seed cardano:hasLatticeRole "seed" ;
+            cardano:hasOutput ?out .
+      ?out cardano:atAddress/cardano:bech32 ?bridgeBech32 ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+    GROUP BY ?bridgeEntity
+  }
+  ?vendor cardano:paidVia ?bridgeEntity .
+  ?attestation cardano:attests ?vendor ;
+               cardano:ipfs ?ipfs .
+  OPTIONAL { ?vendor rdfs:label ?vendorLabel . }
+  OPTIONAL { ?attestation rdfs:label ?attestationLabel . }
+}
+ORDER BY ?vendor ?attestation
+
+```
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+
+| vendor | vendorLabel | attestation | attestationLabel | ipfs | usdmTotalAtBridge |
+|---|---|---|---|---|---|
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_antithesis | amaru.antithesis | b0 | Invoice INV-635 | ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam | 418750000000 |
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b1 | May 2026 cycle review | ipfs://bafybeihdmnitrbu2oir3r2fefnpqy3bk7zdz42olzmltmxyt5xag4i2t5a | 418750000000 |
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b2 | Contract | ipfs://bafybeib3jef34ndw6oe24mkmifdvxe5jrv7ulh63rdllovyth27mqfj2da | 418750000000 |
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b3 | Invoice #3508 | ipfs://bafybeigy37ui2ikn7bim2vw6cojcbxkcndpjwh7cj5fv3vzs4cszezipxu | 418750000000 |

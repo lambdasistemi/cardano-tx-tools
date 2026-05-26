@@ -31,16 +31,17 @@ Queries 11, 14, 15, and 16 answer the terminal-state question.
 
 ```mermaid
 flowchart LR
-  rules[Rules USDM entity]
+  pinned[Full USDM asset id]
   asset[USDM asset id]
   seeds[Seed outputs]
   values[Asset values]
   filter[Keep USDM]
   addresses[Output addresses]
+  rules[Rules labels]
   labels[Known labels]
   table[Address totals]
 
-  rules --> asset
+  pinned --> asset
   seeds --> values
   values --> filter
   asset --> filter
@@ -52,9 +53,10 @@ flowchart LR
 
 ## How
 
-The query first finds the `usdm` entity emitted from `rules.yaml` and
-reads its `cardano:hasIdentifier/cardano:bytesHex` asset id. This keeps
-the SPARQL independent of hard-coded policy and asset-name literals.
+The query pins the full on-chain USDM asset id in a `VALUES` block:
+policy id plus the complete asset-name bytes. The May asset name is not
+plain ASCII `USDM`; it includes the on-chain label prefix
+`0014df10`, so the query uses the exact bytes emitted in the graph.
 
 It then scans seed outputs, follows `cardano:hasAssetValue` through the
 RDF list of multi-asset quantities, and keeps only assets whose
@@ -72,3 +74,44 @@ That join is why the rendered answer can show both the concrete address
 and an operator label where one exists. Unknown addresses are kept as
 `unlabelled`, which is important for auditability; the query does not
 drop facts just because the operator did not pre-name an address.
+
+## SPARQL
+
+```sparql
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?outputBech32 ?outputLabel (SUM(?qty) AS ?usdmOutput)
+WHERE {
+  VALUES ?usdmAssetId {
+    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+  }
+
+  ?seed cardano:hasLatticeRole "seed" ;
+        cardano:hasOutput ?out .
+  ?out cardano:atAddress/cardano:bech32 ?outputBech32 ;
+       cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+  ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+         cardano:quantity ?qty .
+
+  OPTIONAL {
+    ?labelEntity cardano:bech32 ?outputBech32 ;
+                 rdfs:label ?knownLabel .
+  }
+  BIND (COALESCE(?knownLabel, "unlabelled") AS ?outputLabel)
+}
+GROUP BY ?outputBech32 ?outputLabel
+ORDER BY DESC(?usdmOutput)
+
+```
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+
+| outputBech32 | outputLabel | usdmOutput |
+|---|---|---|
+| addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk | amaru-treasury.network_compliance | 1146156659602 |
+| addr1z8srqftqemf0mjlukfszd97ljuxdp44r372txfcr75wrz2auzrlrz2kdd83wzt9u9n9qt2swgvhrmmn96k55nq6yuj4qw992w9 | unlabelled | 490819149109 |
+| addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl | amaru.cag-payee | 418750000000 |

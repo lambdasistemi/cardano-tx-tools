@@ -2,25 +2,26 @@ PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/ca
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 
-# Output candidates for the 9-order swap.v2 consumer. This answers
+# Output candidates for the 9-order SundaeSwap V3 order consumer. This answers
 # "what outputs did the consumer transaction create?". It does not prove
 # which output was the intended recipient of which order without a
 # matching datum decode or additional off-chain order context.
 SELECT ?scoopTxId ?outputRole ?outputBech32 ?outputLovelace
        (SUM(COALESCE(?usdmRaw, 0)) AS ?outputUsdm)
 WHERE {
-  ?usdmEntity rdfs:label "usdm" ;
-              cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
+  VALUES ?usdmAssetId {
+    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+  }
 
   VALUES ?scoopTxId {
     "4e2642080c8d171aad05baed11b076de498b76acecc1c2412660048fae8aefa3"
   }
 
   {
-    SELECT DISTINCT ?scoop ?scoopTxId ?swapV2Hash
+    SELECT DISTINCT ?scoop ?scoopTxId ?orderScriptHash
     WHERE {
-      ?swapV2 rdfs:label "amaru.swap.v2" ;
-              cardano:hasIdentifier/cardano:bytesHex ?swapV2Hash .
+      ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                   cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
 
       ?scoop cardano:hasLatticeRole "seed" ;
              cardano:hasTxId/cardano:bytesHex ?scoopTxId ;
@@ -32,7 +33,7 @@ WHERE {
               cardano:hasOutput ?orderOut .
       ?orderOut cardano:hasIndex ?ix ;
                 cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
-                  ?swapV2Hash .
+                  ?orderScriptHash .
     }
   }
 
@@ -43,7 +44,7 @@ WHERE {
 
   FILTER NOT EXISTS {
     ?outputAddr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
-                  ?swapV2Hash .
+                  ?orderScriptHash .
   }
 
   OPTIONAL {

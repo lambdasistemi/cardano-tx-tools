@@ -25,7 +25,7 @@ for the May seed transaction set, the ADA UTxO accounting must balance.
 
 Every higher-level flow query depends on this invariant. If the graph
 cannot conserve lovelace, then any statement like "network_compliance
-sent ADA to swap.v2" or "the contingency disbursement was 205k ADA" is
+sent ADA to Sundae V3 order UTxOs" or "the contingency disbursement was 205k ADA" is
 not yet trustworthy, because an input or output might be missing.
 
 This is the first proof gate for graph correctness. It catches missing
@@ -76,3 +76,55 @@ input lovelace - output lovelace - fee lovelace
 If the graph is complete for the seed inputs, the expression is zero.
 If it is non-zero, the next debugging step is Query 12, which identifies
 whether any seed input failed to resolve to exactly one parent output.
+
+## SPARQL
+
+```sparql
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+
+# UTxO-only ADA conservation for seed transactions:
+# seed inputs resolved through the parent closure must equal seed
+# outputs plus fees. This deliberately does not claim full ledger
+# conservation across deposits, rewards, minting, or burning.
+SELECT ?totalSeedInputLovelace ?totalSeedOutputLovelace ?totalSeedFee
+       ((?totalSeedInputLovelace - ?totalSeedOutputLovelace - ?totalSeedFee) AS ?gap)
+WHERE {
+  {
+    SELECT (SUM(?l) AS ?totalSeedInputLovelace)
+    WHERE {
+      ?seed cardano:hasLatticeRole "seed" ;
+            cardano:hasInput ?in .
+      ?in cardano:fromTxOutRef ?ref .
+      ?ref cardano:hasTxId/cardano:bytesHex ?parentHex ;
+           cardano:hasIndex ?ix .
+      ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ;
+              cardano:hasOutput ?parentOut .
+      ?parentOut cardano:hasIndex ?ix ;
+                 cardano:lovelace ?l .
+    }
+  }
+  {
+    SELECT (SUM(?l) AS ?totalSeedOutputLovelace)
+    WHERE {
+      ?seed cardano:hasLatticeRole "seed" ;
+            cardano:hasOutput/cardano:lovelace ?l .
+    }
+  }
+  {
+    SELECT (SUM(?f) AS ?totalSeedFee)
+    WHERE {
+      ?seed cardano:hasLatticeRole "seed" ;
+            cardano:hasFee ?f .
+    }
+  }
+}
+
+```
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+
+| totalSeedInputLovelace | totalSeedOutputLovelace | totalSeedFee | gap |
+|---|---|---|---|
+| 22186097902390 | 22186077970992 | 19931398 | 0 |

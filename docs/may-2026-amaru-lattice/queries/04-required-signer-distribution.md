@@ -61,3 +61,40 @@ The outer query groups by `?requiredSigners` and counts transactions in
 each group. The result is intentionally compact: it is not trying to
 name each signer, only to prove that the graph carries the body-level
 signer cardinality needed to distinguish transaction classes.
+
+## SPARQL
+
+```sparql
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+
+SELECT ?requiredSigners (COUNT(?seed) AS ?txCount)
+WHERE {
+  {
+    SELECT ?seed (COUNT(DISTINCT ?sig) AS ?requiredSigners)
+    WHERE {
+      ?seed cardano:hasLatticeRole "seed" ;
+            cardano:hasRequiredSigner ?sig .
+    }
+    GROUP BY ?seed
+  }
+  UNION
+  {
+    ?seed cardano:hasLatticeRole "seed" .
+    FILTER NOT EXISTS { ?seed cardano:hasRequiredSigner ?_sig }
+    BIND (0 AS ?requiredSigners)
+  }
+}
+GROUP BY ?requiredSigners
+ORDER BY DESC(?requiredSigners)
+
+```
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+
+| requiredSigners | txCount |
+|---|---|
+| 4 | 1 |
+| 2 | 23 |
+| 1 | 6 |

@@ -4,8 +4,9 @@ PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 
 SELECT ?outputBech32 ?outputLabel (SUM(?qty) AS ?usdmOutput)
 WHERE {
-  ?usdmEntity rdfs:label "usdm" ;
-              cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
+  VALUES ?usdmAssetId {
+    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+  }
 
   ?seed cardano:hasLatticeRole "seed" ;
         cardano:hasOutput ?out .

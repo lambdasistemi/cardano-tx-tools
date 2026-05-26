@@ -14,26 +14,23 @@ unblocks the lattice-of-transactions workflows today.
 ## What it does
 
 Given a list of transaction ids and an operator
-[rewriting-rules](rewriting-rules.md) file, for each tx it writes
-`OUT_DIR/<txid>.ttl` containing two layers:
+[rewriting-rules](rewriting-rules.md) file, `tx-lattice` fetches each
+seed tx's CBOR, walks the tx ids referenced by its inputs, reference
+inputs, and collateral inputs, and writes one canonical Turtle file per
+transaction to `OUT_DIR/<txid>.ttl`.
 
-1. **Body emit** — the canonical Turtle that `tx-graph --rules
-   RULES --tx <tx.cbor>` produces (operator-entity overlay, body
-   decomposition, blueprint-decoded datums + redeemers, address
-   decompositions).
-2. **Resolved-input bridges** — one `_:resolved_input<N>` bnode per
-   input of the tx, carrying the parent UTxO's `cardano:atAddress`
-   (bech32) and `cardano:lovelace`, plus the parent
-   `cardano:fromParentTxId` / `cardano:fromParentIndex` and
-   per-role flags (`cardano:isReferenceInput`,
-   `cardano:isCollateralInput`). Each input bnode is bridged to its
-   resolved twin via `cardano:resolvedTo`, the same predicate
-   `tx-graph` would emit had it been given a UTxO file or N2C
-   socket directly.
+The fetch layer uses only Blockfrost's `/txs/<hash>/cbor` endpoint. It
+does not call `/utxos`, and it does not synthesize resolved-input bridge
+triples. Parent transactions are emitted as normal graph files, so a
+SPARQL query resolves an input by joining `cardano:fromTxOutRef` to the
+matching parent transaction output by `(txid, index)`.
 
-The inputs come pre-resolved in a single Blockfrost API call per
-tx (`/txs/<hash>/utxos`) — one HTTP round-trip per tx, two if you
-count the CBOR fetch, regardless of how many inputs that tx has.
+Emission is two-pass. The first pass fills `OUT_DIR/cbor/<txid>.cbor`
+for the whole closure. The second pass emits seed transactions with
+`tx-graph --closure-dir OUT_DIR/cbor`, letting `tx-graph` resolve parent
+outputs in-process when it needs the parent script hash for typed
+spending-redeemer decode. Parent transactions are emitted without
+`--closure-dir`; they are present so queries can join to their outputs.
 
 ## Quickstart
 
@@ -75,7 +72,7 @@ unions work without collision.
 ```text
 Usage:
   tx-lattice --rules rules.yaml --out-dir DIR \
-             [--network mainnet|preprod|preview] \
+             [--network mainnet|preprod|preview] [--depth N] \
              <txId1> <txId2> ... <txIdN>
 ```
 
@@ -97,6 +94,8 @@ Usage:
 - `--out-dir` is the destination directory (created if missing). One
   `<txid>.ttl` per input txid.
 - `--network` selects the Blockfrost host. Default `mainnet`.
+- `--depth` controls how many parent layers the CBOR walk fetches.
+  Default `1`.
 
 ## Required env
 
@@ -127,16 +126,17 @@ contract — a directory of canonical-Turtle files keyed by txid.
 
 ## Known limitations
 
-The lattice gives you the canonical body + the resolved-input
-bridges. A few semantic questions still cannot be answered from
-those triples alone today. They are listed here so that nothing
-in the demo pipeline lies by omission.
+The lattice gives you canonical transaction bodies plus enough parent
+transaction bodies to join inputs to outputs by `cardano:fromTxOutRef`.
+A few semantic questions still cannot be answered from those triples
+alone today. They are listed here so that nothing in the demo pipeline
+lies by omission.
 
 ### 1. Asset-flow recipients of swap orders show the script, not the human
 
 When a transaction opens a swap order, the on-chain output is at the
 swap script's address. Asset-flow's *destination* column therefore
-reports `amaru.swap.v2` (the script entity) on every order-opening
+reports `sundae.swap.v3.order` (the script entity) on every order-opening
 output — that is what the chain itself stores. The real recipient
 credential sits inside the swap-order datum, which the emitter
 leaves as raw CBOR in `cardano:hasRawBytes` whenever a typed
@@ -156,10 +156,20 @@ Two paths to the human recipient:
 
    ```sparql
    SELECT ?recipient ?asset ?qty WHERE {
-     ?orderOut cardano:atAddress _:amaru_swap_v2Addr .
-     ?scoopInput cardano:resolvedTo ?orderOut .
+     ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                  cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+
      ?scoopTx cardano:hasInput ?scoopInput ;
               cardano:hasOutput ?recipientOut .
+     ?scoopInput cardano:fromTxOutRef ?ref .
+     ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+          cardano:hasIndex ?ix .
+
+     ?parentTx cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+               cardano:hasOutput ?orderOut .
+     ?orderOut cardano:hasIndex ?ix ;
+               cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
+                 ?orderScriptHash .
      ?recipientOut cardano:atAddress/cardano:bech32 ?recipient ;
                    cardano:hasAssetValue/rdf:first* ?asset .
    }
@@ -168,26 +178,26 @@ Two paths to the human recipient:
    Cost: one extra `tx-lattice` fetch per order (the scoop that
    executes it). Works today, blueprint-free.
 
-2. **Typed datum decode.** When a blueprint matching the live
-   swap-v2 datum shape is registered against `amaru.swap.v2` via
-   `rules.yaml`'s `blueprints:` block, the emitter materialises a
-   `:SwapOrder_recipient` triple directly on the order-opening tx —
-   no scoop join required.
+2. **Typed datum decode.** PR 103 shipped the live SundaeSwap V3
+   blueprint and registered the script as `sundae.swap.v3.order`, but
+   that upstream blueprint intentionally declares the order datum as
+   opaque `Data`. A future datum-specific decoder would be needed before
+   the emitter can materialise recipient triples directly on the
+   order-opening tx.
 
-### 2. Typed-redeemer decode on treasury spends
+### 2. Typed-redeemer decode depends on closure resolution
 
 The Amaru `TreasurySpendRedeemer` is typed (`Reorganize`,
 `SweepTreasury`, `Fund`, `Disburse`) and registers against the
-treasury entities via `blueprints:` without parse error. The
-typed-decode pathway is verified against local fixture 17 but is
-not currently materialising typed predicates on the live mainnet
-lattice (the redeemer's `cardano:hasRawBytes` carries the CBOR but
-no `:Reorganize` / `:Disburse_amount` companion triples appear).
-Tracked as a separate bug; until fixed, SPARQL questions like
-*"was this a Disburse or a Reorganize?"* must be answered by
-recognising the raw CBOR shape (`d87980` = constructor 0 =
-`Reorganize`, `d87a9f…ff` = constructor 1, etc.) rather than by
-joining on typed predicates.
+treasury entities via `blueprints:`. The live lattice must emit seed
+transactions with `tx-graph --closure-dir`; otherwise `tx-graph` cannot
+look up the parent output's script hash and cannot choose the right
+blueprint for the spending redeemer.
+
+With the two-pass closure flow, treasury spends now materialise typed
+predicates such as `:TreasurySpendRedeemer_amount` on the live mainnet
+lattice. If those predicates disappear, first check that the seed emit
+was run with a populated closure directory.
 
 ### 3. SundaeSwap V3 swap-order datum stays opaque
 

@@ -21,8 +21,9 @@ WHERE {
         WHERE {
           ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
                              cardano:bech32 ?networkComplianceBech32 .
-          ?usdmEntity rdfs:label "usdm" ;
-                      cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
 
           ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
               cardano:hasOutput ?out .
