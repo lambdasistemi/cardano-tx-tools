@@ -306,14 +306,37 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.rulesBlueprints (T100)" $ do
                     expectationFailure $
                         "expected HttpsBlueprintPath, got: " <> show other
 
-        it "DuplicateBlueprintPredicate when two blueprints mint the same predicate" $ do
+        it "DuplicateBlueprintPredicate when DIFFERENT blueprints mint the same predicate" $ do
             blueprintBlob <- BS.readFile swapV2BlueprintPath
             -- Two entities with distinct script hashes; two blueprints
-            -- referencing the same CIP-57 payload. Both blueprints
-            -- therefore declare the (SwapOrder, recipient) pair so the
-            -- minted predicate name collides — the loader must reject
-            -- with 'DuplicateBlueprintPredicate' per D-001b / A-001.
-            let yaml =
+            -- that are STRUCTURALLY DIFFERENT (so they parse to
+            -- distinct 'Blueprint' values) but both mint the
+            -- ':SwapOrder_recipient' predicate. The mismatch in
+            -- preamble.description below is enough — the predicate
+            -- name minting is deterministic over the validator
+            -- schema, so a description-only edit preserves the
+            -- collision while making the parsed values 'Blueprint'
+            -- unequal. The loader rejects with
+            -- 'DuplicateBlueprintPredicate' per D-001b / A-001.
+            --
+            -- Issue #101: the SAME blueprint registered against two
+            -- scripts is the operator-intended "shared parameterised
+            -- contract" pattern (Amaru contingency vs
+            -- network_compliance — both treasury.treasury.spend) and
+            -- is accepted; see the next test.
+            -- Replace the preamble title in the second copy so its
+            -- parsed 'Blueprint' value differs from the original
+            -- (preambleTitle is captured into BlueprintPreamble; the
+            -- preamble description / version / license are not, so
+            -- we have to target a captured field). The constructor
+            -- schema is untouched, so the minted predicate URIs
+            -- (':SwapOrder_recipient') are identical.
+            let distinctBlob =
+                    replaceBytes
+                        "\"title\": \"amaru.swap.v2\""
+                        "\"title\": \"amaru.swap.v2.alt-title\""
+                        blueprintBlob
+                yaml =
                     TextEncoding.encodeUtf8 $
                         Text.unlines
                             [ "entities:"
@@ -325,7 +348,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.rulesBlueprints (T100)" $ do
                             , "  - script: amaru.swap.v2"
                             , "    datum: ./blueprints/swap-v2-datum.cip57.json"
                             , "  - script: amaru.swap.v2.alt"
-                            , "    datum: ./blueprints/swap-v2-datum-copy.cip57.json"
+                            , "    datum: ./blueprints/swap-v2-datum-distinct.cip57.json"
                             ]
                 extras =
                     [
@@ -333,8 +356,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.rulesBlueprints (T100)" $ do
                         , blueprintBlob
                         )
                     ,
-                        ( "blueprints/swap-v2-datum-copy.cip57.json"
-                        , blueprintBlob
+                        ( "blueprints/swap-v2-datum-distinct.cip57.json"
+                        , distinctBlob
                         )
                     ]
             withRulesAndBlueprints yaml extras $ \path result -> case result of
@@ -356,6 +379,48 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.rulesBlueprints (T100)" $ do
                     expectationFailure $
                         "expected DuplicateBlueprintPredicate, got: "
                             <> show other
+
+        it "shared blueprint across N scripts is accepted (#101)" $ do
+            blueprintBlob <- BS.readFile swapV2BlueprintPath
+            -- Two scope-parameterised script hashes registered against
+            -- the SAME blueprint file — the Amaru treasury pattern
+            -- (contingency + network_compliance both use the
+            -- treasury.treasury.spend contract; the parameterisation
+            -- gives each scope a distinct script hash but the
+            -- redeemer schema is identical). The loader must accept
+            -- both registrations and keep both bindings so the
+            -- decoder can find the blueprint via either script hash.
+            let yaml =
+                    TextEncoding.encodeUtf8 $
+                        Text.unlines
+                            [ "entities:"
+                            , "  - name: amaru.swap.v2"
+                            , "    script: " <> swapV2ScriptHex
+                            , "  - name: amaru.swap.v2.alt"
+                            , "    script: " <> swapV2AltScriptHex
+                            , "blueprints:"
+                            , "  - script: amaru.swap.v2"
+                            , "    datum: ./blueprints/swap-v2-datum.cip57.json"
+                            , "  - script: amaru.swap.v2.alt"
+                            , "    datum: ./blueprints/swap-v2-datum.cip57.json"
+                            ]
+                extras =
+                    [
+                        ( "blueprints/swap-v2-datum.cip57.json"
+                        , blueprintBlob
+                        )
+                    ]
+            withRulesAndBlueprints yaml extras $ \_ result -> case result of
+                Left err ->
+                    expectationFailure $
+                        "expected Right + 2 blueprint bindings, got Left "
+                            <> show err
+                Right RulesLoadResult{rulesBlueprints, rulesWarnings} -> do
+                    -- Both script-hash bindings survive (no
+                    -- DuplicateBlueprintForScript warning — the
+                    -- script hashes differ).
+                    length rulesBlueprints `shouldBe` 2
+                    rulesWarnings `shouldBe` []
 
     describe "warnings" $ do
         it "DuplicateBlueprintForScript first-wins, second dropped" $ do
@@ -394,3 +459,16 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.rulesBlueprints (T100)" $ do
                                 rulesWarnings
                             ]
                     dups `shouldBe` ["amaru.swap.v2"]
+
+{- | Replace every occurrence of @needle@ with @replacement@ in @haystack@.
+Pure ByteString substitution; used to derive a structurally distinct
+CIP-57 blueprint from an existing one without breaking JSON shape.
+-}
+replaceBytes :: ByteString -> ByteString -> ByteString -> ByteString
+replaceBytes needle replacement = go
+  where
+    go bs = case BS.breakSubstring needle bs of
+        (h, t)
+            | BS.null t -> h
+            | otherwise ->
+                h <> replacement <> go (BS.drop (BS.length needle) t)

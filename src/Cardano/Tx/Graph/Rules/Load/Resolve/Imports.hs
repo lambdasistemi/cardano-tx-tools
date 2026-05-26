@@ -439,12 +439,21 @@ Strategy:
       it carries the rules.yaml path, line, and entity name.
 
 2. Before each entry's predicates are added to the accumulating set,
-   check whether any of them is already present. The first such
-   collision aborts with 'DuplicateBlueprintPredicate' (D-001b /
-   A-001: hard error; predicate collisions are an operator-side
-   config bug, surfaced at load time before the emitter runs). The
-   error's payload carries the colliding entry's rules.yaml path,
-   line, and the predicate name.
+   check whether any of them is already present:
+
+    * Yes, registered by the SAME 'Blueprint' value (issue #101):
+      accept the new registration. The same parameterised contract
+      can be deployed under multiple script hashes (one per
+      operator-named scope), and the typed-decode predicates are
+      derived deterministically from the schema — so two scope
+      bindings of the same blueprint produce identical predicate
+      URIs. Keep the second 'ScriptHash' binding so the decoder
+      finds the blueprint via either scope's hash at emit time.
+    * Yes, registered by a DIFFERENT 'Blueprint' value: hard error
+      ('DuplicateBlueprintPredicate', D-001b / A-001). A true
+      predicate-URI collision across distinct schemas is a config
+      bug; the error's payload carries the colliding entry's
+      rules.yaml path, line, and the predicate name.
 
 The function consumes the stub list in parallel with the
 loaded-blueprint list so the diagnostic payloads can name the
@@ -455,11 +464,11 @@ dedupBlueprints ::
     [ResolvedBlueprint] ->
     Either RulesLoadError ([(ScriptHash, Blueprint, Text)], [RulesLoadWarning])
 dedupBlueprints =
-    go Set.empty Set.empty [] []
+    go Set.empty Map.empty [] []
   where
     go ::
         Set ScriptHash ->
-        Set Text ->
+        Map Text Blueprint ->
         [(ScriptHash, Blueprint, Text)] ->
         [RulesLoadWarning] ->
         [ResolvedBlueprint] ->
@@ -474,7 +483,7 @@ dedupBlueprints =
                         (stubScriptName stub)
              in go seenHashes seenPreds kept (w : warns) rest
         | otherwise =
-            case firstCollision seenPreds (blueprintPredicates bp) of
+            case firstCollision seenPreds bp (blueprintPredicates bp) of
                 Just predName ->
                     Left $
                         DuplicateBlueprintPredicate
@@ -483,9 +492,10 @@ dedupBlueprints =
                             predName
                 Nothing ->
                     let newPreds =
-                            Set.union
+                            foldr
+                                (`Map.insert` bp)
                                 seenPreds
-                                (Set.fromList (blueprintPredicates bp))
+                                (blueprintPredicates bp)
                      in go
                             (Set.insert sh seenHashes)
                             newPreds
@@ -493,14 +503,18 @@ dedupBlueprints =
                             warns
                             rest
     -- Return the first predicate from the new blueprint that is
-    -- already in the accumulating set (in the new blueprint's
-    -- enumeration order, which is the source-equivalent preorder).
-    firstCollision :: Set Text -> [Text] -> Maybe Text
-    firstCollision seen = \case
+    -- already in the accumulating map under a DIFFERENT
+    -- 'Blueprint' value (in the new blueprint's enumeration order,
+    -- which is the source-equivalent preorder). Same-blueprint
+    -- collisions are silently skipped — they encode the
+    -- "shared blueprint across N scripts" pattern, issue #101.
+    firstCollision :: Map Text Blueprint -> Blueprint -> [Text] -> Maybe Text
+    firstCollision seen bp = \case
         [] -> Nothing
-        (p : ps)
-            | Set.member p seen -> Just p
-            | otherwise -> firstCollision seen ps
+        (p : ps) ->
+            case Map.lookup p seen of
+                Just bp' | bp' /= bp -> Just p
+                _ -> firstCollision seen bp ps
 
 {- | Deduplicate an 'EntityDecl' list by 'entitySlug' while emitting a
 'DuplicateEntityAcrossFiles' warning for every entity-slug collision
