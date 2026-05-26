@@ -53,6 +53,11 @@ the shared YAML language consumed by both `tx-inspect --rules`
 and `tx-diff --collapse-rules`, and is the same rules format
 `tx-graph --rules` reads to drive its entity overlay.
 
+For context on how this stack relates to existing
+blockchain-RDF / linked-data work (EthOn, BLONDiE, AllegroGraph's
+Bitcoin demo, CIP-57, Reutter–Soto–Vrgoč on SPARQL recursion),
+see [Prior art](prior-art.md).
+
 ## Library
 
 The same logic is exposed under `Cardano.Tx.*`. Notable entry
