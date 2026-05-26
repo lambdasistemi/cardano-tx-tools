@@ -27,6 +27,29 @@ network_compliance in this output table is not a loss; it can be change
 or terminal residual. Later queries compare input and output sides, and
 Queries 11, 14, 15, and 16 answer the terminal-state question.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  rules[Rules USDM entity]
+  asset[USDM asset id]
+  seeds[Seed outputs]
+  values[Asset values]
+  filter[Keep USDM]
+  addresses[Output addresses]
+  labels[Known labels]
+  table[Address totals]
+
+  rules --> asset
+  seeds --> values
+  values --> filter
+  asset --> filter
+  filter --> addresses
+  rules --> labels
+  addresses --> table
+  labels --> table
+```
+
 ## How
 
 The query first finds the `usdm` entity emitted from `rules.yaml` and

@@ -17,20 +17,23 @@ end-to-end from `tx-graph` + `tx-lattice` + Apache Jena.
 
 ```mermaid
 flowchart LR
-  subgraph blockfrost[Blockfrost]
-    bf["GET /txs/<hash>/cbor<br/>(only endpoint used)"]
-  end
-  bf -->|CBOR| txgraph
-  rules[("rules.yaml<br/>entities + vendors<br/>attestations + blueprints")] --> txgraph
-  txgraph["tx-graph<br/>(canonical Turtle emit)"] -->|one .ttl per tx| lattice
-  subgraph lattice["closure/ (101 txs)"]
-    direction LR
-    seeds["30 seeds<br/>(May 2026 batch)"]
-    parents["71 parents<br/>(consumed UTxOs)"]
-    parents -. cardano:fromTxOutRef .-> seeds
-  end
-  lattice --> jena
-  jena["Apache Jena<br/>SPARQL 1.1 engine"] -->|10 queries| results["real on-chain answers"]
+  blockfrost[Blockfrost CBOR API]
+  txgraph[tx-graph]
+  rules[rules.yaml]
+  closure[closure directory]
+  seeds[30 seed txs]
+  parents[71 parent txs]
+  jena[Apache Jena]
+  answers[SPARQL answers]
+
+  blockfrost -->|CBOR only| txgraph
+  rules -->|entities blueprints attestations| txgraph
+  txgraph -->|Turtle per tx| closure
+  closure --> seeds
+  closure --> parents
+  parents -->|resolves inputs| seeds
+  closure --> jena
+  jena --> answers
 ```
 
 ## Runnable Query Files
@@ -201,11 +204,17 @@ swap.v2 orders (recovered as USDM on the scoop side).
 
 ```mermaid
 flowchart LR
-  cont["contingency<br/>net −205,000 ADA"] -->|205k ADA disburse| netcomp["network_compliance<br/>net −1,285,820 ADA"]
-  netcomp -->|"swap orders<br/>(ADA → swap.v2)"| swap["swap.v2 / pools / scoopers<br/>net +1,490,817 ADA"]
-  swap -.->|"USDM proceeds back<br/>(see Q7)"| netcomp
-  netop["network-operator<br/>−19 ADA gas"]
-  cag["cag-payee<br/>+2.4 ADA min-UTxO"]
+  contingency[contingency]
+  network[network compliance]
+  swap[swap scripts and pools]
+  operator[network operator]
+  cag[cag payee]
+
+  contingency -->|205000 ADA| network
+  network -->|ADA to swaps| swap
+  swap -->|USDM proceeds| network
+  operator -->|fees and fuel| swap
+  network -->|min ADA| cag
 ```
 
 ---
@@ -284,13 +293,22 @@ from the single `rules.yaml`.
 
 ```mermaid
 flowchart LR
-  netcomp["network_compliance"] -->|"418,750 USDM<br/>(on-chain)"| cag["amaru.cag-payee"]
-  cag -.->|cardano:paidVia| ant["amaru.antithesis"]
-  cag -.->|cardano:paidVia| cast["amaru.castellum"]
-  i1[("ipfs://bafkreicnoadl...<br/>Invoice INV-635")] -.->|cardano:attests| ant
-  i2[("ipfs://bafybeib3jef3...<br/>Contract")] -.->|cardano:attests| cast
-  i3[("ipfs://bafybeigy37ui...<br/>Invoice #3508")] -.->|cardano:attests| cast
-  i4[("ipfs://bafybeihdmnit...<br/>Cycle review")] -.->|cardano:attests| cast
+  network[network compliance]
+  cag[cag payee]
+  antithesis[antithesis vendor]
+  castellum[castellum vendor]
+  invoiceA[Invoice INV 635]
+  contract[Contract]
+  invoiceC[Invoice 3508]
+  review[Cycle review]
+
+  network -->|418750 USDM| cag
+  antithesis -->|paid via| cag
+  castellum -->|paid via| cag
+  invoiceA -->|attests| antithesis
+  contract -->|attests| castellum
+  invoiceC -->|attests| castellum
+  review -->|attests| castellum
 ```
 
 ---
@@ -330,10 +348,16 @@ output address.
 
 ```mermaid
 flowchart LR
-  parentUtxo["parent UTxO<br/>at contingency<br/>4,057,000 ADA"] -->|input| tx["tx 18d57a4f<br/>(4-of-4 multisig)"]
-  tx -->|output 0<br/>3,852,000 ADA change| cont["contingency"]
-  tx -->|"output 1<br/>205,000 ADA"| netcomp["network_compliance"]
-  tx -->|"output 2<br/>92.14 ADA + fee"| netop["network-operator"]
+  parent[parent contingency UTxO]
+  tx[disbursement tx]
+  cont[contingency change]
+  network[network compliance]
+  operator[operator change]
+
+  parent -->|spent input| tx
+  tx -->|3852000 ADA| cont
+  tx -->|205000 ADA| network
+  tx -->|fuel change| operator
 ```
 
 ---
@@ -503,13 +527,16 @@ For the 9-order scoop dive `4e2642...`:
 
 ```mermaid
 flowchart LR
-  subgraph orders["9 swap-order parent UTxOs"]
-    o["orders 1..9<br/>at amaru.swap.v2"]
-  end
-  o -->|"closure JOIN<br/>(txid, ix)"| scoop["scoop tx 4e2642..."]
-  scoop -->|"1.83M ADA + 490k USDM"| pool["SundaeSwap pool<br/>addr1z8s..."]
-  scoop -->|"10k USDM change"| netcomp["network_compliance<br/>addr1xyezq8w..."]
-  scoop -->|"swap proceeds<br/>(7 humans)"| humans["6 distinct recipient wallets<br/>(ADA only)"]
+  orders[9 swap order UTxOs]
+  scoop[scoop tx 4e2642]
+  pool[SundaeSwap settlement]
+  change[network compliance change]
+  wallets[recipient wallets]
+
+  orders -->|consumed by| scoop
+  scoop -->|ADA and USDM| pool
+  scoop -->|USDM change| change
+  scoop -->|ADA outputs| wallets
 ```
 
 The cross-tx JOIN answers *"where did the value go after the

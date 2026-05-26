@@ -23,6 +23,25 @@ This is the answer to "if we are not able to prove the current state,
 this is a bug." The live diff makes the bug concrete by naming the exact
 UTxO that exists only on one side.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  graphSet[Graph terminal set]
+  live[Live UTxO overlay]
+  compare[Row diff]
+  graphOnly[Graph terminal not live]
+  liveOnly[Live not graph terminal]
+  fix[Fetch or fix boundary]
+
+  graphSet --> compare
+  live --> compare
+  compare --> graphOnly
+  compare --> liveOnly
+  graphOnly --> fix
+  liveOnly --> fix
+```
+
 ## How
 
 The live overlay is expected to contain rows shaped like:

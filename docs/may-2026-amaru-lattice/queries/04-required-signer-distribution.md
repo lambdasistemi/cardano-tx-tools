@@ -27,6 +27,23 @@ if the transaction was valid on-chain. Conversely, seeing the expected
 4-of-4 or 2-of-N shapes supports the claim that the graph exposes the
 authorization surface needed for review.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  seeds[Seed txs]
+  signers[Required signer hashes]
+  perTx[Signer count per tx]
+  buckets[Distribution buckets]
+  review[Authorization shape]
+
+  seeds --> signers
+  signers --> perTx
+  seeds --> perTx
+  perTx --> buckets
+  buckets --> review
+```
+
 ## How
 
 An inner query counts distinct required signer hashes per seed

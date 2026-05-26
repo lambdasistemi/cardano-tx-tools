@@ -25,6 +25,22 @@ This also helps explain transaction size and fee patterns. Transactions
 with multiple reference inputs and script interactions tend to be more
 expensive than simple wallet payments.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  seeds[Seed txs]
+  refs[Reference inputs]
+  targets[Referenced outputs]
+  group[Group by target]
+  hot[Most reused refs]
+
+  seeds --> refs
+  refs --> targets
+  targets --> group
+  group --> hot
+```
+
 ## How
 
 The query scans seed transactions with `cardano:hasReferenceInput`. It

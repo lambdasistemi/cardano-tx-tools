@@ -27,6 +27,22 @@ still being debugged. The redeemer should eventually give a cleaner
 semantic label, but the ledger graph already contains enough structure
 to prove the transfer happened.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  parent[Contingency parent UTxO]
+  input[Seed input]
+  tx[Disbursement tx]
+  network[Network compliance output]
+  amount[205000 ADA]
+
+  parent --> input
+  input --> tx
+  tx --> network
+  network --> amount
+```
+
 ## How
 
 The query starts by resolving the two relevant treasury addresses from

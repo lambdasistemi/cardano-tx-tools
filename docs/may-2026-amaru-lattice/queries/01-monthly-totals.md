@@ -28,6 +28,25 @@ corresponds to the complex multisig and reference-input transactions,
 while low fees correspond to simpler swap-order opens. If these numbers
 move unexpectedly, the seed set or tx parsing has changed.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  loadedGraph[Loaded graph]
+  seeds[Seed txs]
+  count[Seed count]
+  fees[Seed fees]
+  stats[Fee stats]
+  header[Diagnostic header]
+
+  loadedGraph --> seeds
+  seeds --> count
+  seeds --> fees
+  fees --> stats
+  count --> header
+  stats --> header
+```
+
 ## How
 
 The query is intentionally small. It scans only transactions with the

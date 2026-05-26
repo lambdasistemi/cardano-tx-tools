@@ -36,6 +36,28 @@ cardano:ipfs
 That means the same rule source used to label on-chain addresses also
 anchors the off-chain explanation.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  network[Network compliance]
+  cag[CAG payee]
+  antithesis[Antithesis vendor]
+  castellum[Castellum vendor]
+  invoiceA[Invoice INV 635]
+  contract[Contract]
+  invoiceC[Invoice 3508]
+  review[Cycle review]
+
+  network -->|USDM output| cag
+  antithesis -->|paid via| cag
+  castellum -->|paid via| cag
+  invoiceA -->|attests| antithesis
+  contract -->|attests| castellum
+  invoiceC -->|attests| castellum
+  review -->|attests| castellum
+```
+
 ## How
 
 The subquery finds the bridge entity by label:

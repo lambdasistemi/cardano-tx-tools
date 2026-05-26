@@ -27,6 +27,22 @@ This is still useful for correctness. It shows the pool settlement,
 network_compliance change, and wallet outputs that the graph can derive
 without manual transaction viewing.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  orders[Swap order UTxOs]
+  scoop[Scoop tx]
+  pool[SundaeSwap settlement]
+  change[Network compliance change]
+  wallets[Recipient wallets]
+
+  orders -->|consumed by| scoop
+  scoop -->|pool output| pool
+  scoop -->|USDM change| change
+  scoop -->|ADA outputs| wallets
+```
+
 ## How
 
 The query pins the seed transaction id with a `VALUES` block:

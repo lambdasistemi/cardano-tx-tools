@@ -27,6 +27,24 @@ one swap.v2 UTxO might be a cancel or a small settlement, not
 necessarily the multi-order scoop the operator wants to inspect. The
 `swapV2InputsConsumed` count gives the first ranking signal.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  rules[swap v2 script id]
+  inputs[Seed inputs]
+  parents[Parent outputs]
+  match[swap v2 parent output]
+  consumers[Consumer txs]
+  counts[Input and output counts]
+
+  rules --> match
+  inputs --> parents
+  parents --> match
+  match --> consumers
+  consumers --> counts
+```
+
 ## How
 
 The inner query resolves the swap.v2 payment credential from

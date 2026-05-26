@@ -26,6 +26,26 @@ still conserves globally. Network_compliance can spend USDM to CAG payee
 or swap-related destinations, and the total USDM can still balance
 exactly across the seed set.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  resolvedInputs[Resolved inputs]
+  inputTotals[Input totals]
+  outputs[Seed outputs]
+  outputTotals[Output totals]
+  fees[ADA fees]
+  gaps[Gap by asset]
+  zero[All gaps zero]
+
+  resolvedInputs --> inputTotals
+  outputs --> outputTotals
+  fees --> outputTotals
+  inputTotals --> gaps
+  outputTotals --> gaps
+  gaps --> zero
+```
+
 ## How
 
 The query is a union of five accounting branches:

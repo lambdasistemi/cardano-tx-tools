@@ -27,6 +27,29 @@ CAG payee, to swap scripts, to pools, and back as change. If those
 destinations are collapsed into one bucket, the result is easy to
 misread. Role-level flow makes the route explicit.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  outputs[Seed USDM outputs]
+  inputRefs[Seed inputs]
+  parents[Parent USDM outputs]
+  rules[Rules roles]
+  inflow[USDM inflow by role]
+  outflow[USDM outflow by role]
+  net[Net USDM by role]
+  conservation[Asset conservation]
+
+  outputs --> inflow
+  inputRefs --> parents
+  parents --> outflow
+  rules --> inflow
+  rules --> outflow
+  inflow --> net
+  outflow --> net
+  net --> conservation
+```
+
 ## How
 
 The query first resolves the USDM asset id:

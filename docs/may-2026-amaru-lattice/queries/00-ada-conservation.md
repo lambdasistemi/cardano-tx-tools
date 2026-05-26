@@ -33,6 +33,30 @@ closure transactions, broken `fromTxOutRef` links, missing output indexes,
 and wrong fee emission before the demo moves on to business-specific
 questions.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  seeds[Seed txs]
+  inputs[Inputs]
+  refs[TxOut refs]
+  parents[Parent outputs]
+  outputs[Seed outputs]
+  fees[Fees]
+  check[Conservation check]
+  gap[Gap zero]
+
+  seeds --> inputs
+  inputs --> refs
+  refs --> parents
+  seeds --> outputs
+  seeds --> fees
+  parents --> check
+  outputs --> check
+  fees --> check
+  check --> gap
+```
+
 ## How
 
 The input side starts at every `cardano:hasLatticeRole "seed"`

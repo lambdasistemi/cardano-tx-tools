@@ -24,6 +24,24 @@ This is useful after fixing row-level mismatches. Once Query 15 returns
 no rows, Query 16 should also show zero gaps. If Query 16 shows a gap,
 use Query 15 to find the exact rows causing it.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  graphSet[Graph terminal set]
+  graphTotals[Graph totals]
+  live[Live UTxO overlay]
+  liveTotals[Live totals]
+  gaps[Summary gaps]
+  pass[Zero gap gate]
+
+  graphSet --> graphTotals
+  live --> liveTotals
+  graphTotals --> gaps
+  liveTotals --> gaps
+  gaps --> pass
+```
+
 ## How
 
 The query contains two subqueries.

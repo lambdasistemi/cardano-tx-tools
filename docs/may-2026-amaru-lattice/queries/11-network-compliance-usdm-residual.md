@@ -26,6 +26,23 @@ asks which network_compliance outputs remain terminal with respect to
 the loaded seed set. That is the right shape for discussing "left at the
 end" rather than "moved during the interval."
 
+## Diagram
+
+```mermaid
+flowchart LR
+  outputs[Network compliance seed outputs]
+  usdm[USDM bearing outputs]
+  spent[Spent by later seed]
+  residual[Residual UTxOs]
+  totals[Residual totals]
+
+  outputs --> usdm
+  usdm --> spent
+  spent -->|yes| outputs
+  spent -->|no| residual
+  residual --> totals
+```
+
 ## How
 
 The query resolves the network_compliance bech32 address and the USDM

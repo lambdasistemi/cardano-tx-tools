@@ -28,6 +28,27 @@ appear to say that one treasury "lost" value. Keeping roles separate
 shows whether value went to a swap script, a pool, a bridge output, a
 wallet, or back to treasury change.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  outputs[Seed outputs]
+  inputRefs[Seed inputs]
+  parents[Parent outputs]
+  rules[Rules roles]
+  inflow[ADA inflow by role]
+  outflow[ADA outflow by role]
+  net[Net ADA by role]
+
+  outputs --> inflow
+  inputRefs --> parents
+  parents --> outflow
+  rules --> inflow
+  rules --> outflow
+  inflow --> net
+  outflow --> net
+```
+
 ## How
 
 The query has two symmetric branches.

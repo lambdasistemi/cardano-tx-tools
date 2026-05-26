@@ -24,6 +24,28 @@ Without this proof, flow queries can silently undercount inputs or
 double-count source values. That would make conservation and role-flow
 claims unreliable.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  inputs[Seed spending inputs]
+  refs[TxOut refs]
+  matches[Parent output matches]
+  once[Resolved once]
+  unresolved[Unresolved]
+  ambiguous[Ambiguous]
+  gate[Correctness gate]
+
+  inputs --> refs
+  refs --> matches
+  matches --> once
+  matches --> unresolved
+  matches --> ambiguous
+  once --> gate
+  unresolved --> gate
+  ambiguous --> gate
+```
+
 ## How
 
 For each seed input, the query reads:

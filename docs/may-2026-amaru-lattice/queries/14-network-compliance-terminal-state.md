@@ -29,6 +29,25 @@ Query 14 asks for every terminal network_compliance output visible in
 the loaded graph, regardless of whether it was a seed output or a parent
 output.
 
+## Diagram
+
+```mermaid
+flowchart LR
+  loadedGraph[Loaded graph]
+  candidates[Network compliance outputs]
+  spent[Inputs in graph]
+  filter[Remove spent outputs]
+  terminal[Terminal UTxO set]
+  totals[ADA and USDM values]
+
+  loadedGraph --> candidates
+  loadedGraph --> spent
+  candidates --> filter
+  spent --> filter
+  filter --> terminal
+  terminal --> totals
+```
+
 ## How
 
 The query resolves the network_compliance address and USDM asset id from
