@@ -23,8 +23,8 @@
 #   BLOCKFROST_PROJECT_ID  required (for tx-fetch)
 #   TX_GRAPH_EXE           override path to tx-graph binary
 #                          (default: tx-graph on PATH, else result/bin/tx-graph)
-#   TX_FETCH_EXE           override path to tx-fetch script
-#                          (default: tx-fetch on PATH, else scripts/tx-fetch)
+#   TX_FETCH_EXE           override path to tx-fetch binary
+#                          (default: tx-fetch on PATH, else result/bin/tx-fetch)
 
 set -euo pipefail
 
@@ -55,10 +55,10 @@ if [[ -n "${TX_FETCH_EXE:-}" ]]; then
   TXF="$TX_FETCH_EXE"
 elif command -v tx-fetch >/dev/null 2>&1; then
   TXF="$(command -v tx-fetch)"
-elif [[ -x "$(dirname "$0")/tx-fetch" ]]; then
-  TXF="$(dirname "$0")/tx-fetch"
+elif [[ -x "result/bin/tx-fetch" ]]; then
+  TXF="result/bin/tx-fetch"
 else
-  echo "tx-lattice: tx-fetch not found — set TX_FETCH_EXE or put tx-fetch on PATH" >&2
+  echo "tx-lattice: tx-fetch not found — set TX_FETCH_EXE, put tx-fetch on PATH, or run 'nix build .#tx-fetch' first" >&2
   exit 2
 fi
 
