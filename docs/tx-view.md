@@ -48,25 +48,20 @@ against the same graph and produce equivalent output.
 Emit the graph with `tx-graph`, then project with `tx-view`:
 
 ```bash
-nix build .#tx-graph .#tx-view
-
-# Resolved-input lattice from Blockfrost or N2C makes the input side
-# render with full address+coin attribution; without resolution the
-# input rows show only txOutRefs.
-./result/bin/tx-graph \
-  --tx 18d57a4f.cbor \
+# A graph emitted from a bounded input set can render input-side
+# address+coin attribution whenever the parent tx CBOR is present.
+nix run .#tx-graph -- \
   --rules amaru-treasury.yaml \
-  --n2c-socket-path /run/cardano/socket \
-  --network-magic 764824073 \
+  18d57a4f.cbor \
   > /tmp/tx.ttl
 
-./result/bin/tx-view --graph /tmp/tx.ttl --view cli-tree
+nix run .#tx-view -- --graph /tmp/tx.ttl --view cli-tree
 ```
 
 ### asset-flow
 
 ```bash
-./result/bin/tx-view --graph /tmp/tx.ttl --view asset-flow
+nix run .#tx-view -- --graph /tmp/tx.ttl --view asset-flow
 ```
 
 ```text
@@ -76,21 +71,21 @@ ada	92141887	<unknown>	amaru.network-wallet
 ```
 
 (`<unknown>` source rows mean the canonical graph doesn't carry
-input UTxO resolution — supply `--utxo` / `--n2c-socket-path` on
-`tx-graph` to fill those in.)
+input UTxO resolution — include the parent transaction CBOR in the
+`tx-graph` input set to fill those in.)
 
 > **Note** — for swap-order outputs, asset-flow's destination
 > column reports the *script* the funds are locked into
 > (`amaru.swap.v2`), not the human recipient credential carried
-> inside the swap-order datum. See [tx-lattice / Known
-> limitations](tx-lattice.md#known-limitations) for the two
-> ways to surface the real recipient (scoop-tx JOIN today, typed
-> datum decode when the live swap-v2 blueprint lands).
+> inside the swap-order datum. Surface the real recipient by querying
+> across the producing and consuming transaction pair, or by using
+> blueprint-decoded datum predicates when the relevant blueprint is
+> registered in the rules file.
 
 ### entity-occurrences
 
 ```bash
-./result/bin/tx-view --graph /tmp/tx.ttl --view entity-occurrences
+nix run .#tx-view -- --graph /tmp/tx.ttl --view entity-occurrences
 ```
 
 ```text
@@ -102,7 +97,7 @@ amaru.network-wallet	2
 ### json-ld
 
 ```bash
-./result/bin/tx-view --graph /tmp/tx.ttl --view json-ld > /tmp/tx.jsonld
+nix run .#tx-view -- --graph /tmp/tx.ttl --view json-ld > /tmp/tx.jsonld
 jq '.["@graph"] | length' /tmp/tx.jsonld
 # 53
 ```

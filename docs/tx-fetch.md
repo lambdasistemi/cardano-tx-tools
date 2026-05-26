@@ -6,7 +6,7 @@ spending / reference / collateral input parents up to `--depth`,
 hash-verifies every fetched CBOR against its requested `TxId`, and
 writes one `<out-dir>/cbor/<txid-hex>.cbor` per tx in the closure.
 
-`tx-fetch` is the first stage of the three-tool RDF lattice pipeline:
+`tx-fetch` is the network stage of the RDF graph pipeline:
 
 | Stage | Input | Output | Side effects |
 |--|--|--|--|
@@ -81,10 +81,6 @@ nix-shell -p apache-jena --run \
     "sparql $(printf -- '--data %s ' lattice/*.ttl) \
         --query queries/per-scope-flow.rq"
 ```
-
-The internal `scripts/tx-lattice` shell script wraps steps (1) and (2)
-into one invocation for local development convenience; it's not a
-released deliverable.
 
 ## Exit codes
 

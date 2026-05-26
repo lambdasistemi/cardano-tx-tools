@@ -1,76 +1,64 @@
 # tx-graph
 
-Emit a Conway transaction as RDF — the operator-entity overlay
-(from a rules file in Turtle or YAML sugar), the transaction body
-(inputs, outputs, addresses with payment + stake credentials, fee,
-mint, withdrawal, certificates, collateral, proposals), and their
-cross-references — in one canonical Turtle or JSON-LD graph. When
-the rules file registers a CIP-57 blueprint for a script, Plutus
-datum and redeemer fields are decoded into typed fixture-local
-predicates; decode failures keep the raw bytes and add a
-`cardano:decodeError` literal.
+Emit one Conway transaction, or a bounded set of Conway transaction
+CBOR files, as RDF. The emitted graph contains the optional
+operator-entity overlay, the transaction body (inputs, outputs,
+addresses with payment + stake credentials, fee, mint, withdrawal,
+certificates, collateral, proposals), and their cross-references in
+canonical Turtle or JSON-LD. When the rules file registers a CIP-57
+blueprint for a script, Plutus datum and redeemer fields are decoded
+into typed fixture-local predicates; decode failures keep the raw
+bytes and add a `cardano:decodeError` literal.
+
+`tx-graph` is a pure transformation. It does not query a node, read a
+UTxO JSON file, or fetch missing transactions. If a parent transaction
+is present in the input set, the input is resolved from that in-memory
+set; otherwise the graph remains well-formed and the missing parent is
+reported on stderr.
 
 ```text
-tx-graph — operator-entity overlay + body emitter
+tx-graph — pure (rules + [cbor]) → ttl transformation
 
-Usage: tx-graph [--rules FILE] [--tx PATH | -] [--utxo FILE]
-                [--n2c-socket-path SOCKET] [--network-magic WORD32] [--out FILE]
-                [--format FORMAT]
+Usage: tx-graph [--rules FILE] [--in-dir DIR] [--out-dir DIR]
+                [--format FORMAT] [CBOR...]
 
   tx-graph — operator-entity overlay + body emitter. Loads operator-authored
-  rules (overlay-only mode) or drives the joint-graph body emitter on a Conway
-  tx + resolved UTxO. Output format defaults to Turtle.
+  rules (overlay-only mode) or drives the joint-graph body emitter on a lattice
+  of Conway transactions (--in-dir / positional / stdin). The lattice resolves
+  itself internally — no node, no UTxO file, no external chain source. Output
+  format defaults to Turtle.
 
 Available options:
   --rules FILE             Operator-authored rules file (.yaml/.yml or .ttl).
-                           Overlay-only mode when used alone.
-  --tx PATH | -            Conway tx CBOR (hex text envelope, raw hex, or
-                           binary). '-' reads from stdin. Triggers the
-                           body-emitting dispatcher.
-  --utxo FILE              Resolved-UTxO JSON for the tx's inputs. Mutually
-                           exclusive with --n2c-socket-path.
-  --n2c-socket-path SOCKET Local cardano-node Node-to-Client socket. When
-                           supplied, the tx's inputs are resolved live against
-                           the node (requires --network-magic).
-  --network-magic WORD32   Network magic for the --n2c-socket-path session.
-                           Defaults to mainnet. (default: 764824073)
-  --out FILE               Output destination (default: stdout).
+                           Used alone, emits overlay-only Turtle to stdout.
+                           Combined with inputs, merged into the joint graph(s).
+  --in-dir DIR             Directory of *.cbor files; each is one Conway
+                           transaction in the input lattice. Mutually exclusive
+                           with positional arguments.
+  --out-dir DIR            Write one <txid-hex>.ttl per input into DIR. If
+                           absent and exactly one input is given, emits to
+                           stdout.
   --format FORMAT          Output format: 'turtle' or 'json-ld'.
                            (default: "turtle")
+  CBOR...                  Conway tx CBOR file paths. '-' reads one tx from
+                           stdin. Mutually exclusive with --in-dir.
   -h,--help                Show this help text
 ```
 
-```asciinema-player
-{
-  "file": "assets/asciinema/tx-graph.cast",
-  "idle_time_limit": 2,
-  "theme": "monokai",
-  "poster": "npt:0:3"
-}
-```
+## Input modes
 
-The cast above uses fixture `11-amaru-treasury-swap-real` and the
-mainnet `5fc04113...` CBOR it mirrors. It shows **overlay-only**
-rules, then **joint graph** emission with real fee, lovelace
-amounts, inline datums, withdrawals, collateral return, redeemers,
-execution units, key witnesses, and address decompositions. The
-last frames show the CIP-57 path added by issue #50: blueprint
-decoded datums mint typed predicates such as `:SwapOrder_recipient`,
-while decode failures preserve `cardano:hasRawBytes` and add
-`cardano:decodeError`.
+| Input | Rules | Output | Behaviour |
+|-------|-------|--------|-----------|
+| `--rules rules.yaml` only | required | stdout | **Overlay only** — emits the operator-entity overlay (`cardano:Entity` + `cardano:Identifier` blocks for every entity in the rules file). |
+| one positional CBOR path, or `-` | optional | stdout unless `--out-dir` is supplied | **Single graph** — emits the transaction body and, when rules are supplied, the overlay plus entity-labelled credentials. |
+| multiple positional CBOR paths | optional | `--out-dir DIR` required | **Batch graph emission** — computes every tx id, indexes the set in memory, resolves inputs against that set, and writes one `<txid>.ttl` per input. |
+| `--in-dir DIR` | optional | `--out-dir DIR` required | **Directory graph emission** — reads every `*.cbor` child in sorted order and emits the same batch graph set. |
 
-## Three modes by flag presence
-
-| `--rules` | `--tx` | UTxO source | Behaviour |
-|-----------|--------|-------------|-----------|
-| present | absent  | n/a | **Overlay only** — emits the operator-entity overlay (`cardano:Entity` + `cardano:Identifier` blocks for every entity in the rules file). The deterministic blank-node naming scheme is documented under [rewriting-rules grammar](rewriting-rules.md) (entity slugs as IRI local parts; `_:<slug>_<roleSuffix>` per identifier). |
-| present | present | `--utxo` or `--n2c-socket-path` (optional) | **Joint graph** — emits the overlay followed by the transaction body. Body credentials cross-reference the overlay's identifier blank nodes when an entity covers the credential's `(LeafType, bytesHex)` pair; otherwise a raw-bytes naming fallback applies. |
-| absent  | present | `--utxo` or `--n2c-socket-path` (optional) | **Body only** — emits the transaction body with raw-bytes naming for every credential (no entity-named bnodes). Useful for ad-hoc inspection without authoring rules. |
-
-`--utxo` and `--n2c-socket-path` are mutually exclusive; passing
-both exits non-zero with a one-line stderr message. With neither,
-the UTxO map is empty, which is enough for leaves that key off
-the body alone.
+`--in-dir` and positional CBOR arguments are mutually exclusive.
+Single-input stdout mode is the convenient path for one-off
+inspection. Batch mode is the path for a bounded transaction lattice:
+load exactly the CBOR files that define the boundary, then query the
+emitted Turtle files with SPARQL.
 
 ## Examples
 
@@ -80,39 +68,29 @@ Emit the operator-entity overlay from a rules file:
 tx-graph --rules rules/amaru-treasury.yaml
 ```
 
-Emit the joint graph for a built unsigned tx, with the UTxO
-pre-resolved to JSON on disk:
+Emit one transaction graph to stdout:
 
 ```bash
-tx-graph \
-  --tx tx.cbor \
-  --utxo resolved.json \
-  --rules rules/amaru-treasury.yaml \
-  --out graph.ttl
+tx-graph --rules rules/amaru-treasury.yaml tx.cbor > graph.ttl
 ```
 
-Same shape, but read the tx CBOR from stdin and resolve the
-UTxO live against a local `cardano-node` over Node-to-Client
-(same seam `tx-inspect` and `tx-validate` use):
+Read one transaction from stdin:
 
 ```bash
-cat tx.cbor | tx-graph \
-  --tx - \
-  --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH" \
-  --network-magic 764824073 \
-  --rules rules/amaru-treasury.yaml \
-  --out graph.ttl
+cat tx.cbor | tx-graph --rules rules/amaru-treasury.yaml - > graph.ttl
 ```
 
-JSON-LD output of the same input:
+Emit a bounded transaction set produced by `tx-fetch`:
 
 ```bash
-tx-graph \
-  --tx tx.cbor \
-  --utxo resolved.json \
-  --rules rules/amaru-treasury.yaml \
-  --format json-ld \
-  --out graph.jsonld
+tx-graph --rules rules.yaml --in-dir lattice/cbor --out-dir lattice
+```
+
+JSON-LD output for one input:
+
+```bash
+tx-graph --rules rules/amaru-treasury.yaml --format json-ld tx.cbor \
+  > graph.jsonld
 ```
 
 Decode an inline datum against the blueprint registered by the
@@ -121,9 +99,7 @@ and field titles, and use the fixture-local `:` namespace rather
 than the canonical `cardano:` vocabulary:
 
 ```bash
-tx-graph \
-  --tx swap-order.cbor.hex \
-  --rules rules/swap-v2.yaml
+tx-graph --rules rules/swap-v2.yaml swap-order.cbor.hex
 ```
 
 ```turtle
@@ -212,8 +188,8 @@ operator rules are supplied; rules.yaml only changes how the bytes are
   bnode carrying `cardano:leafType "TxId"` + `cardano:bytesHex`.
 - `cardano:hasIndex` (on the `TxOutRef`) — integer.
 - `cardano:resolvedTo` → resolved-`cardano:Output` sub-block when
-  the input's UTxO is supplied (`--utxo` or `--n2c-socket-path`).
-  Carries the parent's address + value at the time of consumption.
+  the parent transaction is present in the input set. Carries the
+  parent's address + value at the time of consumption.
 
 #### Output triples
 
@@ -335,9 +311,9 @@ emitJoint rulesPath tx utxo = do
 ```
 
 Both `emit` and `serialize` are pure; the only IO happens at the
-rules-loading boundary (which the CLI handles for operators) and,
-when `--n2c-socket-path` is supplied, the Node-to-Client session
-that resolves the tx's inputs.
+rules-loading and CBOR-loading boundaries. The CLI builds the
+`ResolvedUTxO` argument from the input transaction set before calling
+the emitter.
 
 ## See also
 

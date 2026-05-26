@@ -1,13 +1,14 @@
 # cardano-tx-tools
 
-Seven command-line tools and a Haskell library for working with
+Eight command-line tools and a Haskell library for working with
 Conway-era Cardano transactions: **diff** two unsigned bodies,
 **inspect** one body as a structured named report, **emit** an
 RDF graph, **sign** with an encrypted vault, **validate** against
-the ledger Phase-1 rule, and **generate** a workload of Conway
-transactions for soak testing. Each tool is a single self-contained
-executable; the library is the same code, exposed for in-process
-callers.
+the ledger Phase-1 rule, **fetch** transaction CBOR, **project**
+packaged graph views, and **generate** a workload of Conway
+transactions for soak testing. Each tool is a single
+self-contained executable; the library is the same code, exposed
+for in-process callers.
 
 Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 
@@ -21,6 +22,7 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 | [`tx-validate`](https://lambdasistemi.github.io/cardano-tx-tools/tx-validate/) | Conway Phase-1 pre-flight against a local `cardano-node` via Node-to-Client. Exit code is the contract: `0` clean, `1` structural failure, `≥2` configuration/resolver error. | `tx-validate --input unsigned.cbor.hex --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH"` |
 | [`tx-graph`](https://lambdasistemi.github.io/cardano-tx-tools/tx-graph/) | Emits a Conway transaction (or a whole lattice of them) as RDF — the operator-entity overlay (from a rules file in Turtle or YAML sugar), the transaction body (inputs / outputs / certs / mints / withdrawals / collateral / proposals), and their cross-references in canonical Turtle or JSON-LD. Pure transformation: input is a positional CBOR or a `--in-dir DIR` of CBORs (the lattice); the lattice resolves itself in-memory, no node or UTxO file needed. | `tx-graph --rules rules.yaml --in-dir lattice/cbor --out-dir lattice` |
 | [`tx-fetch`](https://lambdasistemi.github.io/cardano-tx-tools/tx-fetch/) | Closure-walking Conway CBOR fetcher. Resolves transaction ids over Blockfrost's `/txs/<hash>/cbor` endpoint, walks each tx's spending / reference / collateral input parents to `--depth`, hash-verifies every CBOR against its requested `TxId`, and writes one `<txid>.cbor` per tx into `<out-dir>/cbor/`. Pairs with `tx-graph --in-dir` to produce a Turtle lattice. | `tx-fetch --out-dir lattice --depth 1 <txid>...` (requires `BLOCKFROST_PROJECT_ID`) |
+| [`tx-view`](https://lambdasistemi.github.io/cardano-tx-tools/tx-view/) | Projects a `tx-graph` canonical graph through packaged views: `cli-tree`, `asset-flow`, `entity-occurrences`, or `json-ld`. Each view ships as both a vendor-neutral SPARQL contract and an in-process Haskell projection. | `tx-view --graph graph.ttl --view asset-flow` |
 | [`cardano-tx-generator`](https://lambdasistemi.github.io/cardano-tx-tools/cardano-tx-generator/) | Long-running daemon that drives a configurable mix of Conway transactions against a node for soak / fuzz testing. | `cardano-tx-generator --config preprod.yaml` |
 
 Blueprint-aware decoding is shared by `tx-diff` and `tx-graph`.
@@ -102,7 +104,7 @@ sudo apt install ./tx-validate-<version>-x86_64-linux.deb
 sudo dnf install ./tx-validate-<version>-x86_64-linux.rpm
 
 # macOS (and Linux) via Homebrew — formula per executable:
-#   tx-diff, tx-validate, tx-inspect, tx-sign, tx-graph, tx-fetch, cardano-tx-generator
+#   tx-diff, tx-validate, tx-inspect, tx-sign, tx-graph, tx-fetch, tx-view, cardano-tx-generator
 brew install lambdasistemi/tap/tx-validate
 
 # Docker
@@ -113,7 +115,7 @@ nix run github:lambdasistemi/cardano-tx-tools#tx-validate -- --help
 ```
 
 Substitute the executable name (`tx-diff`, `tx-inspect`,
-`tx-sign`, `tx-graph`, `tx-fetch`, `cardano-tx-generator`) as needed. Each CLI prints
+`tx-sign`, `tx-graph`, `tx-fetch`, `tx-view`, `cardano-tx-generator`) as needed. Each CLI prints
 an upgrade banner on stderr when a newer release is available (currently
 `tx-diff` and `tx-inspect`); silence it with `<EXE>_NO_UPDATE_CHECK=1`.
 
@@ -134,6 +136,7 @@ Notable entry points:
 | `Cardano.Tx.Sign.*` | Vault + witness primitives (used by `tx-sign`) |
 | `Cardano.Tx.Graph.Rules.Load` | Operator rules loader (Turtle + YAML sugar), used by `tx-graph` |
 | `Cardano.Tx.Graph.Emit` | Body emitter: walks `Cardano.Tx.Diff.conwayDiffProjection` to render a Conway tx + resolved UTxO + operator-entity overlay as Turtle or JSON-LD, used by `tx-graph` |
+| `Cardano.Tx.View` | Packaged-view dispatcher + four view modules used by `tx-view` |
 | `Cardano.Tx.Generator.*` | Generator engine (used by `cardano-tx-generator`) |
 
 The main library has **no** node-client dependency. N2C access

@@ -4,8 +4,9 @@
 Conway transactions emitted as byte-stable Turtle / JSON-LD with a
 `cardano:` predicate vocabulary, CIP-57 blueprint-aware
 datum / redeemer typed-decode, an operator-overlay entity
-language, a recursive parent-CBOR closure builder
-(`tx-lattice`), and a packaged-view library (`tx-view`).
+language, a Blockfrost-backed CBOR fetcher (`tx-fetch`), a pure
+CBOR-to-RDF emitter (`tx-graph`), and a packaged-view library
+(`tx-view`).
 
 The general idea of "blockchain as a knowledge graph" is older
 than this project. This page names the survivors and what each
@@ -41,16 +42,16 @@ What none of the above provide that `cardano-tx-tools` does:
 
 | Reference | Relevance |
 |-----------|-----------|
-| [**Recursion in SPARQL**](https://www.semantic-web-journal.net/system/files/swj2276.pdf) — Reutter, Soto, Vrgoč, *Semantic Web Journal*. | The canonical formal treatment of SPARQL 1.1 property paths and recursion semantics. The closure JOIN pattern in `docs/tx-lattice.md` Q3 / Q10 (`?ref cardano:hasTxId/cardano:bytesHex ?parentHex . ?parent cardano:hasTxId/cardano:bytesHex ?parentHex`) is a direct application of property-path joins to a closed UTxO graph. |
+| [**Recursion in SPARQL**](https://www.semantic-web-journal.net/system/files/swj2276.pdf) — Reutter, Soto, Vrgoč, *Semantic Web Journal*. | The canonical formal treatment of SPARQL 1.1 property paths and recursion semantics. The parent-transaction JOIN pattern in the May 2026 report (`?ref cardano:hasTxId/cardano:bytesHex ?parentHex . ?parent cardano:hasTxId/cardano:bytesHex ?parentHex`) is a direct application of property-path joins to a closed UTxO graph. |
 | [**Apache Jena**](https://jena.apache.org/) — the engine the [May 2026 lattice presentation](may-2026-amaru-lattice.md) drives. | Standards-compliant SPARQL 1.1 + Turtle / JSON-LD parsing in Java. Same `.rq` contracts work against Stardog, Blazegraph, AllegroGraph, etc. — `tx-view` ships paired Haskell projections so a runtime isn't a hard dependency. |
 
 The novelty in our stack is *not* recursive SPARQL. It's the
-**CBOR-fetch boundary**: `tx-lattice` resolves the input-output
-recursion outside the SPARQL engine by pulling each referenced
-parent transaction's CBOR via Blockfrost and emitting it as a
-sibling Turtle file. The SPARQL engine then sees a closed
-graph and the JOINs reduce to ordinary property paths — no
-chain-aware operators in the query language.
+**CBOR-fetch boundary**: `tx-fetch` pulls the operator-selected
+transaction ids, and optionally their referenced parents, as
+verified CBOR; `tx-graph` emits that bounded set as sibling
+Turtle files. The SPARQL engine then sees a closed graph and the
+JOINs reduce to ordinary property paths — no chain-aware operators
+in the query language.
 
 ## CIP-57 typed datum / redeemer decode
 
@@ -74,7 +75,7 @@ Honest one-liners:
 - **CIP-57 → RDF**: novel.
 - **Recursive CBOR-fetch closure as a SPARQL substrate**: not a
   new operator (property paths suffice in the engine), but
-  packaging it as a reproducible Bash / Haskell pipeline keyed
+  packaging it as a reproducible `tx-fetch` / `tx-graph` pipeline keyed
   off Blockfrost's CBOR endpoint is new for any UTxO chain.
 - **Off-chain overlay co-emitted with the on-chain graph**:
   `attestations:` + `paid-via:` for IPFS-anchored vendor
@@ -85,10 +86,10 @@ Honest one-liners:
 
 - [tx-graph](tx-graph.md) — the per-tx canonical Turtle / JSON-LD
   emitter.
-- [tx-lattice](tx-lattice.md) — the recursive parent-CBOR
-  closure builder + its [known limitations](tx-lattice.md#known-limitations).
+- [tx-fetch](tx-fetch.md) — the Blockfrost-backed Conway CBOR
+  fetcher.
 - [tx-view](tx-view.md) — the packaged-view library.
 - [rewriting-rules grammar](rewriting-rules.md) — the
   operator-entity overlay format.
-- [May 2026 lattice demo](may-2026-amaru-lattice.md) — eleven
-  SPARQL queries against a 30-tx mainnet closure.
+- [May 2026 lattice demo](may-2026-amaru-lattice.md) — 22 SPARQL
+  query pages against an 85-tx mainnet boundary.
