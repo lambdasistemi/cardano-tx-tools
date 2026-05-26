@@ -5,7 +5,9 @@ the bounded graph from the 85 transaction ids, then runs the SPARQL
 queries against that graph and the live UTxO snapshot.
 
 The commands below assume a checkout of this repository. The only
-external secret is the Blockfrost project id used by `tx-fetch`.
+external secret is the Blockfrost project id used by `tx-fetch`. The
+provider responsibilities and API requests are listed on the
+[Blockfrost provider](blockfrost-provider.md) page.
 
 ## One-Time Environment
 
@@ -50,8 +52,9 @@ site.
 
 ## Preflight
 
-The fetch stage needs Blockfrost. The txid boundary is fixed by the
-checked-in `network-txs.txt` file rendered on the report index.
+The fetch stage needs Blockfrost only for transaction CBOR. The txid
+boundary is fixed by the checked-in `network-txs.txt` file rendered on
+the report index.
 
 ```bash
 --8<-- "docs/may-2026-amaru-lattice/setup.sh:preflight"

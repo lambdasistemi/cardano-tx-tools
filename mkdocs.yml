@@ -59,7 +59,6 @@ extra_javascript:
   - assets/js/read-aloud.js
 
 nav:
-  - Home: index.md
   - tx-diff: tx-diff.md
   - tx-inspect: tx-inspect.md
   - rewriting-rules grammar: rewriting-rules.md
@@ -71,6 +70,7 @@ nav:
   - "May 2026 lattice demo":
       - may-2026-amaru-lattice/index.md
       - "Run the report": may-2026-amaru-lattice/run-the-report.md
+      - "Blockfrost provider": may-2026-amaru-lattice/blockfrost-provider.md
       - "Lattice boundary and shape":
           - may-2026-amaru-lattice/lattice-boundary-and-shape/index.md
           - "Query 00 - Lattice inventory": may-2026-amaru-lattice/lattice-boundary-and-shape/00-lattice-inventory.md

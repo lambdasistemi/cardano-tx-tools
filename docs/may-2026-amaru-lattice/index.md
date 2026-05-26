@@ -100,21 +100,10 @@ The selection rule used here was:
    the graph with `tx-graph`, and verify terminal state with Queries
    14-16.
 
-The operational Blockfrost step is an address-history query, for
-example:
-
-```bash
-ADDRESS=addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
-
-curl -sS \
-  -H "project_id: $BLOCKFROST_PROJECT_ID" \
-  "https://cardano-mainnet.blockfrost.io/api/v0/addresses/$ADDRESS/transactions?order=asc&page=1&count=100"
-```
-
-Repeat the paginated query until the chosen end boundary is reached,
-then persist the selected `tx_hash` values as one txid per line. The
-persisted file is the audit boundary; `tx-fetch` only retrieves and
-hash-verifies the CBOR for that boundary.
+The concrete provider calls are documented on the
+[Blockfrost provider](blockfrost-provider.md) page. The persisted
+`network-txs.txt` file is the audit boundary; `tx-fetch` only retrieves
+and hash-verifies the CBOR for that boundary.
 
 This selection is correct for a final-state proof when the initial
 condition is true and the selected txid set is state-complete for the
@@ -172,8 +161,10 @@ Every query linked below runs against the same 85-transaction lattice.
 The tree is grouped by the question a reader is trying to answer first.
 
 To reproduce the graph and execute the queries locally, use the
-[Run the report](run-the-report.md) tutorial. Each query page also
-contains a copyable command that runs just that query.
+[Run the report](run-the-report.md) tutorial. The
+[Blockfrost provider](blockfrost-provider.md) page lists every external
+API shape used before the local graph and query stages. Each query page
+also contains a copyable command that runs just that query.
 
 The query pages are listed in the site navigation under this report,
 grouped by boundary shape, terminal state, USDM movement, swaps, and
