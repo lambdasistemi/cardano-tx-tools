@@ -77,51 +77,15 @@ boundary.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-
-# End-of-slice residual USDM at the network_compliance treasury address.
-# This is a balance-style query over the May seed set: it counts seed
-# outputs at network_compliance that are not consumed by another seed
-# transaction in the same lattice.
-SELECT (COUNT(DISTINCT ?out) AS ?utxoCount)
-       (SUM(?lovelace) AS ?residualLovelace)
-       (SUM(?usdm) AS ?residualUsdm)
-WHERE {
-  ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
-                     cardano:bech32 ?networkComplianceBech32 .
-  VALUES ?usdmAssetId {
-    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
-  }
-
-  ?seed cardano:hasLatticeRole "seed" ;
-        cardano:hasTxId/cardano:bytesHex ?txId ;
-        cardano:hasOutput ?out .
-  ?out cardano:hasIndex ?ix ;
-       cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
-       cardano:lovelace ?lovelace ;
-       cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-  ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
-         cardano:quantity ?usdm .
-
-  FILTER NOT EXISTS {
-    ?laterSeed cardano:hasLatticeRole "seed" ;
-               cardano:hasInput ?input .
-    ?input cardano:fromTxOutRef ?ref .
-    ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
-         cardano:hasIndex ?ix .
-  }
-}
-
+--8<-- "docs/may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.rq"
 ```
 
 ## Result
 
 This table is the CSV result produced by Apache Jena over the 30-seed
-May lattice. ADA quantities are lovelace; USDM quantities are base
+May lattice. ADA quantities are decimal ADA; USDM quantities are base
 units. It is an end-of-seed-set residual, not the live final balance.
 
-| utxoCount | residualLovelace | residualUsdm |
+| utxoCount | residualAda | residualUsdm |
 |---|---|---|
-| 1 | 120299272 | 1349523953 |
+| 1 | 120.299272 | 1349523953 |

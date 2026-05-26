@@ -80,51 +80,14 @@ whether any seed input failed to resolve to exactly one parent output.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-
-# UTxO-only ADA conservation for seed transactions:
-# seed inputs resolved through the parent closure must equal seed
-# outputs plus fees. This deliberately does not claim full ledger
-# conservation across deposits, rewards, minting, or burning.
-SELECT ?totalSeedInputLovelace ?totalSeedOutputLovelace ?totalSeedFee
-       ((?totalSeedInputLovelace - ?totalSeedOutputLovelace - ?totalSeedFee) AS ?gap)
-WHERE {
-  {
-    SELECT (SUM(?l) AS ?totalSeedInputLovelace)
-    WHERE {
-      ?seed cardano:hasLatticeRole "seed" ;
-            cardano:hasInput ?in .
-      ?in cardano:fromTxOutRef ?ref .
-      ?ref cardano:hasTxId/cardano:bytesHex ?parentHex ;
-           cardano:hasIndex ?ix .
-      ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ;
-              cardano:hasOutput ?parentOut .
-      ?parentOut cardano:hasIndex ?ix ;
-                 cardano:lovelace ?l .
-    }
-  }
-  {
-    SELECT (SUM(?l) AS ?totalSeedOutputLovelace)
-    WHERE {
-      ?seed cardano:hasLatticeRole "seed" ;
-            cardano:hasOutput/cardano:lovelace ?l .
-    }
-  }
-  {
-    SELECT (SUM(?f) AS ?totalSeedFee)
-    WHERE {
-      ?seed cardano:hasLatticeRole "seed" ;
-            cardano:hasFee ?f .
-    }
-  }
-}
-
+--8<-- "docs/may-2026-amaru-lattice/queries/00-ada-conservation.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
 
-| totalSeedInputLovelace | totalSeedOutputLovelace | totalSeedFee | gap |
+| totalSeedInputAda | totalSeedOutputAda | totalSeedFeeAda | gapAda |
 |---|---|---|---|
-| 22186097902390 | 22186077970992 | 19931398 | 0 |
+| 22186097.902390 | 22186077.970992 | 19.931398 | 0.000000 |

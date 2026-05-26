@@ -1,11 +1,14 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # UTxO-only ADA conservation for seed transactions:
 # seed inputs resolved through the parent closure must equal seed
 # outputs plus fees. This deliberately does not claim full ledger
 # conservation across deposits, rewards, minting, or burning.
-SELECT ?totalSeedInputLovelace ?totalSeedOutputLovelace ?totalSeedFee
-       ((?totalSeedInputLovelace - ?totalSeedOutputLovelace - ?totalSeedFee) AS ?gap)
+SELECT ((xsd:decimal(?totalSeedInputLovelace) / 1000000) AS ?totalSeedInputAda)
+       ((xsd:decimal(?totalSeedOutputLovelace) / 1000000) AS ?totalSeedOutputAda)
+       ((xsd:decimal(?totalSeedFee) / 1000000) AS ?totalSeedFeeAda)
+       ((xsd:decimal(?totalSeedInputLovelace - ?totalSeedOutputLovelace - ?totalSeedFee) / 1000000) AS ?gapAda)
 WHERE {
   {
     SELECT (SUM(?l) AS ?totalSeedInputLovelace)

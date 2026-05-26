@@ -92,96 +92,14 @@ boundary mismatch.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX live:    <https://lambdasistemi.github.io/cardano-tx-tools/proof/live#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-
-# Compare the graph-derived terminal UTxO set with a live-node UTxO
-# overlay for the network_compliance treasury address.
-#
-# Expected live overlay shape:
-#   [] a live:CurrentUtxo ;
-#      live:txId "...";
-#      live:index 0 ;
-#      live:lovelace 123 ;
-#      live:usdm 456 .
-#
-# If the known transaction graph is complete, this query returns no
-# rows. Rows returned here are proof obligations:
-#   graph_terminal_not_live = missing later spender txs in the graph
-#   live_not_graph_terminal = missing producer txs in the graph
-SELECT ?side ?txId ?ix ?graphLovelace ?graphUsdm ?liveLovelace ?liveUsdm
-WHERE {
-  {
-    {
-      SELECT ?txId ?ix ?graphLovelace (SUM(COALESCE(?usdmRaw, 0)) AS ?graphUsdm)
-      WHERE {
-        ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
-                           cardano:bech32 ?networkComplianceBech32 .
-        VALUES ?usdmAssetId {
-          "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
-        }
-
-        ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
-            cardano:hasOutput ?out .
-        ?out cardano:hasIndex ?ix ;
-             cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
-             cardano:lovelace ?graphLovelace .
-        OPTIONAL {
-          ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-          ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
-                 cardano:quantity ?usdmRaw .
-        }
-        FILTER NOT EXISTS {
-          ?spendingTx cardano:hasInput ?input .
-          ?input cardano:fromTxOutRef ?ref .
-          ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
-               cardano:hasIndex ?ix .
-        }
-      }
-      GROUP BY ?txId ?ix ?graphLovelace
-    }
-    FILTER NOT EXISTS {
-      ?live a live:CurrentUtxo ;
-            live:txId ?txId ;
-            live:index ?ix .
-    }
-    BIND ("graph_terminal_not_live" AS ?side)
-  }
-  UNION
-  {
-    ?live a live:CurrentUtxo ;
-          live:txId ?txId ;
-          live:index ?ix ;
-          live:lovelace ?liveLovelace ;
-          live:usdm ?liveUsdm .
-    ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
-                       cardano:bech32 ?networkComplianceBech32 .
-    FILTER NOT EXISTS {
-      ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
-          cardano:hasOutput ?out .
-      ?out cardano:hasIndex ?ix ;
-           cardano:atAddress/cardano:bech32 ?networkComplianceBech32 .
-      FILTER NOT EXISTS {
-        ?spendingTx cardano:hasInput ?input .
-        ?input cardano:fromTxOutRef ?ref .
-        ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
-             cardano:hasIndex ?ix .
-      }
-    }
-    BIND ("live_not_graph_terminal" AS ?side)
-  }
-}
-ORDER BY ?side ?txId ?ix
-
+--8<-- "docs/may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq"
 ```
 
 ## Result
 
 This table is the CSV result produced by Apache Jena over the state-audit
-graph at the live snapshot boundary. ADA quantities are lovelace; USDM
+graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
 quantities are base units. No data rows were returned.
 
-| side | txId | ix | graphLovelace | graphUsdm | liveLovelace | liveUsdm |
+| side | txId | ix | graphAda | graphUsdm | liveAda | liveUsdm |
 |---|---|---|---|---|---|---|

@@ -1,14 +1,15 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # ADA flow by ledger role. This deliberately keeps AMM pool state,
 # swap-order script UTxOs, treasury UTxOs, bridge outputs, and ordinary
 # wallets in separate buckets; collapsing them into "other" produces
 # misleading business interpretations.
 SELECT ?role
-       (SUM(?lovIn) AS ?lovelace_in)
-       (SUM(?lovOut) AS ?lovelace_out)
-       ((SUM(?lovIn) - SUM(?lovOut)) AS ?net_lovelace)
+       ((xsd:decimal(SUM(?lovIn)) / 1000000) AS ?adaIn)
+       ((xsd:decimal(SUM(?lovOut)) / 1000000) AS ?adaOut)
+       ((xsd:decimal(SUM(?lovIn) - SUM(?lovOut)) / 1000000) AS ?netAda)
 WHERE {
   {
     ?seed cardano:hasLatticeRole "seed" ;

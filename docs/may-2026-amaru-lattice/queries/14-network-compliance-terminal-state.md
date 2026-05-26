@@ -82,59 +82,19 @@ the result suitable for comparing both ADA and USDM state.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-
-# Graph-derived terminal UTxO set for the network_compliance treasury
-# address: outputs at the address whose (txid, index) is not consumed by
-# any transaction in the loaded graph.
-#
-# This is the graph-only final-state query. If the loaded graph contains
-# the complete transaction set for the interval, this set must match the
-# live node UTxO set at the same boundary.
-SELECT ?txId ?ix ?lovelace (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
-WHERE {
-  ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
-                     cardano:bech32 ?networkComplianceBech32 .
-  VALUES ?usdmAssetId {
-    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
-  }
-
-  ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
-      cardano:hasOutput ?out .
-  ?out cardano:hasIndex ?ix ;
-       cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
-       cardano:lovelace ?lovelace .
-
-  OPTIONAL {
-    ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-    ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
-           cardano:quantity ?usdmRaw .
-  }
-
-  FILTER NOT EXISTS {
-    ?spendingTx cardano:hasInput ?input .
-    ?input cardano:fromTxOutRef ?ref .
-    ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
-         cardano:hasIndex ?ix .
-  }
-}
-GROUP BY ?txId ?ix ?lovelace
-ORDER BY ?txId ?ix
-
+--8<-- "docs/may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq"
 ```
 
 ## Result
 
 This table is the CSV result produced by Apache Jena over the state-audit
-graph at the live snapshot boundary. ADA quantities are lovelace; USDM
+graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
 quantities are base units.
 
-| txId | ix | lovelace | usdm |
+| txId | ix | ada | usdm |
 |---|---|---|---|
-| 44454ed0def64621ef645958830f599b488b699b28e3797cc37c4f4dd1463a79 | 1 | 2000000 | 0 |
-| 68a1277af23755376967e788752c603044f45ea0d99220b3b5dfc7d617642b6b | 1 | 2306000 | 5011215241 |
-| affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982 | 0 | 120299272 | 1349523953 |
-| cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082 | 1 | 2306000 | 10439974 |
-| cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082 | 2 | 2306000 | 10439524 |
+| 44454ed0def64621ef645958830f599b488b699b28e3797cc37c4f4dd1463a79 | 1 | 2.000000 | 0 |
+| 68a1277af23755376967e788752c603044f45ea0d99220b3b5dfc7d617642b6b | 1 | 2.306000 | 5011215241 |
+| affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982 | 0 | 120.299272 | 1349523953 |
+| cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082 | 1 | 2.306000 | 10439974 |
+| cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082 | 2 | 2.306000 | 10439524 |

@@ -71,41 +71,14 @@ the join.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-
-# Detects transactions that consume a contingency UTxO and emit ADA to
-# network_compliance. This is structural evidence of the transfer; it
-# does not decode the treasury redeemer.
-SELECT ?seedTxId ?lovelaceDisbursed
-WHERE {
-  ?contingency rdfs:label "amaru-treasury.contingency" ;
-               cardano:bech32 ?contingencyBech32 .
-  ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
-                     cardano:bech32 ?networkComplianceBech32 .
-
-  ?seed cardano:hasLatticeRole "seed" ;
-        cardano:hasTxId/cardano:bytesHex ?seedTxId ;
-        cardano:hasInput ?in ;
-        cardano:hasOutput ?out .
-  ?in cardano:fromTxOutRef ?ref .
-  ?ref cardano:hasTxId/cardano:bytesHex ?parentHex ;
-       cardano:hasIndex ?ix .
-  ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ;
-          cardano:hasOutput ?parentOut .
-  ?parentOut cardano:hasIndex ?ix ;
-             cardano:atAddress/cardano:bech32 ?contingencyBech32 .
-  ?out cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
-       cardano:lovelace ?lovelaceDisbursed .
-}
-ORDER BY ?seedTxId
-
+--8<-- "docs/may-2026-amaru-lattice/queries/06-disbursement-candidates.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
 
-| seedTxId | lovelaceDisbursed |
+| seedTxId | adaDisbursed |
 |---|---|
-| 18d57a4f104df4cc776104ce626958e2110122392e4c4c7671edc8861b48452e | 205000000000 |
+| 18d57a4f104df4cc776104ce626958e2110122392e4c4c7671edc8861b48452e | 205000.000000 |

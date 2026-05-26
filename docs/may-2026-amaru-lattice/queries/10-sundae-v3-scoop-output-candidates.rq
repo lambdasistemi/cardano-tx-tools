@@ -1,12 +1,14 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # Output candidates for the 9-order SundaeSwap V3 order consumer. This answers
 # "what outputs did the consumer transaction create?". It does not prove
 # which output was the intended recipient of which order without a
 # matching datum decode or additional off-chain order context.
-SELECT ?scoopTxId ?outputRole ?outputBech32 ?outputLovelace
+SELECT ?scoopTxId ?outputRole ?outputBech32
+       ((xsd:decimal(?outputLovelace) / 1000000) AS ?outputAda)
        (SUM(COALESCE(?usdmRaw, 0)) AS ?outputUsdm)
 WHERE {
   VALUES ?usdmAssetId {

@@ -1,6 +1,7 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # USDM outputs paid to the configured CAG payee bridge.
 #
@@ -12,7 +13,9 @@ PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 # deliberately not used to split the amount: the graph can prove the
 # payee output amount, while per-invoice attribution requires metadata
 # or operator labels beyond the payment address itself.
-SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace ?usdm
+SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress
+       ((xsd:decimal(?lovelace) / 1000000) AS ?ada)
+       ?usdm
        (GROUP_CONCAT(DISTINCT ?vendorLabel; separator=", ") AS ?vendorsPaidViaPayee)
 WHERE {
   {

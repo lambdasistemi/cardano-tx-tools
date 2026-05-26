@@ -65,33 +65,13 @@ signer cardinality needed to distinguish transaction classes.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-
-SELECT ?requiredSigners (COUNT(?seed) AS ?txCount)
-WHERE {
-  {
-    SELECT ?seed (COUNT(DISTINCT ?sig) AS ?requiredSigners)
-    WHERE {
-      ?seed cardano:hasLatticeRole "seed" ;
-            cardano:hasRequiredSigner ?sig .
-    }
-    GROUP BY ?seed
-  }
-  UNION
-  {
-    ?seed cardano:hasLatticeRole "seed" .
-    FILTER NOT EXISTS { ?seed cardano:hasRequiredSigner ?_sig }
-    BIND (0 AS ?requiredSigners)
-  }
-}
-GROUP BY ?requiredSigners
-ORDER BY DESC(?requiredSigners)
-
+--8<-- "docs/may-2026-amaru-lattice/queries/04-required-signer-distribution.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
 
 | requiredSigners | txCount |
 |---|---|

@@ -2,6 +2,7 @@ PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/ca
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX live:    <https://lambdasistemi.github.io/cardano-tx-tools/proof/live#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # Compare the graph-derived terminal UTxO set with a live-node UTxO
 # overlay for the network_compliance treasury address.
@@ -17,7 +18,11 @@ PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 # rows. Rows returned here are proof obligations:
 #   graph_terminal_not_live = missing later spender txs in the graph
 #   live_not_graph_terminal = missing producer txs in the graph
-SELECT ?side ?txId ?ix ?graphLovelace ?graphUsdm ?liveLovelace ?liveUsdm
+SELECT ?side ?txId ?ix
+       ((xsd:decimal(?graphLovelace) / 1000000) AS ?graphAda)
+       ?graphUsdm
+       ((xsd:decimal(?liveLovelace) / 1000000) AS ?liveAda)
+       ?liveUsdm
 WHERE {
   {
     {

@@ -56,12 +56,13 @@ the vendor labels that declare `cardano:paidVia` that same payee bridge.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are base units.
+state-audit graph. ADA quantities are decimal ADA; USDM quantities are
+base units.
 
-| paymentTxId | outputIndex | payeeLabel | payeeAddress | lovelace | usdm | vendorsPaidViaPayee |
+| paymentTxId | outputIndex | payeeLabel | payeeAddress | ada | usdm | vendorsPaidViaPayee |
 |---|---:|---|---|---:|---:|---|
-| `affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982` | 1 | amaru.cag-payee | `addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl` | 1189560 | 400000000000 | amaru.antithesis, amaru.castellum |
-| `c150d5c5c67658c8f2a3bc24e16a4852257d46a03224257ac990fcca6f6fde78` | 1 | amaru.cag-payee | `addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl` | 1189560 | 18750000000 | amaru.antithesis, amaru.castellum |
+| `affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982` | 1 | amaru.cag-payee | `addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl` | 1.189560 | 400000000000 | amaru.antithesis, amaru.castellum |
+| `c150d5c5c67658c8f2a3bc24e16a4852257d46a03224257ac990fcca6f6fde78` | 1 | amaru.cag-payee | `addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl` | 1.189560 | 18750000000 | amaru.antithesis, amaru.castellum |
 
 Total USDM paid to the CAG payee bridge:
 

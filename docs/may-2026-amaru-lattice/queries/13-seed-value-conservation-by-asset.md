@@ -78,84 +78,16 @@ set includes mint/burn semantics that need to be modeled explicitly.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-# Proof gate: for the seed transactions, every observed asset balances
-# exactly across resolved spending inputs and outputs. Lovelace includes
-# fees on the output side.
-#
-# A non-zero gap means either the graph is missing an input/output edge,
-# a parent output did not resolve, or mint/burn semantics need to be
-# included for this transaction set.
-SELECT ?assetId
-       (SUM(?inputQty) AS ?totalInputQty)
-       (SUM(?outputQty) AS ?totalOutputQty)
-       ((SUM(?inputQty) - SUM(?outputQty)) AS ?gap)
-WHERE {
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasInput ?input .
-    ?input cardano:fromTxOutRef ?ref .
-    ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
-         cardano:hasIndex ?ix .
-    ?parent cardano:hasTxId/cardano:bytesHex ?parentTxId ;
-            cardano:hasOutput ?parentOut .
-    ?parentOut cardano:hasIndex ?ix ;
-               cardano:lovelace ?inputQty .
-    BIND ("lovelace" AS ?assetId)
-    BIND (0 AS ?outputQty)
-  }
-  UNION
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasOutput/cardano:lovelace ?outputQty .
-    BIND ("lovelace" AS ?assetId)
-    BIND (0 AS ?inputQty)
-  }
-  UNION
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasFee ?outputQty .
-    BIND ("lovelace" AS ?assetId)
-    BIND (0 AS ?inputQty)
-  }
-  UNION
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasInput ?input .
-    ?input cardano:fromTxOutRef ?ref .
-    ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
-         cardano:hasIndex ?ix .
-    ?parent cardano:hasTxId/cardano:bytesHex ?parentTxId ;
-            cardano:hasOutput ?parentOut .
-    ?parentOut cardano:hasIndex ?ix ;
-               cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-    ?asset cardano:hasIdentifier/cardano:bytesHex ?assetId ;
-           cardano:quantity ?inputQty .
-    BIND (0 AS ?outputQty)
-  }
-  UNION
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasOutput ?out .
-    ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-    ?asset cardano:hasIdentifier/cardano:bytesHex ?assetId ;
-           cardano:quantity ?outputQty .
-    BIND (0 AS ?inputQty)
-  }
-}
-GROUP BY ?assetId
-ORDER BY ?assetId
-
+--8<-- "docs/may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA; USDM quantities are base units.
 
 | assetId | totalInputQty | totalOutputQty | gap |
 |---|---|---|---|
 | c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d | 2055725808711 | 2055725808711 | 0 |
 | e0302560ced2fdcbfcb2602697df970cd0d6a38f94b32703f51c312b000de14064f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef | 1 | 1 | 0 |
-| lovelace | 22186097902390 | 22186097902390 | 0 |
+| ada | 22186097.902390 | 22186097.902390 | 0.000000 |

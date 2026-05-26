@@ -89,87 +89,20 @@ returned to it.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-
-# ADA flow by ledger role. This deliberately keeps AMM pool state,
-# swap-order script UTxOs, treasury UTxOs, bridge outputs, and ordinary
-# wallets in separate buckets; collapsing them into "other" produces
-# misleading business interpretations.
-SELECT ?role
-       (SUM(?lovIn) AS ?lovelace_in)
-       (SUM(?lovOut) AS ?lovelace_out)
-       ((SUM(?lovIn) - SUM(?lovOut)) AS ?net_lovelace)
-WHERE {
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasOutput ?out .
-    ?out cardano:atAddress ?addr ;
-         cardano:lovelace ?lovIn .
-    ?addr cardano:bech32 ?bech .
-    OPTIONAL {
-      ?addr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?payHash .
-    }
-    BIND (0 AS ?lovOut)
-  }
-  UNION
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasInput ?in .
-    ?in cardano:fromTxOutRef ?ref .
-    ?ref cardano:hasTxId/cardano:bytesHex ?parentHex ;
-         cardano:hasIndex ?ix .
-    ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ;
-            cardano:hasOutput ?parentOut .
-    ?parentOut cardano:hasIndex ?ix ;
-               cardano:atAddress ?addr ;
-               cardano:lovelace ?lovOut .
-    ?addr cardano:bech32 ?bech .
-    OPTIONAL {
-      ?addr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?payHash .
-    }
-    BIND (0 AS ?lovIn)
-  }
-
-  OPTIONAL {
-    {
-      SELECT ?bech (SAMPLE(?label) AS ?addressRole)
-      WHERE {
-        ?entity cardano:bech32 ?bech ;
-                rdfs:label ?label .
-      }
-      GROUP BY ?bech
-    }
-  }
-  OPTIONAL {
-    {
-      SELECT ?payHash (SAMPLE(?label) AS ?credentialRole)
-      WHERE {
-        ?entity rdfs:label ?label ;
-                cardano:hasIdentifier ?id .
-        ?id cardano:bytesHex ?payHash .
-        FILTER NOT EXISTS { ?entity cardano:bech32 ?_address . }
-      }
-      GROUP BY ?payHash
-    }
-  }
-  BIND (COALESCE(?addressRole, ?credentialRole, "wallet.other") AS ?role)
-}
-GROUP BY ?role
-ORDER BY ?role
-
+--8<-- "docs/may-2026-amaru-lattice/queries/03-ada-role-flow.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
 
-| role | lovelace_in | lovelace_out | net_lovelace |
+| role | adaIn | adaOut | netAda |
 |---|---|---|---|
-| amaru-treasury.contingency | 3852000000000 | 4057000000000 | -205000000000 |
-| amaru-treasury.network_compliance | 14923951458216 | 16209772179866 | -1285820721650 |
-| amaru.cag-payee | 2379120 | 0 | 2379120 |
-| amaru.network-operator | 2391518562 | 2410553271 | -19034709 |
-| amaru.swap-order | 1543640747472 | 90940160191 | 1452700587281 |
-| sundae.swap.v3.order | 0 | 26240000 | -26240000 |
-| wallet.other | 1864091867622 | 1825948769062 | 38143098560 |
+| amaru-treasury.contingency | 3852000.000000 | 4057000.000000 | -205000.000000 |
+| amaru-treasury.network_compliance | 14923951.458216 | 16209772.179866 | -1285820.721650 |
+| amaru.cag-payee | 2.379120 | 0.000000 | 2.379120 |
+| amaru.network-operator | 2391.518562 | 2410.553271 | -19.034709 |
+| amaru.swap-order | 1543640.747472 | 90940.160191 | 1452700.587281 |
+| sundae.swap.v3.order | 0.000000 | 26.240000 | -26.240000 |
+| wallet.other | 1864091.867622 | 1825948.769062 | 38143.098560 |

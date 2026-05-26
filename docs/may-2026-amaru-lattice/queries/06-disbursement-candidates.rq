@@ -1,10 +1,11 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # Detects transactions that consume a contingency UTxO and emit ADA to
 # network_compliance. This is structural evidence of the transfer; it
 # does not decode the treasury redeemer.
-SELECT ?seedTxId ?lovelaceDisbursed
+SELECT ?seedTxId ((xsd:decimal(?lovelaceDisbursed) / 1000000) AS ?adaDisbursed)
 WHERE {
   ?contingency rdfs:label "amaru-treasury.contingency" ;
                cardano:bech32 ?contingencyBech32 .

@@ -66,23 +66,14 @@ list and lattice-role tagging are fixed.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-
-SELECT (COUNT(?tx) AS ?seedTxCount)
-       (SUM(?fee) AS ?totalFeeLovelace)
-       (MIN(?fee) AS ?minFee)
-       (MAX(?fee) AS ?maxFee)
-WHERE {
-  ?tx cardano:hasLatticeRole "seed" ;
-      cardano:hasFee ?fee .
-}
-
+--8<-- "docs/may-2026-amaru-lattice/queries/01-monthly-totals.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
 
-| seedTxCount | totalFeeLovelace | minFee | maxFee |
+| seedTxCount | totalFeeAda | minFeeAda | maxFeeAda |
 |---|---|---|---|
-| 30 | 19931398 | 244261 | 1572508 |
+| 30 | 19.931398 | 0.244261 | 1.572508 |

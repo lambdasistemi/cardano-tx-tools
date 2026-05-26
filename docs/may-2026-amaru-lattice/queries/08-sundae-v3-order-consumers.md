@@ -70,55 +70,13 @@ that produce settlement outputs to other roles.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-
-# This is deliberately named "consumer" rather than "scoop": it finds
-# seed transactions that consume SundaeSwap V3 order UTxOs. A swap
-# cancel and a batch scoop both satisfy that pattern.
-SELECT ?seedTxId ?orderInputsConsumed
-       (COUNT(DISTINCT ?out) AS ?outputCount)
-       (COUNT(DISTINCT ?nonOrderOut) AS ?nonOrderOutputCount)
-WHERE {
-  {
-    SELECT ?seed ?seedTxId ?orderScriptHash (COUNT(DISTINCT ?parentOut) AS ?orderInputsConsumed)
-    WHERE {
-      ?orderScript rdfs:label "sundae.swap.v3.order" ;
-                   cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
-
-      ?seed cardano:hasLatticeRole "seed" ;
-            cardano:hasTxId/cardano:bytesHex ?seedTxId ;
-            cardano:hasInput ?in .
-      ?in cardano:fromTxOutRef ?ref .
-      ?ref cardano:hasTxId/cardano:bytesHex ?parentHex ;
-           cardano:hasIndex ?ix .
-      ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ;
-              cardano:hasOutput ?parentOut .
-      ?parentOut cardano:hasIndex ?ix ;
-                 cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
-                   ?orderScriptHash .
-    }
-    GROUP BY ?seed ?seedTxId ?orderScriptHash
-  }
-
-  ?seed cardano:hasOutput ?out .
-  OPTIONAL {
-    ?out cardano:atAddress ?outAddr .
-    FILTER NOT EXISTS {
-      ?outAddr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
-                 ?orderScriptHash .
-    }
-    BIND (?out AS ?nonOrderOut)
-  }
-}
-GROUP BY ?seedTxId ?orderInputsConsumed
-ORDER BY DESC(?orderInputsConsumed) ?seedTxId
-
+--8<-- "docs/may-2026-amaru-lattice/queries/08-sundae-v3-order-consumers.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
 
 | seedTxId | orderInputsConsumed | outputCount | nonOrderOutputCount |
 |---|---|---|---|

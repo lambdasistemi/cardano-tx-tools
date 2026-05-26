@@ -63,25 +63,13 @@ not include the expected script transactions.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-
-SELECT ?parentTxId ?ix (COUNT(DISTINCT ?seed) AS ?usingSeedTxs)
-WHERE {
-  ?seed cardano:hasLatticeRole "seed" ;
-        cardano:hasReferenceInput ?ref .
-  ?ref cardano:fromTxOutRef ?refTxOutRef .
-  ?refTxOutRef cardano:hasTxId/cardano:bytesHex ?parentTxId ;
-               cardano:hasIndex ?ix .
-}
-GROUP BY ?parentTxId ?ix
-ORDER BY DESC(?usingSeedTxs) ?parentTxId ?ix
-LIMIT 5
-
+--8<-- "docs/may-2026-amaru-lattice/queries/09-reference-input-reuse.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
 
 | parentTxId | ix | usingSeedTxs |
 |---|---|---|

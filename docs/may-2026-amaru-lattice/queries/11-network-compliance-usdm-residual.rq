@@ -1,13 +1,14 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # End-of-slice residual USDM at the network_compliance treasury address.
 # This is a balance-style query over the May seed set: it counts seed
 # outputs at network_compliance that are not consumed by another seed
 # transaction in the same lattice.
 SELECT (COUNT(DISTINCT ?out) AS ?utxoCount)
-       (SUM(?lovelace) AS ?residualLovelace)
+       ((xsd:decimal(SUM(?lovelace)) / 1000000) AS ?residualAda)
        (SUM(?usdm) AS ?residualUsdm)
 WHERE {
   ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;

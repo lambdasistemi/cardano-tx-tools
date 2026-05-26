@@ -91,43 +91,13 @@ are joined inside SPARQL over one emitted graph.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-SELECT ?vendor ?vendorLabel ?attestation ?attestationLabel ?ipfs ?usdmTotalAtBridge
-WHERE {
-  {
-    SELECT ?bridgeEntity (SUM(?qty) AS ?usdmTotalAtBridge)
-    WHERE {
-      ?bridgeEntity rdfs:label "amaru.cag-payee" ;
-                    cardano:bech32 ?bridgeBech32 .
-      VALUES ?usdmAssetId {
-        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
-      }
-
-      ?seed cardano:hasLatticeRole "seed" ;
-            cardano:hasOutput ?out .
-      ?out cardano:atAddress/cardano:bech32 ?bridgeBech32 ;
-           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
-             cardano:quantity ?qty .
-    }
-    GROUP BY ?bridgeEntity
-  }
-  ?vendor cardano:paidVia ?bridgeEntity .
-  ?attestation cardano:attests ?vendor ;
-               cardano:ipfs ?ipfs .
-  OPTIONAL { ?vendor rdfs:label ?vendorLabel . }
-  OPTIONAL { ?attestation rdfs:label ?attestationLabel . }
-}
-ORDER BY ?vendor ?attestation
-
+--8<-- "docs/may-2026-amaru-lattice/queries/05-vendor-payment-overlay.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. USDM quantities are base units.
 
 | vendor | vendorLabel | attestation | attestationLabel | ipfs | usdmTotalAtBridge |
 |---|---|---|---|---|---|

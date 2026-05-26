@@ -15,7 +15,9 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 #
 # realizedUsdmPerAdaPpm is parts-per-million USDM per ADA:
 #   245000 means 0.245000 USDM / ADA.
-SELECT ?swapTxId ?orderInputs ?orderLovelace ?receivedUsdm
+SELECT ?swapTxId ?orderInputs
+       ((xsd:decimal(?orderLovelace) / 1000000) AS ?orderAda)
+       ?receivedUsdm
        (xsd:integer(ROUND((xsd:decimal(?receivedUsdm) * 1000000) / xsd:decimal(?orderLovelace))) AS ?realizedUsdmPerAdaPpm)
        ?orderRefs
 WHERE {

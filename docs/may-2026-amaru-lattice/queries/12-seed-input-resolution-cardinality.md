@@ -81,43 +81,13 @@ interpreting any value-flow query.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-
-# Proof gate: every spending input of every seed transaction must
-# resolve to exactly one output in the loaded graph.
-#
-# If unresolvedInputs > 0, the closure is missing producer
-# transactions. If ambiguousInputs > 0, the graph does not identify
-# transaction outputs uniquely by (txid, index).
-SELECT (COUNT(?input) AS ?seedSpendingInputs)
-       (SUM(IF(?matches = 1, 1, 0)) AS ?resolvedOnceInputs)
-       (SUM(IF(?matches = 0, 1, 0)) AS ?unresolvedInputs)
-       (SUM(IF(?matches > 1, 1, 0)) AS ?ambiguousInputs)
-WHERE {
-  {
-    SELECT ?input (COUNT(DISTINCT ?parentOut) AS ?matches)
-    WHERE {
-      ?seed cardano:hasLatticeRole "seed" ;
-            cardano:hasInput ?input .
-      ?input cardano:fromTxOutRef ?ref .
-      ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
-           cardano:hasIndex ?ix .
-
-      OPTIONAL {
-        ?parent cardano:hasTxId/cardano:bytesHex ?parentTxId ;
-                cardano:hasOutput ?parentOut .
-        ?parentOut cardano:hasIndex ?ix .
-      }
-    }
-    GROUP BY ?input
-  }
-}
-
+--8<-- "docs/may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
 
 | seedSpendingInputs | resolvedOnceInputs | unresolvedInputs | ambiguousInputs |
 |---|---|---|---|

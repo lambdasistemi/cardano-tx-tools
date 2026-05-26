@@ -2,13 +2,18 @@ PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/ca
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX live:    <https://lambdasistemi.github.io/cardano-tx-tools/proof/live#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # Summary form of Query 15. It compares graph-derived terminal state
 # with the live-node UTxO overlay for the network_compliance treasury
 # address.
-SELECT ?graphTerminalUtxos ?graphTerminalLovelace ?graphTerminalUsdm
-       ?liveUtxos ?liveLovelace ?liveUsdm
-       ((?liveLovelace - ?graphTerminalLovelace) AS ?lovelaceGap)
+SELECT ?graphTerminalUtxos
+       ((xsd:decimal(?graphTerminalLovelace) / 1000000) AS ?graphTerminalAda)
+       ?graphTerminalUsdm
+       ?liveUtxos
+       ((xsd:decimal(?liveLovelace) / 1000000) AS ?liveAda)
+       ?liveUsdm
+       ((xsd:decimal(?liveLovelace - ?graphTerminalLovelace) / 1000000) AS ?adaGap)
        ((?liveUsdm - ?graphTerminalUsdm) AS ?usdmGap)
 WHERE {
   {

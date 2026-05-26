@@ -84,87 +84,13 @@ Query 13 should show a non-zero USDM conservation gap.
 ## SPARQL
 
 ```sparql
-PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-
-# USDM flow by ledger role. This separates the AMM reserve delta from
-# swap-order script UTxOs, which the older "other" bucket hid.
-SELECT ?role
-       (SUM(?qIn) AS ?usdm_in)
-       (SUM(?qOut) AS ?usdm_out)
-       ((SUM(?qIn) - SUM(?qOut)) AS ?net_usdm)
-WHERE {
-  VALUES ?usdmAssetId {
-    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
-  }
-
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasOutput ?out .
-    ?out cardano:atAddress ?addr ;
-         cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-    ?addr cardano:bech32 ?bech .
-    OPTIONAL {
-      ?addr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?payHash .
-    }
-    ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
-           cardano:quantity ?qIn .
-    BIND (0 AS ?qOut)
-  }
-  UNION
-  {
-    ?seed cardano:hasLatticeRole "seed" ;
-          cardano:hasInput ?in .
-    ?in cardano:fromTxOutRef ?ref .
-    ?ref cardano:hasTxId/cardano:bytesHex ?parentHex ;
-         cardano:hasIndex ?ix .
-    ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ;
-            cardano:hasOutput ?parentOut .
-    ?parentOut cardano:hasIndex ?ix ;
-               cardano:atAddress ?addr ;
-               cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
-    ?addr cardano:bech32 ?bech .
-    OPTIONAL {
-      ?addr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?payHash .
-    }
-    ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
-           cardano:quantity ?qOut .
-    BIND (0 AS ?qIn)
-  }
-
-  OPTIONAL {
-    {
-      SELECT ?bech (SAMPLE(?label) AS ?addressRole)
-      WHERE {
-        ?entity cardano:bech32 ?bech ;
-                rdfs:label ?label .
-      }
-      GROUP BY ?bech
-    }
-  }
-  OPTIONAL {
-    {
-      SELECT ?payHash (SAMPLE(?label) AS ?credentialRole)
-      WHERE {
-        ?entity rdfs:label ?label ;
-                cardano:hasIdentifier ?id .
-        ?id cardano:bytesHex ?payHash .
-        FILTER NOT EXISTS { ?entity cardano:bech32 ?_address . }
-      }
-      GROUP BY ?payHash
-    }
-  }
-  BIND (COALESCE(?addressRole, ?credentialRole, "wallet.other") AS ?role)
-}
-GROUP BY ?role
-ORDER BY ?role
-
+--8<-- "docs/may-2026-amaru-lattice/queries/07-usdm-role-flow.rq"
 ```
 
 ## Result
 
-This table is the CSV result produced by Apache Jena over the May 2026 lattice. ADA quantities are lovelace; USDM quantities are base units.
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. USDM quantities are base units.
 
 | role | usdm_in | usdm_out | net_usdm |
 |---|---|---|---|

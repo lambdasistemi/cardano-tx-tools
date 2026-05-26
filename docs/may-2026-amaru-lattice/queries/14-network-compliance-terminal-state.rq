@@ -1,6 +1,7 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # Graph-derived terminal UTxO set for the network_compliance treasury
 # address: outputs at the address whose (txid, index) is not consumed by
@@ -9,7 +10,8 @@ PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 # This is the graph-only final-state query. If the loaded graph contains
 # the complete transaction set for the interval, this set must match the
 # live node UTxO set at the same boundary.
-SELECT ?txId ?ix ?lovelace (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
+SELECT ?txId ?ix ((xsd:decimal(?lovelace) / 1000000) AS ?ada)
+       (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
 WHERE {
   ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
                      cardano:bech32 ?networkComplianceBech32 .
