@@ -501,16 +501,18 @@ so SPARQL JOINs across the closure use
 
 ## 3. CIP-57 blueprint binding rejects two scripts sharing a blueprint
 
-**Impact**: the Amaru contingency and network_compliance scopes
-share the same `treasury.treasury.spend` contract, so they share
-the same `TreasurySpendRedeemer` schema. The loader's
-`DuplicateBlueprintPredicate` hard error forbids registering one
-blueprint against both scope-script-hashes. The current presentation
-binds the blueprint to only one of the two and the typed redeemer
-decode stays raw on the other.
-
-**Fix**: namespace predicate URIs per-script at decode time, OR
-relax the dedup to permit identical-blueprint registrations.
+**Resolved** (#101, in `Cardano.Tx.Graph.Rules.Load.Resolve.Imports.dedupBlueprints`):
+the loader now distinguishes two cases when a predicate URI is
+declared twice. If both registrations point at the same parsed
+`Blueprint` value, both script-hash bindings are accepted — this
+is the operator-intended "shared parameterised contract" pattern
+(Amaru contingency vs network_compliance both spending the
+`treasury.treasury.spend` contract). A true cross-blueprint
+predicate-URI collision still fails fast with
+`DuplicateBlueprintPredicate`. The presentation's `rules.yaml`
+can now register `sundae-treasury.cip57.json` against both
+treasury scopes and surface the typed redeemer decode on either
+side once gap #4 lands.
 
 ## 4. Typed redeemer decode not firing on live mainnet
 
