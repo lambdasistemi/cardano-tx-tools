@@ -1,0 +1,63 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Summary of SundaeSwap V3 order consumers that returned USDM to
+# network_compliance, grouped by how many order inputs each consumer spent.
+SELECT ?orderInputs
+       (COUNT(?swapTx) AS ?txs)
+       ((xsd:decimal(SUM(?orderLovelace)) / 1000000) AS ?orderAda)
+       ((xsd:decimal(SUM(?receivedUsdmRaw)) / 1000000) AS ?receivedUsdm)
+WHERE {
+  {
+    SELECT ?swapTx (COUNT(?orderRef) AS ?orderInputs)
+           (SUM(?oneOrderLovelace) AS ?orderLovelace)
+    WHERE {
+      # The rules graph is repeated in every transaction file, so the script
+      # hash must be de-duplicated before matching consumed order outputs.
+      {
+        SELECT DISTINCT ?orderScriptHash
+        WHERE {
+          ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                       cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+        }
+      }
+
+      ?swapTx cardano:hasInput ?in .
+      ?in cardano:fromTxOutRef ?ref .
+      ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+           cardano:hasIndex ?orderIx .
+      ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+               cardano:hasOutput ?orderOut .
+      ?orderOut cardano:hasIndex ?orderIx ;
+                cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash ;
+                cardano:lovelace ?oneOrderLovelace .
+      BIND(CONCAT(?orderTxId, "#", STR(?orderIx)) AS ?orderRef)
+    }
+    GROUP BY ?swapTx
+  }
+  {
+    SELECT ?swapTx (SUM(?receivedQty) AS ?receivedUsdmRaw)
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+      {
+        SELECT DISTINCT ?networkComplianceBech32
+        WHERE {
+          ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                             cardano:bech32 ?networkComplianceBech32 .
+        }
+      }
+      ?swapTx cardano:hasOutput ?receiptOut .
+      ?receiptOut cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+                  cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?receivedQty .
+    }
+    GROUP BY ?swapTx
+  }
+}
+GROUP BY ?orderInputs
+ORDER BY ?orderInputs

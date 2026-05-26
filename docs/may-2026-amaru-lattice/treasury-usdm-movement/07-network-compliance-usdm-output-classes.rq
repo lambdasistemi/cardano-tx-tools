@@ -1,0 +1,78 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Classify every USDM output produced at network_compliance by the producing
+# transaction's graph shape.
+SELECT ?producerKind
+       (COUNT(DISTINCT ?txId) AS ?txs)
+       (COUNT(DISTINCT ?outputRef) AS ?outputs)
+       ((xsd:decimal(SUM(?outputUsdmRaw)) / 1000000) AS ?usdm)
+WHERE {
+  {
+    SELECT ?tx ?txId ?outputRef (SUM(?qty) AS ?outputUsdmRaw)
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+      ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                         cardano:bech32 ?networkComplianceBech32 .
+      ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
+          cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?ix ;
+           cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+      BIND(CONCAT(?txId, "#", STR(?ix)) AS ?outputRef)
+    }
+    GROUP BY ?tx ?txId ?outputRef
+  }
+
+  BIND(EXISTS {
+    ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                 cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+    ?tx cardano:hasInput ?in .
+    ?in cardano:fromTxOutRef ?ref .
+    ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+         cardano:hasIndex ?orderIx .
+    ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+             cardano:hasOutput ?orderOut .
+    ?orderOut cardano:hasIndex ?orderIx ;
+              cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+  } AS ?isSwapReceipt)
+  BIND(EXISTS {
+    VALUES ?usdmAssetId {
+      "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+    }
+    ?payee rdfs:label "amaru.cag-payee" ;
+           cardano:bech32 ?payeeBech32 .
+    ?tx cardano:hasOutput ?payeeOut .
+    ?payeeOut cardano:atAddress/cardano:bech32 ?payeeBech32 ;
+              cardano:hasAssetValue/rdf:rest*/rdf:first ?payeeAsset .
+    ?payeeAsset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
+  } AS ?isBeneficiaryPaymentChange)
+  BIND(EXISTS {
+    ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                       cardano:bech32 ?networkComplianceBech32 .
+    ?tx cardano:hasInput ?input .
+    ?input cardano:fromTxOutRef ?ref .
+    ?ref cardano:hasTxId/cardano:bytesHex ?sourceTxId ;
+         cardano:hasIndex ?sourceIx .
+    ?sourceTx cardano:hasTxId/cardano:bytesHex ?sourceTxId ;
+              cardano:hasOutput ?sourceOut .
+    ?sourceOut cardano:hasIndex ?sourceIx ;
+               cardano:atAddress/cardano:bech32 ?networkComplianceBech32 .
+  } AS ?spendsTreasury)
+
+  BIND(
+    IF(
+      ?isSwapReceipt,
+      "swap-receipt",
+      IF(?isBeneficiaryPaymentChange, "beneficiary-payment-change", IF(?spendsTreasury, "treasury-continuity", "other"))
+    ) AS ?producerKind
+  )
+}
+GROUP BY ?producerKind
+ORDER BY DESC(?usdm)

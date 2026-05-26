@@ -3,8 +3,7 @@
 #
 # Architecture (post-#114 + post-tx-fetch split):
 #
-#   tx-fetch  fetches the closure of CBORs into <out-dir>/cbor/, plus a
-#             seeds.txt enumerating the operator's seed list.
+#   tx-fetch  fetches the closure of CBORs into <out-dir>/cbor/.
 #   tx-graph  --in-dir <out-dir>/cbor --out-dir <out-dir> indexes every
 #             CBOR by its computed TxId and emits one canonical Turtle
 #             file per tx, with the operator overlay merged in if

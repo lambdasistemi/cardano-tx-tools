@@ -1,0 +1,86 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# USDM payers into the network_compliance treasury.
+#
+# This is the incoming-side counterpart to Query 02. Query 02 proves who the
+# treasury paid by requiring a treasury input and a payee output. This query
+# proves who paid the treasury by requiring a swap-settlement input and a
+# treasury USDM output.
+#
+# Do not count every USDM output at network_compliance here. Treasury change
+# and payment change also land at the treasury address, but those outputs are
+# our own state continuing through a transaction, not someone paying us.
+#
+# The external incoming source is proven structurally:
+#
+# - the producer transaction consumes one or more SundaeSwap V3 order UTxOs;
+# - the same producer transaction emits USDM to network_compliance.
+#
+# Cardano is a UTxO ledger, so there is no account-style "from address" field
+# for a payment. The payer this graph can prove is therefore a producer class:
+# SundaeSwap V3 order consumers settling the treasury's swap orders.
+SELECT ?payerLabel ?payerEvidence
+       ?treasuryLabel ?treasuryAddress
+       (COUNT(DISTINCT ?receiptTxId) AS ?receiptTxs)
+       (COUNT(DISTINCT ?receiptOutputRef) AS ?receiptOutputs)
+       ((xsd:decimal(SUM(?receiptUsdm)) / 1000000) AS ?usdmReceived)
+WHERE {
+  BIND("sundae.swap.v3.order-consumers" AS ?payerLabel)
+  BIND("producer consumes Sundae V3 order UTxO and emits USDM to network_compliance" AS ?payerEvidence)
+  BIND("amaru-treasury.network_compliance" AS ?treasuryLabel)
+
+  # Resolve the receiving treasury address from rules.yaml.
+  ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                     cardano:bech32 ?treasuryAddress .
+
+  {
+    # One row per treasury USDM receipt output. The EXISTS clause is the payer
+    # proof: the same producer transaction must consume a resolved UTxO at the
+    # SundaeSwap V3 order script. This excludes treasury/payment change because
+    # those producer transactions do not spend Sundae V3 order outputs.
+    SELECT ?treasuryAddress ?receiptTxId ?receiptOutputRef
+           (SUM(?qty) AS ?receiptUsdm)
+    WHERE {
+      # Full USDM asset id, not ticker text.
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+
+      # Resolve the SundaeSwap order script once from the named graph entity.
+      {
+        SELECT DISTINCT ?orderScriptHash
+        WHERE {
+          ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                       cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+        }
+      }
+
+      ?receiptTx cardano:hasTxId/cardano:bytesHex ?receiptTxId ;
+                 cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?outIx ;
+           cardano:atAddress/cardano:bech32 ?treasuryAddress ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+
+      FILTER EXISTS {
+        ?receiptTx cardano:hasInput ?in .
+        ?in cardano:fromTxOutRef ?ref .
+        ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+             cardano:hasIndex ?orderIx .
+        ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+                 cardano:hasOutput ?orderOut .
+        ?orderOut cardano:hasIndex ?orderIx ;
+                  cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
+                    ?orderScriptHash .
+      }
+
+      BIND(CONCAT(?receiptTxId, "#", STR(?outIx)) AS ?receiptOutputRef)
+    }
+    GROUP BY ?treasuryAddress ?receiptTxId ?receiptOutputRef
+  }
+}
+GROUP BY ?payerLabel ?payerEvidence ?treasuryLabel ?treasuryAddress

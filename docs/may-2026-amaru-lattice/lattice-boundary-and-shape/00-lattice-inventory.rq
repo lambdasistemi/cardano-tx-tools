@@ -1,0 +1,42 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Inventory of the loaded 85-transaction lattice.
+#
+# This is a structural sanity check over the graph itself. It counts the
+# transaction subjects, their emitted outputs, their input edges, and their
+# fee range. It does not depend on any out-of-band transaction role.
+SELECT ?transactions ?outputs ?spendingInputs ?referenceInputs ?collateralInputs
+       ((xsd:decimal(?totalFeeRaw) / 1000000) AS ?totalFeeAda)
+       ((xsd:decimal(?minFeeRaw) / 1000000) AS ?minFeeAda)
+       ((xsd:decimal(?maxFeeRaw) / 1000000) AS ?maxFeeAda)
+WHERE {
+  {
+    SELECT (COUNT(DISTINCT ?tx) AS ?transactions)
+           (SUM(?fee0) AS ?totalFeeRaw)
+           (MIN(?fee0) AS ?minFeeRaw)
+           (MAX(?fee0) AS ?maxFeeRaw)
+    WHERE {
+      ?tx a cardano:Transaction ;
+          cardano:hasTxId/cardano:bytesHex ?txId .
+      OPTIONAL { ?tx cardano:hasFee ?fee . }
+      BIND(COALESCE(?fee, 0) AS ?fee0)
+    }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?out) AS ?outputs)
+    WHERE { ?tx cardano:hasOutput ?out . }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?input) AS ?spendingInputs)
+    WHERE { ?tx cardano:hasInput ?input . }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?refInput) AS ?referenceInputs)
+    WHERE { ?tx cardano:hasReferenceInput ?refInput . }
+  }
+  {
+    SELECT (COUNT(DISTINCT ?collateralInput) AS ?collateralInputs)
+    WHERE { ?tx cardano:hasCollateralInput ?collateralInput . }
+  }
+}

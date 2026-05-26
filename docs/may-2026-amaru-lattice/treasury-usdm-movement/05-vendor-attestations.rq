@@ -1,0 +1,43 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Vendor metadata declared in rules.yaml, joined to the proven CAG bridge
+# payment total visible in the lattice.
+SELECT ?vendorLabel ?payeeLabel ?payeeAddress ?attestationLabel ?ipfs
+       ((xsd:decimal(?bridgeUsdmRaw) / 1000000) AS ?bridgeUsdm)
+WHERE {
+  {
+    # Entity and attestation facts come from rules.yaml and are repeated in
+    # every emitted transaction graph. Collapse them before joining to ledger
+    # values so one invoice does not appear once per Turtle file.
+    SELECT DISTINCT ?vendor ?vendorLabel ?payeeLabel ?payeeAddress ?attestationLabel ?ipfs
+    WHERE {
+      ?vendor cardano:paidVia ?bridge ;
+              rdfs:label ?vendorLabel .
+      ?bridge rdfs:label ?payeeLabel ;
+              cardano:bech32 ?payeeAddress .
+      OPTIONAL {
+        ?attestation cardano:attests ?vendor ;
+                     rdfs:label ?attestationLabel ;
+                     cardano:ipfs ?ipfs .
+      }
+    }
+  }
+  {
+    SELECT ?payeeAddress (SUM(?qty) AS ?bridgeUsdmRaw)
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+      ?paymentTx cardano:hasOutput ?out .
+      ?out cardano:atAddress/cardano:bech32 ?payeeAddress ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+    GROUP BY ?payeeAddress
+  }
+}
+ORDER BY ?vendorLabel ?attestationLabel ?ipfs

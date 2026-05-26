@@ -1,0 +1,64 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX live:    <https://lambdasistemi.github.io/cardano-tx-tools/proof/live#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Summary form of Query 15. It compares graph-derived terminal state
+# with the live-node UTxO overlay for the network_compliance treasury
+# address.
+SELECT ?graphTerminalUtxos
+       ((xsd:decimal(?graphTerminalLovelace) / 1000000) AS ?graphTerminalAda)
+       ((xsd:decimal(?graphTerminalUsdmRaw) / 1000000) AS ?graphTerminalUsdm)
+       ?liveUtxos
+       ((xsd:decimal(?liveLovelace) / 1000000) AS ?liveAda)
+       ((xsd:decimal(?liveUsdmRaw) / 1000000) AS ?liveUsdm)
+       ((xsd:decimal(?liveLovelace - ?graphTerminalLovelace) / 1000000) AS ?adaGap)
+       ((xsd:decimal(?liveUsdmRaw - ?graphTerminalUsdmRaw) / 1000000) AS ?usdmGap)
+WHERE {
+  {
+    SELECT (COUNT(?txId) AS ?graphTerminalUtxos)
+           (SUM(?lovelace) AS ?graphTerminalLovelace)
+           (SUM(?usdm) AS ?graphTerminalUsdmRaw)
+    WHERE {
+      {
+        SELECT ?txId ?ix ?lovelace (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
+        WHERE {
+          ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                             cardano:bech32 ?networkComplianceBech32 .
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
+
+          ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
+              cardano:hasOutput ?out .
+          ?out cardano:hasIndex ?ix ;
+               cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+               cardano:lovelace ?lovelace .
+          OPTIONAL {
+            ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+            ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+                   cardano:quantity ?usdmRaw .
+          }
+          FILTER NOT EXISTS {
+            ?spendingTx cardano:hasInput ?input .
+            ?input cardano:fromTxOutRef ?ref .
+            ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
+                 cardano:hasIndex ?ix .
+          }
+        }
+        GROUP BY ?txId ?ix ?lovelace
+      }
+    }
+  }
+  {
+    SELECT (COUNT(?live) AS ?liveUtxos)
+           (SUM(?liveLov) AS ?liveLovelace)
+           (SUM(?liveUsd) AS ?liveUsdmRaw)
+    WHERE {
+      ?live a live:CurrentUtxo ;
+            live:lovelace ?liveLov ;
+            live:usdm ?liveUsd .
+    }
+  }
+}

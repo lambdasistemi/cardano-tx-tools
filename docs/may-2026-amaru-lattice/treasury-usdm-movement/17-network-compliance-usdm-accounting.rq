@@ -1,0 +1,206 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Network-compliance USDM accounting statement.
+#
+# This query is meant to be read as executable accounting:
+#
+#   initial state + swap receipts - beneficiary payments - terminal state = gap
+#
+# The graph is correct for this boundary only if the gap is zero. A non-zero
+# gap would mean one of the four terms is incomplete or misclassified.
+#
+# Boundary assumptions:
+#
+# - The May state-audit graph contains every loaded transaction that can
+#   produce or spend a network_compliance output before the snapshot boundary.
+# - The initial USDM balance is part of the report boundary, not discovered
+#   from chain history here. For this report, the scoped treasury starts with
+#   zero USDM.
+# - Every non-start value below is derived from graph topology and emitted
+#   transaction values, not from a live-node balance lookup.
+SELECT ?treasuryLabel ?treasuryAddress
+       ((xsd:decimal(?startUsdmRaw) / 1000000) AS ?startUsdm)
+       ?swapReceiptTxs
+       ((xsd:decimal(?swapReceiptsUsdmRaw) / 1000000) AS ?swapReceiptsUsdm)
+       ?beneficiaryPaymentTxs
+       ((xsd:decimal(?beneficiaryPaymentsUsdmRaw) / 1000000) AS ?beneficiaryPaymentsUsdm)
+       ?terminalUtxos
+       ((xsd:decimal(?terminalUsdmRaw) / 1000000) AS ?terminalUsdm)
+       ((xsd:decimal(?startUsdmRaw + ?swapReceiptsUsdmRaw - ?beneficiaryPaymentsUsdmRaw - ?terminalUsdmRaw) / 1000000) AS ?usdmGap)
+WHERE {
+  # Keep the label and initial condition explicit in the result row so the CSV
+  # reads as a balance statement instead of an unnamed aggregate. For a report
+  # with a non-zero opening state, this is the term to replace with the proven
+  # opening quantity.
+  BIND("amaru-treasury.network_compliance" AS ?treasuryLabel)
+  BIND(0 AS ?startUsdmRaw)
+
+  # Resolve the treasury address through rules.yaml. The query should follow
+  # the named graph entity, not a duplicated literal pasted into the query.
+  {
+    SELECT DISTINCT ?treasuryAddress
+    WHERE {
+      ?t rdfs:label "amaru-treasury.network_compliance" ;
+         cardano:bech32 ?treasuryAddress .
+    }
+    LIMIT 1
+  }
+
+  {
+    # Term 1: USDM received by network_compliance from SundaeSwap V3 order
+    # consumers. Count distinct producer transactions and sum each producer's
+    # returned USDM once.
+    SELECT (COUNT(?swapTxId) AS ?swapReceiptTxs) (SUM(?swapUsdm) AS ?swapReceiptsUsdmRaw)
+    WHERE {
+      {
+        SELECT ?swapTxId (SUM(?qty) AS ?swapUsdm)
+        WHERE {
+          # Pin the full on-chain USDM asset id. The ticker string is not
+          # enough for correctness because multiple assets can share a name.
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
+
+          # Resolve the receiving treasury address and the Sundae V3 order
+          # script hash through the emitted overlay/rules graph.
+          {
+            SELECT DISTINCT ?networkComplianceBech32
+            WHERE {
+              ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                                 cardano:bech32 ?networkComplianceBech32 .
+            }
+          }
+          {
+            SELECT DISTINCT ?orderScriptHash
+            WHERE {
+              ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                           cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+            }
+          }
+
+          ?swapTx cardano:hasTxId/cardano:bytesHex ?swapTxId ;
+                  cardano:hasOutput ?out .
+          ?out cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+               cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+          ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+                 cardano:quantity ?qty .
+
+          # This is the structural swap test: the producer must consume an
+          # output whose payment credential is the Sundae V3 order script.
+          # Without this EXISTS block, any arbitrary USDM output to the
+          # treasury would be counted as a swap receipt.
+          FILTER EXISTS {
+            ?swapTx cardano:hasInput ?in .
+            ?in cardano:fromTxOutRef ?ref .
+            ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+                 cardano:hasIndex ?orderIx .
+            ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+                     cardano:hasOutput ?orderOut .
+            ?orderOut cardano:hasIndex ?orderIx ;
+                      cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
+                        ?orderScriptHash .
+          }
+        }
+
+        # Group by producer before the outer SUM. A single scoop transaction
+        # can consume multiple order inputs, and it may emit more than one
+        # asset value node; this keeps one USDM subtotal per producer tx.
+        GROUP BY ?swapTxId
+      }
+    }
+  }
+
+  {
+    # Term 2: USDM paid out to the CAG payee bridge. This proves the ledger
+    # output amount and address. It deliberately does not split the amount
+    # between vendors because that would require invoice metadata beyond the
+    # payee output itself.
+    SELECT (COUNT(?paymentTxId) AS ?beneficiaryPaymentTxs) (SUM(?paymentUsdm) AS ?beneficiaryPaymentsUsdmRaw)
+    WHERE {
+      {
+        SELECT ?paymentTxId ?outputIndex (SUM(?qty) AS ?paymentUsdm)
+        WHERE {
+          # Same pinned USDM asset id as the receipt term.
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
+
+          # Resolve the bridge address by label so the query tracks operator
+          # rules instead of embedding a second address copy.
+          {
+            SELECT DISTINCT ?payeeBech32
+            WHERE {
+              ?payee rdfs:label "amaru.cag-payee" ;
+                     cardano:bech32 ?payeeBech32 .
+            }
+          }
+
+          ?paymentTx cardano:hasTxId/cardano:bytesHex ?paymentTxId ;
+                     cardano:hasOutput ?out .
+          ?out cardano:hasIndex ?outputIndex ;
+               cardano:atAddress/cardano:bech32 ?payeeBech32 ;
+               cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+          ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+                 cardano:quantity ?qty .
+        }
+
+        # One subtotal per ledger output. If a transaction pays the bridge in
+        # multiple outputs, each output is preserved before the outer total.
+        GROUP BY ?paymentTxId ?outputIndex
+      }
+    }
+  }
+
+  {
+    # Term 3: terminal USDM remaining at network_compliance. This is a UTxO
+    # state query: an output remains only if no loaded transaction spends its
+    # (tx id, index) pair.
+    SELECT (COUNT(?txId) AS ?terminalUtxos) (SUM(?usdm) AS ?terminalUsdmRaw)
+    WHERE {
+      {
+        SELECT ?txId ?ix (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
+        WHERE {
+          # Same pinned USDM asset id as the receipt and payment terms.
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
+
+          # Resolve the terminal-state address from the label.
+          {
+            SELECT DISTINCT ?networkComplianceBech32
+            WHERE {
+              ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                                 cardano:bech32 ?networkComplianceBech32 .
+            }
+          }
+
+          ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
+              cardano:hasOutput ?out .
+          ?out cardano:hasIndex ?ix ;
+               cardano:atAddress/cardano:bech32 ?networkComplianceBech32 .
+          OPTIONAL {
+            ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+            ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+                   cardano:quantity ?usdmRaw .
+          }
+
+          # UTxO rule in SPARQL: remove any candidate output whose exact
+          # output reference appears as an input anywhere in the loaded graph.
+          FILTER NOT EXISTS {
+            ?spendingTx cardano:hasInput ?input .
+            ?input cardano:fromTxOutRef ?ref .
+            ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
+                 cardano:hasIndex ?ix .
+          }
+        }
+
+        # Group before summing because multi-asset values are represented as
+        # RDF-list members hanging off the output.
+        GROUP BY ?txId ?ix
+      }
+    }
+  }
+}

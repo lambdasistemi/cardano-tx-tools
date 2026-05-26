@@ -1,0 +1,68 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# USDM outputs paid to the configured CAG payee bridge.
+#
+# Query 17 uses this as the outgoing-payment term of the accounting equation.
+# This detail query keeps one row per ledger output so the "beneficiary
+# payments" aggregate can be audited transaction-by-transaction.
+#
+# The final column lists vendors declared as paid via that bridge. It is
+# deliberately not used to split the amount: the graph can prove the
+# payee output amount, while per-invoice attribution requires metadata
+# or operator labels beyond the payment address itself.
+SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress
+       ((xsd:decimal(?lovelace) / 1000000) AS ?ada)
+       ((xsd:decimal(?usdmRaw) / 1000000) AS ?usdm)
+       (GROUP_CONCAT(DISTINCT ?vendorLabel; separator=", ") AS ?vendorsPaidViaPayee)
+WHERE {
+  {
+    # Inner query: find actual ledger outputs to the CAG payee address that
+    # carry the pinned USDM asset. The outer query adds bridge/vendor context.
+    SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace (SUM(?qty) AS ?usdmRaw)
+    WHERE {
+      # Pin by policy+asset hex, not by ticker, so this cannot accidentally
+      # match another token named USDM.
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+
+      # Resolve the payee bridge through rules.yaml. This lets the query name
+      # the semantic role while still matching the concrete bech32 address.
+      {
+        SELECT DISTINCT ?payeeLabel ?payeeAddress
+        WHERE {
+          ?payee rdfs:label ?payeeLabel ;
+                 cardano:bech32 ?payeeAddress .
+          VALUES ?payeeLabel { "amaru.cag-payee" }
+        }
+      }
+
+      ?paymentTx cardano:hasTxId/cardano:bytesHex ?paymentTxId ;
+                 cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?outputIndex ;
+           cardano:atAddress/cardano:bech32 ?payeeAddress ;
+           cardano:lovelace ?lovelace ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+
+    # Keep output index in the grouping. Two outputs in the same transaction
+    # are separate ledger facts and should not collapse into one row.
+    GROUP BY ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace
+  }
+
+  # Optional metadata/context join. This does not prove a per-output invoice
+  # split; it only reports which configured vendor entities declare that they
+  # are paid through this bridge label.
+  OPTIONAL {
+    ?vendor rdfs:label ?vendorLabel ;
+            cardano:paidVia ?bridge .
+    ?bridge rdfs:label ?payeeLabel .
+  }
+}
+GROUP BY ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace ?usdmRaw
+ORDER BY ?paymentTxId ?outputIndex

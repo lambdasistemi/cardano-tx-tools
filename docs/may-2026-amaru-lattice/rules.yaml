@@ -1,0 +1,43 @@
+version: 1
+
+entities:
+  - name: amaru-treasury.contingency
+    from-address: addr1x8ndhlcfy30t38z0tql64fpg8ply93r37xrgvdagfpsz5nhxm0lsjfz7hzwy7kpl42jzswr7gtz8ruvxscm6sjrq9f8qruq0ae
+  - name: amaru-treasury.network_compliance
+    from-address: addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
+  - name: amaru.cag-payee
+    from-address: addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl
+  - name: amaru.swap-order
+    from-address: addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n
+  - name: sundae.swap.v3.order
+    script: fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077
+  - name: amaru.network-operator
+    from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
+  - name: amaru.antithesis
+    role: fuzz-testing vendor
+    paid-via: amaru.cag-payee
+  - name: amaru.castellum
+    role: engineering vendor
+    paid-via: amaru.cag-payee
+
+blueprints:
+  - script: amaru-treasury.contingency
+    datum: ../../test/fixtures/rewrite-redesign/blueprints/amaru-treasury.cip57.json
+  - script: amaru-treasury.network_compliance
+    datum: ../../test/fixtures/rewrite-redesign/blueprints/amaru-treasury.cip57.json
+  - script: sundae.swap.v3.order
+    datum: ../../test/fixtures/rewrite-redesign/blueprints/sundaeswap-v3/plutus.json
+
+attestations:
+  - ipfs: ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam
+    label: Invoice INV-635
+    of: amaru.antithesis
+  - ipfs: ipfs://bafybeib3jef34ndw6oe24mkmifdvxe5jrv7ulh63rdllovyth27mqfj2da
+    label: Contract
+    of: amaru.castellum
+  - ipfs: ipfs://bafybeigy37ui2ikn7bim2vw6cojcbxkcndpjwh7cj5fv3vzs4cszezipxu
+    label: "Invoice #3508"
+    of: amaru.castellum
+  - ipfs: ipfs://bafybeihdmnitrbu2oir3r2fefnpqy3bk7zdz42olzmltmxyt5xag4i2t5a
+    label: May 2026 cycle review
+    of: amaru.castellum

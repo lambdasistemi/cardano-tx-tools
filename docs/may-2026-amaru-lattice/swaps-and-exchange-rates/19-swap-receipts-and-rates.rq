@@ -1,0 +1,92 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Each SundaeSwap V3 order consumer that returns USDM to the
+# network_compliance treasury, with its graph-derived effective rate.
+#
+# This is the receipt-side drill-down for Query 17. It answers:
+#
+# - which transactions consumed Sundae V3 order UTxOs,
+# - how much ADA those consumed order UTxOs carried,
+# - how much USDM the same transaction returned to network_compliance,
+# - and the realized USDM/ADA rate implied by those two ledger values.
+#
+# realizedUsdmPerAdaPpm is parts-per-million USDM per ADA:
+#   245000 means 0.245000 USDM / ADA.
+SELECT ?swapTxId ?orderInputs
+       ((xsd:decimal(?orderLovelace) / 1000000) AS ?orderAda)
+       ((xsd:decimal(?receivedUsdmRaw) / 1000000) AS ?receivedUsdm)
+       (xsd:integer(ROUND((xsd:decimal(?receivedUsdmRaw) * 1000000) / xsd:decimal(?orderLovelace))) AS ?realizedUsdmPerAdaPpm)
+       ?orderRefs
+WHERE {
+  {
+    # First half of the join: identify swap consumer transactions by their
+    # inputs. A transaction is in scope when it consumes one or more UTxOs at
+    # the SundaeSwap V3 order script hash.
+    SELECT ?swapTx ?swapTxId (COUNT(?orderRef) AS ?orderInputs)
+           (SUM(?oneOrderLovelace) AS ?orderLovelace)
+           (GROUP_CONCAT(?orderRef; separator=", ") AS ?orderRefs)
+    WHERE {
+      # Script hash comes from the operator overlay/rules graph. The query
+      # therefore follows the named script entity, not a hand-copied hash.
+      {
+        SELECT DISTINCT ?orderScriptHash
+        WHERE {
+          ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                       cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+        }
+      }
+      ?swapTx cardano:hasTxId/cardano:bytesHex ?swapTxId ;
+              cardano:hasInput ?in .
+      ?in cardano:fromTxOutRef ?ref .
+      ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+           cardano:hasIndex ?orderIx .
+      ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+               cardano:hasOutput ?orderOut .
+      ?orderOut cardano:hasIndex ?orderIx ;
+                cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
+                  ?orderScriptHash ;
+                cardano:lovelace ?oneOrderLovelace .
+
+      # The reference string is display/audit material. It lets a reader jump
+      # from an aggregate swap row back to the consumed order outputs.
+      BIND(CONCAT(?orderTxId, "#", STR(?orderIx)) AS ?orderRef)
+    }
+
+    # One row per consumer transaction. The rate denominator is the total ADA
+    # locked in all order inputs consumed by that transaction.
+    GROUP BY ?swapTx ?swapTxId
+  }
+  {
+    # Second half of the join: from those same producer transactions, sum the
+    # USDM outputs that return to the network_compliance treasury.
+    SELECT ?swapTx (SUM(?qty) AS ?receivedUsdmRaw)
+    WHERE {
+      # Full asset id, not ticker.
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+
+      # Resolve the receiving treasury address by label.
+      {
+        SELECT DISTINCT ?networkComplianceBech32
+        WHERE {
+          ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                             cardano:bech32 ?networkComplianceBech32 .
+        }
+      }
+      ?swapTx cardano:hasOutput ?out .
+      ?out cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+
+    # Several output asset-value nodes from the same producer transaction are
+    # part of one realized swap receipt total.
+    GROUP BY ?swapTx
+  }
+}
+ORDER BY ?swapTxId

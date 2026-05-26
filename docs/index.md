@@ -1,6 +1,6 @@
 # cardano-tx-tools
 
-Tooling for Conway-era Cardano transactions. Seven command-line
+Tooling for Conway-era Cardano transactions. Eight command-line
 executables plus the Haskell library that backs them.
 
 ## Executables
@@ -31,7 +31,7 @@ executables plus the Haskell library that backs them.
   `(rules + [cbor]) → ttl(s)`, no network or node required. Same
   loader as `tx-inspect --rules`.
 - [**tx-fetch**](tx-fetch.md) — closure-walking Conway CBOR
-  fetcher. Resolves seed transaction ids over Blockfrost's
+  fetcher. Resolves transaction ids over Blockfrost's
   `/txs/<hash>/cbor` endpoint, walks each tx's spending /
   reference / collateral input parents to `--depth`, hash-verifies
   every CBOR against its requested `TxId`, and writes one
@@ -48,12 +48,6 @@ executables plus the Haskell library that backs them.
 - [**cardano-tx-generator**](cardano-tx-generator.md) — long-running
   daemon that drives a configurable mix of Conway transactions
   against a node for soak / fuzz testing.
-
-Plus one internal Bash composition script kept under `scripts/`:
-
-- **tx-lattice** — thin wrapper that calls `tx-fetch` then
-  `tx-graph --in-dir` for the common "fetch + emit" workflow.
-  Internal / test convenience; not a released deliverable.
 
 The [rewriting-rules grammar](rewriting-rules.md) document pins
 the shared YAML language consumed by both `tx-inspect --rules`

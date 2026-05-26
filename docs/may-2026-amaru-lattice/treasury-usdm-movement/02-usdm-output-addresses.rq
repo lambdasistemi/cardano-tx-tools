@@ -1,0 +1,79 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# USDM recipients paid by the network_compliance treasury.
+#
+# This query intentionally does NOT list every output that carries USDM.
+# A broad output-side query mixes together treasury change, swap-side script
+# outputs, and actual beneficiary payments. For the user-facing question
+# "who did the treasury pay USDM to?", the destination must satisfy both:
+#
+# - the transaction consumes at least one network_compliance treasury input;
+# - the USDM output goes to a configured payee bridge.
+#
+# In the May 2026 graph, that leaves exactly the CAG payee bridge.
+SELECT ?treasuryLabel ?treasuryAddress
+       ?payeeLabel ?payeeAddress
+       (COUNT(DISTINCT ?paymentTxId) AS ?paymentTxs)
+       (COUNT(DISTINCT ?paymentOutputRef) AS ?paymentOutputs)
+       ((xsd:decimal(SUM(?paymentUsdm)) / 1000000) AS ?usdmPaid)
+WHERE {
+  BIND("amaru-treasury.network_compliance" AS ?treasuryLabel)
+
+  # Pin the full on-chain USDM asset id. Token ticker text is not sufficient
+  # evidence because multiple assets can share the same display name.
+  VALUES ?usdmAssetId {
+    "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+  }
+
+  # Resolve the treasury and payee addresses from rules.yaml labels. This
+  # keeps the query tied to named graph entities rather than pasted addresses.
+  ?treasury rdfs:label "amaru-treasury.network_compliance" ;
+            cardano:bech32 ?treasuryAddress .
+  ?payee rdfs:label ?payeeLabel ;
+         cardano:bech32 ?payeeAddress .
+
+  # The only configured USDM beneficiary bridge in this report is CAG. Vendor
+  # entities may declare they are paid through this bridge, but this query
+  # proves only the ledger output to the bridge address.
+  VALUES ?payeeLabel { "amaru.cag-payee" }
+
+  {
+    # One row per paid output before the outer aggregation. The EXISTS clause
+    # proves source: the same transaction must consume a UTxO whose resolved
+    # producer output was at the network_compliance treasury address.
+    SELECT ?treasuryAddress ?payeeLabel ?payeeAddress
+           ?paymentTxId ?paymentOutputRef (SUM(?qty) AS ?paymentUsdm)
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+
+      ?paymentTx cardano:hasTxId/cardano:bytesHex ?paymentTxId ;
+                 cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?outputIndex ;
+           cardano:atAddress/cardano:bech32 ?payeeAddress ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+
+      FILTER EXISTS {
+        ?paymentTx cardano:hasInput ?input .
+        ?input cardano:fromTxOutRef ?ref .
+        ?ref cardano:hasTxId/cardano:bytesHex ?sourceTxId ;
+             cardano:hasIndex ?sourceIx .
+        ?sourceTx cardano:hasTxId/cardano:bytesHex ?sourceTxId ;
+                  cardano:hasOutput ?sourceOut .
+        ?sourceOut cardano:hasIndex ?sourceIx ;
+                   cardano:atAddress/cardano:bech32 ?treasuryAddress .
+      }
+
+      BIND(CONCAT(?paymentTxId, "#", STR(?outputIndex)) AS ?paymentOutputRef)
+    }
+    GROUP BY ?treasuryAddress ?payeeLabel ?payeeAddress ?paymentTxId ?paymentOutputRef
+  }
+}
+GROUP BY ?treasuryLabel ?treasuryAddress ?payeeLabel ?payeeAddress
+ORDER BY ?payeeLabel

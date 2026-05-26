@@ -1,0 +1,17 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+
+# Required-signer distribution across every transaction in the 85-tx lattice.
+SELECT ?requiredSigners (COUNT(?tx) AS ?txs)
+WHERE {
+  {
+    SELECT ?tx (COUNT(DISTINCT ?sig) AS ?requiredSigners)
+    WHERE {
+      ?tx a cardano:Transaction ;
+          cardano:hasTxId/cardano:bytesHex ?txId .
+      OPTIONAL { ?tx cardano:hasRequiredSigner ?sig . }
+    }
+    GROUP BY ?tx
+  }
+}
+GROUP BY ?requiredSigners
+ORDER BY DESC(?requiredSigners)
