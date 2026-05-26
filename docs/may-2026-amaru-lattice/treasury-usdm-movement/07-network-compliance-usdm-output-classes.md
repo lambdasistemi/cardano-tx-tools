@@ -1,7 +1,5 @@
 # Query 07 - Network Compliance USDM Output Classes
 
-Runnable SPARQL: [`07-network-compliance-usdm-output-classes.rq`](07-network-compliance-usdm-output-classes.rq)
-
 ## Result
 
 USDM quantities are decimal USDM.
@@ -60,8 +58,17 @@ payee bridge, and does it spend a previous network_compliance output?
 
 Those tests produce the `producerKind` classification.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/treasury-usdm-movement/07-network-compliance-usdm-output-classes.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/07-network-compliance-usdm-output-classes.rq"
+--8<-- "docs/may-2026-amaru-lattice/treasury-usdm-movement/07-network-compliance-usdm-output-classes.rq"
 ```

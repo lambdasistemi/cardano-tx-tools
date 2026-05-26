@@ -1,7 +1,5 @@
 # Query 10 - Swap Consumer Output Roles
 
-Runnable SPARQL: [`10-swap-consumer-output-roles.rq`](10-swap-consumer-output-roles.rq)
-
 ## Result
 
 ADA quantities are decimal ADA. USDM quantities are decimal USDM.
@@ -57,8 +55,17 @@ to avoid repeated overlay facts, and finally groups by role.
 
 USDM is matched by the full asset id, not by ticker.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/swaps-and-exchange-rates/10-swap-consumer-output-roles.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/10-swap-consumer-output-roles.rq"
+--8<-- "docs/may-2026-amaru-lattice/swaps-and-exchange-rates/10-swap-consumer-output-roles.rq"
 ```

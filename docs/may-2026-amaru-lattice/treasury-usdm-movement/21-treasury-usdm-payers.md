@@ -1,7 +1,5 @@
 # Query 21 - Treasury USDM Payers
 
-Runnable SPARQL: [`21-treasury-usdm-payers.rq`](21-treasury-usdm-payers.rq)
-
 
 ## Result
 
@@ -72,6 +70,17 @@ resolves the network_compliance treasury address through the
 It scans USDM outputs to that treasury address, then applies an
 `EXISTS` payer proof:
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/treasury-usdm-movement/21-treasury-usdm-payers.rq
+```
+
+## SPARQL
+
 ```sparql
 FILTER EXISTS {
   ?receiptTx cardano:hasInput ?in .
@@ -94,8 +103,6 @@ The inner subquery groups by receipt output before the outer payer
 aggregation. That prevents multiple asset-value nodes on one output from
 multiplying the receipt amount.
 
-## SPARQL
-
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/21-treasury-usdm-payers.rq"
+--8<-- "docs/may-2026-amaru-lattice/treasury-usdm-movement/21-treasury-usdm-payers.rq"
 ```

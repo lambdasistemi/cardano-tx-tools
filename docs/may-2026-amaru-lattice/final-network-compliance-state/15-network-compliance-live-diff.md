@@ -1,7 +1,5 @@
 # Query 15 - Network Compliance Live Diff
 
-Runnable SPARQL: [`15-network-compliance-live-diff.rq`](15-network-compliance-live-diff.rq)
-
 
 ## Result
 
@@ -9,8 +7,10 @@ This table is the CSV result produced by Apache Jena over the state-audit
 graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
 quantities are decimal USDM. No data rows were returned.
 
-| side | txId | ix | graphAda | graphUsdm | liveAda | liveUsdm |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
+```text
+0 rows
+graph terminal UTxO set equals live UTxO snapshot
+```
 
 ## What
 
@@ -97,8 +97,17 @@ The row-level output is intentionally operational: it gives the exact
 `txId` and `ix` needed to fetch the missing transaction or inspect the
 boundary mismatch.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/final-network-compliance-state/15-network-compliance-live-diff.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq"
+--8<-- "docs/may-2026-amaru-lattice/final-network-compliance-state/15-network-compliance-live-diff.rq"
 ```

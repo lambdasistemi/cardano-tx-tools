@@ -1,7 +1,5 @@
 # Query 19 - Swap Receipts And Rates
 
-Runnable SPARQL: [`19-swap-receipts-and-rates.rq`](19-swap-receipts-and-rates.rq)
-
 
 ## Result
 
@@ -85,8 +83,17 @@ round(receivedUsdm * 1,000,000 / orderLovelace)
 Because both ADA and USDM use six decimal places, that ratio is USDM per
 ADA in parts per million.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/swaps-and-exchange-rates/19-swap-receipts-and-rates.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.rq"
+--8<-- "docs/may-2026-amaru-lattice/swaps-and-exchange-rates/19-swap-receipts-and-rates.rq"
 ```

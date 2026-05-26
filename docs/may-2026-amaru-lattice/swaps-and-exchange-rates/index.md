@@ -21,11 +21,11 @@ returned by the same consumer transaction.
 
 ## Query Roles
 
-- [Query 19 - Swap receipts and rates](../queries/19-swap-receipts-and-rates.md)
+- [Query 19 - Swap receipts and rates](19-swap-receipts-and-rates.md)
   lists every swap receipt and computes the realized rate.
-- [Query 08 - Sundae order consumer summary](../queries/08-sundae-order-consumer-summary.md)
+- [Query 08 - Sundae order consumer summary](08-sundae-order-consumer-summary.md)
   groups consumers by how many order inputs they spent.
-- [Query 10 - Swap consumer output roles](../queries/10-swap-consumer-output-roles.md)
+- [Query 10 - Swap consumer output roles](10-swap-consumer-output-roles.md)
   shows all outputs produced by those same consumer transactions.
 
 ```mermaid

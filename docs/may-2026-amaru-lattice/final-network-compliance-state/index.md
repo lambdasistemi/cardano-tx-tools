@@ -23,15 +23,15 @@ wrong:
 
 ## Query Roles
 
-- [Query 14 - Network compliance terminal state](../queries/14-network-compliance-terminal-state.md)
+- [Query 14 - Network compliance terminal state](14-network-compliance-terminal-state.md)
   computes the terminal UTxOs from graph topology only.
-- [Query 15 - Network compliance live diff](../queries/15-network-compliance-live-diff.md)
+- [Query 15 - Network compliance live diff](15-network-compliance-live-diff.md)
   performs the row-level diff against the live snapshot.
-- [Query 16 - Network compliance live summary](../queries/16-network-compliance-live-summary.md)
+- [Query 16 - Network compliance live summary](16-network-compliance-live-summary.md)
   checks the aggregate ADA and USDM gaps.
-- [Query 11 - Terminal USDM summary](../queries/11-terminal-usdm-summary.md)
+- [Query 11 - Terminal USDM summary](11-terminal-usdm-summary.md)
   isolates the USDM-carrying terminal UTxOs.
-- [Query 20 - Terminal USDM provenance](../queries/20-terminal-usdm-provenance.md)
+- [Query 20 - Terminal USDM provenance](20-terminal-usdm-provenance.md)
   explains where the remaining USDM came from.
 
 ```mermaid

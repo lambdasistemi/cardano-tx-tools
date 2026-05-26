@@ -22,13 +22,13 @@ The support checks should be coherent with the main state proof:
 
 ## Query Roles
 
-- [Query 03 - Network compliance ADA accounting](../queries/03-network-compliance-ada-accounting.md)
+- [Query 03 - Network compliance ADA accounting](03-network-compliance-ada-accounting.md)
   is the ADA-side conservation check.
-- [Query 06 - Network compliance ADA producers](../queries/06-network-compliance-ada-producers.md)
+- [Query 06 - Network compliance ADA producers](06-network-compliance-ada-producers.md)
   lists the largest ADA outputs to network_compliance.
-- [Query 04 - Required signer distribution](../queries/04-required-signer-distribution.md)
+- [Query 04 - Required signer distribution](04-required-signer-distribution.md)
   groups transactions by required-signer count.
-- [Query 09 - Reference input reuse](../queries/09-reference-input-reuse.md)
+- [Query 09 - Reference input reuse](09-reference-input-reuse.md)
   shows the most reused reference inputs.
 
 ```mermaid

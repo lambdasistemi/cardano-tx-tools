@@ -1,7 +1,5 @@
 # Query 16 - Network Compliance Live Summary
 
-Runnable SPARQL: [`16-network-compliance-live-summary.rq`](16-network-compliance-live-summary.rq)
-
 
 ## Result
 
@@ -79,8 +77,17 @@ terminal set. Negative gaps mean the graph terminal set has more value
 than the live overlay. A correct complete graph at the same boundary
 should produce zero for both gaps.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/final-network-compliance-state/16-network-compliance-live-summary.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/16-network-compliance-live-summary.rq"
+--8<-- "docs/may-2026-amaru-lattice/final-network-compliance-state/16-network-compliance-live-summary.rq"
 ```

@@ -1,7 +1,5 @@
 # Query 06 - Network Compliance ADA Producers
 
-Runnable SPARQL: [`06-network-compliance-ada-producers.rq`](06-network-compliance-ada-producers.rq)
-
 ## Result
 
 ADA quantities are decimal ADA. The query returns the largest 12 outputs
@@ -62,8 +60,17 @@ orders by ADA descending.
 The `LIMIT 12` keeps the page readable while still exposing the largest
 state-carrying outputs.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/ada-signers-and-references/06-network-compliance-ada-producers.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/06-network-compliance-ada-producers.rq"
+--8<-- "docs/may-2026-amaru-lattice/ada-signers-and-references/06-network-compliance-ada-producers.rq"
 ```

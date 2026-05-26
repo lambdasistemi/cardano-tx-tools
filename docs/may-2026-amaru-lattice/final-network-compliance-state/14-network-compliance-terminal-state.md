@@ -1,7 +1,5 @@
 # Query 14 - Network Compliance Terminal State
 
-Runnable SPARQL: [`14-network-compliance-terminal-state.rq`](14-network-compliance-terminal-state.rq)
-
 
 ## Result
 
@@ -74,6 +72,17 @@ loaded graph for outputs at that address.
 For each candidate output, it rejects any output whose `(txid, index)`
 appears as an input reference anywhere in the loaded graph:
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/final-network-compliance-state/14-network-compliance-terminal-state.rq
+```
+
+## SPARQL
+
 ```sparql
 FILTER NOT EXISTS {
   ?spendingTx cardano:hasInput ?input .
@@ -90,8 +99,6 @@ The optional asset branch sums USDM on each terminal output. Outputs
 without USDM remain in the result with a zero USDM aggregate. This makes
 the result suitable for comparing both ADA and USDM state.
 
-## SPARQL
-
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq"
+--8<-- "docs/may-2026-amaru-lattice/final-network-compliance-state/14-network-compliance-terminal-state.rq"
 ```

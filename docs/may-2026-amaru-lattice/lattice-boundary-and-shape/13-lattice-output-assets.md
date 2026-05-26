@@ -1,7 +1,5 @@
 # Query 13 - Lattice Output Assets
 
-Runnable SPARQL: [`13-lattice-output-assets.rq`](13-lattice-output-assets.rq)
-
 ## Result
 
 ADA and USDM quantities are decimal units. The long hex row is another
@@ -57,8 +55,17 @@ Native assets are restricted to identifiers whose leaf type is
 asset table. The USDM asset id is displayed as `usdm`; other native
 assets keep their raw asset id.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/lattice-boundary-and-shape/13-lattice-output-assets.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/13-lattice-output-assets.rq"
+--8<-- "docs/may-2026-amaru-lattice/lattice-boundary-and-shape/13-lattice-output-assets.rq"
 ```

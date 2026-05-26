@@ -1,7 +1,5 @@
 # Query 17 - Network Compliance USDM Accounting
 
-Runnable SPARQL: [`17-network-compliance-usdm-accounting.rq`](17-network-compliance-usdm-accounting.rq)
-
 
 ## Result
 
@@ -82,8 +80,17 @@ an output is terminal when no loaded transaction spends its `(txid,
 index)`. That proves the remaining USDM from graph topology, not from a
 cached balance.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/treasury-usdm-movement/17-network-compliance-usdm-accounting.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.rq"
+--8<-- "docs/may-2026-amaru-lattice/treasury-usdm-movement/17-network-compliance-usdm-accounting.rq"
 ```

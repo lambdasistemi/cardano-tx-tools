@@ -1,7 +1,5 @@
 # Query 18 - Beneficiary USDM Payments
 
-Runnable SPARQL: [`18-beneficiary-usdm-payments.rq`](18-beneficiary-usdm-payments.rq)
-
 
 ## Result
 
@@ -63,8 +61,17 @@ The payment rows are grouped by transaction id and output index, so the
 result is one row per ledger output. A separate optional join gathers
 the vendor labels that declare `cardano:paidVia` that same payee bridge.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/treasury-usdm-movement/18-beneficiary-usdm-payments.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/18-beneficiary-usdm-payments.rq"
+--8<-- "docs/may-2026-amaru-lattice/treasury-usdm-movement/18-beneficiary-usdm-payments.rq"
 ```

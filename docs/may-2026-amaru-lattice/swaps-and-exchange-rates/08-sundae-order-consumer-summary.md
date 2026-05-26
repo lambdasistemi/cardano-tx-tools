@@ -1,7 +1,5 @@
 # Query 08 - Sundae Order Consumer Summary
 
-Runnable SPARQL: [`08-sundae-order-consumer-summary.rq`](08-sundae-order-consumer-summary.rq)
-
 ## Result
 
 ADA quantities are decimal ADA. USDM quantities are decimal USDM.
@@ -60,8 +58,17 @@ transaction back to network_compliance. Joining after those per-tx
 aggregations avoids multiplying USDM receipts by the number of order
 inputs.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/swaps-and-exchange-rates/08-sundae-order-consumer-summary.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/08-sundae-order-consumer-summary.rq"
+--8<-- "docs/may-2026-amaru-lattice/swaps-and-exchange-rates/08-sundae-order-consumer-summary.rq"
 ```

@@ -1,7 +1,5 @@
 # Query 00 - Lattice Inventory
 
-Runnable SPARQL: [`00-lattice-inventory.rq`](00-lattice-inventory.rq)
-
 ## Result
 
 This table is the CSV result produced by Apache Jena over the
@@ -60,8 +58,17 @@ That distinction matters because transaction-output references also
 contain transaction ids, but they are not transactions in the loaded
 graph.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/lattice-boundary-and-shape/00-lattice-inventory.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/00-lattice-inventory.rq"
+--8<-- "docs/may-2026-amaru-lattice/lattice-boundary-and-shape/00-lattice-inventory.rq"
 ```

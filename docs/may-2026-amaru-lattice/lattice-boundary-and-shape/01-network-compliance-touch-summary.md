@@ -1,7 +1,5 @@
 # Query 01 - Network Compliance Touch Summary
 
-Runnable SPARQL: [`01-network-compliance-touch-summary.rq`](01-network-compliance-touch-summary.rq)
-
 ## Result
 
 | touchKind | txs |
@@ -54,8 +52,17 @@ output and checks whether the source output was at the same address.
 
 The final `touchKind` is derived from those two tests.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/lattice-boundary-and-shape/01-network-compliance-touch-summary.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/01-network-compliance-touch-summary.rq"
+--8<-- "docs/may-2026-amaru-lattice/lattice-boundary-and-shape/01-network-compliance-touch-summary.rq"
 ```

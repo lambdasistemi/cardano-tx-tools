@@ -25,15 +25,15 @@ The selected txid set must be complete for the scoped state interval:
 
 ## Query Roles
 
-- [Query 00 - Lattice inventory](../queries/00-lattice-inventory.md)
+- [Query 00 - Lattice inventory](00-lattice-inventory.md)
   proves the graph has 85 transaction nodes and exposes its edge counts.
-- [Query 01 - Network compliance touch summary](../queries/01-network-compliance-touch-summary.md)
+- [Query 01 - Network compliance touch summary](01-network-compliance-touch-summary.md)
   classifies which loaded transactions produce or roll forward the
   scope address.
-- [Query 12 - Lattice input coverage](../queries/12-lattice-input-coverage.md)
+- [Query 12 - Lattice input coverage](12-lattice-input-coverage.md)
   shows which input edges resolve inside the selected lattice and which
   point outside it.
-- [Query 13 - Lattice output assets](../queries/13-lattice-output-assets.md)
+- [Query 13 - Lattice output assets](13-lattice-output-assets.md)
   shows the gross asset surface emitted by the lattice.
 
 ```mermaid

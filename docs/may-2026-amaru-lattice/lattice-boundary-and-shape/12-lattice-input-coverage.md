@@ -1,7 +1,5 @@
 # Query 12 - Lattice Input Coverage
 
-Runnable SPARQL: [`12-lattice-input-coverage.rq`](12-lattice-input-coverage.rq)
-
 ## Result
 
 | edgeKind | coverage | edges |
@@ -55,8 +53,17 @@ whether the loaded graph contains a transaction with that id and an
 output at that index. The answer becomes `resolved-in-lattice` or
 `external-to-lattice`.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/lattice-boundary-and-shape/12-lattice-input-coverage.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/12-lattice-input-coverage.rq"
+--8<-- "docs/may-2026-amaru-lattice/lattice-boundary-and-shape/12-lattice-input-coverage.rq"
 ```

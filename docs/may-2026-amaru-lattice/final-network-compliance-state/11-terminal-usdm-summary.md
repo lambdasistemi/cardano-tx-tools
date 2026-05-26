@@ -1,7 +1,5 @@
 # Query 11 - Terminal USDM Summary
 
-Runnable SPARQL: [`11-terminal-usdm-summary.rq`](11-terminal-usdm-summary.rq)
-
 ## Result
 
 ADA quantities are decimal ADA. USDM quantities are decimal USDM.
@@ -52,8 +50,17 @@ another loaded transaction.
 It then keeps terminal outputs with the USDM asset id and sums their ADA
 and USDM quantities.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/final-network-compliance-state/11-terminal-usdm-summary.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/11-terminal-usdm-summary.rq"
+--8<-- "docs/may-2026-amaru-lattice/final-network-compliance-state/11-terminal-usdm-summary.rq"
 ```

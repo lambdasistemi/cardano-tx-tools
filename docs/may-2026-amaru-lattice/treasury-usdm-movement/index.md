@@ -22,17 +22,17 @@ The accounting gap must be zero, and the semantic classes must agree:
 
 ## Query Roles
 
-- [Query 17 - Network compliance USDM accounting](../queries/17-network-compliance-usdm-accounting.md)
+- [Query 17 - Network compliance USDM accounting](17-network-compliance-usdm-accounting.md)
   is the one-row conservation statement.
-- [Query 21 - Treasury USDM payers](../queries/21-treasury-usdm-payers.md)
+- [Query 21 - Treasury USDM payers](21-treasury-usdm-payers.md)
   identifies who paid USDM into the treasury.
-- [Query 07 - Network compliance USDM output classes](../queries/07-network-compliance-usdm-output-classes.md)
+- [Query 07 - Network compliance USDM output classes](07-network-compliance-usdm-output-classes.md)
   separates incoming receipts from internal continuity/change outputs.
-- [Query 02 - Treasury USDM payees](../queries/02-usdm-output-addresses.md)
+- [Query 02 - Treasury USDM payees](02-usdm-output-addresses.md)
   identifies who the treasury paid.
-- [Query 18 - Beneficiary USDM payments](../queries/18-beneficiary-usdm-payments.md)
+- [Query 18 - Beneficiary USDM payments](18-beneficiary-usdm-payments.md)
   lists the beneficiary payment outputs.
-- [Query 05 - Vendor attestations](../queries/05-vendor-attestations.md)
+- [Query 05 - Vendor attestations](05-vendor-attestations.md)
   connects the CAG bridge to the operator-declared vendor attestations.
 
 ```mermaid

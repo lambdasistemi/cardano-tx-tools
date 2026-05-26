@@ -1,7 +1,5 @@
 # Query 03 - Network Compliance ADA Accounting
 
-Runnable SPARQL: [`03-network-compliance-ada-accounting.rq`](03-network-compliance-ada-accounting.rq)
-
 ## Result
 
 ADA quantities are decimal ADA.
@@ -61,8 +59,17 @@ the loaded graph.
 The final projection subtracts those totals in base ADA units and
 displays decimal ADA.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/ada-signers-and-references/03-network-compliance-ada-accounting.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/03-network-compliance-ada-accounting.rq"
+--8<-- "docs/may-2026-amaru-lattice/ada-signers-and-references/03-network-compliance-ada-accounting.rq"
 ```

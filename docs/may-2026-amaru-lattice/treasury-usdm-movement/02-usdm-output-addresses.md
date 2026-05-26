@@ -1,7 +1,5 @@
 # Query 02 - Treasury USDM Payees
 
-Runnable SPARQL: [`02-usdm-output-addresses.rq`](02-usdm-output-addresses.rq)
-
 
 ## Result
 
@@ -64,6 +62,17 @@ resolves both the treasury address and CAG payee address through
 It scans USDM outputs to the configured payee bridge, then applies an
 `EXISTS` source proof:
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/treasury-usdm-movement/02-usdm-output-addresses.rq
+```
+
+## SPARQL
+
 ```sparql
 FILTER EXISTS {
   ?paymentTx cardano:hasInput ?input .
@@ -84,8 +93,6 @@ The inner subquery groups by paid ledger output before the outer payee
 aggregation. That prevents multiple treasury inputs in one transaction
 from multiplying the paid output amount.
 
-## SPARQL
-
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq"
+--8<-- "docs/may-2026-amaru-lattice/treasury-usdm-movement/02-usdm-output-addresses.rq"
 ```

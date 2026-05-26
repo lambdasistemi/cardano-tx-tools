@@ -1,7 +1,5 @@
 # Query 09 - Reference Input Reuse
 
-Runnable SPARQL: [`09-reference-input-reuse.rq`](09-reference-input-reuse.rq)
-
 ## Result
 
 The query returns the 10 most reused reference inputs.
@@ -56,8 +54,17 @@ and counts distinct transactions that use that reference.
 
 It orders by `usingTxs` descending and returns the top 10.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/ada-signers-and-references/09-reference-input-reuse.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/09-reference-input-reuse.rq"
+--8<-- "docs/may-2026-amaru-lattice/ada-signers-and-references/09-reference-input-reuse.rq"
 ```

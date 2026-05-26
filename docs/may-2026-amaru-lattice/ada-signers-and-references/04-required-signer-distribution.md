@@ -1,7 +1,5 @@
 # Query 04 - Required Signer Distribution
 
-Runnable SPARQL: [`04-required-signer-distribution.rq`](04-required-signer-distribution.rq)
-
 ## Result
 
 | requiredSigners | txs |
@@ -50,8 +48,17 @@ zero-signer transactions.
 The outer query groups those per-transaction counts into the displayed
 distribution.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/ada-signers-and-references/04-required-signer-distribution.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/04-required-signer-distribution.rq"
+--8<-- "docs/may-2026-amaru-lattice/ada-signers-and-references/04-required-signer-distribution.rq"
 ```

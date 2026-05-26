@@ -28,10 +28,10 @@ Each view ships as a paired contract:
 
 | View | SPARQL contract | Haskell runtime | Output |
 |------|-----------------|-----------------|--------|
-| `cli-tree` | [`views/cli-tree.rq`](https://github.com/lambdasistemi/cardano-tx-tools/blob/main/views/cli-tree.rq) | `Cardano.Tx.View.CliTree` | Text tree of the tx body (inputs / reference inputs / outputs / withdrawals / collateral / fee). |
-| `asset-flow` | [`views/asset-flow.rq`](https://github.com/lambdasistemi/cardano-tx-tools/blob/main/views/asset-flow.rq) | `Cardano.Tx.View.AssetFlow` | Tab-separated rows: `<asset>\t<quantity>\t<source>\t<destination>`. One row per value movement. |
-| `entity-occurrences` | [`views/entity-occurrences.rq`](https://github.com/lambdasistemi/cardano-tx-tools/blob/main/views/entity-occurrences.rq) | `Cardano.Tx.View.EntityOccurrences` | Tab-separated rows: `<entity-label>\t<count>`. |
-| `json-ld` | [`views/json-ld.rq`](https://github.com/lambdasistemi/cardano-tx-tools/blob/main/views/json-ld.rq) | `Cardano.Tx.View.JsonLd` | The full graph as a single JSON-LD document (`@context` + `@graph`). |
+| `cli-tree` | `views/cli-tree.rq` | `Cardano.Tx.View.CliTree` | Text tree of the tx body (inputs / reference inputs / outputs / withdrawals / collateral / fee). |
+| `asset-flow` | `views/asset-flow.rq` | `Cardano.Tx.View.AssetFlow` | Tab-separated rows: `<asset>\t<quantity>\t<source>\t<destination>`. One row per value movement. |
+| `entity-occurrences` | `views/entity-occurrences.rq` | `Cardano.Tx.View.EntityOccurrences` | Tab-separated rows: `<entity-label>\t<count>`. |
+| `json-ld` | `views/json-ld.rq` | `Cardano.Tx.View.JsonLd` | The full graph as a single JSON-LD document (`@context` + `@graph`). |
 
 The `.rq` SPARQL files in `views/` are the vendor-neutral contracts;
 the Haskell modules under `Cardano.Tx.View.*` are the in-process

@@ -94,8 +94,8 @@ The selection rule used here was:
 5. Keep the transactions in the report interval that touch the address,
    meaning transactions that either produce an output at the address or
    spend a previous output from the address.
-6. Record the resulting 85 txids in
-   [`network-txs.txt`](network-txs.txt).
+6. Record the resulting 85 txids in the `network-txs.txt` boundary
+   block rendered below.
 7. Fetch exactly those 85 transactions with `tx-fetch --depth 0`, emit
    the graph with `tx-graph`, and verify terminal state with Queries
    14-16.
@@ -142,18 +142,38 @@ The report verifies the selection in two ways:
   diff means the txid set is incomplete or the boundary was chosen
   incorrectly.
 
+## Boundary Files
+
+These are the proof inputs rendered from the exact files used by the
+report. They are shown here so the boundary can be inspected without
+leaving the documentation page.
+
+=== "rules.yaml"
+
+    ```yaml
+    --8<-- "docs/may-2026-amaru-lattice/rules.yaml"
+    ```
+
+=== "network-txs.txt"
+
+    ```text
+    --8<-- "docs/may-2026-amaru-lattice/network-txs.txt"
+    ```
+
+=== "live-utxos.ttl"
+
+    ```turtle
+    --8<-- "docs/may-2026-amaru-lattice/live-utxos.ttl"
+    ```
+
 ## Report Queries
 
-The proof inputs and query sources are standalone files. Every query
-linked below runs against the same 85-transaction lattice. The tree is
-grouped by the question a reader is trying to answer first.
+Every query linked below runs against the same 85-transaction lattice.
+The tree is grouped by the question a reader is trying to answer first.
 
-Rules source: [`rules.yaml`](rules.yaml)
-
-Network-scope txids: [`network-txs.txt`](network-txs.txt)
-
-Live UTxO snapshot for Queries 15-16:
-[`live-utxos.ttl`](live-utxos.ttl)
+To reproduce the graph and execute the queries locally, use the
+[Run the report](run-the-report.md) tutorial. Each query page also
+contains a copyable command that runs just that query.
 
 The query pages are listed in the site navigation under this report,
 grouped by boundary shape, terminal state, USDM movement, swaps, and

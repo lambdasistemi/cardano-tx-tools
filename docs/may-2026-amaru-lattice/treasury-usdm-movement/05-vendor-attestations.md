@@ -1,7 +1,5 @@
 # Query 05 - Vendor Attestations
 
-Runnable SPARQL: [`05-vendor-attestations.rq`](05-vendor-attestations.rq)
-
 ## Result
 
 USDM quantities are decimal USDM. `bridgeUsdm` is the total USDM proven
@@ -60,8 +58,17 @@ The second subquery sums USDM outputs to the payee bridge address from
 the ledger graph. Joining the two subqueries gives each attestation row
 the proven bridge total without multiplying the payment amount.
 
+## Run
+
+From the repository root, run this query through the tutorial setup script:
+
+```bash
+bash docs/may-2026-amaru-lattice/setup.sh \
+  docs/may-2026-amaru-lattice/treasury-usdm-movement/05-vendor-attestations.rq
+```
+
 ## SPARQL
 
 ```sparql
---8<-- "docs/may-2026-amaru-lattice/queries/05-vendor-attestations.rq"
+--8<-- "docs/may-2026-amaru-lattice/treasury-usdm-movement/05-vendor-attestations.rq"
 ```
