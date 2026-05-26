@@ -1,26 +1,31 @@
-# Amaru Treasury — May 2026 SPARQL Presentation
+# Amaru Treasury - May 2026 SPARQL Presentation
 
-Twenty-two real SPARQL queries running over a real on-chain lattice built
-end-to-end from `tx-graph` + `tx-lattice` + Apache Jena.
+Direct network-state SPARQL queries running over a real on-chain graph
+built end-to-end from `tx-fetch` + `tx-graph` + Apache Jena.
 
-- Seed batch — the 30 user-named txs of May 2026 (3 disbursements + 5
-  reorganize + 20 swap orders + 1 swap-cancel + 1 scoop dive).
-- Closure — fetched from Blockfrost via `/txs/<hash>/cbor` *only*
-  (no `/utxos`, no `/inputs`, no `/outputs`). Every input in a seed
-  tx points at a parent UTxO; the parent's CBOR is fetched too so
-  the JOIN target lives in the same graph. Depth = 1 → 71 parents.
-- Emission — latest `tx-lattice` performs the closure walk in two
-  passes and emits seed transactions with `tx-graph --closure-dir`, so
-  spending redeemers can be decoded using the parent outputs already in
-  the closure.
-- Total lattice size = **30 seeds + 71 parents = 101 txs**, each in
+- Network-scope transaction set — the 85 txids that touch the
+  `amaru-treasury.network_compliance` address during the report window.
+  The report treats this list as an input boundary; how the list was
+  assembled is outside the graph proof.
+- Closure — fetched by `tx-fetch` from Blockfrost via
+  `/txs/<hash>/cbor` *only*
+  (no `/utxos`, no `/inputs`, no `/outputs`). Fetch depth is `0`: no
+  generic parent walk is needed for the network treasury final-state
+  proof because every in-scope producer/spender transaction is already
+  in the 85-tx list.
+- Emission — `tx-graph --rules rules.yaml --in-dir closure/cbor
+  --out-dir closure` indexes every fetched CBOR by computed transaction
+  id and emits one canonical Turtle file per transaction.
+- State boundary — the final UTxO state is recomputed from graph topology:
+  outputs to the network treasury minus outputs whose `(txid, index)` is
+  consumed by another transaction in the same 85-tx graph.
+- Total graph size = **85 network-scope txs**, each in
   its own canonical Turtle file under `closure/<txid>.ttl`.
-- State-audit boundary — Queries 14-16 extend the loaded graph with the
+- State-audit boundary — Queries 14-16 use the 85-tx
   network_compliance address history through the live snapshot boundary
-  (block 13,467,438; slot 188,217,701). The 101-tx seed closure is enough
-  for seed-flow questions; the final UTxO proof needs every transaction
-  that can produce or spend a network_compliance output before that
-  boundary.
+  (block 13,467,438; slot 188,217,701). Query 14 is graph-only. Queries
+  15-16 compare that graph-derived state with the separate live snapshot
+  in `live-utxos.ttl`.
 - USDM accounting boundary — Queries 17-21 turn that complete
   network_compliance graph into a user-facing proof: the treasury starts
   with 0 USDM, receives 425,131.618692 USDM from swaps, pays 418,750 USDM
@@ -33,24 +38,23 @@ end-to-end from `tx-graph` + `tx-lattice` + Apache Jena.
 ```mermaid
 flowchart LR
   blockfrost[Blockfrost CBOR API]
+  txfetch[tx-fetch]
+  cbor[CBOR closure]
   txgraph[tx-graph]
   rules[rules.yaml]
   closure[closure directory]
-  seeds[30 seed txs]
-  parents[71 parent txs]
-  history[network_compliance address history]
-  live[Live UTxO snapshot]
+  scope[85 txid input list]
+  live[live-utxos.ttl]
   jena[Apache Jena]
   answers[SPARQL answers]
   final[Final-state proof]
 
-  blockfrost -->|CBOR only| txgraph
+  scope --> txfetch
+  blockfrost -->|CBOR only| txfetch
+  txfetch --> cbor
   rules -->|entities blueprints attestations| txgraph
+  cbor --> txgraph
   txgraph -->|Turtle per tx| closure
-  closure --> seeds
-  closure --> parents
-  parents -->|resolves inputs| seeds
-  history -->|CBOR only| txgraph
   closure --> jena
   jena --> answers
   jena --> final
@@ -59,12 +63,17 @@ flowchart LR
 
 ## Query Tree
 
-The demo rule source and query sources are standalone files. These
-links are the single-file query demos used by the rendered page. The
-tree is grouped by the question a reader is trying to answer first,
-while preserving the original query numbers as stable identifiers.
+The proof inputs and query sources are standalone files. These links are
+the single-file query demos used by the rendered page. The tree is
+grouped by the question a reader is trying to answer first, while
+preserving the original query numbers as stable identifiers.
 
 Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
+
+Network-scope txids: [`network-txs.txt`](may-2026-amaru-lattice/network-txs.txt)
+
+Live UTxO snapshot for Queries 15-16:
+[`live-utxos.ttl`](may-2026-amaru-lattice/live-utxos.ttl)
 
 <div class="grid cards query-grid" markdown>
 
@@ -104,53 +113,14 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
     ---
 
-    **Order and scoop evidence**
-
-    - [Query 08 — Sundae V3 order consumers](may-2026-amaru-lattice/queries/08-sundae-v3-order-consumers.md)
-    - [Query 10 — Sundae V3 scoop output candidates](may-2026-amaru-lattice/queries/10-sundae-v3-scoop-output-candidates.md)
-
-    **Rate computation**
+    **Rate computation and receipts**
 
     - [Query 19 — Swap receipts and rates](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.md)
 
--   **Seed-batch conservation and totals**
-
-    ---
-
-    **Batch totals**
-
-    - [Query 00 — ADA conservation](may-2026-amaru-lattice/queries/00-ada-conservation.md)
-    - [Query 01 — Monthly totals](may-2026-amaru-lattice/queries/01-monthly-totals.md)
-    - [Query 13 — Seed value conservation by asset](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.md)
-
-    **Role flows**
-
-    - [Query 03 — ADA role flow](may-2026-amaru-lattice/queries/03-ada-role-flow.md)
-    - [Query 07 — USDM role flow](may-2026-amaru-lattice/queries/07-usdm-role-flow.md)
-
--   **Graph completeness and resolution**
-
-    ---
-
-    **Resolved inputs**
-
-    - [Query 12 — Seed input resolution cardinality](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.md)
-
-    **Reference inputs**
-
-    - [Query 09 — Reference-input reuse](may-2026-amaru-lattice/queries/09-reference-input-reuse.md)
-
--   **Governance, signers, and payment intent**
-
-    ---
-
-    **Authorization**
-
-    - [Query 04 — Required signer distribution](may-2026-amaru-lattice/queries/04-required-signer-distribution.md)
-
-    **Payment intent**
-
-    - [Query 05 — Vendor-payment overlay](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.md)
-    - [Query 06 — Disbursement candidates](may-2026-amaru-lattice/queries/06-disbursement-candidates.md)
-
 </div>
+
+The earlier seed-batch diagnostic pages are intentionally not linked from
+this proof index. They depended on `cardano:hasLatticeRole` markers and
+parent-closure resolution from the old `tx-lattice` path. The PR117
+proof path is the direct `tx-fetch --depth 0` plus `tx-graph` graph over
+the 85 network-scope transactions above.
