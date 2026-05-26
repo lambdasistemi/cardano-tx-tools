@@ -3,27 +3,25 @@ Module      : Main
 Description : tx-fetch executable — closure-walking Conway CBOR fetcher.
 License     : Apache-2.0
 
-@tx-fetch@ is the holy txid-list closure fetcher in the post-#114
+@tx-fetch@ is the txid-list closure fetcher in the post-#114
 three-tool pipeline:
 
-* @tx-fetch@ — seed txids + chain source -> @[cbor]@ (network I/O)
+* @tx-fetch@ — input txids + chain source -> @[cbor]@ (network I/O)
 * @tx-graph@ — rules + @[cbor]@ -> @[ttl]@ (pure transformation)
 * @tx-view@  — @[ttl]@ + view name -> projection bytes (pure)
 
-Given a list of seed transaction ids and a Blockfrost-compatible
-chain source, the fetcher walks each seed's spending / reference /
+Given a list of transaction ids and a Blockfrost-compatible
+chain source, the fetcher walks each transaction's spending / reference /
 collateral inputs over @\/txs\/\<hash\>\/cbor@, recursing to
 @--depth@. Every fetched CBOR is parsed, its @TxId@ is recomputed
 from @hashAnnotated . bodyTxL@, and the result is rejected if the
 computed id does not match the requested id (the chain source lied
 or the file is corrupt). Verified CBORs land at
-@\<out-dir\>\/cbor\/\<txid-hex\>.cbor@; the operator's seed list
-is preserved verbatim at @\<out-dir\>\/seeds.txt@ so downstream
-SPARQL can distinguish seeds from BFS-walked parents.
+@\<out-dir\>\/cbor\/\<txid-hex\>.cbor@.
 
 Sequential, single-threaded, resumable: existing
 @cbor\/\<txid\>.cbor@ files are skipped, so re-running over an
-already-fetched lattice is a no-op (plus the seeds.txt rewrite).
+already-fetched lattice is a no-op.
 
 CLI:
 
@@ -117,7 +115,7 @@ data Options = Options
     { optOutDir :: !FilePath
     , optNetwork :: !Network
     , optDepth :: !Int
-    , optSeeds :: ![Text]
+    , optTxIds :: ![Text]
     }
 
 optionsParser :: Parser Options
@@ -128,9 +126,7 @@ optionsParser =
                 <> metavar "DIR"
                 <> help
                     ( "Output directory. Writes <DIR>/cbor/<txid>"
-                        <> ".cbor for every tx in the closure, plus"
-                        <> " <DIR>/seeds.txt preserving the seed"
-                        <> " list verbatim."
+                        <> ".cbor for every tx in the closure."
                     )
             )
         <*> option
@@ -140,7 +136,7 @@ optionsParser =
                 <> value Mainnet
                 <> showDefault
                 <> help
-                    ( "Cardano network the seed txids belong to:"
+                    ( "Cardano network the txids belong to:"
                         <> " mainnet | preprod | preview."
                     )
             )
@@ -151,16 +147,16 @@ optionsParser =
                 <> value (1 :: Int)
                 <> showDefault
                 <> help
-                    ( "BFS depth. 0 = fetch only the seeds; 1 = fetch"
-                        <> " seeds + their direct input parents; 2 ="
-                        <> " add the parents' parents; and so on."
+                    ( "BFS depth. 0 = fetch only the input txids; 1 ="
+                        <> " add direct input parents; 2 = add the"
+                        <> " parents' parents; and so on."
                     )
             )
         <*> some
             ( argument
                 readTxIdHex
                 ( metavar "TXID..."
-                    <> help "Seed transaction ids (lowercase hex)."
+                    <> help "Transaction ids (lowercase hex)."
                 )
             )
   where
@@ -183,12 +179,11 @@ optionsInfo =
             <> header "tx-fetch — Conway closure CBOR fetcher"
             <> progDesc
                 ( "tx-fetch — closure-walking Conway CBOR fetcher."
-                    <> " Resolves seed txids over Blockfrost's"
+                    <> " Resolves input txids over Blockfrost's"
                     <> " /txs/<hash>/cbor endpoint, walks parent"
                     <> " references to --depth, and writes one"
-                    <> " <DIR>/cbor/<txid>.cbor per tx plus"
-                    <> " <DIR>/seeds.txt with the operator's seed"
-                    <> " list. BLOCKFROST_PROJECT_ID env required."
+                    <> " <DIR>/cbor/<txid>.cbor per tx."
+                    <> " BLOCKFROST_PROJECT_ID env required."
                 )
         )
 
@@ -211,10 +206,7 @@ main = do
         fetcher = httpFetchTx manager baseUrl (Just apiKey)
         cborDir = optOutDir opts </> "cbor"
     createDirectoryIfMissing True cborDir
-    runBfs fetcher cborDir (optDepth opts) (optSeeds opts)
-    BS.writeFile
-        (optOutDir opts </> "seeds.txt")
-        (TextEncoding.encodeUtf8 (Text.unlines (optSeeds opts)))
+    runBfs fetcher cborDir (optDepth opts) (optTxIds opts)
     fetched <- countCbors cborDir
     hPutStrLn stderr $
         "tx-fetch: done. "
@@ -249,9 +241,9 @@ runBfs ::
     Int ->
     [Text] ->
     IO ()
-runBfs fetcher cborDir maxDepth seeds = do
+runBfs fetcher cborDir maxDepth txids = do
     seenRef <- newIORef Set.empty
-    queueRef <- newIORef [(s, 0 :: Int) | s <- seeds]
+    queueRef <- newIORef [(t, 0 :: Int) | t <- txids]
     let loop = do
             queue <- readIORef queueRef
             case queue of

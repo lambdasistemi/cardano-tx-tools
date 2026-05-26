@@ -15,7 +15,7 @@ unblocks the lattice-of-transactions workflows today.
 
 Given a list of transaction ids and an operator
 [rewriting-rules](rewriting-rules.md) file, `tx-lattice` fetches each
-seed tx's CBOR, walks the tx ids referenced by its inputs, reference
+input tx's CBOR, walks the tx ids referenced by its inputs, reference
 inputs, and collateral inputs, and writes one canonical Turtle file per
 transaction to `OUT_DIR/<txid>.ttl`.
 
@@ -25,12 +25,10 @@ triples. Parent transactions are emitted as normal graph files, so a
 SPARQL query resolves an input by joining `cardano:fromTxOutRef` to the
 matching parent transaction output by `(txid, index)`.
 
-Emission is two-pass. The first pass fills `OUT_DIR/cbor/<txid>.cbor`
-for the whole closure. The second pass emits seed transactions with
-`tx-graph --closure-dir OUT_DIR/cbor`, letting `tx-graph` resolve parent
-outputs in-process when it needs the parent script hash for typed
-spending-redeemer decode. Parent transactions are emitted without
-`--closure-dir`; they are present so queries can join to their outputs.
+Emission reads the fetched CBOR directory with `tx-graph --in-dir`.
+Every transaction in the closure is emitted as a normal graph file;
+queries resolve inputs by joining to the referenced transaction output
+when that referenced transaction is inside the loaded lattice.
 
 ## Quickstart
 
@@ -185,19 +183,19 @@ Two paths to the human recipient:
    the emitter can materialise recipient triples directly on the
    order-opening tx.
 
-### 2. Typed-redeemer decode depends on closure resolution
+### 2. Typed-redeemer decode depends on referenced outputs
 
 The Amaru `TreasurySpendRedeemer` is typed (`Reorganize`,
 `SweepTreasury`, `Fund`, `Disburse`) and registers against the
-treasury entities via `blueprints:`. The live lattice must emit seed
-transactions with `tx-graph --closure-dir`; otherwise `tx-graph` cannot
-look up the parent output's script hash and cannot choose the right
-blueprint for the spending redeemer.
+treasury entities via `blueprints:`. If a spending transaction references
+an output outside the loaded graph, `tx-graph` cannot use that output's
+script hash to choose the right blueprint for the spending redeemer.
 
 With the two-pass closure flow, treasury spends now materialise typed
 predicates such as `:TreasurySpendRedeemer_amount` on the live mainnet
-lattice. If those predicates disappear, first check that the seed emit
-was run with a populated closure directory.
+lattice. If those predicates disappear, first check that the referenced
+outputs needed for script-hash resolution are present in the loaded
+lattice.
 
 ### 3. SundaeSwap V3 swap-order datum stays opaque
 

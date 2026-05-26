@@ -1,7 +1,8 @@
-# Amaru Treasury - May 2026 SPARQL Presentation
+# Amaru Treasury - May 2026 85-Tx Lattice Report
 
-Direct network-state SPARQL queries running over a real on-chain graph
-built end-to-end from `tx-fetch` + `tx-graph` + Apache Jena.
+Direct network-state SPARQL report running over a real 85-transaction
+on-chain lattice built end-to-end from `tx-fetch` + `tx-graph` + Apache
+Jena.
 
 - Network-scope transaction set — the 85 txids that touch the
   `amaru-treasury.network_compliance` address during the report window.
@@ -61,12 +62,11 @@ flowchart LR
   live --> final
 ```
 
-## Query Tree
+## Report Queries
 
-The proof inputs and query sources are standalone files. These links are
-the single-file query demos used by the rendered page. The tree is
-grouped by the question a reader is trying to answer first, while
-preserving the original query numbers as stable identifiers.
+The proof inputs and query sources are standalone files. Every query
+linked below runs against the same 85-transaction lattice. The tree is
+grouped by the question a reader is trying to answer first.
 
 Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
@@ -98,7 +98,6 @@ Live UTxO snapshot for Queries 15-16:
     **Whole-account proof**
 
     - [Query 17 — Network compliance USDM accounting](may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.md)
-    - [Query 11 — Network compliance USDM residual](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.md)
 
     **Incoming USDM**
 
@@ -118,9 +117,3 @@ Live UTxO snapshot for Queries 15-16:
     - [Query 19 — Swap receipts and rates](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.md)
 
 </div>
-
-The earlier seed-batch diagnostic pages are intentionally not linked from
-this proof index. They depended on `cardano:hasLatticeRole` markers and
-parent-closure resolution from the old `tx-lattice` path. The PR117
-proof path is the direct `tx-fetch --depth 0` plus `tx-graph` graph over
-the 85 network-scope transactions above.

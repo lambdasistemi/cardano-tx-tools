@@ -40,15 +40,13 @@ definition.
 
 For the final-state proof, "all transactions" means every transaction
 that can produce or spend a network_compliance output before the live
-snapshot boundary. The 30-seed closure is enough for seed-flow analysis,
-but it is not enough to prove current state if later address-history
-transactions are missing from the loaded graph.
+snapshot boundary. That is why this page uses the 85-tx
+network_compliance graph boundary rather than a partial transaction
+sample.
 
-It is stricter than Query 11. Query 11 only asks about USDM-bearing seed
-outputs at network_compliance that are not spent by another seed.
-Query 14 asks for every terminal network_compliance output visible in
-the loaded graph, regardless of whether it was a seed output or a parent
-output.
+The query asks for every terminal network_compliance output visible in
+the loaded graph. No special transaction role is required: a lattice is
+just the transaction set loaded into the SPARQL dataset.
 
 ## Diagram
 
@@ -72,8 +70,8 @@ flowchart LR
 ## How
 
 The query resolves the network_compliance address from `rules.yaml` and
-pins the full on-chain USDM asset id in a `VALUES` block. It scans all
-loaded transactions, not only seeds, for outputs at that address.
+pins the full on-chain USDM asset id in a `VALUES` block. It scans the
+loaded graph for outputs at that address.
 
 For each candidate output, it rejects any output whose `(txid, index)`
 appears as an input reference anywhere in the loaded graph:

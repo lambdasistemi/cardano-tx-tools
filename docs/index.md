@@ -31,7 +31,7 @@ executables plus the Haskell library that backs them.
   `(rules + [cbor]) → ttl(s)`, no network or node required. Same
   loader as `tx-inspect --rules`.
 - [**tx-fetch**](tx-fetch.md) — closure-walking Conway CBOR
-  fetcher. Resolves seed transaction ids over Blockfrost's
+  fetcher. Resolves transaction ids over Blockfrost's
   `/txs/<hash>/cbor` endpoint, walks each tx's spending /
   reference / collateral input parents to `--depth`, hash-verifies
   every CBOR against its requested `TxId`, and writes one

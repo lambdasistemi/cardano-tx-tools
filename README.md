@@ -20,7 +20,7 @@ Documentation: <https://lambdasistemi.github.io/cardano-tx-tools/>.
 | [`tx-sign`](https://lambdasistemi.github.io/cardano-tx-tools/tx-sign/) | Age-encrypted signing-key vault and detached vkey witness creation. Cleartext keys never touch disk; passphrase never on `argv`. | `tx-sign --network mainnet witness --tx unsigned.cbor.hex --vault core.vault.age --out core.witness.hex` |
 | [`tx-validate`](https://lambdasistemi.github.io/cardano-tx-tools/tx-validate/) | Conway Phase-1 pre-flight against a local `cardano-node` via Node-to-Client. Exit code is the contract: `0` clean, `1` structural failure, `≥2` configuration/resolver error. | `tx-validate --input unsigned.cbor.hex --n2c-socket-path "$CARDANO_NODE_SOCKET_PATH"` |
 | [`tx-graph`](https://lambdasistemi.github.io/cardano-tx-tools/tx-graph/) | Emits a Conway transaction (or a whole lattice of them) as RDF — the operator-entity overlay (from a rules file in Turtle or YAML sugar), the transaction body (inputs / outputs / certs / mints / withdrawals / collateral / proposals), and their cross-references in canonical Turtle or JSON-LD. Pure transformation: input is a positional CBOR or a `--in-dir DIR` of CBORs (the lattice); the lattice resolves itself in-memory, no node or UTxO file needed. | `tx-graph --rules rules.yaml --in-dir lattice/cbor --out-dir lattice` |
-| [`tx-fetch`](https://lambdasistemi.github.io/cardano-tx-tools/tx-fetch/) | Closure-walking Conway CBOR fetcher. Resolves seed transaction ids over Blockfrost's `/txs/<hash>/cbor` endpoint, walks each tx's spending / reference / collateral input parents to `--depth`, hash-verifies every CBOR against its requested `TxId`, and writes one `<txid>.cbor` per tx into `<out-dir>/cbor/`. Pairs with `tx-graph --in-dir` to produce a Turtle lattice. | `tx-fetch --out-dir lattice --depth 1 <seed-txid>...` (requires `BLOCKFROST_PROJECT_ID`) |
+| [`tx-fetch`](https://lambdasistemi.github.io/cardano-tx-tools/tx-fetch/) | Closure-walking Conway CBOR fetcher. Resolves transaction ids over Blockfrost's `/txs/<hash>/cbor` endpoint, walks each tx's spending / reference / collateral input parents to `--depth`, hash-verifies every CBOR against its requested `TxId`, and writes one `<txid>.cbor` per tx into `<out-dir>/cbor/`. Pairs with `tx-graph --in-dir` to produce a Turtle lattice. | `tx-fetch --out-dir lattice --depth 1 <txid>...` (requires `BLOCKFROST_PROJECT_ID`) |
 | [`cardano-tx-generator`](https://lambdasistemi.github.io/cardano-tx-tools/cardano-tx-generator/) | Long-running daemon that drives a configurable mix of Conway transactions against a node for soak / fuzz testing. | `cardano-tx-generator --config preprod.yaml` |
 
 Blueprint-aware decoding is shared by `tx-diff` and `tx-graph`.
@@ -57,7 +57,7 @@ tx-graph --rules rules/swap-v2.yaml "$unsigned" > graph.ttl
 grep -E 'SwapOrder_recipient|_0_pubKeyHash' graph.ttl
 
 # 4c. Or fetch a whole closure first and emit ttls over the lattice:
-tx-fetch --out-dir lattice --depth 1 <seed-txid> ...
+tx-fetch --out-dir lattice --depth 1 <txid> ...
 tx-graph --rules rules/swap-v2.yaml --in-dir lattice/cbor --out-dir lattice
 
 # 5. Sign the body with an encrypted vault.

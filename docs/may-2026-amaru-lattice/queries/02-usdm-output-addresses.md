@@ -30,35 +30,18 @@ For May 2026, the graph returns one payee: `amaru.cag-payee`.
 
 ## Why
 
-The previous version of this query counted every seed output carrying
-USDM. That was too broad for the user question "who did the treasury pay
-USDM to?" because it mixed three different concepts:
+A raw output-side query over every USDM output in the graph is too broad
+for the user question "who did the treasury pay USDM to?" because it
+mixes three different concepts:
 
 - network_compliance treasury change,
 - swap-side script outputs,
 - actual beneficiary/payee outputs.
 
-The important bug is that `seed` was being used as if it meant "spent
-from our treasury". It does not. `cardano:hasLatticeRole "seed"` only
-means the transaction is one of the loaded May transactions. The old
-query had this output-side shape:
-
-```sparql
-?seed cardano:hasLatticeRole "seed" ;
-      cardano:hasOutput ?out .
-```
-
-It did not require the transaction to consume a UTxO from
-network_compliance. So the unlabelled row appeared precisely because
-the query was not proving source.
-
-That is why the old page showed an `unlabelled` row. It was not a
-beneficiary payment. It was a script address output from swap producer
-transaction `4e2642080c8d171aad05baed11b076de498b76acecc1c2412660048fae8aefa3`,
-which consumed nine Sundae V3 order inputs and emitted
-`490,819.149109` USDM to a script address not declared in `rules.yaml`.
-The graph could show the address and credentials, but no rule label
-existed for that address, so the broad query called it `unlabelled`.
+The source proof is therefore part of the query. A counted payment
+transaction must consume a UTxO from `network_compliance`, and the
+counted output must go to the configured CAG payee bridge. USDM outputs
+that do not satisfy both conditions are not treasury payees.
 
 ## Diagram
 
