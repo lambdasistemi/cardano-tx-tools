@@ -4,6 +4,17 @@ Runnable SPARQL: [`11-network-compliance-usdm-residual.rq`](11-network-complianc
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the 30-seed
+May lattice. ADA quantities are decimal ADA; USDM quantities are decimal
+USDM. It is an end-of-seed-set residual, not the live final balance.
+
+| utxoCount | residualAda | residualUsdm |
+| ---: | ---: | ---: |
+| 1 | 120.299272 | 1349.523953 |
+
 ## What
 
 This query computes the end-of-seed-set USDM residual at the
@@ -79,13 +90,3 @@ boundary.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the 30-seed
-May lattice. ADA quantities are decimal ADA; USDM quantities are decimal
-USDM. It is an end-of-seed-set residual, not the live final balance.
-
-| utxoCount | residualAda | residualUsdm |
-|---|---|---|
-| 1 | 120.299272 | 1349.523953 |

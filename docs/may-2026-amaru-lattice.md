@@ -74,13 +74,13 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
     **Recompute terminal state**
 
-    - [Query 14 — Network compliance terminal state](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.md) [.rq](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq)
-    - [Query 15 — Network compliance live diff](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.md) [.rq](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq)
-    - [Query 16 — Network compliance live summary](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.md) [.rq](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.rq)
+    - [Query 14 — Network compliance terminal state](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.md)
+    - [Query 15 — Network compliance live diff](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.md)
+    - [Query 16 — Network compliance live summary](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.md)
 
     **Explain terminal balances**
 
-    - [Query 20 — Terminal USDM provenance](may-2026-amaru-lattice/queries/20-terminal-usdm-provenance.md) [.rq](may-2026-amaru-lattice/queries/20-terminal-usdm-provenance.rq)
+    - [Query 20 — Terminal USDM provenance](may-2026-amaru-lattice/queries/20-terminal-usdm-provenance.md)
 
 -   **Treasury USDM movement**
 
@@ -88,17 +88,17 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
     **Whole-account proof**
 
-    - [Query 17 — Network compliance USDM accounting](may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.md) [.rq](may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.rq)
-    - [Query 11 — Network compliance USDM residual](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.md) [.rq](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.rq)
+    - [Query 17 — Network compliance USDM accounting](may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.md)
+    - [Query 11 — Network compliance USDM residual](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.md)
 
     **Incoming USDM**
 
-    - [Query 21 — Treasury USDM payers](may-2026-amaru-lattice/queries/21-treasury-usdm-payers.md) [.rq](may-2026-amaru-lattice/queries/21-treasury-usdm-payers.rq)
+    - [Query 21 — Treasury USDM payers](may-2026-amaru-lattice/queries/21-treasury-usdm-payers.md)
 
     **Outgoing USDM**
 
-    - [Query 02 — Treasury USDM payees](may-2026-amaru-lattice/queries/02-usdm-output-addresses.md) [.rq](may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq)
-    - [Query 18 — Beneficiary USDM payments](may-2026-amaru-lattice/queries/18-beneficiary-usdm-payments.md) [.rq](may-2026-amaru-lattice/queries/18-beneficiary-usdm-payments.rq)
+    - [Query 02 — Treasury USDM payees](may-2026-amaru-lattice/queries/02-usdm-output-addresses.md)
+    - [Query 18 — Beneficiary USDM payments](may-2026-amaru-lattice/queries/18-beneficiary-usdm-payments.md)
 
 -   **Swaps and exchange rates**
 
@@ -106,12 +106,12 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
     **Order and scoop evidence**
 
-    - [Query 08 — Sundae V3 order consumers](may-2026-amaru-lattice/queries/08-sundae-v3-order-consumers.md) [.rq](may-2026-amaru-lattice/queries/08-sundae-v3-order-consumers.rq)
-    - [Query 10 — Sundae V3 scoop output candidates](may-2026-amaru-lattice/queries/10-sundae-v3-scoop-output-candidates.md) [.rq](may-2026-amaru-lattice/queries/10-sundae-v3-scoop-output-candidates.rq)
+    - [Query 08 — Sundae V3 order consumers](may-2026-amaru-lattice/queries/08-sundae-v3-order-consumers.md)
+    - [Query 10 — Sundae V3 scoop output candidates](may-2026-amaru-lattice/queries/10-sundae-v3-scoop-output-candidates.md)
 
     **Rate computation**
 
-    - [Query 19 — Swap receipts and rates](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.md) [.rq](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.rq)
+    - [Query 19 — Swap receipts and rates](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.md)
 
 -   **Seed-batch conservation and totals**
 
@@ -119,14 +119,14 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
     **Batch totals**
 
-    - [Query 00 — ADA conservation](may-2026-amaru-lattice/queries/00-ada-conservation.md) [.rq](may-2026-amaru-lattice/queries/00-ada-conservation.rq)
-    - [Query 01 — Monthly totals](may-2026-amaru-lattice/queries/01-monthly-totals.md) [.rq](may-2026-amaru-lattice/queries/01-monthly-totals.rq)
-    - [Query 13 — Seed value conservation by asset](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.md) [.rq](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.rq)
+    - [Query 00 — ADA conservation](may-2026-amaru-lattice/queries/00-ada-conservation.md)
+    - [Query 01 — Monthly totals](may-2026-amaru-lattice/queries/01-monthly-totals.md)
+    - [Query 13 — Seed value conservation by asset](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.md)
 
     **Role flows**
 
-    - [Query 03 — ADA role flow](may-2026-amaru-lattice/queries/03-ada-role-flow.md) [.rq](may-2026-amaru-lattice/queries/03-ada-role-flow.rq)
-    - [Query 07 — USDM role flow](may-2026-amaru-lattice/queries/07-usdm-role-flow.md) [.rq](may-2026-amaru-lattice/queries/07-usdm-role-flow.rq)
+    - [Query 03 — ADA role flow](may-2026-amaru-lattice/queries/03-ada-role-flow.md)
+    - [Query 07 — USDM role flow](may-2026-amaru-lattice/queries/07-usdm-role-flow.md)
 
 -   **Graph completeness and resolution**
 
@@ -134,11 +134,11 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
     **Resolved inputs**
 
-    - [Query 12 — Seed input resolution cardinality](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.md) [.rq](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.rq)
+    - [Query 12 — Seed input resolution cardinality](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.md)
 
     **Reference inputs**
 
-    - [Query 09 — Reference-input reuse](may-2026-amaru-lattice/queries/09-reference-input-reuse.md) [.rq](may-2026-amaru-lattice/queries/09-reference-input-reuse.rq)
+    - [Query 09 — Reference-input reuse](may-2026-amaru-lattice/queries/09-reference-input-reuse.md)
 
 -   **Governance, signers, and payment intent**
 
@@ -146,11 +146,11 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 
     **Authorization**
 
-    - [Query 04 — Required signer distribution](may-2026-amaru-lattice/queries/04-required-signer-distribution.md) [.rq](may-2026-amaru-lattice/queries/04-required-signer-distribution.rq)
+    - [Query 04 — Required signer distribution](may-2026-amaru-lattice/queries/04-required-signer-distribution.md)
 
     **Payment intent**
 
-    - [Query 05 — Vendor-payment overlay](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.md) [.rq](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.rq)
-    - [Query 06 — Disbursement candidates](may-2026-amaru-lattice/queries/06-disbursement-candidates.md) [.rq](may-2026-amaru-lattice/queries/06-disbursement-candidates.rq)
+    - [Query 05 — Vendor-payment overlay](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.md)
+    - [Query 06 — Disbursement candidates](may-2026-amaru-lattice/queries/06-disbursement-candidates.md)
 
 </div>

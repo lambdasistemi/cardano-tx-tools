@@ -4,6 +4,17 @@ Runnable SPARQL: [`16-network-compliance-live-summary.rq`](16-network-compliance
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the state-audit
+graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
+quantities are decimal USDM.
+
+| graphTerminalUtxos | graphTerminalAda | graphTerminalUsdm | liveUtxos | liveAda | liveUsdm | adaGap | usdmGap |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 5 | 129.217272 | 6381.618692 | 5 | 129.217272 | 6381.618692 | 0.000000 | 0.000000 |
+
 ## What
 
 This query is the aggregate form of Query 15. It compares graph-derived
@@ -75,13 +86,3 @@ should produce zero for both gaps.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/16-network-compliance-live-summary.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the state-audit
-graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
-quantities are decimal USDM.
-
-| graphTerminalUtxos | graphTerminalAda | graphTerminalUsdm | liveUtxos | liveAda | liveUsdm | adaGap | usdmGap |
-|---|---|---|---|---|---|---|---|
-| 5 | 129.217272 | 6381.618692 | 5 | 129.217272 | 6381.618692 | 0.000000 | 0.000000 |

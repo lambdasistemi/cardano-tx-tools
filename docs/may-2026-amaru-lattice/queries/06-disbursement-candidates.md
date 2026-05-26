@@ -4,6 +4,20 @@ Runnable SPARQL: [`06-disbursement-candidates.rq`](06-disbursement-candidates.rq
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
+
+| seedTxId | adaDisbursed |
+| --- | ---: |
+
+No rows are returned against the current graph. This is consistent with
+Query 12: the seed transaction that should prove the contingency
+disbursement has an unresolved parent input, so this structural detector
+cannot yet recover the transfer.
+
 ## What
 
 This query finds seed transactions that consume a contingency UTxO and
@@ -73,12 +87,3 @@ the join.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/06-disbursement-candidates.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice. ADA quantities are decimal ADA.
-
-| seedTxId | adaDisbursed |
-|---|---|
-| 18d57a4f104df4cc776104ce626958e2110122392e4c4c7671edc8861b48452e | 205000.000000 |

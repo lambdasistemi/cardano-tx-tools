@@ -4,6 +4,17 @@ Runnable SPARQL: [`08-sundae-v3-order-consumers.rq`](08-sundae-v3-order-consumer
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
+
+| seedTxId | orderInputsConsumed | outputCount | nonOrderOutputCount |
+| --- | ---: | ---: | ---: |
+| 4e2642080c8d171aad05baed11b076de498b76acecc1c2412660048fae8aefa3 | 9 | 11 | 11 |
+| a8bab7bfe1e2ed9d3a5b40189c8de51c5974a6e05c71fc1000a6abd57500b365 | 1 | 2 | 2 |
+
 ## What
 
 This query finds seed transactions that consume UTxOs controlled by the
@@ -72,13 +83,3 @@ that produce settlement outputs to other roles.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/08-sundae-v3-order-consumers.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice.
-
-| seedTxId | orderInputsConsumed | outputCount | nonOrderOutputCount |
-|---|---|---|---|
-| 4e2642080c8d171aad05baed11b076de498b76acecc1c2412660048fae8aefa3 | 9 | 11 | 11 |
-| a8bab7bfe1e2ed9d3a5b40189c8de51c5974a6e05c71fc1000a6abd57500b365 | 1 | 2 | 2 |

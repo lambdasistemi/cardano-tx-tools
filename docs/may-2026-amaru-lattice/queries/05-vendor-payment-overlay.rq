@@ -3,7 +3,7 @@ PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
-SELECT ?vendor ?vendorLabel ?attestation ?attestationLabel ?ipfs
+SELECT ?vendorLabel ?attestationLabel ?ipfs
        ((xsd:decimal(?usdmTotalAtBridgeRaw) / 1000000) AS ?usdmTotalAtBridge)
 WHERE {
   {
@@ -24,10 +24,15 @@ WHERE {
     }
     GROUP BY ?bridgeEntity
   }
-  ?vendor cardano:paidVia ?bridgeEntity .
-  ?attestation cardano:attests ?vendor ;
-               cardano:ipfs ?ipfs .
-  OPTIONAL { ?vendor rdfs:label ?vendorLabel . }
-  OPTIONAL { ?attestation rdfs:label ?attestationLabel . }
+  {
+    SELECT DISTINCT ?bridgeEntity ?vendorLabel ?attestationLabel ?ipfs
+    WHERE {
+      ?vendor cardano:paidVia ?bridgeEntity ;
+              rdfs:label ?vendorLabel .
+      ?attestation cardano:attests ?vendor ;
+                   cardano:ipfs ?ipfs ;
+                   rdfs:label ?attestationLabel .
+    }
+  }
 }
-ORDER BY ?vendor ?attestation
+ORDER BY ?vendorLabel ?attestationLabel ?ipfs

@@ -4,13 +4,32 @@ Runnable SPARQL: [`12-seed-input-resolution-cardinality.rq`](12-seed-input-resol
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
+
+| seedSpendingInputs | resolvedOnceInputs | unresolvedInputs | ambiguousInputs | unresolvedRef |
+| ---: | ---: | ---: | ---: | --- |
+| 120 | 119 | 1 | 0 | `18d57a4f104df4cc776104ce626958e2110122392e4c4c7671edc8861b48452e` spends `46c11538f39bce1e6d3bf1f9273f30b75b4eb094bbb5d121b76083eab0113d71#0` |
+
+This fails the closure gate. The unresolved seed input is
+`18d57a4f104df4cc776104ce626958e2110122392e4c4c7671edc8861b48452e`
+spending parent output
+`46c11538f39bce1e6d3bf1f9273f30b75b4eb094bbb5d121b76083eab0113d71#0`.
+Until that parent output is in the graph, ADA conservation and the
+contingency disbursement query are not proof-complete.
+
 ## What
 
 This query checks whether every spending input of every seed transaction
 resolves to exactly one parent output in the loaded graph.
 
 It returns four counts: total seed spending inputs, inputs resolved once,
-inputs unresolved, and inputs resolved ambiguously.
+inputs unresolved, and inputs resolved ambiguously. When an unresolved
+input exists, `unresolvedRef` names the seed transaction and parent
+output reference.
 
 ## Why
 
@@ -83,12 +102,3 @@ interpreting any value-flow query.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice.
-
-| seedSpendingInputs | resolvedOnceInputs | unresolvedInputs | ambiguousInputs |
-|---|---|---|---|
-| 120 | 120 | 0 | 0 |

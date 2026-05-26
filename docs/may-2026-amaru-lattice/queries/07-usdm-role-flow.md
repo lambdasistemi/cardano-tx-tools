@@ -4,6 +4,19 @@ Runnable SPARQL: [`07-usdm-role-flow.rq`](07-usdm-role-flow.rq)
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. USDM quantities are decimal USDM.
+
+| role | usdm_in | usdm_out | net_usdm |
+| --- | ---: | ---: | ---: |
+| amaru-treasury.network_compliance | 1146156.659602 | 1554849.981833 | -408693.322231 |
+| amaru.cag-payee | 418750.000000 | 0.000000 | 418750.000000 |
+| sundae.swap.v3.order | 0.000000 | 7405.444311 | -7405.444311 |
+| wallet.other | 490819.149109 | 493470.382567 | -2651.233458 |
+
 ## What
 
 This query computes USDM flow by ledger role. It reports USDM entering a
@@ -86,15 +99,3 @@ Query 13 should show a non-zero USDM conservation gap.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/07-usdm-role-flow.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice. USDM quantities are decimal USDM.
-
-| role | usdm_in | usdm_out | net_usdm |
-|---|---|---|---|
-| amaru-treasury.network_compliance | 1146156.659602 | 1554849.981833 | -408693.322231 |
-| amaru.cag-payee | 418750.000000 | 0.000000 | 418750.000000 |
-| sundae.swap.v3.order | 0.000000 | 7405.444311 | -7405.444311 |
-| wallet.other | 490819.149109 | 493470.382567 | -2651.233458 |

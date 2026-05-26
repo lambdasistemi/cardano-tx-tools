@@ -4,6 +4,18 @@ Runnable SPARQL: [`04-required-signer-distribution.rq`](04-required-signer-distr
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
+
+| requiredSigners | txCount |
+| ---: | ---: |
+| 4 | 1 |
+| 2 | 23 |
+| 1 | 6 |
+
 ## What
 
 This query counts how many seed transactions required zero, one, two, or
@@ -67,14 +79,3 @@ signer cardinality needed to distinguish transaction classes.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/04-required-signer-distribution.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice.
-
-| requiredSigners | txCount |
-|---|---|
-| 4 | 1 |
-| 2 | 23 |
-| 1 | 6 |

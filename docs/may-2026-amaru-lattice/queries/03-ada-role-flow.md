@@ -4,6 +4,26 @@ Runnable SPARQL: [`03-ada-role-flow.rq`](03-ada-role-flow.rq)
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
+
+| role | adaIn | adaOut | netAda |
+| --- | ---: | ---: | ---: |
+| amaru-treasury.contingency | 3852000.000000 | 0.000000 | 3852000.000000 |
+| amaru-treasury.network_compliance | 14923951.458216 | 16209772.179866 | -1285820.721650 |
+| amaru.cag-payee | 2.379120 | 0.000000 | 2.379120 |
+| amaru.network-operator | 2391.518562 | 2410.553271 | -19.034709 |
+| amaru.swap-order | 1543640.747472 | 90940.160191 | 1452700.587281 |
+| sundae.swap.v3.order | 0.000000 | 26.240000 | -26.240000 |
+| wallet.other | 1864091.867622 | 1825948.769062 | 38143.098560 |
+
+Read this together with Query 12. Because one seed input is unresolved,
+the ADA role flow is not yet a closed proof; the contingency row is
+missing the corresponding resolved spend side.
+
 ## What
 
 This query computes ADA flow by ledger role. For each role, it reports
@@ -91,18 +111,3 @@ returned to it.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/03-ada-role-flow.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice. ADA quantities are decimal ADA.
-
-| role | adaIn | adaOut | netAda |
-|---|---|---|---|
-| amaru-treasury.contingency | 3852000.000000 | 4057000.000000 | -205000.000000 |
-| amaru-treasury.network_compliance | 14923951.458216 | 16209772.179866 | -1285820.721650 |
-| amaru.cag-payee | 2.379120 | 0.000000 | 2.379120 |
-| amaru.network-operator | 2391.518562 | 2410.553271 | -19.034709 |
-| amaru.swap-order | 1543640.747472 | 90940.160191 | 1452700.587281 |
-| sundae.swap.v3.order | 0.000000 | 26.240000 | -26.240000 |
-| wallet.other | 1864091.867622 | 1825948.769062 | 38143.098560 |

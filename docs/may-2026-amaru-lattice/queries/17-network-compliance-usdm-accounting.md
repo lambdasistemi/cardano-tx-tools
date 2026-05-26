@@ -4,6 +4,20 @@ Runnable SPARQL: [`17-network-compliance-usdm-accounting.rq`](17-network-complia
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the
+state-audit graph. USDM quantities are decimal USDM.
+
+| treasuryLabel | treasuryAddress | startUsdm | swapReceiptTxs | swapReceiptsUsdm | beneficiaryPaymentTxs | beneficiaryPaymentsUsdm | terminalUtxos | terminalUsdm | usdmGap |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| amaru-treasury.network_compliance | `addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk` | 0.000000 | 51 | 425131.618692 | 2 | 418750.000000 | 5 | 6381.618692 | 0.000000 |
+
+```text
+0 + 425,131.618692 - 418,750.000000 - 6,381.618692 = 0
+```
+
 ## What
 
 This query is the user-facing balance sheet for the May 2026
@@ -73,17 +87,4 @@ cached balance.
 
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.rq"
-```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are decimal USDM.
-
-| treasuryLabel | treasuryAddress | startUsdm | swapReceiptTxs | swapReceiptsUsdm | beneficiaryPaymentTxs | beneficiaryPaymentsUsdm | terminalUtxos | terminalUsdm | usdmGap |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| amaru-treasury.network_compliance | `addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk` | 0.000000 | 51 | 425131.618692 | 2 | 418750.000000 | 5 | 6381.618692 | 0.000000 |
-
-```text
-0 + 425,131.618692 - 418,750.000000 - 6,381.618692 = 0
 ```

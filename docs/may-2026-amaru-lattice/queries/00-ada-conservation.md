@@ -4,6 +4,21 @@ Runnable SPARQL: [`00-ada-conservation.rq`](00-ada-conservation.rq)
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
+
+| totalSeedInputAda | totalSeedOutputAda | totalSeedFeeAda | gapAda |
+| ---: | ---: | ---: | ---: |
+| 18129097.902390 | 22186077.970992 | 19.931398 | -4057000.000000 |
+
+This result fails the conservation gate. The current graph resolves one
+seed input too few, so the input side is short by `4,057,000 ADA`. Query
+12 is the follow-up proof gate that identifies the unresolved closure
+edge.
+
 ## What
 
 This query asks whether the seed transactions conserve ADA at the UTxO
@@ -82,12 +97,3 @@ whether any seed input failed to resolve to exactly one parent output.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/00-ada-conservation.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice. ADA quantities are decimal ADA.
-
-| totalSeedInputAda | totalSeedOutputAda | totalSeedFeeAda | gapAda |
-|---|---|---|---|
-| 22186097.902390 | 22186077.970992 | 19.931398 | 0.000000 |

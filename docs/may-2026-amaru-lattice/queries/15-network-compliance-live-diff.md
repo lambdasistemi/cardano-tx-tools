@@ -4,6 +4,16 @@ Runnable SPARQL: [`15-network-compliance-live-diff.rq`](15-network-compliance-li
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the state-audit
+graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
+quantities are decimal USDM. No data rows were returned.
+
+| side | txId | ix | graphAda | graphUsdm | liveAda | liveUsdm |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+
 ## What
 
 This query compares the graph-derived terminal UTxO set for
@@ -94,12 +104,3 @@ boundary mismatch.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the state-audit
-graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
-quantities are decimal USDM. No data rows were returned.
-
-| side | txId | ix | graphAda | graphUsdm | liveAda | liveUsdm |
-|---|---|---|---|---|---|---|

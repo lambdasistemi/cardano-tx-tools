@@ -10,11 +10,13 @@ SELECT (COUNT(?input) AS ?seedSpendingInputs)
        (SUM(IF(?matches = 1, 1, 0)) AS ?resolvedOnceInputs)
        (SUM(IF(?matches = 0, 1, 0)) AS ?unresolvedInputs)
        (SUM(IF(?matches > 1, 1, 0)) AS ?ambiguousInputs)
+       (MAX(IF(?matches = 0, CONCAT(?seedTxId, " spends ", ?parentTxId, "#", STR(?ix)), "")) AS ?unresolvedRef)
 WHERE {
   {
-    SELECT ?input (COUNT(DISTINCT ?parentOut) AS ?matches)
+    SELECT ?input ?seedTxId ?parentTxId ?ix (COUNT(DISTINCT ?parentOut) AS ?matches)
     WHERE {
       ?seed cardano:hasLatticeRole "seed" ;
+            cardano:hasTxId/cardano:bytesHex ?seedTxId ;
             cardano:hasInput ?input .
       ?input cardano:fromTxOutRef ?ref .
       ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
@@ -26,6 +28,6 @@ WHERE {
         ?parentOut cardano:hasIndex ?ix .
       }
     }
-    GROUP BY ?input
+    GROUP BY ?input ?seedTxId ?parentTxId ?ix
   }
 }

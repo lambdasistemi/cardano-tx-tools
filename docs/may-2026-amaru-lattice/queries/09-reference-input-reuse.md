@@ -4,6 +4,20 @@ Runnable SPARQL: [`09-reference-input-reuse.rq`](09-reference-input-reuse.rq)
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice.
+
+| parentTxId | ix | usingSeedTxs |
+| --- | ---: | --- |
+| 11ace24a7b0caad4a68a38ef2fff18185dc9ea604e84425dab487cae94e4cf54 | 0 | 28 |
+| 25ba96f5deb14bb5c56e7542d6a9ba8450f52cc698ebd74574e1a0525d861095 | 2 | 27 |
+| 810bfcbde85ae72f27d7e8cd154c03c802de15d3fa0dd83a32a4b0fdba330b3c | 0 | 27 |
+| e7b395a93d49a17994d66df0e4778a01dee05e7711e6612f28d97b63e4e6311c | 2 | 27 |
+| f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2 | 0 | 2 |
+
 ## What
 
 This query lists the most reused reference inputs in the May seed set.
@@ -65,16 +79,3 @@ not include the expected script transactions.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/09-reference-input-reuse.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice.
-
-| parentTxId | ix | usingSeedTxs |
-|---|---|---|
-| 11ace24a7b0caad4a68a38ef2fff18185dc9ea604e84425dab487cae94e4cf54 | 0 | 28 |
-| 25ba96f5deb14bb5c56e7542d6a9ba8450f52cc698ebd74574e1a0525d861095 | 2 | 27 |
-| 810bfcbde85ae72f27d7e8cd154c03c802de15d3fa0dd83a32a4b0fdba330b3c | 0 | 27 |
-| e7b395a93d49a17994d66df0e4778a01dee05e7711e6612f28d97b63e4e6311c | 2 | 27 |
-| f5f1bdfad3eb4d67d2fc36f36f47fc2938cf6f001689184ab320735a28642cf2 | 0 | 2 |

@@ -4,6 +4,23 @@ Runnable SPARQL: [`21-treasury-usdm-payers.rq`](21-treasury-usdm-payers.rq)
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the
+state-audit graph. USDM quantities are decimal USDM.
+
+| payerLabel | payerEvidence | treasuryLabel | treasuryAddress | receiptTxs | receiptOutputs | usdmReceived |
+| --- | --- | --- | --- | ---: | ---: | ---: |
+| sundae.swap.v3.order-consumers | producer consumes Sundae V3 order UTxO and emits USDM to network_compliance | amaru-treasury.network_compliance | `addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk` | 51 | 54 | 425131.618692 |
+
+```text
+425,131.618692 USDM paid into network_compliance by SundaeSwap V3 order consumers
+```
+
+This aggregate matches Query 17's `swapReceiptsUsdm` value and Query
+19's full receipt-by-receipt drill-down.
+
 ## What
 
 This query answers the incoming-side question: who paid USDM into the
@@ -84,19 +101,3 @@ multiplying the receipt amount.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/21-treasury-usdm-payers.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are decimal USDM.
-
-| payerLabel | treasuryLabel | receiptTxs | receiptOutputs | usdmReceived |
-|---|---|---:|---:|---:|
-| sundae.swap.v3.order-consumers | amaru-treasury.network_compliance | 51 | 54 | 425131.618692 |
-
-```text
-425,131.618692 USDM paid into network_compliance by SundaeSwap V3 order consumers
-```
-
-This aggregate matches Query 17's `swapReceiptsUsdm` value and Query
-19's full receipt-by-receipt drill-down.

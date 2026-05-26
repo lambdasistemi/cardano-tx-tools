@@ -4,6 +4,20 @@ Runnable SPARQL: [`02-usdm-output-addresses.rq`](02-usdm-output-addresses.rq)
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the
+state-audit graph. USDM quantities are decimal USDM.
+
+| treasuryLabel | treasuryAddress | payeeLabel | payeeAddress | paymentTxs | paymentOutputs | usdmPaid |
+| --- | --- | --- | --- | ---: | ---: | ---: |
+| amaru-treasury.network_compliance | `addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk` | amaru.cag-payee | `addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl` | 2 | 2 | 418750.000000 |
+
+```text
+418,750.000000 USDM paid by network_compliance to the CAG payee bridge
+```
+
 ## What
 
 This query lists USDM recipients paid by the
@@ -93,17 +107,4 @@ from multiplying the paid output amount.
 
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq"
-```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are decimal USDM.
-
-| treasuryLabel | payeeLabel | paymentTxs | paymentOutputs | usdmPaid |
-|---|---|---:|---:|---:|
-| amaru-treasury.network_compliance | amaru.cag-payee | 2 | 2 | 418750.000000 |
-
-```text
-418,750.000000 USDM paid by network_compliance to the CAG payee bridge
 ```

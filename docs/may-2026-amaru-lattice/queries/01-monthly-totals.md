@@ -4,6 +4,16 @@ Runnable SPARQL: [`01-monthly-totals.rq`](01-monthly-totals.rq)
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the May 2026
+lattice. ADA quantities are decimal ADA.
+
+| seedTxCount | totalFeeAda | minFeeAda | maxFeeAda |
+| ---: | ---: | ---: | ---: |
+| 30 | 19.931398 | 0.244261 | 1.572508 |
+
 ## What
 
 This query summarizes the seed set itself. It counts the transactions
@@ -68,12 +78,3 @@ list and lattice-role tagging are fixed.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/01-monthly-totals.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the May 2026
-lattice. ADA quantities are decimal ADA.
-
-| seedTxCount | totalFeeAda | minFeeAda | maxFeeAda |
-|---|---|---|---|
-| 30 | 19.931398 | 0.244261 | 1.572508 |

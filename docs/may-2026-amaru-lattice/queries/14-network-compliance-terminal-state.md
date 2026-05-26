@@ -4,6 +4,21 @@ Runnable SPARQL: [`14-network-compliance-terminal-state.rq`](14-network-complian
 
 Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
 
+
+## Result
+
+This table is the CSV result produced by Apache Jena over the state-audit
+graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
+quantities are decimal USDM.
+
+| txId | ix | ada | usdm |
+| --- | ---: | ---: | ---: |
+| `44454ed0def64621ef645958830f599b488b699b28e3797cc37c4f4dd1463a79` | 1 | 2.000000 | 0.000000 |
+| `68a1277af23755376967e788752c603044f45ea0d99220b3b5dfc7d617642b6b` | 1 | 2.306000 | 5011.215241 |
+| `affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982` | 0 | 120.299272 | 1349.523953 |
+| `cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082` | 1 | 2.306000 | 10.439974 |
+| `cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082` | 2 | 2.306000 | 10.439524 |
+
 ## What
 
 This query computes the graph-derived terminal UTxO set for the
@@ -84,17 +99,3 @@ the result suitable for comparing both ADA and USDM state.
 ```sparql
 --8<-- "docs/may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq"
 ```
-
-## Result
-
-This table is the CSV result produced by Apache Jena over the state-audit
-graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
-quantities are decimal USDM.
-
-| txId | ix | ada | usdm |
-|---|---|---|---|
-| 44454ed0def64621ef645958830f599b488b699b28e3797cc37c4f4dd1463a79 | 1 | 2.000000 | 0.000000 |
-| 68a1277af23755376967e788752c603044f45ea0d99220b3b5dfc7d617642b6b | 1 | 2.306000 | 5011.215241 |
-| affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982 | 0 | 120.299272 | 1349.523953 |
-| cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082 | 1 | 2.306000 | 10.439974 |
-| cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082 | 2 | 2.306000 | 10.439524 |
