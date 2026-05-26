@@ -1,0 +1,15 @@
+{
+  "source": "github.com/SundaeSwap-finance/sundae-contracts",
+  "ref": "be33466b7dbe0f8e6c0e0f46ff23737897f45835",
+  "fetched_at": "2026-05-02",
+  "license": "Apache-2.0",
+  "validators_used": [
+    {
+      "title": "order.spend",
+      "hash": "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077",
+      "parameterized": false,
+      "datum_typed_schema_source": "lib/types/order.ak (depends on lib/shared.ak and KtorZ/aicone @ a9ae9ef8b6bdb183ea020ea97f6b648f9343924e for sundae/multisig.ak)"
+    }
+  ],
+  "refresh_command": "gh api -H 'Accept: application/vnd.github.raw' 'repos/SundaeSwap-finance/sundae-contracts/contents/plutus.json?ref=<NEW_REF>' > plutus.json"
+}

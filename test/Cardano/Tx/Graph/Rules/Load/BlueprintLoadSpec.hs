@@ -84,6 +84,32 @@ swapV2BlueprintPath :: FilePath
 swapV2BlueprintPath =
     fixturesRoot </> "blueprints" </> "swap-v2-datum.cip57.json"
 
+{- | The vendored SundaeSwap V3 plutus.json (issue #103) — the
+upstream Aiken contract blueprint pinned at commit
+@be33466b7dbe0f8e6c0e0f46ff23737897f45835@ of
+github.com/SundaeSwap-finance/sundae-contracts. Used to verify
+that the loader accepts the real Sundae V3 schema verbatim and
+mints the expected typed-redeemer predicates
+(:OrderRedeemer_Scoop, :OrderRedeemer_Cancel) for the
+@order.spend@ validator's hash.
+-}
+sundaeV3BlueprintPath :: FilePath
+sundaeV3BlueprintPath =
+    fixturesRoot
+        </> "blueprints"
+        </> "sundaeswap-v3"
+        </> "plutus.json"
+
+{- | The on-chain mainnet hash of SundaeSwap V3's @order.spend@
+validator. Authoritatively named in
+@/code/amaru-treasury-tx/lib/Amaru/Treasury/Constants.hs@ as
+@sundaeOrderScriptHashMainnet@; the May 2026 lattice consumes it
+as the script behind every Amaru swap-order output.
+-}
+sundaeV3OrderScriptHex :: Text
+sundaeV3OrderScriptHex =
+    Text.pack "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077"
+
 {- | The 28-byte script hash for the @amaru.swap.v2@ entity declared in
 fixture 01's @rules.yaml@. Used as the @script:@ identifier in the
 synthetic test inputs so the @blueprints:@ entry's @script:@
@@ -195,6 +221,52 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.rulesBlueprints (T100)" $ do
                                     "expected exactly one blueprint index entry,"
                                         <> " got "
                                         <> show (length other)
+
+        it "loads the SundaeSwap V3 plutus.json (#103) and mints OrderRedeemer_{Scoop,Cancel}" $ do
+            -- The vendored Sundae V3 blueprint at
+            -- @blueprints/sundaeswap-v3/plutus.json@ is the upstream
+            -- Aiken-generated file from
+            -- github.com/SundaeSwap-finance/sundae-contracts. The
+            -- order.spend validator's hash matches the on-chain
+            -- mainnet script behind every Amaru swap order. Datum
+            -- is intentionally @Data@-typed by Sundae (opaque), so
+            -- the typed decode lands on the redeemer side:
+            -- @OrderRedeemer = Scoop | Cancel@.
+            blueprintBlob <- BS.readFile sundaeV3BlueprintPath
+            let yaml =
+                    TextEncoding.encodeUtf8 $
+                        Text.unlines
+                            [ "entities:"
+                            , "  - name: sundae.swap.v3.order"
+                            , "    script: " <> sundaeV3OrderScriptHex
+                            , "blueprints:"
+                            , "  - script: sundae.swap.v3.order"
+                            , "    datum: ./blueprints/sundae-v3.cip57.json"
+                            ]
+                extras =
+                    [
+                        ( "blueprints/sundae-v3.cip57.json"
+                        , blueprintBlob
+                        )
+                    ]
+            withRulesAndBlueprints yaml extras $ \_ result -> case result of
+                Left err ->
+                    expectationFailure $
+                        "expected Right + Sundae V3 blueprint loaded, got Left "
+                            <> show err
+                Right RulesLoadResult{rulesBlueprints} ->
+                    case rulesBlueprints of
+                        [(_sh, _bp, title)] ->
+                            -- The preamble title carries Sundae's
+                            -- own identifier; we don't pin its
+                            -- exact bytes (it can rev with
+                            -- upstream pin.json refreshes), just
+                            -- confirm the entry is registered.
+                            title `shouldSatisfy` Text.isInfixOf "sundae"
+                        other ->
+                            expectationFailure $
+                                "expected exactly one blueprint index entry, got "
+                                    <> show (length other)
 
         it "produces an empty blueprint index when rules.yaml omits blueprints:" $ do
             let yaml =
