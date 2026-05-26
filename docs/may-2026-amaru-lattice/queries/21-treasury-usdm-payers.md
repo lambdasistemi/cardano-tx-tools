@@ -88,13 +88,11 @@ multiplying the receipt amount.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are base units.
+state-audit graph. USDM quantities are decimal USDM.
 
 | payerLabel | treasuryLabel | receiptTxs | receiptOutputs | usdmReceived |
 |---|---|---:|---:|---:|
-| sundae.swap.v3.order-consumers | amaru-treasury.network_compliance | 51 | 54 | 425131618692 |
-
-Read in decimal USDM:
+| sundae.swap.v3.order-consumers | amaru-treasury.network_compliance | 51 | 54 | 425131.618692 |
 
 ```text
 425,131.618692 USDM paid into network_compliance by SundaeSwap V3 order consumers

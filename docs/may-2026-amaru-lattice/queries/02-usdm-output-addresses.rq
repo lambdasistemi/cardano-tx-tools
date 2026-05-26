@@ -1,6 +1,7 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # USDM recipients paid by the network_compliance treasury.
 #
@@ -17,7 +18,7 @@ SELECT ?treasuryLabel ?treasuryAddress
        ?payeeLabel ?payeeAddress
        (COUNT(DISTINCT ?paymentTxId) AS ?paymentTxs)
        (COUNT(DISTINCT ?paymentOutputRef) AS ?paymentOutputs)
-       (SUM(?paymentUsdm) AS ?usdmPaid)
+       ((xsd:decimal(SUM(?paymentUsdm)) / 1000000) AS ?usdmPaid)
 WHERE {
   BIND("amaru-treasury.network_compliance" AS ?treasuryLabel)
 

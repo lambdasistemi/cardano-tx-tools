@@ -24,12 +24,11 @@ This is the direct answer to "why is there 6k USDM left?". The remainder
 is not inferred from prose and it is not a live-node lookup. It is the
 graph recomputing the equation from transactions:
 
-- 51 swap receipt transactions return `425,131,618,692` USDM base units
-  to network_compliance.
-- 2 beneficiary payment transactions send `418,750,000,000` USDM base
-  units to the CAG payee bridge.
-- 5 terminal network_compliance UTxOs hold `6,381,618,692` USDM base
-  units.
+- 51 swap receipt transactions return `425,131.618692` USDM to
+  network_compliance.
+- 2 beneficiary payment transactions send `418,750.000000` USDM to the
+  CAG payee bridge.
+- 5 terminal network_compliance UTxOs hold `6,381.618692` USDM.
 - The accounting gap is zero.
 
 ## Diagram
@@ -79,13 +78,11 @@ cached balance.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are base units.
+state-audit graph. USDM quantities are decimal USDM.
 
 | treasuryLabel | treasuryAddress | startUsdm | swapReceiptTxs | swapReceiptsUsdm | beneficiaryPaymentTxs | beneficiaryPaymentsUsdm | terminalUtxos | terminalUsdm | usdmGap |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| amaru-treasury.network_compliance | `addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk` | 0 | 51 | 425131618692 | 2 | 418750000000 | 5 | 6381618692 | 0 |
-
-Read in decimal USDM, that is:
+| amaru-treasury.network_compliance | `addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk` | 0.000000 | 51 | 425131.618692 | 2 | 418750.000000 | 5 | 6381.618692 | 0.000000 |
 
 ```text
 0 + 425,131.618692 - 418,750.000000 - 6,381.618692 = 0

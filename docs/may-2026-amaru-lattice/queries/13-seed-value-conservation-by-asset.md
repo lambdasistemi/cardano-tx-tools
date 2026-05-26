@@ -84,10 +84,10 @@ set includes mint/burn semantics that need to be modeled explicitly.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the May 2026
-lattice. ADA quantities are decimal ADA; USDM quantities are base units.
+lattice. ADA and USDM quantities are decimal units.
 
 | assetId | totalInputQty | totalOutputQty | gap |
 |---|---|---|---|
-| c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d | 2055725808711 | 2055725808711 | 0 |
-| e0302560ced2fdcbfcb2602697df970cd0d6a38f94b32703f51c312b000de14064f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef | 1 | 1 | 0 |
 | ada | 22186097.902390 | 22186097.902390 | 0.000000 |
+| e0302560ced2fdcbfcb2602697df970cd0d6a38f94b32703f51c312b000de14064f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540ef | 1 | 1 | 0 |
+| usdm | 2055725.808711 | 2055725.808711 | 0.000000 |

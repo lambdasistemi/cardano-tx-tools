@@ -20,13 +20,13 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 #   live_not_graph_terminal = missing producer txs in the graph
 SELECT ?side ?txId ?ix
        ((xsd:decimal(?graphLovelace) / 1000000) AS ?graphAda)
-       ?graphUsdm
+       ((xsd:decimal(?graphUsdmRaw) / 1000000) AS ?graphUsdm)
        ((xsd:decimal(?liveLovelace) / 1000000) AS ?liveAda)
-       ?liveUsdm
+       ((xsd:decimal(?liveUsdmRaw) / 1000000) AS ?liveUsdm)
 WHERE {
   {
     {
-      SELECT ?txId ?ix ?graphLovelace (SUM(COALESCE(?usdmRaw, 0)) AS ?graphUsdm)
+      SELECT ?txId ?ix ?graphLovelace (SUM(COALESCE(?usdmRaw, 0)) AS ?graphUsdmRaw)
       WHERE {
         ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
                            cardano:bech32 ?networkComplianceBech32 .
@@ -66,7 +66,7 @@ WHERE {
           live:txId ?txId ;
           live:index ?ix ;
           live:lovelace ?liveLovelace ;
-          live:usdm ?liveUsdm .
+          live:usdm ?liveUsdmRaw .
     ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
                        cardano:bech32 ?networkComplianceBech32 .
     FILTER NOT EXISTS {

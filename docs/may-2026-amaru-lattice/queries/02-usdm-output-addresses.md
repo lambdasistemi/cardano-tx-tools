@@ -98,13 +98,11 @@ from multiplying the paid output amount.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are base units.
+state-audit graph. USDM quantities are decimal USDM.
 
 | treasuryLabel | payeeLabel | paymentTxs | paymentOutputs | usdmPaid |
 |---|---|---:|---:|---:|
-| amaru-treasury.network_compliance | amaru.cag-payee | 2 | 2 | 418750000000 |
-
-Read in decimal USDM:
+| amaru-treasury.network_compliance | amaru.cag-payee | 2 | 2 | 418750.000000 |
 
 ```text
 418,750.000000 USDM paid by network_compliance to the CAG payee bridge

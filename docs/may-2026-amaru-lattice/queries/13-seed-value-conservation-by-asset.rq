@@ -72,9 +72,10 @@ WHERE {
     GROUP BY ?rawAssetId
   }
 
-  BIND (IF(?rawAssetId = "lovelace", "ada", ?rawAssetId) AS ?assetId)
-  BIND (IF(?rawAssetId = "lovelace", xsd:decimal(?rawInputQty) / 1000000, ?rawInputQty) AS ?totalInputQty)
-  BIND (IF(?rawAssetId = "lovelace", xsd:decimal(?rawOutputQty) / 1000000, ?rawOutputQty) AS ?totalOutputQty)
-  BIND (IF(?rawAssetId = "lovelace", xsd:decimal(?rawGap) / 1000000, ?rawGap) AS ?gap)
+  BIND ("c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" AS ?usdmAssetId)
+  BIND (IF(?rawAssetId = "lovelace", "ada", IF(?rawAssetId = ?usdmAssetId, "usdm", ?rawAssetId)) AS ?assetId)
+  BIND (IF(?rawAssetId = "lovelace" || ?rawAssetId = ?usdmAssetId, xsd:decimal(?rawInputQty) / 1000000, ?rawInputQty) AS ?totalInputQty)
+  BIND (IF(?rawAssetId = "lovelace" || ?rawAssetId = ?usdmAssetId, xsd:decimal(?rawOutputQty) / 1000000, ?rawOutputQty) AS ?totalOutputQty)
+  BIND (IF(?rawAssetId = "lovelace" || ?rawAssetId = ?usdmAssetId, xsd:decimal(?rawGap) / 1000000, ?rawGap) AS ?gap)
 }
 ORDER BY ?assetId

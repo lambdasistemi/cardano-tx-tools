@@ -90,11 +90,11 @@ Query 13 should show a non-zero USDM conservation gap.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the May 2026
-lattice. USDM quantities are base units.
+lattice. USDM quantities are decimal USDM.
 
 | role | usdm_in | usdm_out | net_usdm |
 |---|---|---|---|
-| amaru-treasury.network_compliance | 1146156659602 | 1554849981833 | -408693322231 |
-| amaru.cag-payee | 418750000000 | 0 | 418750000000 |
-| sundae.swap.v3.order | 0 | 7405444311 | -7405444311 |
-| wallet.other | 490819149109 | 493470382567 | -2651233458 |
+| amaru-treasury.network_compliance | 1146156.659602 | 1554849.981833 | -408693.322231 |
+| amaru.cag-payee | 418750.000000 | 0.000000 | 418750.000000 |
+| sundae.swap.v3.order | 0.000000 | 7405.444311 | -7405.444311 |
+| wallet.other | 490819.149109 | 493470.382567 | -2651.233458 |

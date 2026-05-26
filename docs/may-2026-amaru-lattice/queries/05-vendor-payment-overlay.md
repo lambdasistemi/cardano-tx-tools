@@ -97,11 +97,11 @@ are joined inside SPARQL over one emitted graph.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the May 2026
-lattice. USDM quantities are base units.
+lattice. USDM quantities are decimal USDM.
 
 | vendor | vendorLabel | attestation | attestationLabel | ipfs | usdmTotalAtBridge |
 |---|---|---|---|---|---|
-| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_antithesis | amaru.antithesis | b0 | Invoice INV-635 | ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam | 418750000000 |
-| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b1 | May 2026 cycle review | ipfs://bafybeihdmnitrbu2oir3r2fefnpqy3bk7zdz42olzmltmxyt5xag4i2t5a | 418750000000 |
-| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b2 | Contract | ipfs://bafybeib3jef34ndw6oe24mkmifdvxe5jrv7ulh63rdllovyth27mqfj2da | 418750000000 |
-| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b3 | Invoice #3508 | ipfs://bafybeigy37ui2ikn7bim2vw6cojcbxkcndpjwh7cj5fv3vzs4cszezipxu | 418750000000 |
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_antithesis | amaru.antithesis | b0 | Invoice INV-635 | ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam | 418750.000000 |
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b1 | May 2026 cycle review | ipfs://bafybeihdmnitrbu2oir3r2fefnpqy3bk7zdz42olzmltmxyt5xag4i2t5a | 418750.000000 |
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b2 | Contract | ipfs://bafybeib3jef34ndw6oe24mkmifdvxe5jrv7ulh63rdllovyth27mqfj2da | 418750.000000 |
+| https://lambdasistemi.github.io/cardano-tx-tools/fixtures/may-2026-amaru-lattice#amaru_castellum | amaru.castellum | b3 | Invoice #3508 | ipfs://bafybeigy37ui2ikn7bim2vw6cojcbxkcndpjwh7cj5fv3vzs4cszezipxu | 418750.000000 |

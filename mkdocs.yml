@@ -36,9 +36,11 @@ plugins:
 
 markdown_extensions:
   - admonition
+  - attr_list
   - tables
   - footnotes
   - def_list
+  - md_in_html
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -52,6 +54,9 @@ markdown_extensions:
       alternate_style: true
   - pymdownx.tasklist:
       custom_checkbox: true
+
+extra_css:
+  - assets/css/query-grid.css
 
 extra_javascript:
   - assets/js/read-aloud.js

@@ -17,8 +17,8 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 #   245000 means 0.245000 USDM / ADA.
 SELECT ?swapTxId ?orderInputs
        ((xsd:decimal(?orderLovelace) / 1000000) AS ?orderAda)
-       ?receivedUsdm
-       (xsd:integer(ROUND((xsd:decimal(?receivedUsdm) * 1000000) / xsd:decimal(?orderLovelace))) AS ?realizedUsdmPerAdaPpm)
+       ((xsd:decimal(?receivedUsdmRaw) / 1000000) AS ?receivedUsdm)
+       (xsd:integer(ROUND((xsd:decimal(?receivedUsdmRaw) * 1000000) / xsd:decimal(?orderLovelace))) AS ?realizedUsdmPerAdaPpm)
        ?orderRefs
 WHERE {
   {
@@ -62,7 +62,7 @@ WHERE {
   {
     # Second half of the join: from those same producer transactions, sum the
     # USDM outputs that return to the network_compliance treasury.
-    SELECT ?swapTx (SUM(?qty) AS ?receivedUsdm)
+    SELECT ?swapTx (SUM(?qty) AS ?receivedUsdmRaw)
     WHERE {
       # Full asset id, not ticker.
       VALUES ?usdmAssetId {

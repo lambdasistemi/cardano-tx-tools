@@ -25,8 +25,8 @@ no rows, Query 16 should also show zero gaps. If Query 16 shows a gap,
 use Query 15 to find the exact rows causing it.
 
 This is also the direct answer to the USDM accounting question: the live
-snapshot contains 6,381,618,692 USDM base units at network_compliance,
-and the graph recomputes the same amount from the loaded transactions.
+snapshot contains 6,381.618692 USDM at network_compliance, and the graph
+recomputes the same amount from the loaded transactions.
 
 ## Diagram
 
@@ -80,8 +80,8 @@ should produce zero for both gaps.
 
 This table is the CSV result produced by Apache Jena over the state-audit
 graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
-quantities are base units.
+quantities are decimal USDM.
 
 | graphTerminalUtxos | graphTerminalAda | graphTerminalUsdm | liveUtxos | liveAda | liveUsdm | adaGap | usdmGap |
 |---|---|---|---|---|---|---|---|
-| 5 | 129.217272 | 6381618692 | 5 | 129.217272 | 6381618692 | 0.000000 | 0 |
+| 5 | 129.217272 | 6381.618692 | 5 | 129.217272 | 6381.618692 | 0.000000 | 0.000000 |

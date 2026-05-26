@@ -1,6 +1,7 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # USDM payers into the network_compliance treasury.
 #
@@ -25,7 +26,7 @@ SELECT ?payerLabel ?payerEvidence
        ?treasuryLabel ?treasuryAddress
        (COUNT(DISTINCT ?receiptTxId) AS ?receiptTxs)
        (COUNT(DISTINCT ?receiptOutputRef) AS ?receiptOutputs)
-       (SUM(?receiptUsdm) AS ?usdmReceived)
+       ((xsd:decimal(SUM(?receiptUsdm)) / 1000000) AS ?usdmReceived)
 WHERE {
   BIND("sundae.swap.v3.order-consumers" AS ?payerLabel)
   BIND("producer consumes Sundae V3 order UTxO and emits USDM to network_compliance" AS ?payerEvidence)

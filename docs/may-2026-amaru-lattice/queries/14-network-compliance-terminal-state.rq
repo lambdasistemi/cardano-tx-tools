@@ -11,7 +11,7 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 # the complete transaction set for the interval, this set must match the
 # live node UTxO set at the same boundary.
 SELECT ?txId ?ix ((xsd:decimal(?lovelace) / 1000000) AS ?ada)
-       (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
+       ((xsd:decimal(SUM(COALESCE(?usdmRaw, 0))) / 1000000) AS ?usdm)
 WHERE {
   ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
                      cardano:bech32 ?networkComplianceBech32 .

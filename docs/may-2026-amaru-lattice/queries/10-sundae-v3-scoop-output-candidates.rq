@@ -9,7 +9,7 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 # matching datum decode or additional off-chain order context.
 SELECT ?scoopTxId ?outputRole ?outputBech32
        ((xsd:decimal(?outputLovelace) / 1000000) AS ?outputAda)
-       (SUM(COALESCE(?usdmRaw, 0)) AS ?outputUsdm)
+       ((xsd:decimal(SUM(COALESCE(?usdmRaw, 0))) / 1000000) AS ?outputUsdm)
 WHERE {
   VALUES ?usdmAssetId {
     "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"

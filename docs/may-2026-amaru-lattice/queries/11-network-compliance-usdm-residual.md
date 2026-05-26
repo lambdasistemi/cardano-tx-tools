@@ -28,7 +28,7 @@ end of the seed set" rather than "moved during the interval."
 
 This is not the current live treasury state. The current-state proof is
 Query 14 plus the Query 15/16 live checks, which run over the extended
-address-history graph and produce 6,381,618,692 USDM base units.
+address-history graph and produce 6,381.618692 USDM.
 
 ## Diagram
 
@@ -83,9 +83,9 @@ boundary.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the 30-seed
-May lattice. ADA quantities are decimal ADA; USDM quantities are base
-units. It is an end-of-seed-set residual, not the live final balance.
+May lattice. ADA quantities are decimal ADA; USDM quantities are decimal
+USDM. It is an end-of-seed-set residual, not the live final balance.
 
 | utxoCount | residualAda | residualUsdm |
 |---|---|---|
-| 1 | 120.299272 | 1349523953 |
+| 1 | 120.299272 | 1349.523953 |

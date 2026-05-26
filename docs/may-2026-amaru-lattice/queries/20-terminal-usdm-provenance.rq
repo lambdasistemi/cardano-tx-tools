@@ -16,16 +16,20 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 # - swap-receipt: the producer consumes at least one Sundae V3 order output;
 # - beneficiary-payment-change: the producer emits USDM to the CAG payee;
 # - treasury-change: neither of the above is visible in the loaded graph.
-SELECT ?terminalTxId ?terminalIx ?terminalUsdm ?producerKind
-       ?producerNetworkUsdm ?swapOrderInputs
+SELECT ?terminalTxId ?terminalIx
+       ((xsd:decimal(?terminalUsdmRaw) / 1000000) AS ?terminalUsdm)
+       ?producerKind
+       ((xsd:decimal(?producerNetworkUsdmRaw) / 1000000) AS ?producerNetworkUsdm)
+       ?swapOrderInputs
        ((xsd:decimal(?swapOrderLovelace) / 1000000) AS ?swapOrderAda)
-       ?swapOrderRefs ?beneficiaryPaymentUsdm
+       ?swapOrderRefs
+       ((xsd:decimal(COALESCE(?beneficiaryPaymentUsdmRaw, 0)) / 1000000) AS ?beneficiaryPaymentUsdm)
 WHERE {
   {
     # Base terminal-state subquery. A terminal output is a network_compliance
     # output carrying USDM whose exact (tx id, index) is not consumed anywhere
     # in the loaded graph.
-    SELECT ?producer ?terminalTxId ?terminalIx ?terminalUsdm
+    SELECT ?producer ?terminalTxId ?terminalIx ?terminalUsdmRaw
     WHERE {
       # Full USDM asset id, not ticker.
       VALUES ?usdmAssetId {
@@ -47,8 +51,8 @@ WHERE {
                    cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
                    cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
       ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
-             cardano:quantity ?terminalUsdm .
-      FILTER(?terminalUsdm > 0)
+             cardano:quantity ?terminalUsdmRaw .
+      FILTER(?terminalUsdmRaw > 0)
 
       # UTxO finality test: if any loaded transaction references this output
       # as an input, it is not part of the terminal state.
@@ -64,7 +68,7 @@ WHERE {
     # Producer summary. A producer can create more than one
     # network_compliance USDM output, so keep the producer-level total beside
     # each terminal output row.
-    SELECT ?producer (SUM(?qty) AS ?producerNetworkUsdm)
+    SELECT ?producer (SUM(?qty) AS ?producerNetworkUsdmRaw)
     WHERE {
       # Same USDM asset id used by the terminal-state subquery.
       VALUES ?usdmAssetId {
@@ -123,7 +127,7 @@ WHERE {
     # Optional beneficiary-payment classifier. If the same producer also emits
     # USDM to the CAG payee bridge, the remaining network_compliance output is
     # treasury change from a beneficiary payment transaction.
-    SELECT ?producer (SUM(?qty) AS ?beneficiaryPaymentUsdm)
+    SELECT ?producer (SUM(?qty) AS ?beneficiaryPaymentUsdmRaw)
     WHERE {
       # Same pinned asset id.
       VALUES ?usdmAssetId {
@@ -151,7 +155,7 @@ WHERE {
   # OPTIONAL variables are unbound when the producer does not match that
   # classifier. COALESCE turns them into zero for deterministic IF tests.
   BIND(COALESCE(?swapOrderInputs, 0) AS ?swapInputs)
-  BIND(COALESCE(?beneficiaryPaymentUsdm, 0) AS ?beneficiaryPaid)
+  BIND(COALESCE(?beneficiaryPaymentUsdmRaw, 0) AS ?beneficiaryPaid)
 
   # Classification precedence matters: a swap producer that also happens to
   # have other outputs should still be described by the order-consumption fact.
@@ -163,4 +167,4 @@ WHERE {
     ) AS ?producerKind
   )
 }
-ORDER BY DESC(?terminalUsdm) ?terminalTxId ?terminalIx
+ORDER BY DESC(?terminalUsdmRaw) ?terminalTxId ?terminalIx

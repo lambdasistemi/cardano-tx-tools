@@ -64,18 +64,18 @@ to `amaru.cag-payee`.
 ## Result
 
 This table is the CSV result produced by Apache Jena over the
-state-audit graph. USDM quantities are base units.
+state-audit graph. USDM quantities are decimal USDM.
 
 | terminalTxId | terminalIx | terminalUsdm | producerKind | producerNetworkUsdm | swapOrderInputs | swapOrderAda | swapOrderRefs | beneficiaryPaymentUsdm |
 |---|---:|---:|---|---:|---:|---:|---|---:|
-| `68a1277af23755376967e788752c603044f45ea0d99220b3b5dfc7d617642b6b` | 1 | 5011215241 | swap-receipt | 5011215241 | 1 | 20411.443266 | `9f119393a85bb9aa0c94f8c649288dabb956b88dcbe055b10e741a2237123420#0` |  |
-| `affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982` | 0 | 1349523953 | beneficiary-payment-change | 1349523953 |  |  |  | 400000000000 |
-| `cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082` | 1 | 10439974 | swap-receipt | 20879498 | 2 | 85.783609 | `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#1`, `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#0` |  |
-| `cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082` | 2 | 10439524 | swap-receipt | 20879498 | 2 | 85.783609 | `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#1`, `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#0` |  |
+| `68a1277af23755376967e788752c603044f45ea0d99220b3b5dfc7d617642b6b` | 1 | 5011.215241 | swap-receipt | 5011.215241 | 1 | 20411.443266 | `9f119393a85bb9aa0c94f8c649288dabb956b88dcbe055b10e741a2237123420#0` | 0.000000 |
+| `affe90d1fa9a93b3e2a48009ef80634e9de8428640f5d673e85b002a86399982` | 0 | 1349.523953 | beneficiary-payment-change | 1349.523953 |  |  |  | 400000.000000 |
+| `cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082` | 1 | 10.439974 | swap-receipt | 20.879498 | 2 | 85.783609 | `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#1`, `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#0` | 0.000000 |
+| `cda0126e9ea7b336bbb338d2bfc7622a41b584e3bebc33c9c320e8895b9bc082` | 2 | 10.439524 | swap-receipt | 20.879498 | 2 | 85.783609 | `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#1`, `10a5c1dafe7dd8d4ab680e35dc53b8b550da90bea55f2c758f36474064f2e598#0` | 0.000000 |
 
 Summed terminal USDM:
 
 ```text
-5,011,215,241 + 1,349,523,953 + 10,439,974 + 10,439,524
-= 6,381,618,692
+5,011.215241 + 1,349.523953 + 10.439974 + 10.439524
+= 6,381.618692
 ```

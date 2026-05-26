@@ -1,11 +1,13 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
-SELECT ?vendor ?vendorLabel ?attestation ?attestationLabel ?ipfs ?usdmTotalAtBridge
+SELECT ?vendor ?vendorLabel ?attestation ?attestationLabel ?ipfs
+       ((xsd:decimal(?usdmTotalAtBridgeRaw) / 1000000) AS ?usdmTotalAtBridge)
 WHERE {
   {
-    SELECT ?bridgeEntity (SUM(?qty) AS ?usdmTotalAtBridge)
+    SELECT ?bridgeEntity (SUM(?qty) AS ?usdmTotalAtBridgeRaw)
     WHERE {
       ?bridgeEntity rdfs:label "amaru.cag-payee" ;
                     cardano:bech32 ?bridgeBech32 .

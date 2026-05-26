@@ -15,13 +15,13 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 # or operator labels beyond the payment address itself.
 SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress
        ((xsd:decimal(?lovelace) / 1000000) AS ?ada)
-       ?usdm
+       ((xsd:decimal(?usdmRaw) / 1000000) AS ?usdm)
        (GROUP_CONCAT(DISTINCT ?vendorLabel; separator=", ") AS ?vendorsPaidViaPayee)
 WHERE {
   {
     # Inner query: find actual ledger outputs to the CAG payee address that
     # carry the pinned USDM asset. The outer query adds bridge/vendor context.
-    SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace (SUM(?qty) AS ?usdm)
+    SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace (SUM(?qty) AS ?usdmRaw)
     WHERE {
       # Pin by policy+asset hex, not by ticker, so this cannot accidentally
       # match another token named USDM.
@@ -64,5 +64,5 @@ WHERE {
     ?bridge rdfs:label ?payeeLabel .
   }
 }
-GROUP BY ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace ?usdm
+GROUP BY ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace ?usdmRaw
 ORDER BY ?paymentTxId ?outputIndex

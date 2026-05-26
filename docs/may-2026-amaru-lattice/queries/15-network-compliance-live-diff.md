@@ -99,7 +99,7 @@ boundary mismatch.
 
 This table is the CSV result produced by Apache Jena over the state-audit
 graph at the live snapshot boundary. ADA quantities are decimal ADA; USDM
-quantities are base units. No data rows were returned.
+quantities are decimal USDM. No data rows were returned.
 
 | side | txId | ix | graphAda | graphUsdm | liveAda | liveUsdm |
 |---|---|---|---|---|---|---|

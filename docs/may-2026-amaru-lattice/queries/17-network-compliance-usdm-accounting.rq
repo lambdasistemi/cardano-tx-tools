@@ -1,6 +1,7 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # Network-compliance USDM accounting statement.
 #
@@ -19,16 +20,20 @@ PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 #   from chain history here: the scoped treasury starts with zero USDM.
 # - Every non-start value below is derived from graph topology and emitted
 #   transaction values, not from a live-node balance lookup.
-SELECT ?treasuryLabel ?treasuryAddress ?startUsdm
-       ?swapReceiptTxs ?swapReceiptsUsdm
-       ?beneficiaryPaymentTxs ?beneficiaryPaymentsUsdm
-       ?terminalUtxos ?terminalUsdm
-       ((?startUsdm + ?swapReceiptsUsdm - ?beneficiaryPaymentsUsdm - ?terminalUsdm) AS ?usdmGap)
+SELECT ?treasuryLabel ?treasuryAddress
+       ((xsd:decimal(?startUsdmRaw) / 1000000) AS ?startUsdm)
+       ?swapReceiptTxs
+       ((xsd:decimal(?swapReceiptsUsdmRaw) / 1000000) AS ?swapReceiptsUsdm)
+       ?beneficiaryPaymentTxs
+       ((xsd:decimal(?beneficiaryPaymentsUsdmRaw) / 1000000) AS ?beneficiaryPaymentsUsdm)
+       ?terminalUtxos
+       ((xsd:decimal(?terminalUsdmRaw) / 1000000) AS ?terminalUsdm)
+       ((xsd:decimal(?startUsdmRaw + ?swapReceiptsUsdmRaw - ?beneficiaryPaymentsUsdmRaw - ?terminalUsdmRaw) / 1000000) AS ?usdmGap)
 WHERE {
   # Keep the label and start state explicit in the result row so the CSV reads
   # as a balance statement instead of an unnamed aggregate.
   BIND("amaru-treasury.network_compliance" AS ?treasuryLabel)
-  BIND(0 AS ?startUsdm)
+  BIND(0 AS ?startUsdmRaw)
 
   # Resolve the treasury address through rules.yaml. The query should follow
   # the named graph entity, not a duplicated literal pasted into the query.
@@ -45,7 +50,7 @@ WHERE {
     # Term 1: USDM received by network_compliance from SundaeSwap V3 order
     # consumers. Count distinct producer transactions and sum each producer's
     # returned USDM once.
-    SELECT (COUNT(?swapTxId) AS ?swapReceiptTxs) (SUM(?swapUsdm) AS ?swapReceiptsUsdm)
+    SELECT (COUNT(?swapTxId) AS ?swapReceiptTxs) (SUM(?swapUsdm) AS ?swapReceiptsUsdmRaw)
     WHERE {
       {
         SELECT ?swapTxId (SUM(?qty) AS ?swapUsdm)
@@ -110,7 +115,7 @@ WHERE {
     # output amount and address. It deliberately does not split the amount
     # between vendors because that would require invoice metadata beyond the
     # payee output itself.
-    SELECT (COUNT(?paymentTxId) AS ?beneficiaryPaymentTxs) (SUM(?paymentUsdm) AS ?beneficiaryPaymentsUsdm)
+    SELECT (COUNT(?paymentTxId) AS ?beneficiaryPaymentTxs) (SUM(?paymentUsdm) AS ?beneficiaryPaymentsUsdmRaw)
     WHERE {
       {
         SELECT ?paymentTxId ?outputIndex (SUM(?qty) AS ?paymentUsdm)
@@ -150,7 +155,7 @@ WHERE {
     # Term 3: terminal USDM remaining at network_compliance. This is a UTxO
     # state query: an output remains only if no loaded transaction spends its
     # (tx id, index) pair.
-    SELECT (COUNT(?txId) AS ?terminalUtxos) (SUM(?usdm) AS ?terminalUsdm)
+    SELECT (COUNT(?txId) AS ?terminalUtxos) (SUM(?usdm) AS ?terminalUsdmRaw)
     WHERE {
       {
         SELECT ?txId ?ix (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)

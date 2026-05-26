@@ -1,13 +1,14 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 # USDM flow by ledger role. This separates the AMM reserve delta from
 # swap-order script UTxOs, which the older "other" bucket hid.
 SELECT ?role
-       (SUM(?qIn) AS ?usdm_in)
-       (SUM(?qOut) AS ?usdm_out)
-       ((SUM(?qIn) - SUM(?qOut)) AS ?net_usdm)
+       ((xsd:decimal(SUM(?qIn)) / 1000000) AS ?usdm_in)
+       ((xsd:decimal(SUM(?qOut)) / 1000000) AS ?usdm_out)
+       ((xsd:decimal(SUM(?qIn) - SUM(?qOut)) / 1000000) AS ?net_usdm)
 WHERE {
   VALUES ?usdmAssetId {
     "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"

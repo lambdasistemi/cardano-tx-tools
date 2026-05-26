@@ -9,7 +9,7 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 # transaction in the same lattice.
 SELECT (COUNT(DISTINCT ?out) AS ?utxoCount)
        ((xsd:decimal(SUM(?lovelace)) / 1000000) AS ?residualAda)
-       (SUM(?usdm) AS ?residualUsdm)
+       ((xsd:decimal(SUM(?usdm)) / 1000000) AS ?residualUsdm)
 WHERE {
   ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
                      cardano:bech32 ?networkComplianceBech32 .

@@ -9,17 +9,17 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 # address.
 SELECT ?graphTerminalUtxos
        ((xsd:decimal(?graphTerminalLovelace) / 1000000) AS ?graphTerminalAda)
-       ?graphTerminalUsdm
+       ((xsd:decimal(?graphTerminalUsdmRaw) / 1000000) AS ?graphTerminalUsdm)
        ?liveUtxos
        ((xsd:decimal(?liveLovelace) / 1000000) AS ?liveAda)
-       ?liveUsdm
+       ((xsd:decimal(?liveUsdmRaw) / 1000000) AS ?liveUsdm)
        ((xsd:decimal(?liveLovelace - ?graphTerminalLovelace) / 1000000) AS ?adaGap)
-       ((?liveUsdm - ?graphTerminalUsdm) AS ?usdmGap)
+       ((xsd:decimal(?liveUsdmRaw - ?graphTerminalUsdmRaw) / 1000000) AS ?usdmGap)
 WHERE {
   {
     SELECT (COUNT(?txId) AS ?graphTerminalUtxos)
            (SUM(?lovelace) AS ?graphTerminalLovelace)
-           (SUM(?usdm) AS ?graphTerminalUsdm)
+           (SUM(?usdm) AS ?graphTerminalUsdmRaw)
     WHERE {
       {
         SELECT ?txId ?ix ?lovelace (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
@@ -54,7 +54,7 @@ WHERE {
   {
     SELECT (COUNT(?live) AS ?liveUtxos)
            (SUM(?liveLov) AS ?liveLovelace)
-           (SUM(?liveUsd) AS ?liveUsdm)
+           (SUM(?liveUsd) AS ?liveUsdmRaw)
     WHERE {
       ?live a live:CurrentUtxo ;
             live:lovelace ?liveLov ;
