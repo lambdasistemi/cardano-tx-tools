@@ -1,46 +1,48 @@
 {- |
 Module      : Main
-Description : tx-graph executable — operator-entity overlay + body-emitter dispatcher.
+Description : tx-graph executable — pure (rules + [cbor]) → ttl transformation.
 License     : Apache-2.0
 
 Companion executable to @tx-diff@ / @tx-inspect@ / @tx-sign@ /
-@tx-validate@. Renders an operator-authored rules overlay,
-a Conway transaction body, or both, as a canonical Turtle (or
-JSON-LD) graph.
+@tx-validate@. Renders an operator-authored rules overlay and/or
+one Turtle (or JSON-LD) graph per Conway transaction CBOR.
 
-The CLI surface tracks the rest of the suite:
+CLI surface (see issue #114 — operator-led role audit collapse):
 
-* @--tx PATH | -@ — Conway tx CBOR. @-@ reads from stdin. The
-  decoder is the same polymorphic @decodeConwayTxInput@ used by
-  @tx-diff@ and @tx-inspect@: accepts hex text envelope JSON, raw
-  hex text, or untagged binary CBOR.
-* @--utxo FILE@ — pre-resolved UTxO JSON for the tx's inputs. The
-  T003-shipped decoder is a syntax-only validator; the structural
-  decoder is tracked separately.
-* @--n2c-socket-path SOCKET --network-magic N@ — live UTxO
-  resolution via a local @cardano-node@ Node-to-Client socket,
-  exactly the seam @tx-inspect@ and @tx-validate@ use.
-* @--rules FILE@ — operator-authored rules (Turtle or YAML sugar);
-  drives the entity overlay.
-* @--out FILE@ — output destination (default stdout).
+* @--rules FILE@ — operator overlay + blueprints + attestations.
+  Used alone, emits overlay-only Turtle to stdout. Combined with
+  inputs, merged into the joint graph(s).
+* @--in-dir DIR@ — directory of @*.cbor@ files; each file is one
+  Conway transaction in the input lattice.
+* Positional @CBOR …@ — one or more Conway transaction CBOR files.
+* @-@ in the positional slot — read a single Conway tx from stdin.
+* @--out-dir DIR@ — write one @\<txid-hex\>.ttl@ per input. If
+  exactly one input is given and @--out-dir@ is absent, the graph
+  goes to stdout (back-compat with the pre-#114 single-tx invocation).
 * @--format turtle|json-ld@ — output format (default @turtle@).
 
-Modes (flag-presence dispatch):
+Inside, every input CBOR is parsed and indexed by its computed
+@TxId@ (@hashAnnotated . bodyTxL@). The resolver looks each
+spending / reference / collateral input up in that map; when an
+input's parent CBOR isn't in the lattice the resolver returns
+@Nothing@ and the emitter falls back to raw-bytes (the operator's
+bug to fix by widening the lattice, not a silent default).
 
-* @--rules@ alone — overlay-only.
-* @--tx@ present — body-emitting; if @--rules@ is also present the
-  overlay is merged in (joint mode); if @--utxo@ or
-  @--n2c-socket-path@ is supplied the UTxO map is populated, else
-  body-only with an empty UTxO.
-* No input flags — @optparse-applicative@ usage error to stderr.
+What this replaces (all dropped in #114):
+
+* @--utxo@ — was a syntax-only stub; the lattice resolves itself.
+* @--closure-dir@ — the closure IS the input set; no disk handshake.
+* @--n2c-socket-path@ / @--network-magic@ — wrong workflow for
+  tx-graph (queries the live UTxO; on-chain inputs are already
+  spent there).
 
 Exit codes:
 
-* 0 — overlay or graph emitted successfully.
+* 0 — overlay or graph(s) emitted successfully.
 * 1 — structured 'Cardano.Tx.Graph.Rules.Load.RulesLoadError' or
   'Cardano.Tx.Graph.Emit.EmitError'.
 * >=2 — @optparse-applicative@ usage error or invalid flag
-  combination.
+  combination (e.g. multiple inputs without @--out-dir@).
 -}
 module Main (main) where
 
@@ -69,23 +71,19 @@ import Cardano.Tx.Graph.Rules.Load (
     rulesEntities,
  )
 
-import Cardano.Ledger.Hashes (ScriptHash, extractHash)
+import Cardano.Ledger.Hashes (ScriptHash, extractHash, hashAnnotated)
 import Data.Text (Text)
 
-import Control.Concurrent.Async (withAsync)
-import Control.Monad (void)
-import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
+import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (isJust)
 import Data.Set (Set)
 import Data.Text qualified as Text
-import Data.Word (Word32)
 import Options.Applicative (
     Parser,
     ParserInfo,
     ParserResult (Failure),
-    auto,
+    argument,
     defaultPrefs,
     eitherReader,
     execParser,
@@ -96,8 +94,8 @@ import Options.Applicative (
     helper,
     info,
     long,
+    many,
     metavar,
-    option,
     optional,
     parserFailure,
     progDesc,
@@ -107,7 +105,9 @@ import Options.Applicative (
     (<**>),
  )
 import Options.Applicative.Types (ParseError (ErrorMsg))
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import System.Exit (ExitCode (..), exitSuccess, exitWith)
+import System.FilePath (takeExtension, (</>))
 import System.IO (hPutStrLn, stderr, stdin, stdout)
 import System.IO.Error (catchIOError)
 
@@ -125,48 +125,31 @@ import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Data.ByteString.Base16 qualified as Base16
 import Data.Foldable (toList)
+import Data.List (sort)
 import Data.Set qualified as Set
 import Data.Text.Encoding qualified as TextEncoding
 import Lens.Micro ((^.))
-import Ouroboros.Network.Magic (NetworkMagic (..))
-import System.Directory (doesFileExist)
-import System.FilePath ((</>))
 
-import Cardano.Node.Client.N2C.Connection (
-    newLSQChannel,
-    newLTxSChannel,
-    runNodeClient,
- )
-import Cardano.Node.Client.N2C.Provider (mkN2CProvider)
 import Cardano.Tx.Diff (decodeConwayTxInput)
 import Cardano.Tx.Diff.Resolver (Resolver (..), resolveChain)
-import Cardano.Tx.Diff.Resolver.N2C (n2cResolver)
 import Cardano.Tx.Ledger (ConwayTx)
 
-{- | Mainnet network magic. Default for @--network-magic@ — matches
-@tx-validate@.
--}
-mainnetMagic :: Word32
-mainnetMagic = 764824073
-
-{- | Command-line options. @--n2c-socket-path@ + @--network-magic@
-mirror the surface @tx-inspect@ and @tx-validate@ already expose.
+{- | Command-line options. Post-#114 collapse: @--rules@ + one of
+@--in-dir@ / positional / stdin + @--out-dir@ + @--format@.
 -}
 data Options = Options
     { optRulesFile :: !(Maybe FilePath)
-    , optTxFile :: !(Maybe TxInputSource)
-    , optUtxoFile :: !(Maybe FilePath)
-    , optClosureDir :: !(Maybe FilePath)
-    , optN2cSocket :: !(Maybe FilePath)
-    , optNetworkMagic :: !Word32
-    , optOutFile :: !(Maybe FilePath)
+    , optInDir :: !(Maybe FilePath)
+    , optPositional :: ![InputSource]
+    , optOutDir :: !(Maybe FilePath)
     , optFormat :: !String
     }
 
-{- | Where to read the Conway tx CBOR from. @-@ on the command
-line maps to 'TxFromStdin'.
+{- | Where to read one Conway tx CBOR from. @-@ on the positional
+slot maps to 'TxFromStdin'; every other positional argument is a
+file path.
 -}
-data TxInputSource
+data InputSource
     = TxFromFile FilePath
     | TxFromStdin
     deriving stock (Eq, Show)
@@ -180,79 +163,46 @@ optionsParser =
                     <> metavar "FILE"
                     <> help
                         ( "Operator-authored rules file (.yaml/"
-                            <> ".yml or .ttl). Overlay-only mode "
-                            <> "when used alone."
-                        )
-                )
-            )
-        <*> optional
-            ( option
-                readTxInput
-                ( long "tx"
-                    <> metavar "PATH | -"
-                    <> help
-                        ( "Conway tx CBOR (hex text envelope, raw "
-                            <> "hex, or binary). '-' reads from "
-                            <> "stdin. Triggers the body-emitting "
-                            <> "dispatcher."
+                            <> ".yml or .ttl). Used alone, emits "
+                            <> "overlay-only Turtle to stdout. "
+                            <> "Combined with inputs, merged into "
+                            <> "the joint graph(s)."
                         )
                 )
             )
         <*> optional
             ( strOption
-                ( long "utxo"
-                    <> metavar "FILE"
-                    <> help
-                        ( "Resolved-UTxO JSON for the tx's inputs. "
-                            <> "Mutually exclusive with "
-                            <> "--n2c-socket-path / --closure-dir."
-                        )
-                )
-            )
-        <*> optional
-            ( strOption
-                ( long "closure-dir"
+                ( long "in-dir"
                     <> metavar "DIR"
                     <> help
-                        ( "Directory containing <txid>.cbor files "
-                            <> "for every transaction whose outputs "
-                            <> "this tx's inputs may reference. Used "
-                            <> "by the tx-lattice closure flow to "
-                            <> "resolve inputs without a running "
-                            <> "node. Mutually exclusive with "
-                            <> "--utxo / --n2c-socket-path."
+                        ( "Directory of *.cbor files; each is one "
+                            <> "Conway transaction in the input "
+                            <> "lattice. Mutually exclusive with "
+                            <> "positional arguments."
                         )
                 )
             )
-        <*> optional
-            ( strOption
-                ( long "n2c-socket-path"
-                    <> metavar "SOCKET"
+        <*> many
+            ( argument
+                readInputSource
+                ( metavar "CBOR..."
                     <> help
-                        ( "Local cardano-node Node-to-Client "
-                            <> "socket. When supplied, the tx's "
-                            <> "inputs are resolved live against "
-                            <> "the node (requires --network-"
-                            <> "magic)."
+                        ( "Conway tx CBOR file paths. '-' reads "
+                            <> "one tx from stdin. Mutually "
+                            <> "exclusive with --in-dir."
                         )
                 )
             )
-        <*> option
-            auto
-            ( long "network-magic"
-                <> metavar "WORD32"
-                <> value mainnetMagic
-                <> showDefault
-                <> help
-                    ( "Network magic for the --n2c-socket-path "
-                        <> "session. Defaults to mainnet."
-                    )
-            )
         <*> optional
             ( strOption
-                ( long "out"
-                    <> metavar "FILE"
-                    <> help "Output destination (default: stdout)."
+                ( long "out-dir"
+                    <> metavar "DIR"
+                    <> help
+                        ( "Write one <txid-hex>.ttl per input "
+                            <> "into DIR. If absent and exactly "
+                            <> "one input is given, emits to "
+                            <> "stdout."
+                        )
                 )
             )
         <*> strOption
@@ -263,7 +213,7 @@ optionsParser =
                 <> help "Output format: 'turtle' or 'json-ld'."
             )
   where
-    readTxInput =
+    readInputSource =
         eitherReader $ \case
             "-" -> Right TxFromStdin
             path -> Right (TxFromFile path)
@@ -273,14 +223,17 @@ optionsInfo =
     info
         (optionsParser <**> helper)
         ( fullDesc
-            <> header "tx-graph — operator-entity overlay + body emitter"
+            <> header "tx-graph — pure (rules + [cbor]) → ttl transformation"
             <> progDesc
                 ( "tx-graph — operator-entity overlay + body "
                     <> "emitter. Loads operator-authored rules "
                     <> "(overlay-only mode) or drives the joint-"
-                    <> "graph body emitter on a Conway tx + "
-                    <> "resolved UTxO. Output format defaults to "
-                    <> "Turtle."
+                    <> "graph body emitter on a lattice of Conway "
+                    <> "transactions (--in-dir / positional / "
+                    <> "stdin). The lattice resolves itself "
+                    <> "internally — no node, no UTxO file, no "
+                    <> "external chain source. Output format "
+                    <> "defaults to Turtle."
                 )
         )
 
@@ -289,30 +242,76 @@ main = do
     opts <- execParser optionsInfo
     dispatch opts
 
-{- | Flag-presence dispatcher. See the module header for the full
-mode table.
+{- | Dispatch on input presence. Overlay-only when @--rules@ is the
+sole input flag; joint emit when at least one CBOR source is
+present.
 -}
 dispatch :: Options -> IO ()
-dispatch opts =
-    case (optRulesFile opts, optTxFile opts) of
-        (Just rulesPath, Nothing) ->
+dispatch opts = do
+    inputs <- collectAllInputs opts
+    case (optRulesFile opts, inputs) of
+        (Just rulesPath, []) ->
             overlayOnly rulesPath
-        (_, Just txSource) ->
-            bodyEmit opts txSource
-        (Nothing, Nothing) ->
-            handleParseResult
-                ( Failure
-                    ( parserFailure
-                        defaultPrefs
-                        optionsInfo
-                        ( ErrorMsg
-                            ( "missing input: pass --rules "
-                                <> "and/or --tx (see --help)."
-                            )
-                        )
-                        []
-                    )
+        (_, []) ->
+            usageError
+                ( "missing input: pass --rules (overlay-only), "
+                    <> "--in-dir DIR, or one or more positional "
+                    <> "CBOR files (see --help)."
                 )
+        (_, sources) ->
+            latticeEmit opts sources
+
+{- | Resolve the input sources into the final ordered list of
+'InputSource' values to process. Rejects the @--in-dir DIR@ +
+positional combo; expands @--in-dir@ to its @*.cbor@ contents in
+sorted order; pass-through for positional + stdin.
+-}
+collectAllInputs :: Options -> IO [InputSource]
+collectAllInputs opts =
+    case (optInDir opts, optPositional opts) of
+        (Just _, _ : _) -> do
+            usageError
+                ( "--in-dir and positional CBOR arguments are "
+                    <> "mutually exclusive."
+                )
+            pure []
+        (Just dir, []) ->
+            expandInDir dir
+        (Nothing, ps) ->
+            pure ps
+
+{- | List the @*.cbor@ children of @dir@ in sorted order and wrap
+each as a 'TxFromFile' input source.
+-}
+expandInDir :: FilePath -> IO [InputSource]
+expandInDir dir = do
+    isDir <- doesDirectoryExist dir
+    if not isDir
+        then do
+            hPutStrLn
+                stderr
+                ( "tx-graph: --in-dir: not a directory: " <> dir
+                )
+            exitWith (ExitFailure 2)
+        else do
+            entries <- listDirectory dir
+            let cbors = sort [e | e <- entries, takeExtension e == ".cbor"]
+            pure [TxFromFile (dir </> e) | e <- cbors]
+
+{- | Pretty usage error: print one line on stderr and let
+@optparse-applicative@ render help with exit code 2.
+-}
+usageError :: String -> IO ()
+usageError msg =
+    handleParseResult
+        ( Failure
+            ( parserFailure
+                defaultPrefs
+                optionsInfo
+                (ErrorMsg msg)
+                []
+            )
+        )
 
 {- | Overlay-only mode. Loads the rules file and writes the
 canonical Turtle entity overlay to stdout.
@@ -329,53 +328,39 @@ overlayOnly rulesPath = do
             hPutStrLn stderr (renderRulesLoadError err)
             exitWith (ExitFailure 1)
 
-{- | Body-emitting modes. Decodes the tx, populates the UTxO map
-from @--utxo@ or the live N2C resolver, optionally merges the
-overlay in, and writes the serialized graph.
-
-@--utxo@ and @--n2c-socket-path@ are mutually exclusive: passing
-both is a configuration error.
+{- | Body-emitting mode for an N-tx lattice. Parses every input,
+indexes them by computed 'TxId', and emits one Turtle (or JSON-LD)
+graph per input. Single-input + no @--out-dir@ goes to stdout;
+multi-input requires @--out-dir@.
 -}
-bodyEmit :: Options -> TxInputSource -> IO ()
-bodyEmit opts txSource = do
+latticeEmit :: Options -> [InputSource] -> IO ()
+latticeEmit opts sources = do
     fmtChecked <- exitOnEmitError (parseFormat (optFormat opts))
-    tx <- loadTxOrExit txSource
     (entities, blueprints, overlay) <- case optRulesFile opts of
         Nothing -> pure ([], [], BS.empty)
         Just p -> loadOverlayAndEntitiesOrExit p
-    utxo <- resolveUtxoOrExit opts tx
-    g <- exitOnEmitError (emit tx utxo entities blueprints)
-    mapM_ (hPutStrLn stderr) (decodeErrorWarnings g)
-    let joint = g{graphOverlayTurtle = overlay}
-        rendered = serialize fmtChecked defaultSlug joint
-    writeOutput (optOutFile opts) rendered
+    txs <- traverse loadOne sources
+    let lattice = Map.fromList [(txIdOf tx, tx) | (_, tx) <- txs]
+    case (optOutDir opts, txs) of
+        (Nothing, [entry]) -> do
+            bytes <- renderOne fmtChecked entities blueprints overlay lattice entry
+            BS.hPut stdout bytes
+        (Nothing, _) -> do
+            usageError
+                ( "multiple inputs ("
+                    <> show (length txs)
+                    <> ") require --out-dir DIR."
+                )
+        (Just dir, _) -> do
+            createDirectoryIfMissing True dir
+            mapM_ (emitToDir fmtChecked entities blueprints overlay lattice dir) txs
 
-{- | Slug used in the @\@prefix :@ declaration when the executable
-doesn't know the fixture name. Operator-surface @--slug@ flag
-deferred.
+{- | Decode one input source into @(label, ConwayTx)@. The label
+is the file path (or @\<stdin\>@) and is used in error messages
+only — the tx itself is keyed by its computed 'TxId' downstream.
 -}
-defaultSlug :: FilePath
-defaultSlug = "tx"
-
-{- | Write the serialized graph to @--out@ if set, otherwise to
-stdout.
--}
-writeOutput :: Maybe FilePath -> BS.ByteString -> IO ()
-writeOutput mOut bytes = case mOut of
-    Nothing -> BS.hPut stdout bytes
-    Just p -> BS.writeFile p bytes
-
-parseFormat :: String -> Either EmitError EmitFormat
-parseFormat = \case
-    "turtle" -> Right Turtle
-    "json-ld" -> Right JsonLd
-    other -> Left (UnknownFormat (Text.pack other))
-
-{- | Read the Conway tx CBOR from @--tx@ (file or stdin), decode
-it polymorphically, and exit with 'MalformedTxCbor' on failure.
--}
-loadTxOrExit :: TxInputSource -> IO ConwayTx
-loadTxOrExit src = do
+loadOne :: InputSource -> IO (String, ConwayTx)
+loadOne src = do
     let label = case src of
             TxFromStdin -> "<stdin>"
             TxFromFile p -> p
@@ -393,7 +378,7 @@ loadTxOrExit src = do
         Right bs ->
             case decodeConwayTxInput bs of
                 Right tx ->
-                    pure tx
+                    pure (label, tx)
                 Left decErr ->
                     exitOnEmitError
                         ( Left
@@ -403,136 +388,133 @@ loadTxOrExit src = do
                             )
                         )
 
-{- | Resolve the tx's inputs to a 'ResolvedUTxO' using whichever
-source the operator configured. @--utxo@ and @--n2c-socket-path@
-are mutually exclusive.
+{- | Compute the 'TxId' for a Conway transaction by hashing its
+annotated body, matching the @hashAnnotated body@ pattern used in
+the body emitter (#100).
 -}
-resolveUtxoOrExit :: Options -> ConwayTx -> IO ResolvedUTxO
-resolveUtxoOrExit opts tx =
-    case ( optUtxoFile opts
-         , optClosureDir opts
-         , optN2cSocket opts
-         ) of
-        (mU, mC, mN)
-            | length (filter id [isJust mU, isJust mC, isJust mN]) > 1 -> do
-                hPutStrLn
-                    stderr
-                    ( "tx-graph: --utxo, --closure-dir, and "
-                        <> "--n2c-socket-path are mutually exclusive."
-                    )
-                exitWith (ExitFailure 2)
-        (Just utxoPath, _, _) ->
-            loadUtxoJsonOrExit utxoPath
-        (_, Just closureDir, _) ->
-            resolveViaClosure closureDir tx
-        (_, _, Just socketPath) ->
-            resolveViaN2c socketPath (optNetworkMagic opts) tx
-        _ ->
-            pure Map.empty
+txIdOf :: ConwayTx -> TxId
+txIdOf tx = TxId (hashAnnotated (tx ^. bodyTxL))
 
-{- | Load and decode a resolved-UTxO JSON file. The T003 decoder
-is a syntax-only validator; the structural decoder is tracked
-separately.
+{- | Lowercase hex of a 'TxId', suitable for use as the stem of an
+emitted @\<txid-hex\>.ttl@ file.
 -}
-loadUtxoJsonOrExit :: FilePath -> IO ResolvedUTxO
-loadUtxoJsonOrExit path = do
-    bsOrErr <-
-        (Right <$> BS.readFile path)
-            `catchIOError` (pure . Left . show)
-    case bsOrErr of
-        Left ioMsg ->
-            exitOnEmitError
-                (Left (MalformedUtxoJson path (Text.pack ioMsg)))
-        Right bs ->
-            case Aeson.eitherDecodeStrict bs :: Either String Aeson.Value of
-                Right _ -> pure Map.empty
-                Left parseErr ->
-                    exitOnEmitError
-                        ( Left
-                            ( MalformedUtxoJson
-                                path
-                                (Text.pack parseErr)
-                            )
-                        )
+txIdHex :: TxId -> String
+txIdHex (TxId safeHash) =
+    Text.unpack
+        ( TextEncoding.decodeUtf8
+            (Base16.encode (hashToBytes (extractHash safeHash)))
+        )
 
-{- | Spin up an N2C session against the supplied socket and
-resolve the tx's input set via the standard chain resolver. The
-session is torn down when this function returns.
+{- | Resolve one tx against the in-memory lattice, emit it, and
+serialise the result. Pure-ish wrapper around 'emit' + 'serialize'
+that also forwards blueprint-decode warnings to stderr.
 -}
-resolveViaN2c :: FilePath -> Word32 -> ConwayTx -> IO ResolvedUTxO
-resolveViaN2c socket magic tx =
-    withN2cResolver socket magic $ \r -> do
-        (resolved, _unresolved) <- resolveChain [r] (collectInputs tx)
-        pure resolved
+renderOne ::
+    EmitFormat ->
+    [EntityDecl] ->
+    [(ScriptHash, Blueprint, Text)] ->
+    BS.ByteString ->
+    Map TxId ConwayTx ->
+    (String, ConwayTx) ->
+    IO BS.ByteString
+renderOne fmt entities blueprints overlay lattice (label, tx) = do
+    utxo <- resolveAgainstLattice lattice tx
+    warnOnMissingParents label tx lattice
+    g <- exitOnEmitError (emit tx utxo entities blueprints)
+    mapM_ (hPutStrLn stderr) (decodeErrorWarnings g)
+    let joint = g{graphOverlayTurtle = overlay}
+    pure (serialize fmt defaultSlug joint)
 
-{- | Resolve the tx's inputs by reading parent transactions from a
-closure directory on disk. For each @'TxIn' txid ix@:
+-- | Emit one tx into @\<out-dir\>/\<txid-hex\>.ttl@.
+emitToDir ::
+    EmitFormat ->
+    [EntityDecl] ->
+    [(ScriptHash, Blueprint, Text)] ->
+    BS.ByteString ->
+    Map TxId ConwayTx ->
+    FilePath ->
+    (String, ConwayTx) ->
+    IO ()
+emitToDir fmt entities blueprints overlay lattice dir entry@(_, tx) = do
+    let hex = txIdHex (txIdOf tx)
+        outPath = dir </> (hex <> ".ttl")
+    bytes <- renderOne fmt entities blueprints overlay lattice entry
+    BS.writeFile outPath bytes
 
-* Read @\<DIR\>/\<txid-hex\>.cbor@ via the same polymorphic decoder
-  @--tx@ uses.
-* Pull the parent body's output at zero-based index @ix@.
-
-Missing files and out-of-range indices are returned as unresolved
-inputs — the standard resolver chain semantics.
-
-Issue #112 (closes #102's emit-time gap): the tx-lattice closure
-flow runs tx-graph without a node and without a hand-built
---utxo JSON. With this resolver wired in, every input whose
-parent tx sits in the closure directory resolves in-process, so
-the typed-redeemer dispatch in
-'Cardano.Tx.Graph.Emit.Witness.resolveRedeemerPurposeHash' can
-find the spending script hash from the parent's address.
+{- | Warn on stderr for every spending / reference / collateral
+input whose parent tx isn't in the lattice. Per the role-audit
+contract (#114): a missing parent is the operator's bug, surfaced
+loudly; the emitter still produces raw-bytes fallback so the
+graph remains well-formed.
 -}
-resolveViaClosure :: FilePath -> ConwayTx -> IO ResolvedUTxO
-resolveViaClosure dir tx = do
-    let r = closureResolver dir
+warnOnMissingParents :: String -> ConwayTx -> Map TxId ConwayTx -> IO ()
+warnOnMissingParents label tx lattice = do
+    let inputs = collectInputs tx
+        missing =
+            [ ip
+            | ip@(TxIn parentTxId _) <- Set.toList inputs
+            , not (Map.member parentTxId lattice)
+            ]
+    mapM_
+        ( \(TxIn t (TxIx ix)) ->
+            hPutStrLn
+                stderr
+                ( "warning: tx-graph: "
+                    <> label
+                    <> ": parent tx not in lattice for input "
+                    <> txIdHex t
+                    <> "#"
+                    <> show ix
+                )
+        )
+        missing
+
+defaultSlug :: FilePath
+defaultSlug = "tx"
+
+parseFormat :: String -> Either EmitError EmitFormat
+parseFormat = \case
+    "turtle" -> Right Turtle
+    "json-ld" -> Right JsonLd
+    other -> Left (UnknownFormat (Text.pack other))
+
+{- | Resolve the tx's inputs against the in-memory lattice via the
+standard 'Resolver' chain. Missing entries fall through as
+unresolved (same semantics the on-disk closure resolver had in
+#112, now without the disk roundtrip).
+-}
+resolveAgainstLattice :: Map TxId ConwayTx -> ConwayTx -> IO ResolvedUTxO
+resolveAgainstLattice lattice tx = do
+    let r = inMemoryResolver lattice
     (resolved, _unresolved) <- resolveChain [r] (collectInputs tx)
     pure resolved
 
-{- | A 'Resolver' that looks each input up in a directory of CBOR
-files keyed by transaction hash. Missing files and out-of-range
-indices are dropped from the result map (resolver-chain semantics).
+{- | A 'Resolver' that looks each input up in the in-memory
+lattice keyed by 'TxId'. Out-of-range output indices and missing
+parents are dropped, matching the resolver-chain contract.
 -}
-closureResolver :: FilePath -> Resolver
-closureResolver dir =
+inMemoryResolver :: Map TxId ConwayTx -> Resolver
+inMemoryResolver lattice =
     Resolver
-        { resolverName = "closure-dir"
-        , resolveInputs = \inputs -> do
-            entries <- traverse (resolveOne dir) (Set.toList inputs)
-            pure (Map.fromList [(k, v) | Just (k, v) <- entries])
+        { resolverName = "in-memory-lattice"
+        , resolveInputs = \inputs ->
+            pure $
+                Map.fromList
+                    [ (txIn, output)
+                    | txIn <- Set.toList inputs
+                    , Just output <- [resolveOne lattice txIn]
+                    ]
         }
 
-{- | Resolve a single 'TxIn' by reading its parent's CBOR from
-@\<dir\>/\<txid-hex\>.cbor@ and pulling the output at the
-zero-based index encoded in the 'TxIx'. Returns 'Nothing' if the
-file is missing, the CBOR is malformed, or the index is out of
+{- | Resolve a single 'TxIn' against the in-memory lattice. Returns
+'Nothing' if the parent tx isn't indexed or the index is out of
 range.
 -}
-resolveOne ::
-    FilePath ->
-    TxIn ->
-    IO (Maybe (TxIn, TxOut ConwayEra))
-resolveOne dir txIn@(TxIn (TxId safeHash) (TxIx ix)) = do
-    let hex =
-            Text.unpack
-                ( TextEncoding.decodeUtf8
-                    (Base16.encode (hashToBytes (extractHash safeHash)))
-                )
-        path = dir </> (hex <> ".cbor")
-    exists <- doesFileExist path
-    if not exists
-        then pure Nothing
-        else do
-            blob <- BS.readFile path
-            case decodeConwayTxInput blob of
-                Left _ -> pure Nothing
-                Right parentTx ->
-                    let outputs =
-                            toList
-                                (parentTx ^. bodyTxL . outputsTxBodyL)
-                     in case indexOutputs outputs (fromIntegral ix) of
-                            Nothing -> pure Nothing
-                            Just o -> pure (Just (txIn, o))
+resolveOne :: Map TxId ConwayTx -> TxIn -> Maybe (TxOut ConwayEra)
+resolveOne lattice (TxIn parentTxId (TxIx ix)) = do
+    parentTx <- Map.lookup parentTxId lattice
+    let outs = toList (parentTx ^. bodyTxL . outputsTxBodyL)
+    indexOutputs outs (fromIntegral ix)
 
 indexOutputs :: [a] -> Int -> Maybe a
 indexOutputs xs n
@@ -553,25 +535,6 @@ collectInputs tx =
      in (body ^. inputsTxBodyL)
             <> (body ^. referenceInputsTxBodyL)
             <> (body ^. collateralInputsTxBodyL)
-
-{- | Bracket an N2C resolver around a continuation. Mirrors
-@tx-inspect@'s helper: spawn the mini-protocol thread, give the
-caller a single 'Resolver', and tear the thread down when the
-continuation returns.
--}
-withN2cResolver :: FilePath -> Word32 -> (Resolver -> IO a) -> IO a
-withN2cResolver socket magic k = do
-    lsqCh <- newLSQChannel 64
-    ltxsCh <- newLTxSChannel 64
-    withAsync
-        ( void $
-            runNodeClient
-                (NetworkMagic magic)
-                socket
-                lsqCh
-                ltxsCh
-        )
-        $ \_ -> k (n2cResolver (mkN2CProvider lsqCh))
 
 {- | Load the operator-entity list, the blueprint index, AND the
 overlay Turtle bytes from a rules file. The overlay bytes are
@@ -615,15 +578,7 @@ exitOnEmitError = \case
 {- | Walk the emitted graph's body sections and project each
 @cardano:decodeError@ literal triple onto a single-line stderr
 warning of the form
-@warning: blueprint decode failed for \<subject\>: \<error\>@. The
-warning surfaces the FR-005 / D-001d failure to the operator
-without changing the exit code — the graph itself still carries
-the @cardano:hasRawBytes@ + @cardano:decodeError@ literals on the
-failing Datum subject (so byte-diff goldens stay GREEN), and the
-operator sees the failure on stderr at the same time. Subjects are
-rendered as @_:\<name\>@ for blank nodes and verbatim for IRIs,
-matching the Turtle surface a reviewer would see in the emitted
-graph.
+@warning: blueprint decode failed for \<subject\>: \<error\>@.
 -}
 decodeErrorWarnings :: EmittedGraph -> [String]
 decodeErrorWarnings g =

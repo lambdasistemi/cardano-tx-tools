@@ -526,21 +526,30 @@ syntax-only stub) and without `--n2c-socket-path` (no live
 node), so the map was empty and dispatch silently fell back to
 `NoBlueprintRegistered`.
 
-The fix introduces **a closure-directory resolver**:
+The fix introduces **a lattice-aware in-memory resolver**:
 
-* `tx-graph --closure-dir DIR` looks each input's parent
-  transaction up at `DIR/<parentTxId>.cbor`, parses it via the
-  same decoder `--tx` uses, and extracts the output at the
-  input's `TxIx`. The resolver is implemented in
-  `app/tx-graph/Main.hs:resolveViaClosure` and plugs into the
+* `tx-graph --in-dir DIR` indexes every CBOR in DIR by its
+  computed `TxId` (`hashAnnotated . bodyTxL`) and resolves each
+  emitted tx's spending / reference / collateral inputs against
+  the in-memory map — pulling the parent body's output at the
+  consumed `TxIx`. The resolver is implemented in
+  `app/tx-graph/Main.hs:inMemoryResolver` and plugs into the
   existing `Cardano.Tx.Diff.Resolver` chain abstraction — no
   changes to the Witness walker were needed.
-* `scripts/tx-lattice` now runs a two-pass closure walk: BFS
-  over parent-references fetching every CBOR to
-  `OUT_DIR/cbor/<txid>.cbor` first, then emitting each seed
-  with `--closure-dir`. Parents are emitted without the flag
-  (they don't dispatch redeemers themselves; they're only
-  joined to as resolution targets).
+* `scripts/tx-lattice` walks the BFS closure into
+  `OUT_DIR/cbor/<txid>.cbor` (Blockfrost `/txs/<hash>/cbor` per
+  parent), then hands the whole directory to a single
+  `tx-graph --in-dir OUT_DIR/cbor --out-dir OUT_DIR` invocation.
+  Every tx in the closure resolves its inputs against the same
+  in-memory lattice, so spending redeemers dispatch typed-decode
+  via the consumed parent's script hash uniformly across seeds
+  and BFS-walked ancestors alike.
+
+(The original #112 fix was an on-disk `--closure-dir DIR`
+resolver that read parent CBORs from disk at emit time. #114
+collapsed that disk handshake into the pure-transformation
+contract: tx-graph now sees the whole lattice as its input,
+not as a side-channel directory.)
 
 Verified on a 7-tx closure of contingency disburse
 `18d57a4f…`: the seed's redeemerData bnodes now carry

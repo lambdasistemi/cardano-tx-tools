@@ -1,21 +1,23 @@
 {- |
 Module      : Cardano.Tx.Graph.TxGraphExeSpec
-Description : Exe-level smoke for the tx-graph @--tx@/@--utxo@/@--out@/@--format@ flags (T003).
+Description : Exe-level smoke for the tx-graph CLI (post-#114 pure-transformation surface).
 License     : Apache-2.0
 
 Drives the freshly-built @tx-graph@ binary as a subprocess to cover
-the three dispatcher modes introduced by T003 (plan slice D8):
+the post-#114 dispatcher modes:
 
-* overlay-only (@--rules@ alone) — the existing #48 contract, kept
-  GREEN here as a regression guard alongside
-  'Cardano.Tx.Graph.Rules.LoadExeSpec';
-* body-only (@--tx@) and joint (@--rules@ + @--tx@ + @--utxo@) —
-  pre-T005 short-circuit: every body-emitting mode exits non-zero
-  with @NoSerializerYet@ on stderr until T005 wires the Turtle
-  serializer;
-* structured error rendering — a missing @--tx@ file surfaces a
-  'Cardano.Tx.Graph.Emit.MalformedTxCbor' line; an unknown
-  @--format@ argument surfaces 'Cardano.Tx.Graph.Emit.UnknownFormat'.
+* overlay-only (@--rules@ alone) — the existing #48 contract.
+* body-only (single positional @CBOR@) — single-input invocation
+  emits one Turtle graph to stdout (back-compat with the pre-#114
+  @--tx FOO@ flow; semantics are byte-equivalent).
+* joint (@--rules@ + positional @CBOR@) — overlay merged into the
+  body graph.
+* @--in-dir@ multi-input mode — one @\<txid-hex\>.ttl@ per input
+  cbor into @--out-dir@.
+* @--in-dir@ vs positional mutual exclusion.
+* Structured error rendering — a missing positional file surfaces
+  'Cardano.Tx.Graph.Emit.MalformedTxCbor'; an unknown @--format@
+  argument surfaces 'Cardano.Tx.Graph.Emit.UnknownFormat'.
 
 The binary is located via the @TX_GRAPH_EXE@ environment variable
 (set by the @nix flake check@ sandbox and the @just unit@ recipe)
@@ -24,7 +26,7 @@ identical to 'Cardano.Tx.Graph.Rules.LoadExeSpec'.
 
 The fixture-02 @S02.tx@ builder
 (@Fixtures.RewriteRedesign.S02_AliceBobAda@) is reused: each test
-case writes a tmp @tx.cbor@ + @utxo.json@ to
+case writes a tmp @tx.cbor@ to
 'System.IO.Temp.withSystemTempDirectory' so no new on-disk
 fixture is needed.
 -}
@@ -35,7 +37,8 @@ import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Lazy qualified as BSL
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, isSuffixOf)
+import System.Directory (createDirectoryIfMissing, listDirectory)
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
@@ -71,7 +74,7 @@ import Fixtures.RewriteRedesign.S14BlueprintDecodeFail qualified as S14
 ----------------------------------------------------------------------
 
 spec :: Spec
-spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
+spec = describe "tx-graph executable (post-#114 pure-transformation CLI)" $ do
     mEnvPath <- runIO (lookupEnv "TX_GRAPH_EXE")
     case mEnvPath of
         Nothing ->
@@ -109,7 +112,7 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                     code `shouldBe` ExitSuccess
 
             it
-                ( "(2) body-only mode (--tx only) — exit 0, stdout"
+                ( "(2) body-only mode (positional CBOR) — exit 0, stdout"
                     <> " carries the # Transaction body. section"
                 )
                 $ withSystemTempDirectory "tx-graph-body"
@@ -117,36 +120,28 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                     let txPath = dir </> "tx.cbor"
                     BS.writeFile txPath s02CborBytes
                     (code, out, _err) <-
-                        runExe txGraphPath ["--tx", txPath]
+                        runExe txGraphPath [txPath]
                     code `shouldBe` ExitSuccess
                     BS8.unpack out
                         `shouldSatisfy` ("# Transaction body." `isInfixOf`)
 
             it
-                ( "(3) joint mode (--rules + --tx + --utxo) — exit 0,"
+                ( "(3) joint mode (--rules + positional CBOR) — exit 0,"
                     <> " stdout carries both the entities overlay and the"
                     <> " transaction body"
                 )
                 $ withSystemTempDirectory "tx-graph-joint"
                 $ \dir -> do
                     let txPath = dir </> "tx.cbor"
-                        utxoPath = dir </> "utxo.json"
                         rulesPath =
                             "test/fixtures/rewrite-redesign"
                                 </> "02-alice-bob-ada"
                                 </> "rules.yaml"
                     BS.writeFile txPath s02CborBytes
-                    BS.writeFile utxoPath "{}"
                     (code, out, _err) <-
                         runExe
                             txGraphPath
-                            [ "--rules"
-                            , rulesPath
-                            , "--tx"
-                            , txPath
-                            , "--utxo"
-                            , utxoPath
-                            ]
+                            ["--rules", rulesPath, txPath]
                     code `shouldBe` ExitSuccess
                     BS8.unpack out
                         `shouldSatisfy` ( "Operator-declared entities"
@@ -156,8 +151,8 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                         `shouldSatisfy` ("# Transaction body." `isInfixOf`)
 
             it
-                ( "(4) missing --tx file — non-zero exit, stderr contains"
-                    <> " MalformedTxCbor"
+                ( "(4) missing positional file — non-zero exit, stderr"
+                    <> " contains MalformedTxCbor"
                 )
                 $ withSystemTempDirectory "tx-graph-missing"
                 $ \dir -> do
@@ -169,11 +164,7 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                     (code, _out, err) <-
                         runExe
                             txGraphPath
-                            [ "--rules"
-                            , rulesPath
-                            , "--tx"
-                            , bogusTx
-                            ]
+                            ["--rules", rulesPath, bogusTx]
                     code `shouldSatisfy` isFailure
                     BS8.unpack err
                         `shouldSatisfy` ("MalformedTxCbor" `isInfixOf`)
@@ -195,7 +186,6 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                             txGraphPath
                             [ "--rules"
                             , rulesPath
-                            , "--tx"
                             , txPath
                             , "--format"
                             , "yaml"
@@ -205,39 +195,31 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                         `shouldSatisfy` ("UnknownFormat" `isInfixOf`)
 
             it
-                ( "(6) --tx - (stdin) — exit 0, stdout carries the"
-                    <> " # Transaction body. section"
+                ( "(6) stdin input (positional '-') — exit 0, stdout"
+                    <> " carries the # Transaction body. section"
                 )
                 $ do
                     (code, out, _err) <-
                         runExeWithStdin
                             txGraphPath
-                            ["--tx", "-"]
+                            ["-"]
                             s02CborBytes
                     code `shouldBe` ExitSuccess
                     BS8.unpack out
                         `shouldSatisfy` ("# Transaction body." `isInfixOf`)
 
             it
-                ( "(7) --utxo + --n2c-socket-path are mutually"
-                    <> " exclusive — non-zero exit, stderr explains"
+                ( "(7) --in-dir + positional are mutually exclusive —"
+                    <> " non-zero exit, stderr explains"
                 )
                 $ withSystemTempDirectory "tx-graph-mutex"
                 $ \dir -> do
                     let txPath = dir </> "tx.cbor"
-                        utxoPath = dir </> "utxo.json"
                     BS.writeFile txPath s02CborBytes
-                    BS.writeFile utxoPath "{}"
                     (code, _out, err) <-
                         runExe
                             txGraphPath
-                            [ "--tx"
-                            , txPath
-                            , "--utxo"
-                            , utxoPath
-                            , "--n2c-socket-path"
-                            , dir </> "no-such.socket"
-                            ]
+                            ["--in-dir", dir, txPath]
                     code `shouldSatisfy` isFailure
                     BS8.unpack err
                         `shouldSatisfy` ( "mutually exclusive"
@@ -265,14 +247,29 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
                     (code, _out, err) <-
                         runExe
                             txGraphPath
-                            [ "--rules"
-                            , rulesPath
-                            , "--tx"
-                            , txPath
-                            ]
+                            ["--rules", rulesPath, txPath]
                     code `shouldBe` ExitSuccess
                     let needle = BS8.unpack (stripTrailingNewline expectedTxt)
                     BS8.unpack err `shouldSatisfy` (needle `isInfixOf`)
+
+            it
+                ( "(9) --in-dir mode — exit 0, writes one"
+                    <> " <txid-hex>.ttl per input cbor into --out-dir"
+                )
+                $ withSystemTempDirectory "tx-graph-in-dir"
+                $ \tmp -> do
+                    let cborDir = tmp </> "cbor"
+                        outDir = tmp </> "ttl"
+                    createDirectoryIfMissing True cborDir
+                    BS.writeFile (cborDir </> "s02.cbor") s02CborBytes
+                    (code, _out, _err) <-
+                        runExe
+                            txGraphPath
+                            ["--in-dir", cborDir, "--out-dir", outDir]
+                    code `shouldBe` ExitSuccess
+                    ttls <- listDirectory outDir
+                    let ttlNames = filter (".ttl" `isSuffixOf`) ttls
+                    length ttlNames `shouldBe` 1
 
 ----------------------------------------------------------------------
 -- Tx fixture bytes
@@ -281,7 +278,7 @@ spec = describe "tx-graph executable (T003, body-emitter dispatcher)" $ do
 {- | Serialized ConwayEra CBOR of the fixture-02 @S02.tx@ builder.
 Reuses the same @ConwayTx@ value that 'Cardano.Tx.Graph.EmitSmokeSpec'
 exercises; we ship the bytes through a temp file so the executable
-can read them via @--tx@ without a new on-disk fixture.
+can read them via a positional argument without a new on-disk fixture.
 -}
 s02CborBytes :: ByteString
 s02CborBytes =
@@ -292,8 +289,8 @@ s02CborBytes =
 under test is what the exe writes to stderr when fixture 14's
 @rules.yaml@ registers a wrong-shape blueprint against the
 SwapOrder script hash. The CBOR ships through a temp file so the
-executable consumes it via @--tx@; no on-disk @tx.cbor@ lives
-under the fixture directory.
+executable consumes it via a positional argument; no on-disk
+@tx.cbor@ lives under the fixture directory.
 -}
 s14CborBytes :: ByteString
 s14CborBytes =
