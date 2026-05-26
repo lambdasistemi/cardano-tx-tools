@@ -69,7 +69,7 @@ import Cardano.Tx.Graph.Rules.Load (
     rulesEntities,
  )
 
-import Cardano.Ledger.Hashes (ScriptHash)
+import Cardano.Ledger.Hashes (ScriptHash, extractHash)
 import Data.Text (Text)
 
 import Control.Concurrent.Async (withAsync)
@@ -77,6 +77,7 @@ import Control.Monad (void)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
+import Data.Maybe (isJust)
 import Data.Set (Set)
 import Data.Text qualified as Text
 import Data.Word (Word32)
@@ -110,15 +111,26 @@ import System.Exit (ExitCode (..), exitSuccess, exitWith)
 import System.IO (hPutStrLn, stderr, stdin, stdout)
 import System.IO.Error (catchIOError)
 
+import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.Api.Tx (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (
     collateralInputsTxBodyL,
     inputsTxBodyL,
+    outputsTxBodyL,
     referenceInputsTxBodyL,
  )
-import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Api.Tx.Out (TxOut)
+import Cardano.Ledger.BaseTypes (TxIx (..))
+import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
+import Data.ByteString.Base16 qualified as Base16
+import Data.Foldable (toList)
+import Data.Set qualified as Set
+import Data.Text.Encoding qualified as TextEncoding
 import Lens.Micro ((^.))
 import Ouroboros.Network.Magic (NetworkMagic (..))
+import System.Directory (doesFileExist)
+import System.FilePath ((</>))
 
 import Cardano.Node.Client.N2C.Connection (
     newLSQChannel,
@@ -127,7 +139,7 @@ import Cardano.Node.Client.N2C.Connection (
  )
 import Cardano.Node.Client.N2C.Provider (mkN2CProvider)
 import Cardano.Tx.Diff (decodeConwayTxInput)
-import Cardano.Tx.Diff.Resolver (Resolver, resolveChain)
+import Cardano.Tx.Diff.Resolver (Resolver (..), resolveChain)
 import Cardano.Tx.Diff.Resolver.N2C (n2cResolver)
 import Cardano.Tx.Ledger (ConwayTx)
 
@@ -144,6 +156,7 @@ data Options = Options
     { optRulesFile :: !(Maybe FilePath)
     , optTxFile :: !(Maybe TxInputSource)
     , optUtxoFile :: !(Maybe FilePath)
+    , optClosureDir :: !(Maybe FilePath)
     , optN2cSocket :: !(Maybe FilePath)
     , optNetworkMagic :: !Word32
     , optOutFile :: !(Maybe FilePath)
@@ -192,7 +205,22 @@ optionsParser =
                     <> help
                         ( "Resolved-UTxO JSON for the tx's inputs. "
                             <> "Mutually exclusive with "
-                            <> "--n2c-socket-path."
+                            <> "--n2c-socket-path / --closure-dir."
+                        )
+                )
+            )
+        <*> optional
+            ( strOption
+                ( long "closure-dir"
+                    <> metavar "DIR"
+                    <> help
+                        ( "Directory containing <txid>.cbor files "
+                            <> "for every transaction whose outputs "
+                            <> "this tx's inputs may reference. Used "
+                            <> "by the tx-lattice closure flow to "
+                            <> "resolve inputs without a running "
+                            <> "node. Mutually exclusive with "
+                            <> "--utxo / --n2c-socket-path."
                         )
                 )
             )
@@ -381,19 +409,25 @@ are mutually exclusive.
 -}
 resolveUtxoOrExit :: Options -> ConwayTx -> IO ResolvedUTxO
 resolveUtxoOrExit opts tx =
-    case (optUtxoFile opts, optN2cSocket opts) of
-        (Just _, Just _) -> do
-            hPutStrLn
-                stderr
-                ( "tx-graph: --utxo and --n2c-socket-path are "
-                    <> "mutually exclusive."
-                )
-            exitWith (ExitFailure 2)
-        (Just utxoPath, Nothing) ->
+    case ( optUtxoFile opts
+         , optClosureDir opts
+         , optN2cSocket opts
+         ) of
+        (mU, mC, mN)
+            | length (filter id [isJust mU, isJust mC, isJust mN]) > 1 -> do
+                hPutStrLn
+                    stderr
+                    ( "tx-graph: --utxo, --closure-dir, and "
+                        <> "--n2c-socket-path are mutually exclusive."
+                    )
+                exitWith (ExitFailure 2)
+        (Just utxoPath, _, _) ->
             loadUtxoJsonOrExit utxoPath
-        (Nothing, Just socketPath) ->
+        (_, Just closureDir, _) ->
+            resolveViaClosure closureDir tx
+        (_, _, Just socketPath) ->
             resolveViaN2c socketPath (optNetworkMagic opts) tx
-        (Nothing, Nothing) ->
+        _ ->
             pure Map.empty
 
 {- | Load and decode a resolved-UTxO JSON file. The T003 decoder
@@ -430,6 +464,84 @@ resolveViaN2c socket magic tx =
     withN2cResolver socket magic $ \r -> do
         (resolved, _unresolved) <- resolveChain [r] (collectInputs tx)
         pure resolved
+
+{- | Resolve the tx's inputs by reading parent transactions from a
+closure directory on disk. For each @'TxIn' txid ix@:
+
+* Read @\<DIR\>/\<txid-hex\>.cbor@ via the same polymorphic decoder
+  @--tx@ uses.
+* Pull the parent body's output at zero-based index @ix@.
+
+Missing files and out-of-range indices are returned as unresolved
+inputs — the standard resolver chain semantics.
+
+Issue #112 (closes #102's emit-time gap): the tx-lattice closure
+flow runs tx-graph without a node and without a hand-built
+--utxo JSON. With this resolver wired in, every input whose
+parent tx sits in the closure directory resolves in-process, so
+the typed-redeemer dispatch in
+'Cardano.Tx.Graph.Emit.Witness.resolveRedeemerPurposeHash' can
+find the spending script hash from the parent's address.
+-}
+resolveViaClosure :: FilePath -> ConwayTx -> IO ResolvedUTxO
+resolveViaClosure dir tx = do
+    let r = closureResolver dir
+    (resolved, _unresolved) <- resolveChain [r] (collectInputs tx)
+    pure resolved
+
+{- | A 'Resolver' that looks each input up in a directory of CBOR
+files keyed by transaction hash. Missing files and out-of-range
+indices are dropped from the result map (resolver-chain semantics).
+-}
+closureResolver :: FilePath -> Resolver
+closureResolver dir =
+    Resolver
+        { resolverName = "closure-dir"
+        , resolveInputs = \inputs -> do
+            entries <- traverse (resolveOne dir) (Set.toList inputs)
+            pure (Map.fromList [(k, v) | Just (k, v) <- entries])
+        }
+
+{- | Resolve a single 'TxIn' by reading its parent's CBOR from
+@\<dir\>/\<txid-hex\>.cbor@ and pulling the output at the
+zero-based index encoded in the 'TxIx'. Returns 'Nothing' if the
+file is missing, the CBOR is malformed, or the index is out of
+range.
+-}
+resolveOne ::
+    FilePath ->
+    TxIn ->
+    IO (Maybe (TxIn, TxOut ConwayEra))
+resolveOne dir txIn@(TxIn (TxId safeHash) (TxIx ix)) = do
+    let hex =
+            Text.unpack
+                ( TextEncoding.decodeUtf8
+                    (Base16.encode (hashToBytes (extractHash safeHash)))
+                )
+        path = dir </> (hex <> ".cbor")
+    exists <- doesFileExist path
+    if not exists
+        then pure Nothing
+        else do
+            blob <- BS.readFile path
+            case decodeConwayTxInput blob of
+                Left _ -> pure Nothing
+                Right parentTx ->
+                    let outputs =
+                            toList
+                                (parentTx ^. bodyTxL . outputsTxBodyL)
+                     in case indexOutputs outputs (fromIntegral ix) of
+                            Nothing -> pure Nothing
+                            Just o -> pure (Just (txIn, o))
+
+indexOutputs :: [a] -> Int -> Maybe a
+indexOutputs xs n
+    | n < 0 = Nothing
+    | otherwise = go xs n
+  where
+    go [] _ = Nothing
+    go (x : _) 0 = Just x
+    go (_ : rest) k = go rest (k - 1)
 
 {- | Collect every 'TxIn' the body references: spending inputs,
 reference inputs, collateral inputs. Mirrors the same helper in

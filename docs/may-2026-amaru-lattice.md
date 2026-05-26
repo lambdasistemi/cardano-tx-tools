@@ -516,47 +516,37 @@ side once gap #4 lands.
 
 ## 4. Typed redeemer decode not firing on live mainnet
 
-**Root cause identified, fix is multi-step** (triage during #103):
+**Resolved** (#112 — landed in the same PR as #103). The root
+cause was that
+`Cardano.Tx.Graph.Emit.Witness.resolveRedeemerPurposeHash` for
+`ConwaySpending` derives the spending script hash by reading the
+consumed input's `TxOut` from a `ResolvedUTxO` map; the lattice
+ran `tx-graph` without `--utxo` (the JSON decoder was a
+syntax-only stub) and without `--n2c-socket-path` (no live
+node), so the map was empty and dispatch silently fell back to
+`NoBlueprintRegistered`.
 
-The blueprint is registered correctly. The decoder is wired
-correctly. The gap is that **`Cardano.Tx.Graph.Emit.Witness.resolveRedeemerPurposeHash`**
-for `ConwaySpending` derives the spending script hash by looking
-up the consumed input's `TxOut` in the supplied `ResolvedUTxO`
-(`Map TxIn (TxOut ConwayEra)`) and reading its
-payment-credential script hash. When that map is empty, the
-lookup returns `Nothing` and decoding falls back to
-`NoBlueprintRegistered` — silently, no warning.
+The fix introduces **a closure-directory resolver**:
 
-Two things conspire to make the lattice empty-utxo:
+* `tx-graph --closure-dir DIR` looks each input's parent
+  transaction up at `DIR/<parentTxId>.cbor`, parses it via the
+  same decoder `--tx` uses, and extracts the output at the
+  input's `TxIx`. The resolver is implemented in
+  `app/tx-graph/Main.hs:resolveViaClosure` and plugs into the
+  existing `Cardano.Tx.Diff.Resolver` chain abstraction — no
+  changes to the Witness walker were needed.
+* `scripts/tx-lattice` now runs a two-pass closure walk: BFS
+  over parent-references fetching every CBOR to
+  `OUT_DIR/cbor/<txid>.cbor` first, then emitting each seed
+  with `--closure-dir`. Parents are emitted without the flag
+  (they don't dispatch redeemers themselves; they're only
+  joined to as resolution targets).
 
-1. The May 2026 batch uses CIP-31 reference inputs to provide
-   every Plutus spending script. The tx's own
-   `wits ^. scriptTxWitsL` map is therefore empty (the script
-   lives at a reference UTxO's `cardano:hasReferenceScript`
-   slot in another tx's TTL). A "fall back to a witness-set
-   hash" heuristic doesn't help.
-2. `tx-graph --utxo FILE` accepts the flag but its JSON parser
-   is **a syntax-only stub**: see
-   `app/tx-graph/Main.hs:loadUtxoJsonOrExit` — it
-   `pure Map.empty`s after validating the bytes are JSON. The
-   structural decoder isn't implemented. So even if `tx-lattice`
-   built a per-tx UTxO JSON from the closure parents and passed
-   it, `tx-graph` would still see an empty map.
-
-Fixture 17 *appears* to work only because its test harness
-supplies a hand-built `ResolvedUTxO` directly to the in-process
-`emit` call — bypassing the `--utxo` JSON path entirely.
-
-**Fix path (follow-up to #103)**:
-
-1. Implement the structural `loadUtxoJsonOrExit` decoder
-   (Conway-era `TxOut` from a JSON-encoded UTxO map).
-2. Extend `tx-lattice` to build the per-seed-tx UTxO JSON from
-   the closure parents and pass it via `--utxo`. The closure
-   already has every parent's CBOR on disk; the build step is
-   a small loop.
-
-Filing as a new ticket.
+Verified on a 7-tx closure of contingency disburse
+`18d57a4f…`: the seed's redeemerData bnodes now carry
+`:TreasurySpendRedeemer_amount _:redeemerData1_amount` triples,
+materialising the Reorganize / SweepTreasury / Fund / Disburse
+constructor distinction the SPARQL queries can JOIN on.
 
 ## 5. Stale swap-v2 blueprint
 
