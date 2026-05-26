@@ -1,44 +1,30 @@
 #!/usr/bin/env bash
-# tx-lattice — fetch a *closure* of Conway transactions and emit one
-# canonical Turtle file per tx.
+# tx-lattice — thin convenience wrapper around tx-fetch + tx-graph.
 #
-# Architecture (post-#114):
+# Architecture (post-#114 + post-tx-fetch split):
 #
-#   The only Blockfrost endpoint used is /txs/<hash>/cbor.  Every input
-#   in a Conway tx references its parent UTxO by (txid, ix); tx-graph
-#   already emits those references as `cardano:fromTxOutRef →
-#   cardano:hasTxId _:hash_txid_<HEX>`.  This script walks those
-#   references, fetches each parent's CBOR to <OUT_DIR>/cbor/, and
-#   recurses up to --depth.  Then it hands the whole CBOR directory to
-#   `tx-graph --in-dir` in one invocation; tx-graph indexes every input
-#   by its computed TxId and resolves each tx's inputs against the
-#   in-memory lattice as it emits.
+#   tx-fetch  fetches the closure of CBORs into <out-dir>/cbor/, plus a
+#             seeds.txt enumerating the operator's seed list.
+#   tx-graph  --in-dir <out-dir>/cbor --out-dir <out-dir> indexes every
+#             CBOR by its computed TxId and emits one canonical Turtle
+#             file per tx, with the operator overlay merged in if
+#             --rules is supplied.
 #
-#   No /utxos call, no hand-built "resolved input" bridge, no two-pass
-#   BFS-then-emit dance: the parent tx's outputs ARE the resolved
-#   inputs, resolved in-process by tx-graph itself.
+#   This wrapper composes the two for the operator's convenience.  For
+#   raw closure fetches (no overlay, no rules), use tx-fetch directly.
+#   For one-tx-at-a-time emit, use tx-graph directly.
 #
 # Usage:
-#   tx-lattice --rules rules.yaml --out-dir DIR \
+#   tx-lattice [--rules rules.yaml] --out-dir DIR \
 #              [--network mainnet|preprod|preview] [--depth N] \
 #              <txId1> <txId2> ... <txIdN>
 #
 # Env:
-#   BLOCKFROST_PROJECT_ID  required
+#   BLOCKFROST_PROJECT_ID  required (for tx-fetch)
 #   TX_GRAPH_EXE           override path to tx-graph binary
 #                          (default: tx-graph on PATH, else result/bin/tx-graph)
-#
-# For each tx in the closure the script writes  DIR/<txid>.ttl (created
-# by a single `tx-graph --in-dir DIR/cbor --out-dir DIR` call), plus a
-# `seeds.txt` file enumerating the operator's input txid list so
-# downstream SPARQL can distinguish seeds from BFS-walked parents.
-#
-# Then query across the whole closure with:
-#   nix-shell -p apache-jena --run \
-#     "sparql $(printf -- '--data %s ' DIR/*.ttl) --query foo.rq"
-#
-# Or project a single tx with the packaged views:
-#   tx-view --graph DIR/<txid>.ttl --view cli-tree
+#   TX_FETCH_EXE           override path to tx-fetch script
+#                          (default: tx-fetch on PATH, else scripts/tx-fetch)
 
 set -euo pipefail
 
@@ -62,11 +48,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$RULES" ]] || { echo "tx-lattice: --rules required" >&2; exit 2; }
 [[ -n "$OUT_DIR" ]] || { echo "tx-lattice: --out-dir required" >&2; exit 2; }
 [[ ${#TXIDS[@]} -gt 0 ]] || { echo "tx-lattice: pass at least one txId" >&2; exit 2; }
-[[ -n "${BLOCKFROST_PROJECT_ID:-}" ]] || {
-  echo "tx-lattice: BLOCKFROST_PROJECT_ID env required" >&2; exit 2; }
+
+if [[ -n "${TX_FETCH_EXE:-}" ]]; then
+  TXF="$TX_FETCH_EXE"
+elif command -v tx-fetch >/dev/null 2>&1; then
+  TXF="$(command -v tx-fetch)"
+elif [[ -x "$(dirname "$0")/tx-fetch" ]]; then
+  TXF="$(dirname "$0")/tx-fetch"
+else
+  echo "tx-lattice: tx-fetch not found — set TX_FETCH_EXE or put tx-fetch on PATH" >&2
+  exit 2
+fi
 
 if [[ -n "${TX_GRAPH_EXE:-}" ]]; then
   TXG="$TX_GRAPH_EXE"
@@ -79,91 +73,13 @@ else
   exit 2
 fi
 
-case "$NETWORK" in
-  mainnet) BASE_URL="https://cardano-mainnet.blockfrost.io/api/v0" ;;
-  preprod) BASE_URL="https://cardano-preprod.blockfrost.io/api/v0" ;;
-  preview) BASE_URL="https://cardano-preview.blockfrost.io/api/v0" ;;
-  *) echo "tx-lattice: unknown network $NETWORK" >&2; exit 2 ;;
-esac
+"$TXF" --out-dir "$OUT_DIR" --network "$NETWORK" --depth "$DEPTH" "${TXIDS[@]}"
 
-mkdir -p "$OUT_DIR"
-CBOR_DIR="$OUT_DIR/cbor"
-mkdir -p "$CBOR_DIR"
-
-bf_cbor() {
-  curl -fsS -H "project_id: $BLOCKFROST_PROJECT_ID" \
-    "$BASE_URL/txs/$1/cbor"
-}
-
-# Fetch a tx's CBOR into the closure dir if not already present.
-fetch_cbor() {
-  local txid="$1"
-  local cbor_persistent="$CBOR_DIR/$txid.cbor"
-  if [[ ! -f "$cbor_persistent" ]]; then
-    echo "tx-lattice: fetch $txid" >&2
-    bf_cbor "$txid" | jq -r '.cbor' | xxd -r -p > "$cbor_persistent"
-  fi
-}
-
-# Run tx-graph against a single CBOR (no --in-dir) just to scrape the
-# parent txids out of the emit. Used during BFS expansion only — the
-# final emit is one multi-input invocation below.
-scratch_parents() {
-  local cbor="$1"
-  "$TXG" --rules "$RULES" "$cbor" 2>/dev/null \
-    | grep -oE '_:hash_txid_[a-f0-9]+' \
-    | sed 's/^_:hash_txid_//' \
-    | sort -u
-}
-
-# BFS closure walk: fetch every CBOR in <OUT_DIR>/cbor/. Seeds enter at
-# depth 0; their direct parents at depth 1; deeper layers at the same
-# pace. The seeds.txt file preserves the operator's input list so that
-# SPARQL queries downstream can tell seeds from BFS-walked parents.
-declare -A seen
-queue=()
-queue_depth=()
-for t in "${TXIDS[@]}"; do
-  queue+=("$t")
-  queue_depth+=("0")
-done
-
-while [[ ${#queue[@]} -gt 0 ]]; do
-  txid="${queue[0]}"
-  depth="${queue_depth[0]}"
-  queue=("${queue[@]:1}")
-  queue_depth=("${queue_depth[@]:1}")
-
-  if [[ -n "${seen[$txid]:-}" ]]; then
-    continue
-  fi
-  seen[$txid]=1
-
-  fetch_cbor "$txid"
-
-  if (( depth < DEPTH )); then
-    next_depth=$((depth + 1))
-    while IFS= read -r parent; do
-      if [[ -n "$parent" && -z "${seen[$parent]:-}" ]]; then
-        queue+=("$parent")
-        queue_depth+=("$next_depth")
-      fi
-    done < <(scratch_parents "$CBOR_DIR/$txid.cbor")
-  fi
-done
-
-# Preserve the operator's seed list so downstream SPARQL can tell
-# seeds from BFS-walked parents.
-{
-  for t in "${TXIDS[@]}"; do
-    echo "$t"
-  done
-} > "$OUT_DIR/seeds.txt"
-
-# Final emit. One tx-graph invocation: the in-memory lattice indexes
-# every fetched CBOR by computed TxId, resolves every input in-process,
-# and writes one <txid>.ttl per input into $OUT_DIR.
-"$TXG" --rules "$RULES" --in-dir "$CBOR_DIR" --out-dir "$OUT_DIR"
+if [[ -n "$RULES" ]]; then
+  "$TXG" --rules "$RULES" --in-dir "$OUT_DIR/cbor" --out-dir "$OUT_DIR"
+else
+  "$TXG" --in-dir "$OUT_DIR/cbor" --out-dir "$OUT_DIR"
+fi
 
 emitted=$(find "$OUT_DIR" -maxdepth 1 -name '*.ttl' | wc -l)
-echo "tx-lattice: done. $emitted tx(s) in closure (depth=$DEPTH) → $OUT_DIR/" >&2
+echo "tx-lattice: done. $emitted ttl(s) in closure (depth=$DEPTH) → $OUT_DIR/" >&2
