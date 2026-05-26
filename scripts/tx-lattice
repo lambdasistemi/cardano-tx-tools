@@ -86,6 +86,16 @@ case "$NETWORK" in
 esac
 
 mkdir -p "$OUT_DIR"
+# Each tx's CBOR is also kept on disk under <OUT_DIR>/cbor/<txid>.cbor
+# so tx-graph --closure-dir can resolve a seed tx's inputs in-process
+# against parent CBORs at body-emit time. Issue #112 (fixes #102):
+# without this, the typed-redeemer dispatch in tx-graph's Witness
+# walker falls back to NoBlueprintRegistered for every spending
+# redeemer (the lookup is keyed by the spending input's parent
+# script-hash, which the empty default ResolvedUTxO cannot provide).
+CBOR_DIR="$OUT_DIR/cbor"
+mkdir -p "$CBOR_DIR"
+
 WORK=$(mktemp -d /tmp/tx-lattice.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 
@@ -94,45 +104,71 @@ bf_cbor() {
     "$BASE_URL/txs/$1/cbor"
 }
 
-emit_one() {
+# Fetch a tx's CBOR into the closure dir if not already present.
+# Also dumps a quick scratch TTL into a temp file so the BFS step
+# can read out the parent txids without committing to the final
+# emit (which needs --closure-dir populated and therefore can't
+# run until the BFS finishes).
+fetch_cbor() {
   local txid="$1"
-  local role="$2"   # "seed" | "parent"
-  local out="$OUT_DIR/$txid.ttl"
-  if [[ -f "$out" ]]; then
-    return 0
+  local cbor_persistent="$CBOR_DIR/$txid.cbor"
+  if [[ ! -f "$cbor_persistent" ]]; then
+    echo "tx-lattice: fetch $txid" >&2
+    bf_cbor "$txid" | jq -r '.cbor' | xxd -r -p > "$cbor_persistent"
   fi
-
-  echo "tx-lattice: emit ($role) $txid" >&2
-
-  local cbor="$WORK/$txid.cbor"
-  bf_cbor "$txid" | jq -r '.cbor' | xxd -r -p > "$cbor"
-  "$TXG" --rules "$RULES" --tx "$cbor" > "$out"
-
-  # tx-graph already emits the tx's own `cardano:hasTxId` triple and
-  # the per-output `cardano:hasIndex` triples natively (issue #100).
-  # All tx-lattice has to add on top is the lattice-role marker:
-  #   "seed"   — the user's input set; consumption originating here is
-  #              "happened during the lattice's time window"
-  #   "parent" — closure-pulled ancestor; its outputs are joined to as
-  #              the resolution targets of seed inputs
-  printf '\n_:tx cardano:hasLatticeRole "%s" .\n' "$role" >> "$out"
 }
 
-# Extract every parent txid referenced inside an emitted TTL.  The
-# tx-graph emit uses `_:hash_txid_<HEX>` bnodes for every input,
-# reference input, and collateral input; the bnode label IS the
-# parent hash, so we just collect them.
-extract_parents() {
-  grep -oE '_:hash_txid_[a-f0-9]+' "$1" \
+# Run tx-graph against a CBOR with no closure-dir, just to extract
+# the input/reference-input/collateral parent txids it references
+# (encoded as `_:hash_txid_<HEX>` bnode labels in the emit).
+scratch_parents() {
+  local txid="$1"
+  local cbor_persistent="$CBOR_DIR/$txid.cbor"
+  "$TXG" --rules "$RULES" --tx "$cbor_persistent" 2>/dev/null \
+    | grep -oE '_:hash_txid_[a-f0-9]+' \
     | sed 's/^_:hash_txid_//' \
     | sort -u
 }
 
-# BFS closure walk. Three parallel lists (txid, depth, role) form the
-# queue. Seeds enter at depth 0 with role="seed"; their direct parents
-# enter at depth 1 with role="parent"; deeper layers (if --depth > 1)
-# all keep role="parent".
+# Final emit. Seeds run with --closure-dir so spending-redeemer
+# typed decode fires (issue #112); parents are emitted without
+# it (no need to dispatch their own redeemers).
+emit_final() {
+  local txid="$1"
+  local role="$2"
+  local out="$OUT_DIR/$txid.ttl"
+  local cbor_persistent="$CBOR_DIR/$txid.cbor"
+  echo "tx-lattice: emit ($role) $txid" >&2
+  if [[ "$role" == "seed" ]]; then
+    "$TXG" --rules "$RULES" --tx "$cbor_persistent" \
+      --closure-dir "$CBOR_DIR" > "$out"
+  else
+    "$TXG" --rules "$RULES" --tx "$cbor_persistent" > "$out"
+  fi
+  # tx-graph already emits the tx's own `cardano:hasTxId` triple
+  # and the per-output `cardano:hasIndex` triples natively (issue
+  # #100). All tx-lattice has to add on top is the lattice-role
+  # marker:
+  #   "seed"   — the user's input set; consumption originating
+  #              here is "happened during the lattice's time window"
+  #   "parent" — closure-pulled ancestor; its outputs are joined
+  #              to as resolution targets of seed inputs
+  printf '\n_:tx cardano:hasLatticeRole "%s" .\n' "$role" >> "$out"
+}
+
+# Two-pass closure walk. Issue #112: a seed's spending-redeemer
+# decode needs --closure-dir populated with PARENT CBORs at emit
+# time, so the BFS first fetches every CBOR into $CBOR_DIR, then
+# a second pass emits the TTLs with --closure-dir for seeds.
+#
+# BFS state. Three parallel lists (txid, depth, role) form the
+# queue. Seeds enter at depth 0 with role="seed"; their direct
+# parents enter at depth 1 with role="parent"; deeper layers
+# all keep role="parent". A flat `seen_order[@]` records the
+# emit order so we can replay it in pass 2 without re-walking.
 declare -A seen
+declare -A role_of
+seen_order=()
 queue=()
 queue_depth=()
 queue_role=()
@@ -142,7 +178,7 @@ for t in "${TXIDS[@]}"; do
   queue_role+=("seed")
 done
 
-emitted=0
+# Pass 1: BFS, fetch every CBOR + record emit order.
 while [[ ${#queue[@]} -gt 0 ]]; do
   txid="${queue[0]}"
   depth="${queue_depth[0]}"
@@ -155,9 +191,10 @@ while [[ ${#queue[@]} -gt 0 ]]; do
     continue
   fi
   seen[$txid]=1
+  role_of[$txid]="$role"
+  seen_order+=("$txid")
 
-  emit_one "$txid" "$role"
-  emitted=$((emitted + 1))
+  fetch_cbor "$txid"
 
   if (( depth < DEPTH )); then
     next_depth=$((depth + 1))
@@ -167,8 +204,16 @@ while [[ ${#queue[@]} -gt 0 ]]; do
         queue_depth+=("$next_depth")
         queue_role+=("parent")
       fi
-    done < <(extract_parents "$OUT_DIR/$txid.ttl")
+    done < <(scratch_parents "$txid")
   fi
+done
+
+# Pass 2: emit TTL for every fetched tx with closure-dir fully
+# populated.
+emitted=0
+for txid in "${seen_order[@]}"; do
+  emit_final "$txid" "${role_of[$txid]}"
+  emitted=$((emitted + 1))
 done
 
 echo "tx-lattice: done. $emitted tx(s) in closure (depth=$DEPTH) → $OUT_DIR/" >&2
