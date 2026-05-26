@@ -1,0 +1,141 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+# Network-compliance USDM accounting statement:
+#   starting state + swap receipts - beneficiary payments - terminal state.
+#
+# A correct graph for the boundary should return usdmGap = 0.
+SELECT ?treasuryLabel ?treasuryAddress ?startUsdm
+       ?swapReceiptTxs ?swapReceiptsUsdm
+       ?beneficiaryPaymentTxs ?beneficiaryPaymentsUsdm
+       ?terminalUtxos ?terminalUsdm
+       ((?startUsdm + ?swapReceiptsUsdm - ?beneficiaryPaymentsUsdm - ?terminalUsdm) AS ?usdmGap)
+WHERE {
+  BIND("amaru-treasury.network_compliance" AS ?treasuryLabel)
+  BIND(0 AS ?startUsdm)
+  {
+    SELECT DISTINCT ?treasuryAddress
+    WHERE {
+      ?t rdfs:label "amaru-treasury.network_compliance" ;
+         cardano:bech32 ?treasuryAddress .
+    }
+    LIMIT 1
+  }
+
+  {
+    SELECT (COUNT(?swapTxId) AS ?swapReceiptTxs) (SUM(?swapUsdm) AS ?swapReceiptsUsdm)
+    WHERE {
+      {
+        SELECT ?swapTxId (SUM(?qty) AS ?swapUsdm)
+        WHERE {
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
+          {
+            SELECT DISTINCT ?networkComplianceBech32
+            WHERE {
+              ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                                 cardano:bech32 ?networkComplianceBech32 .
+            }
+          }
+          {
+            SELECT DISTINCT ?orderScriptHash
+            WHERE {
+              ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                           cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+            }
+          }
+
+          ?swapTx cardano:hasTxId/cardano:bytesHex ?swapTxId ;
+                  cardano:hasOutput ?out .
+          ?out cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+               cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+          ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+                 cardano:quantity ?qty .
+
+          FILTER EXISTS {
+            ?swapTx cardano:hasInput ?in .
+            ?in cardano:fromTxOutRef ?ref .
+            ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+                 cardano:hasIndex ?orderIx .
+            ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+                     cardano:hasOutput ?orderOut .
+            ?orderOut cardano:hasIndex ?orderIx ;
+                      cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
+                        ?orderScriptHash .
+          }
+        }
+        GROUP BY ?swapTxId
+      }
+    }
+  }
+
+  {
+    SELECT (COUNT(?paymentTxId) AS ?beneficiaryPaymentTxs) (SUM(?paymentUsdm) AS ?beneficiaryPaymentsUsdm)
+    WHERE {
+      {
+        SELECT ?paymentTxId ?outputIndex (SUM(?qty) AS ?paymentUsdm)
+        WHERE {
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
+          {
+            SELECT DISTINCT ?payeeBech32
+            WHERE {
+              ?payee rdfs:label "amaru.cag-payee" ;
+                     cardano:bech32 ?payeeBech32 .
+            }
+          }
+
+          ?paymentTx cardano:hasTxId/cardano:bytesHex ?paymentTxId ;
+                     cardano:hasOutput ?out .
+          ?out cardano:hasIndex ?outputIndex ;
+               cardano:atAddress/cardano:bech32 ?payeeBech32 ;
+               cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+          ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+                 cardano:quantity ?qty .
+        }
+        GROUP BY ?paymentTxId ?outputIndex
+      }
+    }
+  }
+
+  {
+    SELECT (COUNT(?txId) AS ?terminalUtxos) (SUM(?usdm) AS ?terminalUsdm)
+    WHERE {
+      {
+        SELECT ?txId ?ix (SUM(COALESCE(?usdmRaw, 0)) AS ?usdm)
+        WHERE {
+          VALUES ?usdmAssetId {
+            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+          }
+          {
+            SELECT DISTINCT ?networkComplianceBech32
+            WHERE {
+              ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                                 cardano:bech32 ?networkComplianceBech32 .
+            }
+          }
+
+          ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
+              cardano:hasOutput ?out .
+          ?out cardano:hasIndex ?ix ;
+               cardano:atAddress/cardano:bech32 ?networkComplianceBech32 .
+          OPTIONAL {
+            ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+            ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+                   cardano:quantity ?usdmRaw .
+          }
+          FILTER NOT EXISTS {
+            ?spendingTx cardano:hasInput ?input .
+            ?input cardano:fromTxOutRef ?ref .
+            ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
+                 cardano:hasIndex ?ix .
+          }
+        }
+        GROUP BY ?txId ?ix
+      }
+    }
+  }
+}

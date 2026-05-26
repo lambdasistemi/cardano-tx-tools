@@ -1,0 +1,120 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+# Provenance for each terminal network_compliance UTxO that still holds
+# USDM. The producer kind is inferred only from graph structure.
+SELECT ?terminalTxId ?terminalIx ?terminalUsdm ?producerKind
+       ?producerNetworkUsdm ?swapOrderInputs ?swapOrderLovelace ?swapOrderRefs ?beneficiaryPaymentUsdm
+WHERE {
+  {
+    SELECT ?producer ?terminalTxId ?terminalIx ?terminalUsdm
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+      {
+        SELECT DISTINCT ?networkComplianceBech32
+        WHERE {
+          ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                             cardano:bech32 ?networkComplianceBech32 .
+        }
+      }
+
+      ?producer cardano:hasTxId/cardano:bytesHex ?terminalTxId ;
+                cardano:hasOutput ?terminalOut .
+      ?terminalOut cardano:hasIndex ?terminalIx ;
+                   cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+                   cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?terminalUsdm .
+      FILTER(?terminalUsdm > 0)
+      FILTER NOT EXISTS {
+        ?spendingTx cardano:hasInput ?input .
+        ?input cardano:fromTxOutRef ?ref .
+        ?ref cardano:hasTxId/cardano:bytesHex ?terminalTxId ;
+             cardano:hasIndex ?terminalIx .
+      }
+    }
+  }
+  {
+    SELECT ?producer (SUM(?qty) AS ?producerNetworkUsdm)
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+      {
+        SELECT DISTINCT ?networkComplianceBech32
+        WHERE {
+          ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                             cardano:bech32 ?networkComplianceBech32 .
+        }
+      }
+
+      ?producer cardano:hasOutput ?out .
+      ?out cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+    GROUP BY ?producer
+  }
+  OPTIONAL {
+    SELECT ?producer (COUNT(?orderRef) AS ?swapOrderInputs)
+           (SUM(?oneOrderLovelace) AS ?swapOrderLovelace)
+           (GROUP_CONCAT(?orderRef; separator=", ") AS ?swapOrderRefs)
+    WHERE {
+      {
+        SELECT DISTINCT ?orderScriptHash
+        WHERE {
+          ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                       cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+        }
+      }
+      ?producer cardano:hasInput ?in .
+      ?in cardano:fromTxOutRef ?ref .
+      ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+           cardano:hasIndex ?orderIx .
+      ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+               cardano:hasOutput ?orderOut .
+      ?orderOut cardano:hasIndex ?orderIx ;
+                cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
+                  ?orderScriptHash ;
+                cardano:lovelace ?oneOrderLovelace .
+      BIND(CONCAT(?orderTxId, "#", STR(?orderIx)) AS ?orderRef)
+    }
+    GROUP BY ?producer
+  }
+  OPTIONAL {
+    SELECT ?producer (SUM(?qty) AS ?beneficiaryPaymentUsdm)
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+      {
+        SELECT DISTINCT ?payeeBech32
+        WHERE {
+          ?payee rdfs:label "amaru.cag-payee" ;
+                 cardano:bech32 ?payeeBech32 .
+        }
+      }
+
+      ?producer cardano:hasOutput ?out .
+      ?out cardano:atAddress/cardano:bech32 ?payeeBech32 ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+    GROUP BY ?producer
+  }
+  BIND(COALESCE(?swapOrderInputs, 0) AS ?swapInputs)
+  BIND(COALESCE(?beneficiaryPaymentUsdm, 0) AS ?beneficiaryPaid)
+  BIND(
+    IF(
+      ?swapInputs > 0,
+      "swap-receipt",
+      IF(?beneficiaryPaid > 0, "beneficiary-payment-change", "treasury-change")
+    ) AS ?producerKind
+  )
+}
+ORDER BY DESC(?terminalUsdm) ?terminalTxId ?terminalIx

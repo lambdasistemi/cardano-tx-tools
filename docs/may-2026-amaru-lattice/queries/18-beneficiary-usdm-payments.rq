@@ -1,0 +1,47 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+# USDM outputs paid to the configured CAG payee bridge.
+#
+# The final column lists vendors declared as paid via that bridge. It is
+# deliberately not used to split the amount: the graph can prove the
+# payee output amount, while per-invoice attribution requires metadata
+# or operator labels beyond the payment address itself.
+SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace ?usdm
+       (GROUP_CONCAT(DISTINCT ?vendorLabel; separator=", ") AS ?vendorsPaidViaPayee)
+WHERE {
+  {
+    SELECT ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace (SUM(?qty) AS ?usdm)
+    WHERE {
+      VALUES ?usdmAssetId {
+        "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+      }
+      {
+        SELECT DISTINCT ?payeeLabel ?payeeAddress
+        WHERE {
+          ?payee rdfs:label ?payeeLabel ;
+                 cardano:bech32 ?payeeAddress .
+          VALUES ?payeeLabel { "amaru.cag-payee" }
+        }
+      }
+
+      ?paymentTx cardano:hasTxId/cardano:bytesHex ?paymentTxId ;
+                 cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?outputIndex ;
+           cardano:atAddress/cardano:bech32 ?payeeAddress ;
+           cardano:lovelace ?lovelace ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+    GROUP BY ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace
+  }
+  OPTIONAL {
+    ?vendor rdfs:label ?vendorLabel ;
+            cardano:paidVia ?bridge .
+    ?bridge rdfs:label ?payeeLabel .
+  }
+}
+GROUP BY ?paymentTxId ?outputIndex ?payeeLabel ?payeeAddress ?lovelace ?usdm
+ORDER BY ?paymentTxId ?outputIndex

@@ -1,6 +1,6 @@
 # Amaru Treasury — May 2026 SPARQL Presentation
 
-Seventeen real SPARQL queries running over a real on-chain lattice built
+Twenty-one real SPARQL queries running over a real on-chain lattice built
 end-to-end from `tx-graph` + `tx-lattice` + Apache Jena.
 
 - Seed batch — the 30 user-named txs of May 2026 (3 disbursements + 5
@@ -21,6 +21,11 @@ end-to-end from `tx-graph` + `tx-lattice` + Apache Jena.
   for seed-flow questions; the final UTxO proof needs every transaction
   that can produce or spend a network_compliance output before that
   boundary.
+- USDM accounting boundary — Queries 17-20 turn that complete
+  network_compliance graph into a user-facing proof: the treasury starts
+  with 0 USDM, receives 425,131.618692 USDM from swaps, pays 418,750 USDM
+  to the CAG payee bridge, and retains 6,381.618692 USDM with zero
+  accounting gap.
 - Operator rules — `rules.yaml` carries on-chain entities, off-chain
   vendors, IPFS-anchored attestations, and CIP-57 blueprints.
 - Engine — Apache Jena 5.6.0 `sparql` CLI.
@@ -78,3 +83,7 @@ Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
 | Query 14 — Network compliance terminal state | [`what / why / how`](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.md) | [`queries/14-network-compliance-terminal-state.rq`](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq) |
 | Query 15 — Network compliance live diff | [`what / why / how`](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.md) | [`queries/15-network-compliance-live-diff.rq`](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq) |
 | Query 16 — Network compliance live summary | [`what / why / how`](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.md) | [`queries/16-network-compliance-live-summary.rq`](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.rq) |
+| Query 17 — Network compliance USDM accounting | [`what / why / how`](may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.md) | [`queries/17-network-compliance-usdm-accounting.rq`](may-2026-amaru-lattice/queries/17-network-compliance-usdm-accounting.rq) |
+| Query 18 — Beneficiary USDM payments | [`what / why / how`](may-2026-amaru-lattice/queries/18-beneficiary-usdm-payments.md) | [`queries/18-beneficiary-usdm-payments.rq`](may-2026-amaru-lattice/queries/18-beneficiary-usdm-payments.rq) |
+| Query 19 — Swap receipts and rates | [`what / why / how`](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.md) | [`queries/19-swap-receipts-and-rates.rq`](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.rq) |
+| Query 20 — Terminal USDM provenance | [`what / why / how`](may-2026-amaru-lattice/queries/20-terminal-usdm-provenance.md) | [`queries/20-terminal-usdm-provenance.rq`](may-2026-amaru-lattice/queries/20-terminal-usdm-provenance.rq) |
