@@ -557,20 +557,27 @@ path; parallel CBOR fetch.
 
 ## 7. `tx-graph --rules` rejects rules.yaml files carrying off-chain entities
 
-**Impact**: the single-user-facing rules.yaml that Amaru wants
-(on-chain entities + off-chain vendors + IPFS attestations + CIP-57
-blueprints) cannot be fed verbatim to `tx-graph` — the loader
-rejects entities without `from-address` or `script` with
-`EntityZeroIdentifiers`. The present presentation splits these
-into two files (`rules.yaml` for on-chain + blueprints,
-`overlay.ttl` for off-chain) and the SPARQL invocation pulls
-both via separate `--data` flags.
+**Resolved** (#105, across `Cardano.Tx.Graph.Rules.Load.{Types,
+Parse.Yaml, Emit.Overlay}`): a single `rules.yaml` can now carry
+on-chain entities, off-chain overlay vendors, and IPFS-anchored
+attestations side by side. Concretely:
 
-**Fix**: either extend the loader to accept overlay-only entities
-(with no script identifier) as documentation-only nodes, OR add a
-top-level `overlay:` block to the rules grammar whose entries are
-emitted as triples but not validated against script-identifier
-rules.
+- An entity in the `entities:` list with no on-chain identifier
+  shape (no `from-address` / `script` / `asset` / `pool` / `drep`
+  / `keys+bytes`) but **with** `paid-via:` is accepted as an
+  off-chain overlay node and emitted as `:slug a
+  cardano:OffChainEntity`.
+- A new top-level `attestations:` block declares
+  IPFS-anchored artefacts; each entry emits a
+  `[] a cardano:Attestation ; rdfs:label "..." ; cardano:attests
+  :slug ; cardano:ipfs <ipfs://...>` block in the overlay.
+- New optional `role:` and `paid-via:` keys are accepted on any
+  entity (on-chain or off-chain); they emit `cardano:role` and
+  `cardano:paidVia` triples respectively.
+
+The May 2026 presentation can now drop the `overlay.ttl` companion
+file and ship a single rules.yaml; Q5 (vendor-payment chain) runs
+unchanged against the merged document.
 
 ## 8. Scope mapping is hard-coded inside each SPARQL query
 

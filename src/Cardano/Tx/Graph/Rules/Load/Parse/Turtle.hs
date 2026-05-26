@@ -871,13 +871,16 @@ buildEntity file subjectLines groups subj = do
             { entityName = name
             , entitySlug = slug
             , entityIdentifiers = idents
-            , -- Turtle-shape rules don't currently expose a
-              -- `cardano:bech32` triple at the entity subject — that
-              -- syntax is a YAML-only sugar over `from-address`.
-              -- Issue #100 leaves this Nothing for the Turtle path
-              -- (a follow-up can promote it if a Turtle fixture
-              -- ever declares the triple explicitly).
+            , -- Turtle-shape rules don't currently expose
+              -- @cardano:bech32@ / @cardano:role@ / @cardano:paidVia@
+              -- triples at the entity subject — those syntaxes are
+              -- YAML-only sugar (issues #100, #105). Leave them
+              -- 'Nothing' for the Turtle path; a follow-up can
+              -- promote them if a Turtle fixture ever declares
+              -- them explicitly.
               entityBech32 = Nothing
+            , entityRole = Nothing
+            , entityPaidVia = Nothing
             , entitySourceFile = file
             }
 

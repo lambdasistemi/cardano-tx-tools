@@ -68,6 +68,7 @@ import Cardano.Tx.Graph.Rules.Load.Bech32 (
     decomposeFromAddress,
  )
 import Cardano.Tx.Graph.Rules.Load.Types (
+    Attestation (..),
     EntityDecl (..),
     EntityIdentifier (..),
     LeafType (..),
@@ -142,7 +143,7 @@ file-aware 'parseRulesYamlImportsWithFile' threads it through to the
 resolver for IO loading + JSON parsing.
 -}
 parseRulesYamlText :: ByteString -> Either RulesLoadError [EntityDecl]
-parseRulesYamlText = fmap (\(_, ents, _) -> ents) . parseRulesYamlImports
+parseRulesYamlText = fmap (\(_, ents, _, _) -> ents) . parseRulesYamlImports
 
 {- | Parse a @rules.yaml@ byte blob into the raw @imports:@ list (in
 source order), the in-memory entity list, and the blueprint stub
@@ -158,7 +159,9 @@ resolver can do the file-read + JSON-parse step in IO.
 -}
 parseRulesYamlImports ::
     ByteString ->
-    Either RulesLoadError ([Text], [EntityDecl], [BlueprintStub])
+    Either
+        RulesLoadError
+        ([Text], [EntityDecl], [BlueprintStub], [Attestation])
 parseRulesYamlImports = parseRulesYamlImportsWithFile inMemoryFile
 
 {- | Variant of 'parseRulesYamlImports' that takes the source 'FilePath'
@@ -176,7 +179,9 @@ collision detection.
 parseRulesYamlImportsWithFile ::
     FilePath ->
     ByteString ->
-    Either RulesLoadError ([Text], [EntityDecl], [BlueprintStub])
+    Either
+        RulesLoadError
+        ([Text], [EntityDecl], [BlueprintStub], [Attestation])
 parseRulesYamlImportsWithFile file blob =
     let ctx =
             Ctx
@@ -209,9 +214,11 @@ yamlParseExceptionLine = \case
 walkTop ::
     Ctx ->
     Aeson.Value ->
-    Either RulesLoadError ([Text], [EntityDecl], [BlueprintStub])
+    Either
+        RulesLoadError
+        ([Text], [EntityDecl], [BlueprintStub], [Attestation])
 walkTop ctx = \case
-    Aeson.Null -> Right ([], [], [])
+    Aeson.Null -> Right ([], [], [], [])
     Aeson.Object obj -> do
         imports <- parseImportsKey ctx obj
         entities <- case KeyMap.lookup (Key.fromText "entities") obj of
@@ -238,7 +245,11 @@ walkTop ctx = \case
         -- @collapse:@ is silently accepted (typed-list shape only;
         -- triples are emitted by #51, not the overlay serializer).
         validateCollapse ctx obj
-        Right (imports, entities, stubs)
+        -- @attestations:@ is parsed into a typed list; the overlay
+        -- emitter renders one block per entry referencing the
+        -- entity slug it attests to. Issue #105.
+        attestations <- parseAttestationsKey ctx obj
+        Right (imports, entities, stubs, attestations)
     other ->
         Left $
             ParserError
@@ -522,13 +533,17 @@ parseEntity ctx ln = \case
     Aeson.Object obj -> do
         name <- requireName ctx ln obj
         slug <- slugifyOrError ctx ln name
-        (mBech32, idents) <- parseShape ctx ln slug obj
+        mRole <- parseOptionalText ctx ln "role" obj
+        mPaidVia <- parseOptionalSlug ctx ln "paid-via" obj
+        (mBech32, idents) <- parseShape ctx ln slug obj mPaidVia
         Right
             EntityDecl
                 { entityName = name
                 , entitySlug = slug
                 , entityIdentifiers = idents
                 , entityBech32 = mBech32
+                , entityRole = mRole
+                , entityPaidVia = mPaidVia
                 , entitySourceFile = ctxFile ctx
                 }
     other ->
@@ -537,6 +552,115 @@ parseEntity ctx ln = \case
                 (ctxFile ctx)
                 ln
                 ("entity entry must be an object, got: " <> typeName other)
+
+{- | Read an optional string-valued key from a YAML object. Issue
+#105 — used for the @role:@, @paid-via:@, and @label:@ fields
+which are all simple optional strings.
+-}
+parseOptionalText ::
+    Ctx ->
+    Int ->
+    Text ->
+    KeyMap.KeyMap Aeson.Value ->
+    Either RulesLoadError (Maybe Text)
+parseOptionalText ctx ln key obj =
+    case KeyMap.lookup (Key.fromText key) obj of
+        Nothing -> Right Nothing
+        Just Aeson.Null -> Right Nothing
+        Just (Aeson.String t) -> Right (Just t)
+        Just other ->
+            Left $
+                ParserError
+                    (ctxFile ctx)
+                    ln
+                    (key <> ": must be a string, got: " <> typeName other)
+
+{- | Read an optional entity-slug reference (slugified on the fly).
+Issue #105 — used for the @paid-via:@ field whose value should
+be another entity's name (which the parser then slugifies so
+the cross-entity link survives YAML's flexible name styles).
+-}
+parseOptionalSlug ::
+    Ctx ->
+    Int ->
+    Text ->
+    KeyMap.KeyMap Aeson.Value ->
+    Either RulesLoadError (Maybe Text)
+parseOptionalSlug ctx ln key obj = do
+    mName <- parseOptionalText ctx ln key obj
+    case mName of
+        Nothing -> Right Nothing
+        Just n -> Just <$> slugifyOrError ctx ln n
+
+{- | Parse the top-level @attestations:@ block (issue #105). Each
+entry is an object with @ipfs:@, @label:@, and @of:@ keys; @of:@
+references another entity's name which is slugified on read so
+the cross-link uses the same identifier convention as
+@paid-via:@. Absent / null key → empty list.
+-}
+parseAttestationsKey ::
+    Ctx ->
+    KeyMap.KeyMap Aeson.Value ->
+    Either RulesLoadError [Attestation]
+parseAttestationsKey ctx obj =
+    case KeyMap.lookup (Key.fromText "attestations") obj of
+        Nothing -> Right []
+        Just Aeson.Null -> Right []
+        Just (Aeson.Array arr) ->
+            traverse (parseAttestation ctx topLevelLine) (foldr (:) [] arr)
+        Just other ->
+            Left $
+                ParserError
+                    (ctxFile ctx)
+                    topLevelLine
+                    ( "attestations: must be a list, got: "
+                        <> typeName other
+                    )
+
+parseAttestation ::
+    Ctx -> Int -> Aeson.Value -> Either RulesLoadError Attestation
+parseAttestation ctx ln = \case
+    Aeson.Object obj -> do
+        mIpfs <- parseOptionalText ctx ln "ipfs" obj
+        ipfs <- case mIpfs of
+            Just s -> Right s
+            Nothing ->
+                Left $
+                    ParserError
+                        (ctxFile ctx)
+                        ln
+                        "attestations entry: missing 'ipfs:' string field"
+        mLabel <- parseOptionalText ctx ln "label" obj
+        label <- case mLabel of
+            Just s -> Right s
+            Nothing ->
+                Left $
+                    ParserError
+                        (ctxFile ctx)
+                        ln
+                        "attestations entry: missing 'label:' string field"
+        mOf <- parseOptionalSlug ctx ln "of" obj
+        ofSlug <- case mOf of
+            Just s -> Right s
+            Nothing ->
+                Left $
+                    ParserError
+                        (ctxFile ctx)
+                        ln
+                        "attestations entry: missing 'of:' entity reference"
+        Right
+            Attestation
+                { attestationLabel = label
+                , attestationIpfs = ipfs
+                , attestationOf = ofSlug
+                , attestationSourceFile = ctxFile ctx
+                }
+    other ->
+        Left $
+            ParserError
+                (ctxFile ctx)
+                ln
+                ("attestations entry must be an object, got: " <> typeName other)
 
 requireName ::
     Ctx -> Int -> KeyMap.KeyMap Aeson.Value -> Either RulesLoadError Text
@@ -627,8 +751,13 @@ parseShape ::
     Int ->
     Text ->
     KeyMap.KeyMap Aeson.Value ->
+    -- | The entity's resolved @paid-via:@ slug, if any. When the
+    -- entity has no identifier shape but DOES carry a
+    -- @paid-via:@ reference, we treat it as an off-chain overlay
+    -- entry (empty identifier list, valid). Issue #105.
+    Maybe Text ->
     Either RulesLoadError (Maybe Text, [EntityIdentifier])
-parseShape ctx ln slug obj =
+parseShape ctx ln slug obj mPaidVia =
     let basicShapes =
             catMaybes
                 [ ("from-address",) <$> KeyMap.lookup (Key.fromText "from-address") obj
@@ -640,8 +769,17 @@ parseShape ctx ln slug obj =
         mKeys = KeyMap.lookup (Key.fromText "keys") obj
         mBytes = KeyMap.lookup (Key.fromText "bytes") obj
      in case (basicShapes, mKeys, mBytes) of
-            ([], Nothing, Nothing) ->
-                Left (EntityZeroIdentifiers (ctxFile ctx) ln slug)
+            ([], Nothing, Nothing)
+                | Just _ <- mPaidVia ->
+                    -- Issue #105: an entity declared with only
+                    -- @paid-via:@ (no on-chain identifier shape)
+                    -- is an off-chain overlay entry. The overlay
+                    -- emitter renders it as
+                    -- @:slug a cardano:OffChainEntity@ rather
+                    -- than @cardano:Entity@.
+                    Right (Nothing, [])
+                | otherwise ->
+                    Left (EntityZeroIdentifiers (ctxFile ctx) ln slug)
             ([(k, v)], Nothing, Nothing) -> parseSingleShape ctx ln slug k v
             ([], Just keysV, Just bytesV) -> do
                 idents <- parseCompoundKey ctx ln slug keysV bytesV

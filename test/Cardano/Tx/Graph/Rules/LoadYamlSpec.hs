@@ -18,6 +18,7 @@ Turtle serializer is T003's responsibility.
 module Cardano.Tx.Graph.Rules.LoadYamlSpec (spec) where
 
 import Cardano.Tx.Graph.Rules.Load (
+    Attestation (..),
     EntityDecl (..),
     EntityIdentifier (..),
     LeafType (..),
@@ -88,6 +89,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"
                             ]
                         , entityBech32 = Just aliceBech32Mainnet
+                        , entityRole = Nothing
+                        , entityPaidVia = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -108,6 +111,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077"
                             ]
                         , entityBech32 = Nothing
+                        , entityRole = Nothing
+                        , entityPaidVia = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -129,6 +134,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad5553444d"
                             ]
                         , entityBech32 = Nothing
+                        , entityRole = Nothing
+                        , entityPaidVia = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -156,6 +163,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
                             ]
                         , entityBech32 = Nothing
+                        , entityRole = Nothing
+                        , entityPaidVia = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -177,6 +186,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                             "0123456789abcdef0123456789abcdef0123456789abcdef01234567"
                         ]
                         Nothing
+                        Nothing
+                        Nothing
                         inMemoryFile
                     , EntityDecl
                         "beta"
@@ -186,8 +197,36 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                             "aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc4d454d45"
                         ]
                         Nothing
+                        Nothing
+                        Nothing
                         inMemoryFile
                     ]
+
+        it "accepts an overlay-only entity (paid-via, no identifier) — #105" $ do
+            -- Issue #105: an entity with no on-chain identifier
+            -- shape but a `paid-via:` cross-reference is a
+            -- valid off-chain overlay entry. Round-trips through
+            -- the YAML parser with empty 'entityIdentifiers' and
+            -- 'entityPaidVia' = Just <slugified-name>.
+            let yaml =
+                    "entities:\n\
+                    \  - name: amaru.cag-payee\n\
+                    \    from-address: addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl\n\
+                    \  - name: amaru.antithesis\n\
+                    \    label: \"Antithesis Operations LLC\"\n\
+                    \    role: fuzz-testing vendor\n\
+                    \    paid-via: amaru.cag-payee\n"
+            case parseRulesYamlText (TextEncoding.encodeUtf8 yaml) of
+                Right [_cagPayee, ent] -> do
+                    entitySlug ent `shouldBe` "amaru_antithesis"
+                    entityIdentifiers ent `shouldBe` []
+                    entityPaidVia ent `shouldBe` Just "amaru_cag_payee"
+                    entityRole ent `shouldBe` Just "fuzz-testing vendor"
+                    entityBech32 ent `shouldBe` Nothing
+                other ->
+                    expectationFailure $
+                        "expected Right [cag-payee, antithesis], got: "
+                            <> show other
 
     describe "six Conway address classes (FR-005)" $ do
         it "PaymentKey + StakeKey (base, key+key)" $
@@ -256,6 +295,38 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                     entitySlug decl `shouldBe` "amaru_treasury_network_compliance"
                 other ->
                     fail $ "expected single Right decl, got: " <> show other
+
+    describe "attestations (#105)" $ do
+        it "parses an attestations block alongside entities" $ do
+            -- End-to-end via the public 'loadRulesFile' surface so
+            -- the test exercises the same path the CLI uses.
+            let yaml =
+                    "entities:\n\
+                    \  - name: amaru.cag-payee\n\
+                    \    from-address: addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl\n\
+                    \  - name: amaru.antithesis\n\
+                    \    paid-via: amaru.cag-payee\n\
+                    \attestations:\n\
+                    \  - ipfs: ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam\n\
+                    \    label: \"Invoice INV-635\"\n\
+                    \    of: amaru.antithesis\n\
+                    \  - ipfs: ipfs://bafybeib3jef34ndw6oe24mkmifdvxe5jrv7ulh63rdllovyth27mqfj2da\n\
+                    \    label: \"Bridge contract\"\n\
+                    \    of: amaru.cag-payee\n"
+            withSystemTempDirectory "tx-105-attestations" $ \dir -> do
+                let rulesPath = dir </> "rules.yaml"
+                BS.writeFile rulesPath (TextEncoding.encodeUtf8 yaml)
+                result <- loadRulesFile rulesPath
+                case result of
+                    Right RulesLoadResult{rulesAttestations = [a1, a2]} -> do
+                        attestationLabel a1 `shouldBe` "Invoice INV-635"
+                        attestationOf a1 `shouldBe` "amaru_antithesis"
+                        attestationIpfs a1
+                            `shouldBe` "ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam"
+                        attestationOf a2 `shouldBe` "amaru_cag_payee"
+                    other ->
+                        expectationFailure $
+                            "expected Right with 2 attestations, got: " <> show other
 
     describe "structural errors" $ do
         it "rejects an entity with zero identifier shapes (no from-address/script/asset)" $ do
@@ -517,7 +588,15 @@ decomposeAddrShouldBe addr expected = do
                 <> "\n"
     parseRulesYamlText (TextEncoding.encodeUtf8 yaml)
         `shouldBe` Right
-            [EntityDecl "synth" "synth" expected (Just bech32) inMemoryFile]
+            [ EntityDecl
+                "synth"
+                "synth"
+                expected
+                (Just bech32)
+                Nothing
+                Nothing
+                inMemoryFile
+            ]
 
 encodeMainnetAddr :: Addr -> Text
 encodeMainnetAddr a =

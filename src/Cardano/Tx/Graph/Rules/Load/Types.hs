@@ -15,6 +15,7 @@ module Cardano.Tx.Graph.Rules.Load.Types (
     EntityDecl (..),
     EntityIdentifier (..),
     LeafType (..),
+    Attestation (..),
     RulesLoadError (..),
     RulesLoadWarning (..),
 ) where
@@ -49,16 +50,32 @@ data EntityDecl = EntityDecl
     , entitySlug :: !Text
     -- ^ Slugified form for IRI local-part and bnode-prefix use.
     , entityIdentifiers :: ![EntityIdentifier]
-    -- ^ Identifiers in source order. At least one (zero-identifier
-    -- entities are rejected at parse).
+    -- ^ Identifiers in source order. Non-empty for on-chain entities
+    -- (declared via @from-address@, @script@, @asset@, @pool@,
+    -- @drep@, or @keys + bytes@). Empty when the entity is an
+    -- off-chain overlay node (issue #105) declared with only
+    -- @paid-via:@ and optional @role:@/@label:@; in that case the
+    -- entity is emitted as @cardano:OffChainEntity@ rather than
+    -- @cardano:Entity@.
     , entityBech32 :: !(Maybe Text)
     -- ^ The original bech32 string the entity was declared with
     -- (issue #100). Populated for @from-address@-shape entities
     -- and emitted as a top-level @cardano:bech32@ triple on the
     -- entity node so SPARQL queries can JOIN on the entity's
     -- resolved address without re-encoding identifiers. 'Nothing'
-    -- for @script@, @asset@, @pool@, @drep@, @keys@ shapes (which
-    -- have no single bech32 representation).
+    -- for @script@, @asset@, @pool@, @drep@, @keys@ shapes and
+    -- for off-chain overlay entries.
+    , entityRole :: !(Maybe Text)
+    -- ^ Free-text description of the entity's role in the
+    -- operator's accounting (issue #105). Emitted as
+    -- @cardano:role "<text>"@ when present. Available on both
+    -- on-chain and off-chain entities.
+    , entityPaidVia :: !(Maybe Text)
+    -- ^ Slug of another entity that intermediates payment for
+    -- this one (issue #105). Emitted as @cardano:paidVia
+    -- :<slug>@. When an entity has only @paid-via:@ and no
+    -- identifier shape, it is an off-chain overlay entry — the
+    -- funds reach it indirectly via the named bridge.
     , entitySourceFile :: !FilePath
     -- ^ The path of the file this declaration was parsed from. The
     -- in-memory parser entry points use the placeholder
@@ -81,6 +98,28 @@ data EntityIdentifier = EntityIdentifier
     -- @policy ++ hex(ascii(name))@ for an 'AssetClass'.
     }
     deriving stock (Eq, Ord, Show)
+
+{- | An off-chain attestation declared at the top level of a rules
+file under @attestations:@ (issue #105). Each attestation pins an
+IPFS-anchored artefact (contract, invoice, cycle review, …) to an
+operator entity by slug reference. The overlay emitter renders one
+@cardano:Attestation@ block per declared attestation.
+-}
+data Attestation = Attestation
+    { attestationLabel :: !Text
+    -- ^ Human-readable label preserved as @rdfs:label@.
+    , attestationIpfs :: !Text
+    -- ^ IPFS URI string (e.g. @"ipfs://bafy..."@). Emitted
+    -- verbatim as a @cardano:ipfs@ IRI object.
+    , attestationOf :: !Text
+    -- ^ Slug of the entity this attestation attests to. Emitted as
+    -- @cardano:attests :<slug>@. The slug must reference an entity
+    -- declared in the same rules file (on-chain or off-chain).
+    , attestationSourceFile :: !FilePath
+    -- ^ Source file path for diagnostic provenance, matching
+    -- 'entitySourceFile' on 'EntityDecl'.
+    }
+    deriving stock (Eq, Show)
 
 {- | The role-class enum the loader supports.
 

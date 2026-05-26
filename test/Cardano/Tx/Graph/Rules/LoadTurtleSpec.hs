@@ -81,6 +81,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                                 "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"
                             ]
                         , entityBech32 = Nothing
+                        , entityRole = Nothing
+                        , entityPaidVia = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -116,6 +118,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                             "0123456789abcdef0123456789abcdef0123456789abcdef01234567"
                         ]
                         Nothing
+                        Nothing
+                        Nothing
                         inMemoryFile
                     , EntityDecl
                         "beta"
@@ -124,6 +128,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                             AssetClass
                             "aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc4d454d45"
                         ]
+                        Nothing
+                        Nothing
                         Nothing
                         inMemoryFile
                     ]
@@ -157,6 +163,8 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesTurtleText (T006)" $ do
                             PaymentScript
                             "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077"
                         ]
+                        Nothing
+                        Nothing
                         Nothing
                         inMemoryFile
                     ]
