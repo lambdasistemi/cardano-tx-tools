@@ -95,6 +95,7 @@ let
     e2e = {
       name = "e2e";
       runtimeInputs = [
+        pkgs.apache-jena
         cardanoNode
         components.tests."e2e-tests"
       ];

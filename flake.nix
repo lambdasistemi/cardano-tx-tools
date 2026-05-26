@@ -114,6 +114,7 @@
                 pkgs.just
                 pkgs.curl
                 pkgs.cacert
+                pkgs.apache-jena
                 pkgs.lmdb
                 pkgs.liburing
                 mkdocs.packages.${system}.from-nixpkgs

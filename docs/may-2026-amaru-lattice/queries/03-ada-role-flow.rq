@@ -1,0 +1,68 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+# ADA flow by ledger role. This deliberately keeps AMM pool state,
+# swap-order script UTxOs, treasury UTxOs, bridge outputs, and ordinary
+# wallets in separate buckets; collapsing them into "other" produces
+# misleading business interpretations.
+SELECT ?role
+       (SUM(?lovIn) AS ?lovelace_in)
+       (SUM(?lovOut) AS ?lovelace_out)
+       ((SUM(?lovIn) - SUM(?lovOut)) AS ?net_lovelace)
+WHERE {
+  {
+    ?seed cardano:hasLatticeRole "seed" ;
+          cardano:hasOutput ?out .
+    ?out cardano:atAddress ?addr ;
+         cardano:lovelace ?lovIn .
+    ?addr cardano:bech32 ?bech .
+    OPTIONAL {
+      ?addr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?payHash .
+    }
+    BIND (0 AS ?lovOut)
+  }
+  UNION
+  {
+    ?seed cardano:hasLatticeRole "seed" ;
+          cardano:hasInput ?in .
+    ?in cardano:fromTxOutRef ?ref .
+    ?ref cardano:hasTxId/cardano:bytesHex ?parentHex ;
+         cardano:hasIndex ?ix .
+    ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ;
+            cardano:hasOutput ?parentOut .
+    ?parentOut cardano:hasIndex ?ix ;
+               cardano:atAddress ?addr ;
+               cardano:lovelace ?lovOut .
+    ?addr cardano:bech32 ?bech .
+    OPTIONAL {
+      ?addr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?payHash .
+    }
+    BIND (0 AS ?lovIn)
+  }
+
+  OPTIONAL {
+    {
+      SELECT ?bech (SAMPLE(?label) AS ?addressRole)
+      WHERE {
+        ?entity cardano:bech32 ?bech ;
+                rdfs:label ?label .
+      }
+      GROUP BY ?bech
+    }
+  }
+  OPTIONAL {
+    {
+      SELECT ?payHash (SAMPLE(?label) AS ?credentialRole)
+      WHERE {
+        ?entity rdfs:label ?label ;
+                cardano:hasIdentifier ?id .
+        ?id cardano:bytesHex ?payHash .
+        FILTER NOT EXISTS { ?entity cardano:bech32 ?_address . }
+      }
+      GROUP BY ?payHash
+    }
+  }
+  BIND (COALESCE(?addressRole, ?credentialRole, "wallet.other") AS ?role)
+}
+GROUP BY ?role
+ORDER BY ?role

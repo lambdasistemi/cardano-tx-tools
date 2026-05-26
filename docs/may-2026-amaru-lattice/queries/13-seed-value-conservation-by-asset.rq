@@ -1,0 +1,69 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# Proof gate: for the seed transactions, every observed asset balances
+# exactly across resolved spending inputs and outputs. Lovelace includes
+# fees on the output side.
+#
+# A non-zero gap means either the graph is missing an input/output edge,
+# a parent output did not resolve, or mint/burn semantics need to be
+# included for this transaction set.
+SELECT ?assetId
+       (SUM(?inputQty) AS ?totalInputQty)
+       (SUM(?outputQty) AS ?totalOutputQty)
+       ((SUM(?inputQty) - SUM(?outputQty)) AS ?gap)
+WHERE {
+  {
+    ?seed cardano:hasLatticeRole "seed" ;
+          cardano:hasInput ?input .
+    ?input cardano:fromTxOutRef ?ref .
+    ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+         cardano:hasIndex ?ix .
+    ?parent cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+            cardano:hasOutput ?parentOut .
+    ?parentOut cardano:hasIndex ?ix ;
+               cardano:lovelace ?inputQty .
+    BIND ("lovelace" AS ?assetId)
+    BIND (0 AS ?outputQty)
+  }
+  UNION
+  {
+    ?seed cardano:hasLatticeRole "seed" ;
+          cardano:hasOutput/cardano:lovelace ?outputQty .
+    BIND ("lovelace" AS ?assetId)
+    BIND (0 AS ?inputQty)
+  }
+  UNION
+  {
+    ?seed cardano:hasLatticeRole "seed" ;
+          cardano:hasFee ?outputQty .
+    BIND ("lovelace" AS ?assetId)
+    BIND (0 AS ?inputQty)
+  }
+  UNION
+  {
+    ?seed cardano:hasLatticeRole "seed" ;
+          cardano:hasInput ?input .
+    ?input cardano:fromTxOutRef ?ref .
+    ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+         cardano:hasIndex ?ix .
+    ?parent cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+            cardano:hasOutput ?parentOut .
+    ?parentOut cardano:hasIndex ?ix ;
+               cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+    ?asset cardano:hasIdentifier/cardano:bytesHex ?assetId ;
+           cardano:quantity ?inputQty .
+    BIND (0 AS ?outputQty)
+  }
+  UNION
+  {
+    ?seed cardano:hasLatticeRole "seed" ;
+          cardano:hasOutput ?out .
+    ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+    ?asset cardano:hasIdentifier/cardano:bytesHex ?assetId ;
+           cardano:quantity ?outputQty .
+    BIND (0 AS ?inputQty)
+  }
+}
+GROUP BY ?assetId
+ORDER BY ?assetId

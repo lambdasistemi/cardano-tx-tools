@@ -1,0 +1,30 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX amaru:   <https://amaru.tech/rdf/>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?vendor ?vendorLabel ?attestation ?attestationLabel ?ipfs ?usdmTotalAtBridge
+WHERE {
+  {
+    SELECT (SUM(?qty) AS ?usdmTotalAtBridge)
+    WHERE {
+      ?bridgeEntity rdfs:label "amaru.cag-payee" ;
+                    cardano:bech32 ?bridgeBech32 .
+      ?usdmEntity rdfs:label "usdm" ;
+                  cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
+
+      ?seed cardano:hasLatticeRole "seed" ;
+            cardano:hasOutput ?out .
+      ?out cardano:atAddress/cardano:bech32 ?bridgeBech32 ;
+           cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+      ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+             cardano:quantity ?qty .
+    }
+  }
+  ?vendor amaru:paidVia amaru:cag-payee .
+  ?attestation amaru:attests ?vendor ;
+               amaru:ipfs ?ipfs .
+  OPTIONAL { ?vendor rdfs:label ?vendorLabel . }
+  OPTIONAL { ?attestation rdfs:label ?attestationLabel . }
+}
+ORDER BY ?vendor ?attestation

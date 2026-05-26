@@ -1,0 +1,24 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?outputBech32 ?outputLabel (SUM(?qty) AS ?usdmOutput)
+WHERE {
+  ?usdmEntity rdfs:label "usdm" ;
+              cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
+
+  ?seed cardano:hasLatticeRole "seed" ;
+        cardano:hasOutput ?out .
+  ?out cardano:atAddress/cardano:bech32 ?outputBech32 ;
+       cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+  ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
+         cardano:quantity ?qty .
+
+  OPTIONAL {
+    ?labelEntity cardano:bech32 ?outputBech32 ;
+                 rdfs:label ?knownLabel .
+  }
+  BIND (COALESCE(?knownLabel, "unlabelled") AS ?outputLabel)
+}
+GROUP BY ?outputBech32 ?outputLabel
+ORDER BY DESC(?usdmOutput)
