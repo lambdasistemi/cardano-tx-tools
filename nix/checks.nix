@@ -98,6 +98,7 @@ let
         pkgs.apache-jena
         cardanoNode
         components.tests."e2e-tests"
+        pkgs.which
       ];
       text = ''
         export E2E_GENESIS_DIR=${cardanoNodeClientsSrc}/e2e-test/genesis

@@ -34,9 +34,36 @@ flowchart LR
   jena["Apache Jena<br/>SPARQL 1.1 engine"] -->|10 queries| results["real on-chain answers"]
 ```
 
+## Runnable Query Files
+
+The demo query sources are standalone SPARQL files. These links are the
+single-file query demos used by the rendered page:
+
+| Demo | Runnable query |
+|------|----------------|
+| Query 0 — ADA conservation | [`queries/00-ada-conservation.rq`](may-2026-amaru-lattice/queries/00-ada-conservation.rq) |
+| Query 1 — Monthly totals | [`queries/01-monthly-totals.rq`](may-2026-amaru-lattice/queries/01-monthly-totals.rq) |
+| Query 2 — USDM output addresses | [`queries/02-usdm-output-addresses.rq`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq) |
+| Query 3 — ADA role flow | [`queries/03-ada-role-flow.rq`](may-2026-amaru-lattice/queries/03-ada-role-flow.rq) |
+| Query 4 — Required signer distribution | [`queries/04-required-signer-distribution.rq`](may-2026-amaru-lattice/queries/04-required-signer-distribution.rq) |
+| Query 5 — Vendor-payment overlay | [`queries/05-vendor-payment-overlay.rq`](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.rq) |
+| Query 6 — Disbursement candidates | [`queries/06-disbursement-candidates.rq`](may-2026-amaru-lattice/queries/06-disbursement-candidates.rq) |
+| Query 7 — USDM role flow | [`queries/07-usdm-role-flow.rq`](may-2026-amaru-lattice/queries/07-usdm-role-flow.rq) |
+| Query 8 — Swap.v2 consumers | [`queries/08-swap-v2-consumers.rq`](may-2026-amaru-lattice/queries/08-swap-v2-consumers.rq) |
+| Query 9 — Reference-input reuse | [`queries/09-reference-input-reuse.rq`](may-2026-amaru-lattice/queries/09-reference-input-reuse.rq) |
+| Query 10 — Scoop output candidates | [`queries/10-scoop-output-candidates.rq`](may-2026-amaru-lattice/queries/10-scoop-output-candidates.rq) |
+| Query 11 — Network compliance USDM residual | [`queries/11-network-compliance-usdm-residual.rq`](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.rq) |
+| Query 12 — Seed input resolution cardinality | [`queries/12-seed-input-resolution-cardinality.rq`](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.rq) |
+| Query 13 — Seed value conservation by asset | [`queries/13-seed-value-conservation-by-asset.rq`](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.rq) |
+| Query 14 — Network compliance terminal state | [`queries/14-network-compliance-terminal-state.rq`](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq) |
+| Query 15 — Network compliance live diff | [`queries/15-network-compliance-live-diff.rq`](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq) |
+| Query 16 — Network compliance live summary | [`queries/16-network-compliance-live-summary.rq`](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.rq) |
+
 ---
 
 ## Query 0 — Conservation check
+
+Runnable source: [`queries/00-ada-conservation.rq`](may-2026-amaru-lattice/queries/00-ada-conservation.rq)
 
 Sanity gate: total ADA consumed by seed inputs must equal total ADA
 emitted in seed outputs + total fees. Any non-zero gap is a
@@ -76,6 +103,8 @@ WHERE {
 
 ## Query 1 — Monthly totals
 
+Runnable source: [`queries/01-monthly-totals.rq`](may-2026-amaru-lattice/queries/01-monthly-totals.rq)
+
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 SELECT (COUNT(?tx) AS ?seedTxCount)
@@ -96,6 +125,8 @@ single-author swap-order opens.
 ---
 
 ## Query 2 — Where did USDM land?
+
+Runnable source: [`queries/02-usdm-output-addresses.rq`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq)
 
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
@@ -128,11 +159,11 @@ invoices.
 
 ## Query 3 — Per-scope ADA flow
 
+Runnable source: [`queries/03-ada-role-flow.rq`](may-2026-amaru-lattice/queries/03-ada-role-flow.rq)
+
 ```sparql
-# Body of the query — full version uses VALUES + IF mapping; see
-# queries/03-scope-flow.rq. The "other" bucket holds every bech32
-# NOT in the four named scopes so conservation holds across the
-# whole table.
+# Body of the query — full version uses the emitted address labels in
+# queries/03-ada-role-flow.rq.
 SELECT ?scope (SUM(?lovIn) AS ?ada_in) (SUM(?lovOut) AS ?ada_out)
        ((SUM(?lovIn) - SUM(?lovOut)) AS ?net)
 WHERE {
@@ -180,6 +211,8 @@ flowchart LR
 
 ## Query 4 — Multisig shape distribution
 
+Runnable source: [`queries/04-required-signer-distribution.rq`](may-2026-amaru-lattice/queries/04-required-signer-distribution.rq)
+
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 SELECT ?requiredSigners (COUNT(?seed) AS ?txCount)
@@ -209,6 +242,8 @@ shape covers swap-order opens, swap-cancel, and scoop participation.
 ---
 
 ## Query 5 — Vendor-payment chain (lattice × overlay)
+
+Runnable source: [`queries/05-vendor-payment-overlay.rq`](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.rq)
 
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
@@ -260,6 +295,8 @@ flowchart LR
 
 ## Query 6 — Disbursement detection
 
+Runnable source: [`queries/06-disbursement-candidates.rq`](may-2026-amaru-lattice/queries/06-disbursement-candidates.rq)
+
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 
@@ -301,9 +338,11 @@ flowchart LR
 
 ## Query 7 — Per-scope USDM flow
 
+Runnable source: [`queries/07-usdm-role-flow.rq`](may-2026-amaru-lattice/queries/07-usdm-role-flow.rq)
+
 ```sparql
 # Same closure JOIN as Q3 but counts USDM instead of lovelace.
-# Full query at queries/07-usdm-scope-flow.rq.
+# Full query at queries/07-usdm-role-flow.rq.
 SELECT ?scope (SUM(?qIn) AS ?usdm_in) (SUM(?qOut) AS ?usdm_out)
        ((SUM(?qIn) - SUM(?qOut)) AS ?net)
 WHERE { /* IN: seed outputs at ?bech with USDM   */
@@ -329,6 +368,8 @@ of that went to cag-payee (vendor bridge); the 10,057 USDM
 ---
 
 ## Query 8 — Scoop detection
+
+Runnable source: [`queries/08-swap-v2-consumers.rq`](may-2026-amaru-lattice/queries/08-swap-v2-consumers.rq)
 
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
@@ -366,6 +407,8 @@ doesn't pattern-match on tx shape — it pattern-matches on
 
 ## Query 9 — Reference-script reuse
 
+Runnable source: [`queries/09-reference-input-reuse.rq`](may-2026-amaru-lattice/queries/09-reference-input-reuse.rq)
+
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
 
@@ -397,6 +440,8 @@ intended.
 ---
 
 ## Query 10 — Scoop-recipient resolution (blueprint-free workaround)
+
+Runnable source: [`queries/10-scoop-output-candidates.rq`](may-2026-amaru-lattice/queries/10-scoop-output-candidates.rq)
 
 This is the demo of the documented [tx-lattice limitation
 workaround](tx-lattice.md#known-limitations): follow a swap order
