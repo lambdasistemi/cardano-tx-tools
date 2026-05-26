@@ -1,0 +1,82 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Output roles produced by SundaeSwap V3 order consumer transactions.
+SELECT ?outputRole
+       (COUNT(DISTINCT ?outputRef) AS ?outputs)
+       ((xsd:decimal(SUM(?lovelace)) / 1000000) AS ?ada)
+       ((xsd:decimal(SUM(?usdm0)) / 1000000) AS ?usdm)
+WHERE {
+  {
+    # Return one row per produced output, with a single sampled role. This
+    # prevents repeated overlay entities from multiplying ledger quantities.
+    SELECT ?outputRef
+           (SAMPLE(?role0) AS ?outputRole)
+           (SAMPLE(?oneLovelace) AS ?lovelace)
+           (SAMPLE(?oneUsdmRaw) AS ?usdm0)
+    WHERE {
+      {
+        SELECT DISTINCT ?swapTx
+        WHERE {
+          {
+            # The script entity is emitted once per transaction graph. Use a
+            # distinct script hash before asking which transactions consumed it.
+            SELECT DISTINCT ?orderScriptHash
+            WHERE {
+              ?orderScript rdfs:label "sundae.swap.v3.order" ;
+                           cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+            }
+          }
+          ?swapTx cardano:hasInput ?in .
+          ?in cardano:fromTxOutRef ?ref .
+          ?ref cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+               cardano:hasIndex ?orderIx .
+          ?orderTx cardano:hasTxId/cardano:bytesHex ?orderTxId ;
+                   cardano:hasOutput ?orderOut .
+          ?orderOut cardano:hasIndex ?orderIx ;
+                    cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?orderScriptHash .
+        }
+      }
+      ?swapTx cardano:hasTxId/cardano:bytesHex ?swapTxId ;
+              cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?ix ;
+           cardano:atAddress ?addr ;
+           cardano:lovelace ?oneLovelace .
+      ?addr cardano:bech32 ?bech32 .
+      OPTIONAL {
+        ?addr cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex ?payHash .
+      }
+      OPTIONAL {
+        VALUES ?usdmAssetId0 {
+          "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
+        }
+        ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+        ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId0 ;
+               cardano:quantity ?usdmRaw .
+      }
+      BIND(COALESCE(?usdmRaw, 0) AS ?oneUsdmRaw)
+      BIND(CONCAT(?swapTxId, "#", STR(?ix)) AS ?outputRef)
+
+      OPTIONAL {
+        SELECT DISTINCT ?bech32 ?addressRole
+        WHERE {
+          ?entity cardano:bech32 ?bech32 ;
+                  rdfs:label ?addressRole .
+        }
+      }
+      OPTIONAL {
+        SELECT DISTINCT ?payHash ?credentialRole
+        WHERE {
+          ?credEntity cardano:hasIdentifier/cardano:bytesHex ?payHash ;
+                      rdfs:label ?credentialRole .
+        }
+      }
+      BIND(COALESCE(?addressRole, ?credentialRole, "wallet.other") AS ?role0)
+    }
+    GROUP BY ?outputRef
+  }
+}
+GROUP BY ?outputRole
+ORDER BY DESC(?usdm) DESC(?ada) ?outputRole

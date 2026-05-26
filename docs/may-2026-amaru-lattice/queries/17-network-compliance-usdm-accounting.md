@@ -28,9 +28,10 @@ the graph to one accounting equation:
 start USDM + swap receipts - beneficiary payments - terminal USDM = gap
 ```
 
-The query pins the start state at zero USDM because the May report scope
-begins before any network_compliance USDM receipts. It then derives all
-other values from emitted graph structure.
+The query makes the opening state an explicit initial condition. For the
+May report that initial condition is zero USDM because the selected
+interval begins before any network_compliance USDM receipts. It then
+derives all other values from emitted graph structure.
 
 ## Why
 

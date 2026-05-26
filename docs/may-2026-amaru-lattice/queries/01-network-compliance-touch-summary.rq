@@ -1,0 +1,40 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+
+# Classify how transactions touch network_compliance.
+#
+# A transaction can produce an output at the treasury, consume a previous
+# treasury output, or do both. The source side is proven by resolving the input
+# reference back to an output in the loaded lattice.
+SELECT ?touchKind (COUNT(?tx) AS ?txs)
+WHERE {
+  ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                     cardano:bech32 ?networkComplianceBech32 .
+
+  ?tx cardano:hasTxId/cardano:bytesHex ?txId .
+  BIND(EXISTS {
+    ?tx cardano:hasOutput ?out .
+    ?out cardano:atAddress/cardano:bech32 ?networkComplianceBech32 .
+  } AS ?producesTreasuryOutput)
+  BIND(EXISTS {
+    ?tx cardano:hasInput ?input .
+    ?input cardano:fromTxOutRef ?ref .
+    ?ref cardano:hasTxId/cardano:bytesHex ?sourceTxId ;
+         cardano:hasIndex ?sourceIx .
+    ?sourceTx cardano:hasTxId/cardano:bytesHex ?sourceTxId ;
+              cardano:hasOutput ?sourceOut .
+    ?sourceOut cardano:hasIndex ?sourceIx ;
+               cardano:atAddress/cardano:bech32 ?networkComplianceBech32 .
+  } AS ?consumesTreasuryOutput)
+
+  FILTER(?producesTreasuryOutput || ?consumesTreasuryOutput)
+  BIND(
+    IF(
+      ?producesTreasuryOutput && ?consumesTreasuryOutput,
+      "consumes-and-produces",
+      IF(?producesTreasuryOutput, "produces-only", "consumes-only")
+    ) AS ?touchKind
+  )
+}
+GROUP BY ?touchKind
+ORDER BY ?touchKind

@@ -7,7 +7,7 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 #
 # This query is meant to be read as executable accounting:
 #
-#   starting state + swap receipts - beneficiary payments - terminal state = gap
+#   initial state + swap receipts - beneficiary payments - terminal state = gap
 #
 # The graph is correct for this boundary only if the gap is zero. A non-zero
 # gap would mean one of the four terms is incomplete or misclassified.
@@ -16,8 +16,9 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 #
 # - The May state-audit graph contains every loaded transaction that can
 #   produce or spend a network_compliance output before the snapshot boundary.
-# - The starting USDM balance is part of the report boundary, not discovered
-#   from chain history here: the scoped treasury starts with zero USDM.
+# - The initial USDM balance is part of the report boundary, not discovered
+#   from chain history here. For this report, the scoped treasury starts with
+#   zero USDM.
 # - Every non-start value below is derived from graph topology and emitted
 #   transaction values, not from a live-node balance lookup.
 SELECT ?treasuryLabel ?treasuryAddress
@@ -30,8 +31,10 @@ SELECT ?treasuryLabel ?treasuryAddress
        ((xsd:decimal(?terminalUsdmRaw) / 1000000) AS ?terminalUsdm)
        ((xsd:decimal(?startUsdmRaw + ?swapReceiptsUsdmRaw - ?beneficiaryPaymentsUsdmRaw - ?terminalUsdmRaw) / 1000000) AS ?usdmGap)
 WHERE {
-  # Keep the label and start state explicit in the result row so the CSV reads
-  # as a balance statement instead of an unnamed aggregate.
+  # Keep the label and initial condition explicit in the result row so the CSV
+  # reads as a balance statement instead of an unnamed aggregate. For a report
+  # with a non-zero opening state, this is the term to replace with the proven
+  # opening quantity.
   BIND("amaru-treasury.network_compliance" AS ?treasuryLabel)
   BIND(0 AS ?startUsdmRaw)
 

@@ -1,0 +1,35 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+
+# Input-reference coverage inside the 85-tx lattice.
+#
+# This does not require every external parent to be present. It states exactly
+# which input references resolve inside the selected lattice and which point
+# outside it.
+SELECT ?edgeKind ?coverage (COUNT(?edge) AS ?edges)
+WHERE {
+  {
+    ?tx cardano:hasInput ?edge .
+    BIND("spending" AS ?edgeKind)
+  }
+  UNION
+  {
+    ?tx cardano:hasReferenceInput ?edge .
+    BIND("reference" AS ?edgeKind)
+  }
+  UNION
+  {
+    ?tx cardano:hasCollateralInput ?edge .
+    BIND("collateral" AS ?edgeKind)
+  }
+  ?edge cardano:fromTxOutRef ?ref .
+  ?ref cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+       cardano:hasIndex ?ix .
+  BIND(EXISTS {
+    ?parent cardano:hasTxId/cardano:bytesHex ?parentTxId ;
+            cardano:hasOutput ?parentOut .
+    ?parentOut cardano:hasIndex ?ix .
+  } AS ?resolved)
+  BIND(IF(?resolved, "resolved-in-lattice", "external-to-lattice") AS ?coverage)
+}
+GROUP BY ?edgeKind ?coverage
+ORDER BY ?edgeKind ?coverage

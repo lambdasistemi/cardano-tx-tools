@@ -1,0 +1,29 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# Asset quantities emitted by outputs in the 85-tx lattice.
+SELECT ?assetId (COUNT(?out) AS ?outputEntries) (SUM(?quantity) AS ?totalQuantity)
+WHERE {
+  {
+    ?tx cardano:hasOutput ?out .
+    ?out cardano:lovelace ?rawQuantity .
+    BIND("ada" AS ?assetId)
+    BIND(xsd:decimal(?rawQuantity) / 1000000 AS ?quantity)
+  }
+  UNION
+  {
+    ?tx cardano:hasOutput ?out .
+    ?out cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
+    ?asset cardano:hasIdentifier ?assetIdentifier ;
+           cardano:quantity ?rawQuantity .
+    ?assetIdentifier cardano:leafType "AssetClass" ;
+                     cardano:bytesHex ?rawAssetId .
+    FILTER(STRLEN(?rawAssetId) > 0)
+    BIND(STR(?rawAssetId) AS ?rawAssetText)
+    BIND(IF(?rawAssetText = "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d", "usdm", ?rawAssetText) AS ?assetId)
+    BIND(IF(?rawAssetText = "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d", xsd:decimal(?rawQuantity) / 1000000, xsd:decimal(?rawQuantity)) AS ?quantity)
+  }
+}
+GROUP BY ?assetId
+ORDER BY ?assetId

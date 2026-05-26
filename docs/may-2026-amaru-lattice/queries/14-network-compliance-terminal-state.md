@@ -26,7 +26,7 @@ network_compliance treasury address. It lists outputs at that address
 whose `(txid, index)` is not consumed by any transaction in the loaded
 graph.
 
-For each terminal UTxO, it reports tx id, output index, lovelace, and
+For each terminal UTxO, it reports tx id, output index, decimal ADA, and
 USDM quantity.
 
 ## Why

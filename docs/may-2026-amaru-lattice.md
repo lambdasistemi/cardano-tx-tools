@@ -6,8 +6,8 @@ Jena.
 
 - Network-scope transaction set — the 85 txids that touch the
   `amaru-treasury.network_compliance` address during the report window.
-  The report treats this list as an input boundary; how the list was
-  assembled is outside the graph proof.
+  The report treats this list as an input boundary selected from the
+  address history described below.
 - Closure — fetched by `tx-fetch` from Blockfrost via
   `/txs/<hash>/cbor` *only*
   (no `/utxos`, no `/inputs`, no `/outputs`). Fetch depth is `0`: no
@@ -62,6 +62,86 @@ flowchart LR
   live --> final
 ```
 
+## Initial Conditions And Txid Selection
+
+The SPARQL queries are integrals over a bounded transaction lattice.
+They prove conservation and final state for that interval; they do not
+magically infer the opening state. A correct report therefore needs two
+inputs before the queries make sense:
+
+- a valid initial condition for the scope being audited,
+- a txid set that is complete for all in-interval changes to that
+  scope.
+
+For this report, the boundary is not a generic parent walk and it is not
+the full ancestry of every transaction. It is the complete
+network_compliance address-history slice for the state interval being
+audited, paired with the initial condition that the scoped address held
+`0 USDM` at the beginning of the interval.
+
+The selection rule used here was:
+
+1. Choose the scope address:
+   `amaru-treasury.network_compliance`
+   (`addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk`).
+2. Choose and document the initial condition. For the May 2026 report,
+   the initial condition is that the scope address has `0 USDM` at the
+   start boundary.
+3. Choose the end boundary used for the live-state comparison:
+   block `13,467,438`, slot `188,217,701`.
+4. Enumerate the Blockfrost address transaction history for the scope
+   address through that boundary.
+5. Keep the transactions in the report interval that touch the address,
+   meaning transactions that either produce an output at the address or
+   spend a previous output from the address.
+6. Record the resulting 85 txids in
+   [`network-txs.txt`](may-2026-amaru-lattice/network-txs.txt).
+7. Fetch exactly those 85 transactions with `tx-fetch --depth 0`, emit
+   the graph with `tx-graph`, and verify terminal state with Queries
+   14-16.
+
+The operational Blockfrost step is an address-history query, for
+example:
+
+```bash
+ADDRESS=addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
+
+curl -sS \
+  -H "project_id: $BLOCKFROST_PROJECT_ID" \
+  "https://cardano-mainnet.blockfrost.io/api/v0/addresses/$ADDRESS/transactions?order=asc&page=1&count=100"
+```
+
+Repeat the paginated query until the chosen end boundary is reached,
+then persist the selected `tx_hash` values as one txid per line. The
+persisted file is the audit boundary; `tx-fetch` only retrieves and
+hash-verifies the CBOR for that boundary.
+
+This selection is correct for a final-state proof when the initial
+condition is true and the selected txid set is state-complete for the
+scope address: every in-interval producer and spender of the address is
+included. If a previous address UTxO exists at the start boundary, the
+report must include that opening UTxO state explicitly. Moving the start
+boundary back to a point where the address is empty is just the special
+case where the opening state is zero.
+
+With those inputs, the SPARQL queries behave like ledger integrals:
+
+```text
+opening state + in-interval inflows - in-interval outflows = terminal state
+```
+
+If the equation does not match the live terminal state, the bug is in
+one of three places: the opening state is wrong, the txid set is
+incomplete, or the graph/query emission is wrong.
+
+The report verifies the selection in two ways:
+
+- Query 14 recomputes terminal UTxOs from graph topology alone.
+- Queries 15-16 compare the graph-derived terminal UTxOs with the
+  separate live UTxO snapshot at the selected end boundary. A non-zero
+  diff means the txid set is incomplete or the boundary was chosen
+  incorrectly.
+
 ## Report Queries
 
 The proof inputs and query sources are standalone files. Every query
@@ -77,6 +157,17 @@ Live UTxO snapshot for Queries 15-16:
 
 <div class="grid cards query-grid" markdown>
 
+-   **Lattice boundary and shape**
+
+    ---
+
+    **What graph is being queried**
+
+    - [Query 00 — Lattice inventory](may-2026-amaru-lattice/queries/00-lattice-inventory.md)
+    - [Query 01 — Network compliance touch summary](may-2026-amaru-lattice/queries/01-network-compliance-touch-summary.md)
+    - [Query 12 — Lattice input coverage](may-2026-amaru-lattice/queries/12-lattice-input-coverage.md)
+    - [Query 13 — Lattice output assets](may-2026-amaru-lattice/queries/13-lattice-output-assets.md)
+
 -   **Final network-compliance state**
 
     ---
@@ -89,6 +180,7 @@ Live UTxO snapshot for Queries 15-16:
 
     **Explain terminal balances**
 
+    - [Query 11 — Terminal USDM summary](may-2026-amaru-lattice/queries/11-terminal-usdm-summary.md)
     - [Query 20 — Terminal USDM provenance](may-2026-amaru-lattice/queries/20-terminal-usdm-provenance.md)
 
 -   **Treasury USDM movement**
@@ -102,11 +194,13 @@ Live UTxO snapshot for Queries 15-16:
     **Incoming USDM**
 
     - [Query 21 — Treasury USDM payers](may-2026-amaru-lattice/queries/21-treasury-usdm-payers.md)
+    - [Query 07 — Network compliance USDM output classes](may-2026-amaru-lattice/queries/07-network-compliance-usdm-output-classes.md)
 
     **Outgoing USDM**
 
     - [Query 02 — Treasury USDM payees](may-2026-amaru-lattice/queries/02-usdm-output-addresses.md)
     - [Query 18 — Beneficiary USDM payments](may-2026-amaru-lattice/queries/18-beneficiary-usdm-payments.md)
+    - [Query 05 — Vendor attestations](may-2026-amaru-lattice/queries/05-vendor-attestations.md)
 
 -   **Swaps and exchange rates**
 
@@ -115,5 +209,18 @@ Live UTxO snapshot for Queries 15-16:
     **Rate computation and receipts**
 
     - [Query 19 — Swap receipts and rates](may-2026-amaru-lattice/queries/19-swap-receipts-and-rates.md)
+    - [Query 08 — Sundae order consumer summary](may-2026-amaru-lattice/queries/08-sundae-order-consumer-summary.md)
+    - [Query 10 — Swap consumer output roles](may-2026-amaru-lattice/queries/10-swap-consumer-output-roles.md)
+
+-   **ADA, signers, and references**
+
+    ---
+
+    **Supporting transaction-body checks**
+
+    - [Query 03 — Network compliance ADA accounting](may-2026-amaru-lattice/queries/03-network-compliance-ada-accounting.md)
+    - [Query 06 — Network compliance ADA producers](may-2026-amaru-lattice/queries/06-network-compliance-ada-producers.md)
+    - [Query 04 — Required signer distribution](may-2026-amaru-lattice/queries/04-required-signer-distribution.md)
+    - [Query 09 — Reference input reuse](may-2026-amaru-lattice/queries/09-reference-input-reuse.md)
 
 </div>

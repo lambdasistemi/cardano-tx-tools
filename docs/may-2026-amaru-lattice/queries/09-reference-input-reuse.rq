@@ -1,0 +1,13 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+
+# Most reused reference inputs across the 85-tx lattice.
+SELECT ?referencedTxId ?ix (COUNT(DISTINCT ?usingTx) AS ?usingTxs)
+WHERE {
+  ?usingTx cardano:hasReferenceInput ?refInput .
+  ?refInput cardano:fromTxOutRef ?ref .
+  ?ref cardano:hasTxId/cardano:bytesHex ?referencedTxId ;
+       cardano:hasIndex ?ix .
+}
+GROUP BY ?referencedTxId ?ix
+ORDER BY DESC(?usingTxs) ?referencedTxId ?ix
+LIMIT 10

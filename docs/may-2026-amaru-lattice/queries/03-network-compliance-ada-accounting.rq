@@ -1,0 +1,59 @@
+PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
+PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
+
+# ADA state accounting for network_compliance inside the 85-tx lattice.
+#
+# This is the ADA counterpart of the terminal-state proof: treasury outputs
+# produced by the lattice, minus those consumed by later lattice transactions,
+# equals terminal ADA.
+SELECT ?producedOutputs ((xsd:decimal(?producedLovelace) / 1000000) AS ?producedAda)
+       ?spentOutputs ((xsd:decimal(?spentLovelace) / 1000000) AS ?spentAda)
+       ?terminalOutputs ((xsd:decimal(?terminalLovelace) / 1000000) AS ?terminalAda)
+       ((xsd:decimal(?producedLovelace - ?spentLovelace - ?terminalLovelace) / 1000000) AS ?adaGap)
+WHERE {
+  {
+    SELECT (COUNT(?out) AS ?producedOutputs) (SUM(?lovelace) AS ?producedLovelace)
+    WHERE {
+      ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                         cardano:bech32 ?networkComplianceBech32 .
+      ?tx cardano:hasOutput ?out .
+      ?out cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+           cardano:lovelace ?lovelace .
+    }
+  }
+  {
+    SELECT (COUNT(?out) AS ?spentOutputs) (SUM(?lovelace) AS ?spentLovelace)
+    WHERE {
+      ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                         cardano:bech32 ?networkComplianceBech32 .
+      ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
+          cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?ix ;
+           cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+           cardano:lovelace ?lovelace .
+      ?spendingTx cardano:hasInput ?input .
+      ?input cardano:fromTxOutRef ?ref .
+      ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
+           cardano:hasIndex ?ix .
+    }
+  }
+  {
+    SELECT (COUNT(?out) AS ?terminalOutputs) (SUM(?lovelace) AS ?terminalLovelace)
+    WHERE {
+      ?networkCompliance rdfs:label "amaru-treasury.network_compliance" ;
+                         cardano:bech32 ?networkComplianceBech32 .
+      ?tx cardano:hasTxId/cardano:bytesHex ?txId ;
+          cardano:hasOutput ?out .
+      ?out cardano:hasIndex ?ix ;
+           cardano:atAddress/cardano:bech32 ?networkComplianceBech32 ;
+           cardano:lovelace ?lovelace .
+      FILTER NOT EXISTS {
+        ?spendingTx cardano:hasInput ?input .
+        ?input cardano:fromTxOutRef ?ref .
+        ?ref cardano:hasTxId/cardano:bytesHex ?txId ;
+             cardano:hasIndex ?ix .
+      }
+    }
+  }
+}
