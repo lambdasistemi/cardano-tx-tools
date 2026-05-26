@@ -63,6 +63,7 @@ nav:
   - tx-sign: tx-sign.md
   - tx-validate: tx-validate.md
   - tx-graph: tx-graph.md
+  - tx-fetch: tx-fetch.md
   - tx-view: tx-view.md
   - tx-lattice: tx-lattice.md
   - "May 2026 lattice demo": may-2026-amaru-lattice.md
