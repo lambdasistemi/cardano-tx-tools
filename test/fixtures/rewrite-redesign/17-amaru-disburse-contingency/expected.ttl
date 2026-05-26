@@ -9,6 +9,7 @@
 
 :amaru_treasury_contingency a cardano:Entity ;
   rdfs:label "amaru-treasury.contingency" ;
+  cardano:bech32 "addr1x8ndhlcfy30t38z0tql64fpg8ply93r37xrgvdagfpsz5nhxm0lsjfz7hzwy7kpl42jzswr7gtz8ruvxscm6sjrq9f8qruq0ae" ;
   cardano:hasIdentifier _:amaru_treasury_contingency_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_contingency_stakeScript .
 
@@ -22,6 +23,7 @@ _:amaru_treasury_contingency_stakeScript a cardano:Identifier ;
 
 :amaru_treasury_network_compliance a cardano:Entity ;
   rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
@@ -35,6 +37,7 @@ _:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
 
 :amaru_network_wallet a cardano:Entity ;
   rdfs:label "amaru.network-wallet" ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
   cardano:hasIdentifier _:amaru_network_wallet_paymentKey ;
   cardano:hasIdentifier _:amaru_network_wallet_stakeKey .
 
@@ -51,6 +54,7 @@ _:amaru_network_wallet_stakeKey a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_24fe3f452094868cb4f10a50ebbe52452da5ff525f920ef441d2c65839273938 ;
   cardano:hasInput _:input1 ;
   cardano:hasInput _:input2 ;
   cardano:hasReferenceInput _:refInput1 ;
@@ -70,6 +74,10 @@ _:tx a cardano:Transaction ;
   cardano:hasRequiredSigner _:cred_paymentkey_f3ab64b0f97dcf0f91232754603283df5d75a1201337432c04d23e2e ;
   cardano:hasRedeemer _:redeemer1 ;
   cardano:hasRedeemer _:redeemer2 .
+
+_:hash_txid_24fe3f452094868cb4f10a50ebbe52452da5ff525f920ef441d2c65839273938 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "24fe3f452094868cb4f10a50ebbe52452da5ff525f920ef441d2c65839273938" .
 
 _:hash_scriptdata_ce1e85c9b5f1ad5f53885824e822407c0ed116543e48b241510ed847b5a80d98 a cardano:Identifier ;
   cardano:leafType "ScriptDataHash" ;
@@ -187,6 +195,7 @@ _:hash_txid_00000000000000000000000000000000000000000000000000000000000000cb a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:amaru_treasury_contingencyAddr ;
   cardano:lovelace 3852000000000 .
 
@@ -195,6 +204,7 @@ _:output1 a cardano:Output ;
 #
 
 _:output2 a cardano:Output ;
+  cardano:hasIndex 1 ;
   cardano:atAddress _:amaru_treasury_network_complianceAddr ;
   cardano:lovelace 205000000000 .
 
@@ -203,6 +213,7 @@ _:output2 a cardano:Output ;
 #
 
 _:output3 a cardano:Output ;
+  cardano:hasIndex 2 ;
   cardano:atAddress _:amaru_network_walletAddr ;
   cardano:lovelace 92141887 .
 

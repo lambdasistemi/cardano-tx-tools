@@ -87,6 +87,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 StakeKey
                                 "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"
                             ]
+                        , entityBech32 = Just aliceBech32Mainnet
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -106,6 +107,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 PaymentScript
                                 "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077"
                             ]
+                        , entityBech32 = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -126,6 +128,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 AssetClass
                                 "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad5553444d"
                             ]
+                        , entityBech32 = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -152,6 +155,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                                 Policy
                                 "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad"
                             ]
+                        , entityBech32 = Nothing
                         , entitySourceFile = inMemoryFile
                         }
                     ]
@@ -172,6 +176,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                             PaymentScript
                             "0123456789abcdef0123456789abcdef0123456789abcdef01234567"
                         ]
+                        Nothing
                         inMemoryFile
                     , EntityDecl
                         "beta"
@@ -180,6 +185,7 @@ spec = describe "Cardano.Tx.Graph.Rules.Load.parseRulesYamlText (T002)" $ do
                             AssetClass
                             "aa11bb22cc33dd44ee55ff6677889900112233445566778899aabbcc4d454d45"
                         ]
+                        Nothing
                         inMemoryFile
                     ]
 
@@ -511,7 +517,7 @@ decomposeAddrShouldBe addr expected = do
                 <> "\n"
     parseRulesYamlText (TextEncoding.encodeUtf8 yaml)
         `shouldBe` Right
-            [EntityDecl "synth" "synth" expected inMemoryFile]
+            [EntityDecl "synth" "synth" expected (Just bech32) inMemoryFile]
 
 encodeMainnetAddr :: Addr -> Text
 encodeMainnetAddr a =

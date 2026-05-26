@@ -248,6 +248,7 @@ import Cardano.Ledger.Hashes (
     ScriptHash (..),
     TxAuxDataHash (..),
     extractHash,
+    hashAnnotated,
     originalBytes,
  )
 import Cardano.Ledger.Keys (KeyRole (..))
@@ -413,10 +414,18 @@ projectBody entities lookupTbl blueprints tx utxo =
         -- the per-predicate @tellTriple@ sequence preserves the
         -- pre-T102 byte order (see the module-header note on
         -- tx-block predicate order).
+        -- The tx's own on-chain hash (issue #100): hash the body
+        -- annotation and pin it as a triple on _:tx so SPARQL can
+        -- identify each tx by its hex hash and JOIN across the
+        -- closure. Matches the existing pattern for parent-txid
+        -- references (emitFromTxOutRef): one Identifier-typed
+        -- bnode per distinct hash, dedup-able via the lookup table.
+        txIdBytes = hashToBytes (extractHash (hashAnnotated body))
         txBlocks =
             clusterBlocks $
                 emitTxBlock
                     lookupTbl
+                    txIdBytes
                     (length inputData)
                     (length refInputData)
                     (length outputData)
@@ -964,6 +973,7 @@ also emits a separate @_:interval1@ sub-block carrying
 -}
 emitTxBlock ::
     LookupTable ->
+    ByteString ->
     Int ->
     Int ->
     Int ->
@@ -989,6 +999,7 @@ emitTxBlock ::
     Emit ()
 emitTxBlock
     lookupTbl
+    txIdBytes
     nInputs
     nReferenceInputs
     nOutputs
@@ -1022,6 +1033,14 @@ emitTxBlock
                     )
                     [1 .. n]
         tt PRdfType (OIri (vocabCurie TermTransaction))
+        -- Issue #100: pin the tx's own on-chain hash as an
+        -- Identifier-typed bnode, matching the existing
+        -- emitFromTxOutRef pattern for parent-txid references.
+        -- SPARQL JOINs across the closure use
+        -- @cardano:hasTxId/cardano:bytesHex@ uniformly.
+        txIdBnode <-
+            resolveCredentialAndIntroduceIdent lookupTbl LtTxId txIdBytes
+        tt (PIri (vocabCurie TermHasTxId)) (OBnode txIdBnode)
         edges TermHasInput idInputBnode nInputs
         edges TermHasReferenceInput idReferenceInputBnode nReferenceInputs
         edges TermHasOutput idOutputBnode nOutputs
@@ -1608,6 +1627,19 @@ emitOutput lookupTbl blueprints k base txOut = do
         datum = txOut ^. datumTxOutL
         refScript = txOut ^. referenceScriptTxOutL
     tellTriple (Triple outSubj PRdfType (OIri (vocabCurie TermOutput)))
+    -- Zero-based output index, exposed as a triple so SPARQL can
+    -- join an input's (txid, ix) target to the matching output of
+    -- the parent tx via cardano:hasIndex across the closure.
+    -- Issue #100: the index used to live only in the bnode label
+    -- ("_:output1", "_:output2", ...) which is not semantic in RDF.
+    -- 'k' starts at 1 (zip [1..] in buildOutputs), so subtract 1
+    -- for Cardano's zero-based output-index convention.
+    tellTriple
+        ( Triple
+            outSubj
+            (PIri (vocabCurie TermHasIndex))
+            (OIntLit (toInteger (k - 1)))
+        )
     tellTriple
         ( Triple
             outSubj

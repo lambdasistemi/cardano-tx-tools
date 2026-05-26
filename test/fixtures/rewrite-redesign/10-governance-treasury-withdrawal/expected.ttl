@@ -9,6 +9,7 @@
 
 :operator a cardano:Entity ;
   rdfs:label "operator" ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
   cardano:hasIdentifier _:operator_paymentKey ;
   cardano:hasIdentifier _:operator_stakeKey .
 
@@ -22,6 +23,7 @@ _:operator_stakeKey a cardano:Identifier ;
 
 :cardano_foundation_ops a cardano:Entity ;
   rdfs:label "cardano-foundation.ops" ;
+  cardano:bech32 "addr1qy5yrukx9ysjqqa79jrl6qkql7glhqwcnycjjqmdwk962j89fcz6lc7tj6k5yegw8zdnj7chytcfrr9fwlernl2etg2qdhrzz0" ;
   cardano:hasIdentifier _:cardano_foundation_ops_paymentKey ;
   cardano:hasIdentifier _:cardano_foundation_ops_stakeKey .
 
@@ -38,10 +40,15 @@ _:cardano_foundation_ops_stakeKey a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_16ce38ee494758b744cd8803975180d2abc53ddaa4ff58a0e01cdfd7b03c937e ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasProposal _:proposal1 ;
   cardano:hasFee 0 .
+
+_:hash_txid_16ce38ee494758b744cd8803975180d2abc53ddaa4ff58a0e01cdfd7b03c937e a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "16ce38ee494758b744cd8803975180d2abc53ddaa4ff58a0e01cdfd7b03c937e" .
 
 #
 # Input 1
@@ -63,6 +70,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 825000 .
 

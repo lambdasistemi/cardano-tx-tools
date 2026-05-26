@@ -92,18 +92,33 @@ renderEntities table (entity : rest) emitted =
 
 renderEntity ::
     NamingTable -> EntityDecl -> Set Text -> (Text, Set Text)
-renderEntity table EntityDecl{entityName, entitySlug, entityIdentifiers} emitted =
-    let entityHead =
-            ":"
-                <> entitySlug
-                <> " a cardano:Entity ;\n"
-                <> "  rdfs:label "
-                <> renderLiteral entityName
-                <> " ;\n"
-        idLines = renderIdentifierLines table entityIdentifiers
-        (idBlocksText, emitted') =
-            renderEntityIdentifierBlocks table entityIdentifiers emitted
-     in (entityHead <> idLines <> "\n" <> idBlocksText, emitted')
+renderEntity
+    table
+    EntityDecl{entityName, entitySlug, entityIdentifiers, entityBech32}
+    emitted =
+        let -- Issue #100: emit @cardano:bech32 "<addr>"@ on the
+            -- entity node when the entity was declared via
+            -- @from-address:@ (carrying its resolved bech32
+            -- string). Skipped for @script:@ / @asset:@ /
+            -- @pool:@ / @drep:@ / @keys:@ shapes which have no
+            -- single-bech32 representation.
+            bechLine = case entityBech32 of
+                Just b -> "  cardano:bech32 " <> renderLiteral b <> " ;\n"
+                Nothing -> ""
+            entityHead =
+                ":"
+                    <> entitySlug
+                    <> " a cardano:Entity ;\n"
+                    <> "  rdfs:label "
+                    <> renderLiteral entityName
+                    <> " ;\n"
+                    <> bechLine
+            idLines = renderIdentifierLines table entityIdentifiers
+            (idBlocksText, emitted') =
+                renderEntityIdentifierBlocks table entityIdentifiers emitted
+         in ( entityHead <> idLines <> "\n" <> idBlocksText
+            , emitted'
+            )
 
 {- | Render the @cardano:hasIdentifier _:bnode ;@ continuation lines
 attached to an entity's head block. The last line ends with @.@; the

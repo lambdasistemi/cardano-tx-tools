@@ -9,6 +9,7 @@
 
 :alice a cardano:Entity ;
   rdfs:label "alice" ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
   cardano:hasIdentifier _:alice_paymentKey ;
   cardano:hasIdentifier _:alice_stakeKey .
 
@@ -33,10 +34,15 @@ _:cardano_foundation_drep_dRepKey a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_797e7ee707fee17eb902fc93b23b14c36906a592ef9d4a51101db7a5104754e9 ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasCertificate _:cert1 ;
   cardano:hasFee 0 .
+
+_:hash_txid_797e7ee707fee17eb902fc93b23b14c36906a592ef9d4a51101db7a5104754e9 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "797e7ee707fee17eb902fc93b23b14c36906a592ef9d4a51101db7a5104754e9" .
 
 #
 # Input 1
@@ -58,6 +64,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 4825000 .
 

@@ -522,12 +522,13 @@ parseEntity ctx ln = \case
     Aeson.Object obj -> do
         name <- requireName ctx ln obj
         slug <- slugifyOrError ctx ln name
-        idents <- parseShape ctx ln slug obj
+        (mBech32, idents) <- parseShape ctx ln slug obj
         Right
             EntityDecl
                 { entityName = name
                 , entitySlug = slug
                 , entityIdentifiers = idents
+                , entityBech32 = mBech32
                 , entitySourceFile = ctxFile ctx
                 }
     other ->
@@ -626,7 +627,7 @@ parseShape ::
     Int ->
     Text ->
     KeyMap.KeyMap Aeson.Value ->
-    Either RulesLoadError [EntityIdentifier]
+    Either RulesLoadError (Maybe Text, [EntityIdentifier])
 parseShape ctx ln slug obj =
     let basicShapes =
             catMaybes
@@ -642,8 +643,9 @@ parseShape ctx ln slug obj =
             ([], Nothing, Nothing) ->
                 Left (EntityZeroIdentifiers (ctxFile ctx) ln slug)
             ([(k, v)], Nothing, Nothing) -> parseSingleShape ctx ln slug k v
-            ([], Just keysV, Just bytesV) ->
-                parseCompoundKey ctx ln slug keysV bytesV
+            ([], Just keysV, Just bytesV) -> do
+                idents <- parseCompoundKey ctx ln slug keysV bytesV
+                Right (Nothing, idents)
             ([], Just _, Nothing) ->
                 Left $
                     ParserError
@@ -677,16 +679,21 @@ parseShape ctx ln slug obj =
                                 <> Text.intercalate ", " labels
                             )
 
+-- | Parse a single-shape entity. Returns the entity's identifiers
+-- plus a 'Just' bech32 for the @from-address@ shape (so the
+-- overlay emitter can publish a @cardano:bech32@ triple on the
+-- entity node, issue #100) or 'Nothing' for the other shapes.
 parseSingleShape ::
     Ctx ->
     Int ->
     Text ->
     Text ->
     Aeson.Value ->
-    Either RulesLoadError [EntityIdentifier]
+    Either RulesLoadError (Maybe Text, [EntityIdentifier])
 parseSingleShape ctx ln _slug "from-address" v = case v of
-    Aeson.String bech32 ->
-        decomposeFromAddress (ctxFile ctx) ln bech32
+    Aeson.String bech32 -> do
+        idents <- decomposeFromAddress (ctxFile ctx) ln bech32
+        Right (Just bech32, idents)
     other ->
         Left $
             ParserError
@@ -696,16 +703,20 @@ parseSingleShape ctx ln _slug "from-address" v = case v of
 parseSingleShape ctx ln _slug "script" v = case v of
     Aeson.String hex -> do
         validated <- validateScriptHex ctx ln hex
-        Right [EntityIdentifier PaymentScript validated]
+        Right (Nothing, [EntityIdentifier PaymentScript validated])
     other ->
         Left $
             ParserError
                 (ctxFile ctx)
                 ln
                 ("script: must be a 56-character hex string, got: " <> typeName other)
-parseSingleShape ctx ln _slug "asset" v = parseAsset ctx ln v
+parseSingleShape ctx ln _slug "asset" v = do
+    idents <- parseAsset ctx ln v
+    Right (Nothing, idents)
 parseSingleShape ctx ln _slug "pool" v = case v of
-    Aeson.String bech32 -> decodePoolBech32 (ctxFile ctx) ln bech32
+    Aeson.String bech32 -> do
+        idents <- decodePoolBech32 (ctxFile ctx) ln bech32
+        Right (Nothing, idents)
     other ->
         Left $
             ParserError
@@ -713,7 +724,9 @@ parseSingleShape ctx ln _slug "pool" v = case v of
                 ln
                 ("pool: must be a pool1 bech32 string, got: " <> typeName other)
 parseSingleShape ctx ln _slug "drep" v = case v of
-    Aeson.String bech32 -> decodeDrepCip129 (ctxFile ctx) ln bech32
+    Aeson.String bech32 -> do
+        idents <- decodeDrepCip129 (ctxFile ctx) ln bech32
+        Right (Nothing, idents)
     other ->
         Left $
             ParserError

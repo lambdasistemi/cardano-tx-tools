@@ -20,10 +20,15 @@ _:amaru_swap_v2_paymentScript a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_22e26c34b9c9ee2d5d857b06d5c207a9784fc33f1359f69d5e55363a4bccbb0f ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasOutput _:output2 ;
   cardano:hasFee 0 .
+
+_:hash_txid_22e26c34b9c9ee2d5d857b06d5c207a9784fc33f1359f69d5e55363a4bccbb0f a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "22e26c34b9c9ee2d5d857b06d5c207a9784fc33f1359f69d5e55363a4bccbb0f" .
 
 #
 # Input 1
@@ -45,6 +50,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:amaru_swap_v2Addr ;
   cardano:lovelace 5000000 ;
   cardano:hasDatum _:outputDatum1 .
@@ -62,6 +68,7 @@ _:hash_datum_c9bc91a9f2f9d50ce4972df3f798f41b114375b22b1829cef28e3ef94ba0675f a 
 #
 
 _:output2 a cardano:Output ;
+  cardano:hasIndex 1 ;
   cardano:atAddress _:cred_paymentkey_64f35d26b237ad58e099041bc14c687ea7fdc58969d7d5b66e2540efAddr ;
   cardano:lovelace 2000000 .
 

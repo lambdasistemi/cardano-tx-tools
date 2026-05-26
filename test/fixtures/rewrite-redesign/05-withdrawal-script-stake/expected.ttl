@@ -9,6 +9,7 @@
 
 :alice a cardano:Entity ;
   rdfs:label "alice" ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
   cardano:hasIdentifier _:alice_paymentKey ;
   cardano:hasIdentifier _:alice_stakeKey .
 
@@ -22,6 +23,7 @@ _:alice_stakeKey a cardano:Identifier ;
 
 :amaru_treasury_network_compliance a cardano:Entity ;
   rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
@@ -38,10 +40,15 @@ _:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_54c4b677f1b3fc8f8d9b3ef221e81f95e82b9551bfda86dd72d752c063533fc8 ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasWithdrawal _:withdrawal1 ;
   cardano:hasFee 0 .
+
+_:hash_txid_54c4b677f1b3fc8f8d9b3ef221e81f95e82b9551bfda86dd72d752c063533fc8 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "54c4b677f1b3fc8f8d9b3ef221e81f95e82b9551bfda86dd72d752c063533fc8" .
 
 #
 # Input 1
@@ -63,6 +70,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 51825000 .
 

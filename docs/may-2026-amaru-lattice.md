@@ -53,7 +53,7 @@ WHERE {
       ?in cardano:fromTxOutRef ?ref .
       ?ref cardano:hasTxId ?h ; cardano:hasIndex ?ix .
       ?h cardano:bytesHex ?parentHex .
-      ?parent cardano:hasTxId ?parentHex ; cardano:hasOutput ?parentOut .
+      ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ; cardano:hasOutput ?parentOut .
       ?parentOut cardano:hasIndex ?ix ; cardano:lovelace ?l .
   } }
   { SELECT (SUM(?l) AS ?totalSeedOutputLovelace) WHERE {
@@ -144,7 +144,7 @@ WHERE {
     ?in cardano:fromTxOutRef ?ref .
     ?ref cardano:hasTxId ?h ; cardano:hasIndex ?ix .
     ?h cardano:bytesHex ?parentHex .
-    ?parent cardano:hasTxId ?parentHex ; cardano:hasOutput ?parentOut .
+    ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ; cardano:hasOutput ?parentOut .
     ?parentOut cardano:hasIndex ?ix ;
                cardano:atAddress/cardano:bech32 ?bech ;
                cardano:lovelace ?lovOut .
@@ -266,13 +266,13 @@ PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/ca
 SELECT ?seedTxId ?lovelaceDisbursed
 WHERE {
   ?seed cardano:hasLatticeRole "seed" ;
-        cardano:hasTxId ?seedTxId ;
+        cardano:hasTxId/cardano:bytesHex ?seedTxId ;
         cardano:hasInput ?in ;
         cardano:hasOutput ?out .
   ?in cardano:fromTxOutRef ?ref .
   ?ref cardano:hasTxId ?h ; cardano:hasIndex ?ix .
   ?h cardano:bytesHex ?parentHex .
-  ?parent cardano:hasTxId ?parentHex ; cardano:hasOutput ?parentOut .
+  ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ; cardano:hasOutput ?parentOut .
   ?parentOut cardano:hasIndex ?ix ;
              cardano:atAddress/cardano:bech32 "addr1x8ndhlc...contingency" .
   ?out cardano:atAddress/cardano:bech32 "addr1xyezq8w...network_compliance" ;
@@ -336,12 +336,12 @@ PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/ca
 SELECT ?seedTxId (COUNT(DISTINCT ?parentOut) AS ?swapOrdersConsumed)
 WHERE {
   ?seed cardano:hasLatticeRole "seed" ;
-        cardano:hasTxId ?seedTxId ;
+        cardano:hasTxId/cardano:bytesHex ?seedTxId ;
         cardano:hasInput ?in .
   ?in cardano:fromTxOutRef ?ref .
   ?ref cardano:hasTxId ?h ; cardano:hasIndex ?ix .
   ?h cardano:bytesHex ?parentHex .
-  ?parent cardano:hasTxId ?parentHex ; cardano:hasOutput ?parentOut .
+  ?parent cardano:hasTxId/cardano:bytesHex ?parentHex ; cardano:hasOutput ?parentOut .
   ?parentOut cardano:hasIndex ?ix ;
              cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier ?id .
   ?id cardano:bytesHex
@@ -411,19 +411,19 @@ SELECT ?scoopTxId ?recipientBech32 ?recipientLovelace ?recipientUsdm
 WHERE {
   # 1. Identify scoop seed txs (≥1 swap.v2 utxo consumed via closure)
   { SELECT DISTINCT ?scoopTxId WHERE {
-      ?B cardano:hasLatticeRole "seed" ; cardano:hasTxId ?scoopTxId ;
+      ?B cardano:hasLatticeRole "seed" ; cardano:hasTxId/cardano:bytesHex ?scoopTxId ;
          cardano:hasInput ?in .
       ?in cardano:fromTxOutRef ?ref .
       ?ref cardano:hasTxId ?h ; cardano:hasIndex ?ix .
       ?h cardano:bytesHex ?parentHex .
-      ?A cardano:hasTxId ?parentHex ; cardano:hasOutput ?orderOut .
+      ?A cardano:hasTxId/cardano:bytesHex ?parentHex ; cardano:hasOutput ?orderOut .
       ?orderOut cardano:hasIndex ?ix ;
                 cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier ?id .
       ?id cardano:bytesHex
             "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077" .
   } }
   # 2. List the scoop's non-swap-script outputs as recipient candidates
-  ?scoop cardano:hasTxId ?scoopTxId ; cardano:hasOutput ?recipientOut .
+  ?scoop cardano:hasTxId/cardano:bytesHex ?scoopTxId ; cardano:hasOutput ?recipientOut .
   ?recipientOut cardano:atAddress ?recipientAddr ;
                 cardano:lovelace ?recipientLovelace .
   ?recipientAddr cardano:bech32 ?recipientBech32 .
@@ -484,24 +484,20 @@ the closure JOIN (`?orderOut cardano:hasIndex ?ix`) but tx-graph
 encodes the index only in the bnode label (`_:output1`,
 `_:output2`, …). Blank-node labels are not semantic in RDF.
 
-**Workaround today**: `tx-lattice` post-processes each emitted
-TTL and appends `_:output<N> cardano:hasIndex <N-1> .` triples.
-Brittle — depends on the bnode-naming convention staying
-`_:output<n>`.
-
-**Fix**: tx-graph should emit `cardano:hasIndex` on every output as
-part of the canonical body emit. One-liner in `Cardano.Tx.Graph.Emit`.
+**Resolved** (#100, in `Cardano.Tx.Graph.Emit.Project.emitOutput`):
+the body emitter now emits `cardano:hasIndex` (zero-based) on every
+output as part of the canonical Turtle. The `scripts/tx-lattice`
+post-processing block has been removed.
 
 ## 2. `tx-graph` does not emit the tx's own hash
 
-**Impact**: SPARQL identifies each tx only via its blank node
-(`_:tx`); the closure JOIN `?A cardano:hasTxId ?parentHex` requires
-the tx's own txid as a triple. Today the lattice script computes
-the txid out-of-band (it's the seed argument) and appends
-`_:tx cardano:hasTxId "<hex>"` to every emitted TTL.
-
-**Fix**: tx-graph should hash the body itself and emit the txid
-triple. Single hash call on Conway tx body.
+**Resolved** (#100, in `Cardano.Tx.Graph.Emit.Project.emitTxBlock`):
+the body emitter now hashes the Conway tx body via
+`Cardano.Ledger.Hashes.hashAnnotated` and pins it as
+`_:tx cardano:hasTxId _:hash_txid_<HEX>` — using the same
+`Identifier`-typed bnode pattern as inputs' parent-txid references,
+so SPARQL JOINs across the closure use
+`cardano:hasTxId/cardano:bytesHex` uniformly.
 
 ## 3. CIP-57 blueprint binding rejects two scripts sharing a blueprint
 
@@ -576,13 +572,10 @@ rules.
 
 ## 8. Scope mapping is hard-coded inside each SPARQL query
 
-**Impact**: every per-scope query (Q3, Q5, Q7) carries the bech32
-literals of the four named entities as `VALUES` or `BIND/IF`
-clauses. If the operator adds a new scope to rules.yaml, every
-query has to be edited.
-
-**Fix**: the lattice emit should produce a triple `?entity
-cardano:bech32 ?bech` per declared entity so SPARQL can JOIN on
-the rules' entity table directly. Likely a small change to
-`Cardano.Tx.Graph.Emit.Project` to emit the entity bech32 as a
-top-level triple.
+**Resolved** (#100, in `Cardano.Tx.Graph.Rules.Load.Emit.Overlay`):
+every entity declared via `from-address:` now emits a top-level
+`:slug cardano:bech32 "<addr>"` triple. The per-scope queries
+(Q3, Q5, Q7) can be rewritten to JOIN on
+`?entity rdfs:label ?scope . ?entity cardano:bech32 ?bech` instead
+of carrying hard-coded bech32 literals in `VALUES` blocks — a
+follow-up to this issue will land that refactor.

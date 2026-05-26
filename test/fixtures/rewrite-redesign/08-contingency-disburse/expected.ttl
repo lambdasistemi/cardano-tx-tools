@@ -9,6 +9,7 @@
 
 :amaru_treasury_contingency_account a cardano:Entity ;
   rdfs:label "amaru-treasury.contingency.account" ;
+  cardano:bech32 "addr1x8ndhlcfy30t38z0tql64fpg8ply93r37xrgvdagfpsz5nhxm0lsjfz7hzwy7kpl42jzswr7gtz8ruvxscm6sjrq9f8qruq0ae" ;
   cardano:hasIdentifier _:amaru_treasury_contingency_account_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_contingency_account_stakeScript .
 
@@ -22,6 +23,7 @@ _:amaru_treasury_contingency_account_stakeScript a cardano:Identifier ;
 
 :user_wallet a cardano:Entity ;
   rdfs:label "user-wallet" ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
   cardano:hasIdentifier _:user_wallet_paymentKey ;
   cardano:hasIdentifier _:user_wallet_stakeKey .
 
@@ -35,6 +37,7 @@ _:user_wallet_stakeKey a cardano:Identifier ;
 
 :recipient a cardano:Entity ;
   rdfs:label "recipient" ;
+  cardano:bech32 "addr1qy5yrukx9ysjqqa79jrl6qkql7glhqwcnycjjqmdwk962j89fcz6lc7tj6k5yegw8zdnj7chytcfrr9fwlernl2etg2qdhrzz0" ;
   cardano:hasIdentifier _:recipient_paymentKey ;
   cardano:hasIdentifier _:recipient_stakeKey .
 
@@ -51,12 +54,17 @@ _:recipient_stakeKey a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_d032495b8dbdb3d0055621178adac43e21f5b6eab8ad6d34778b19c1d9345af1 ;
   cardano:hasInput _:input1 ;
   cardano:hasInput _:input2 ;
   cardano:hasOutput _:output1 ;
   cardano:hasOutput _:output2 ;
   cardano:hasCollateralInput _:collateral1 ;
   cardano:hasFee 0 .
+
+_:hash_txid_d032495b8dbdb3d0055621178adac43e21f5b6eab8ad6d34778b19c1d9345af1 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "d032495b8dbdb3d0055621178adac43e21f5b6eab8ad6d34778b19c1d9345af1" .
 
 #
 # Input 1
@@ -93,6 +101,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000002 a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 100000000 .
 
@@ -101,6 +110,7 @@ _:output1 a cardano:Output ;
 #
 
 _:output2 a cardano:Output ;
+  cardano:hasIndex 1 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 9825000 .
 

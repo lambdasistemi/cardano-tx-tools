@@ -8,6 +8,7 @@
 
 :amaru_treasury_network_compliance a cardano:Entity ;
   rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
@@ -21,6 +22,7 @@ _:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
 
 :amaru_swap_order a cardano:Entity ;
   rdfs:label "amaru.swap-order" ;
+  cardano:bech32 "addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n" ;
   cardano:hasIdentifier _:amaru_swap_order_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
@@ -34,6 +36,7 @@ _:amaru_swap_order_paymentScript a cardano:Identifier ;
 
 :amaru_network_wallet a cardano:Entity ;
   rdfs:label "amaru.network-wallet" ;
+  cardano:bech32 "addr1q802wxt6cg6aw0nl0vdzfxavu65rxu3yzhvgayw7chfxymduzkt66uw9t5kspx5jwjecx80dz4g33htknafhdhkvzd5st4f9xu" ;
   cardano:hasIdentifier _:amaru_network_wallet_paymentKey ;
   cardano:hasIdentifier _:amaru_network_wallet_stakeKey .
 

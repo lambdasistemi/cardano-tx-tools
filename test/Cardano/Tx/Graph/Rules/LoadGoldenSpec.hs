@@ -27,8 +27,9 @@ import Control.Exception (try)
 import Control.Monad (unless)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
+import System.Environment (lookupEnv)
 import System.FilePath ((</>))
-import Test.Hspec (Spec, describe, expectationFailure, it, pending)
+import Test.Hspec (Spec, describe, expectationFailure, it, pending, runIO)
 
 ----------------------------------------------------------------------
 -- Fixture registry
@@ -64,16 +65,28 @@ fixturesRoot = "test/fixtures/rewrite-redesign"
 ----------------------------------------------------------------------
 
 spec :: Spec
-spec =
+spec = do
+    -- Issue #100: EMIT_GOLDEN_REGEN=1 rewrites the
+    -- expected.entities.ttl carve-outs from the loader's current
+    -- output, matching the regen knob 'Cardano.Tx.Graph.EmitGoldenSpec'
+    -- already exposes.
+    regen <- runIO regenMode
     describe "Cardano.Tx.Graph.Rules.Load entity-overlay goldens (T003)" $
-        mapM_ describeFixture fixtures
+        mapM_ (describeFixture regen) fixtures
 
-describeFixture :: (String, FixtureStatus) -> Spec
-describeFixture (slug, status) =
+describeFixture :: Bool -> (String, FixtureStatus) -> Spec
+describeFixture regen (slug, status) =
     it (slug <> " — entity overlay bytes match expected.entities.ttl") $
         case status of
             Pending _reason -> pending
-            Active -> runActiveGolden slug
+            Active -> runActiveGolden regen slug
+
+regenMode :: IO Bool
+regenMode = do
+    mv <- lookupEnv "EMIT_GOLDEN_REGEN"
+    pure $ case mv of
+        Just "1" -> True
+        _ -> False
 
 {- | Load the fixture's @rules.yaml@, compare the emitted overlay
 bytes to the @expected.entities.ttl@ carve-out, and fail the test
@@ -81,8 +94,8 @@ verbosely on mismatch. A missing @expected.entities.ttl@ file
 (common during the RED phase before the carve-outs land) is
 distinguished from a byte mismatch.
 -}
-runActiveGolden :: String -> IO ()
-runActiveGolden slug = do
+runActiveGolden :: Bool -> String -> IO ()
+runActiveGolden regen slug = do
     let rulesPath = fixturesRoot </> slug </> "rules.yaml"
         expectedPath = fixturesRoot </> slug </> "expected.entities.ttl"
     loadResult <- loadRulesFile rulesPath
@@ -90,22 +103,24 @@ runActiveGolden slug = do
         Left err ->
             expectationFailure $
                 "loadRulesFile " <> rulesPath <> " failed: " <> show err
-        Right RulesLoadResult{rulesOverlayTurtle = actual} -> do
-            mExpected <- safeReadFile expectedPath
-            case mExpected of
-                Nothing ->
-                    expectationFailure $
-                        "carve-out missing: " <> expectedPath
-                Just expected ->
-                    unless (actual == expected) $
+        Right RulesLoadResult{rulesOverlayTurtle = actual}
+            | regen -> BS.writeFile expectedPath actual
+            | otherwise -> do
+                mExpected <- safeReadFile expectedPath
+                case mExpected of
+                    Nothing ->
                         expectationFailure $
-                            unlines
-                                [ "overlay bytes do not match " <> expectedPath
-                                , "--- expected (first 400 bytes):"
-                                , take 400 (showBytes expected)
-                                , "--- actual (first 400 bytes):"
-                                , take 400 (showBytes actual)
-                                ]
+                            "carve-out missing: " <> expectedPath
+                    Just expected ->
+                        unless (actual == expected) $
+                            expectationFailure $
+                                unlines
+                                    [ "overlay bytes do not match " <> expectedPath
+                                    , "--- expected (first 400 bytes):"
+                                    , take 400 (showBytes expected)
+                                    , "--- actual (first 400 bytes):"
+                                    , take 400 (showBytes actual)
+                                    ]
 
 safeReadFile :: FilePath -> IO (Maybe ByteString)
 safeReadFile p = do

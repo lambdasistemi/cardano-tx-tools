@@ -51,6 +51,14 @@ data EntityDecl = EntityDecl
     , entityIdentifiers :: ![EntityIdentifier]
     -- ^ Identifiers in source order. At least one (zero-identifier
     -- entities are rejected at parse).
+    , entityBech32 :: !(Maybe Text)
+    -- ^ The original bech32 string the entity was declared with
+    -- (issue #100). Populated for @from-address@-shape entities
+    -- and emitted as a top-level @cardano:bech32@ triple on the
+    -- entity node so SPARQL queries can JOIN on the entity's
+    -- resolved address without re-encoding identifiers. 'Nothing'
+    -- for @script@, @asset@, @pool@, @drep@, @keys@ shapes (which
+    -- have no single bech32 representation).
     , entitySourceFile :: !FilePath
     -- ^ The path of the file this declaration was parsed from. The
     -- in-memory parser entry points use the placeholder
