@@ -9,6 +9,7 @@
 
 :alice a cardano:Entity ;
   rdfs:label "alice" ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
   cardano:hasIdentifier _:alice_paymentKey ;
   cardano:hasIdentifier _:alice_stakeKey .
 
@@ -22,6 +23,7 @@ _:alice_stakeKey a cardano:Identifier ;
 
 :bob a cardano:Entity ;
   rdfs:label "bob" ;
+  cardano:bech32 "addr1qy5yrukx9ysjqqa79jrl6qkql7glhqwcnycjjqmdwk962j89fcz6lc7tj6k5yegw8zdnj7chytcfrr9fwlernl2etg2qdhrzz0" ;
   cardano:hasIdentifier _:bob_paymentKey ;
   cardano:hasIdentifier _:bob_stakeKey .
 
@@ -54,10 +56,15 @@ _:meme_assetClass a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_4c9306a30ccffc399fd6afd6a41439171083307c9add191e819f8e4ec30d8824 ;
   cardano:hasInput _:input1 ;
   cardano:hasOutput _:output1 ;
   cardano:hasOutput _:output2 ;
   cardano:hasFee 0 .
+
+_:hash_txid_4c9306a30ccffc399fd6afd6a41439171083307c9add191e819f8e4ec30d8824 a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "4c9306a30ccffc399fd6afd6a41439171083307c9add191e819f8e4ec30d8824" .
 
 #
 # Input 1
@@ -79,6 +86,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000001 a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 50000000 ;
   cardano:hasAssetValue _:outputMultiAsset1 .
@@ -102,6 +110,7 @@ _:assetEntry_output1_2 a cardano:Asset ;
 #
 
 _:output2 a cardano:Output ;
+  cardano:hasIndex 1 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 149825000 ;
   cardano:hasAssetValue _:outputMultiAsset2 .

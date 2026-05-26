@@ -9,6 +9,7 @@
 
 :amaru_treasury_network_compliance a cardano:Entity ;
   rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
@@ -22,6 +23,7 @@ _:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
 
 :amaru_cag_payee a cardano:Entity ;
   rdfs:label "amaru.cag-payee" ;
+  cardano:bech32 "addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl" ;
   cardano:hasIdentifier _:amaru_cag_payee_paymentKey ;
   cardano:hasIdentifier _:amaru_cag_payee_stakeKey .
 
@@ -35,6 +37,7 @@ _:amaru_cag_payee_stakeKey a cardano:Identifier ;
 
 :amaru_network_wallet a cardano:Entity ;
   rdfs:label "amaru.network-wallet" ;
+  cardano:bech32 "addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz" ;
   cardano:hasIdentifier _:amaru_network_wallet_paymentKey ;
   cardano:hasIdentifier _:amaru_network_wallet_stakeKey .
 
@@ -51,6 +54,7 @@ _:amaru_network_wallet_stakeKey a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_119cf80e078c58ec3e725bb3450a64bc477b40b3d5f11bff87bfbdd04e46c98b ;
   cardano:hasInput _:input1 ;
   cardano:hasInput _:input2 ;
   cardano:hasInput _:input3 ;
@@ -76,6 +80,10 @@ _:tx a cardano:Transaction ;
   cardano:hasRedeemer _:redeemer4 ;
   cardano:hasRedeemer _:redeemer5 ;
   cardano:hasRedeemer _:redeemer6 .
+
+_:hash_txid_119cf80e078c58ec3e725bb3450a64bc477b40b3d5f11bff87bfbdd04e46c98b a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "119cf80e078c58ec3e725bb3450a64bc477b40b3d5f11bff87bfbdd04e46c98b" .
 
 _:hash_scriptdata_3988a24f1de530b686f667a10ef7ae82f366d169b3f5da4e944188f5633e1b6f a cardano:Identifier ;
   cardano:leafType "ScriptDataHash" ;
@@ -325,6 +333,7 @@ _:hash_txid_00000000000000000000000000000000000000000000000000000000000000cb a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:amaru_treasury_network_complianceAddr ;
   cardano:lovelace 120299272 ;
   cardano:hasAssetValue _:outputMultiAsset1 .
@@ -345,6 +354,7 @@ _:assetEntry_output1_1 a cardano:Asset ;
 #
 
 _:output2 a cardano:Output ;
+  cardano:hasIndex 1 ;
   cardano:atAddress _:amaru_cag_payeeAddr ;
   cardano:lovelace 1189560 ;
   cardano:hasAssetValue _:outputMultiAsset2 .
@@ -365,6 +375,7 @@ _:assetEntry_output2_1 a cardano:Asset ;
 #
 
 _:output3 a cardano:Output ;
+  cardano:hasIndex 2 ;
   cardano:atAddress _:amaru_network_walletAddr ;
   cardano:lovelace 80733583 .
 

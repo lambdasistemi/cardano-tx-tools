@@ -108,25 +108,14 @@ emit_one() {
   bf_cbor "$txid" | jq -r '.cbor' | xxd -r -p > "$cbor"
   "$TXG" --rules "$RULES" --tx "$cbor" > "$out"
 
-  # Inject:
-  #   * the tx's on-chain hash, so SPARQL can identify the tx
-  #   * the lattice role marker ("seed" = the user's input set; "parent"
-  #     = a tx pulled in by closure walk because some seed consumed
-  #     its output). The marker is the join key for "consumption that
-  #     actually happened during this lattice's time window"
-  #   * an explicit `cardano:hasIndex` triple on every `_:output<N>`
-  #     bnode so SPARQL can join an input's (txid, ix) target to the
-  #     matching output of the parent tx.  tx-graph numbers outputs
-  #     in bnode-label order from 1; subtract 1 for Cardano's
-  #     zero-based output index.
-  {
-    printf '\n_:tx cardano:hasTxId "%s" .\n' "$txid"
-    printf '_:tx cardano:hasLatticeRole "%s" .\n' "$role"
-    grep -oE '^_:output[0-9]+\b' "$out" | sort -u | while IFS= read -r bnode; do
-      n="${bnode#_:output}"
-      printf '%s cardano:hasIndex %s .\n' "$bnode" "$((n - 1))"
-    done
-  } >> "$out"
+  # tx-graph already emits the tx's own `cardano:hasTxId` triple and
+  # the per-output `cardano:hasIndex` triples natively (issue #100).
+  # All tx-lattice has to add on top is the lattice-role marker:
+  #   "seed"   — the user's input set; consumption originating here is
+  #              "happened during the lattice's time window"
+  #   "parent" — closure-pulled ancestor; its outputs are joined to as
+  #              the resolution targets of seed inputs
+  printf '\n_:tx cardano:hasLatticeRole "%s" .\n' "$role" >> "$out"
 }
 
 # Extract every parent txid referenced inside an emitted TTL.  The

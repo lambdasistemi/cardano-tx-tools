@@ -152,6 +152,7 @@ aliceEnt =
                     "4c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"
                 }
             ]
+        , entityBech32 = Nothing
         , entitySourceFile = "<in-memory>"
         }
 
@@ -172,6 +173,7 @@ bobEnt =
                     "e54e05afe3cb96ad42650e389b397b1722f0918ca977f239fd595a14"
                 }
             ]
+        , entityBech32 = Nothing
         , entitySourceFile = "<in-memory>"
         }
 
@@ -201,6 +203,7 @@ mkScriptEntity slug hex =
                 , entityIdBytesHex = Text.pack hex
                 }
             ]
+        , entityBech32 = Nothing
         , entitySourceFile = "<in-memory>"
         }
 

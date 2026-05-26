@@ -9,6 +9,7 @@
 
 :amaru_treasury_network_compliance a cardano:Entity ;
   rdfs:label "amaru-treasury.network_compliance" ;
+  cardano:bech32 "addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk" ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
@@ -22,6 +23,7 @@ _:amaru_treasury_network_compliance_stakeScript a cardano:Identifier ;
 
 :amaru_swap_order a cardano:Entity ;
   rdfs:label "amaru.swap-order" ;
+  cardano:bech32 "addr1x8ax5k9mutg07p2ngscu3chsauktmstq92z9de938j8nqaejyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxst7gy3n" ;
   cardano:hasIdentifier _:amaru_swap_order_paymentScript ;
   cardano:hasIdentifier _:amaru_treasury_network_compliance_stakeScript .
 
@@ -35,6 +37,7 @@ _:amaru_swap_order_paymentScript a cardano:Identifier ;
 
 :amaru_network_wallet a cardano:Entity ;
   rdfs:label "amaru.network-wallet" ;
+  cardano:bech32 "addr1q802wxt6cg6aw0nl0vdzfxavu65rxu3yzhvgayw7chfxymduzkt66uw9t5kspx5jwjecx80dz4g33htknafhdhkvzd5st4f9xu" ;
   cardano:hasIdentifier _:amaru_network_wallet_paymentKey ;
   cardano:hasIdentifier _:amaru_network_wallet_stakeKey .
 
@@ -59,6 +62,7 @@ _:usdm_assetClass a cardano:Identifier ;
 #
 
 _:tx a cardano:Transaction ;
+  cardano:hasTxId _:hash_txid_4418c14b525598859616d738391cacbbeb9fc0732838ad640514fbd331d1687c ;
   cardano:hasInput _:input1 ;
   cardano:hasInput _:input2 ;
   cardano:hasInput _:input3 ;
@@ -97,6 +101,10 @@ _:tx a cardano:Transaction ;
   cardano:hasOutput _:output2 ;
   cardano:hasCollateralInput _:collateral1 ;
   cardano:hasFee 0 .
+
+_:hash_txid_4418c14b525598859616d738391cacbbeb9fc0732838ad640514fbd331d1687c a cardano:Identifier ;
+  cardano:leafType "TxId" ;
+  cardano:bytesHex "4418c14b525598859616d738391cacbbeb9fc0732838ad640514fbd331d1687c" .
 
 #
 # Input 1
@@ -613,6 +621,7 @@ _:hash_txid_0000000000000000000000000000000000000000000000000000000000000022 a c
 #
 
 _:output1 a cardano:Output ;
+  cardano:hasIndex 0 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 1500000 ;
   cardano:hasDatum _:outputDatum1 ;
@@ -639,6 +648,7 @@ _:hash_script_5334c8c55ec6518f2e262da617d3170bf0722f43813d64dbaf0ff0b9 a cardano
 #
 
 _:output2 a cardano:Output ;
+  cardano:hasIndex 1 ;
   cardano:atAddress _:cred_paymentkey_00000000000000000000000000000000000000000000000000000000Addr ;
   cardano:lovelace 850000 .
 
