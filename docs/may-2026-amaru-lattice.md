@@ -510,23 +510,53 @@ is the operator-intended "shared parameterised contract" pattern
 `treasury.treasury.spend` contract). A true cross-blueprint
 predicate-URI collision still fails fast with
 `DuplicateBlueprintPredicate`. The presentation's `rules.yaml`
-can now register `sundae-treasury.cip57.json` against both
+can now register `amaru-treasury.cip57.json` against both
 treasury scopes and surface the typed redeemer decode on either
 side once gap #4 lands.
 
 ## 4. Typed redeemer decode not firing on live mainnet
 
-**Impact**: registering the shipped `sundae-treasury.cip57.json`
-(matches the live `TreasurySpendRedeemer` schema, hash unset) does
-not produce `:Reorganize` / `:Disburse_amount` / `:Fund_amount`
-predicate triples on the lattice's redeemerData bnodes, despite the
-same blueprint working on local fixture 17. The redeemer
-`hasRawBytes` carries the CBOR; SPARQL has to reason about that
-opaque string instead of joining on a typed predicate.
+**Root cause identified, fix is multi-step** (triage during #103):
 
-**Fix**: triage the divergence between fixture-17 emit and live
-mainnet emit. Likely a script-hash-resolution or
-script-witness-class issue inside `Cardano.Tx.Graph.Emit.Decode`.
+The blueprint is registered correctly. The decoder is wired
+correctly. The gap is that **`Cardano.Tx.Graph.Emit.Witness.resolveRedeemerPurposeHash`**
+for `ConwaySpending` derives the spending script hash by looking
+up the consumed input's `TxOut` in the supplied `ResolvedUTxO`
+(`Map TxIn (TxOut ConwayEra)`) and reading its
+payment-credential script hash. When that map is empty, the
+lookup returns `Nothing` and decoding falls back to
+`NoBlueprintRegistered` — silently, no warning.
+
+Two things conspire to make the lattice empty-utxo:
+
+1. The May 2026 batch uses CIP-31 reference inputs to provide
+   every Plutus spending script. The tx's own
+   `wits ^. scriptTxWitsL` map is therefore empty (the script
+   lives at a reference UTxO's `cardano:hasReferenceScript`
+   slot in another tx's TTL). A "fall back to a witness-set
+   hash" heuristic doesn't help.
+2. `tx-graph --utxo FILE` accepts the flag but its JSON parser
+   is **a syntax-only stub**: see
+   `app/tx-graph/Main.hs:loadUtxoJsonOrExit` — it
+   `pure Map.empty`s after validating the bytes are JSON. The
+   structural decoder isn't implemented. So even if `tx-lattice`
+   built a per-tx UTxO JSON from the closure parents and passed
+   it, `tx-graph` would still see an empty map.
+
+Fixture 17 *appears* to work only because its test harness
+supplies a hand-built `ResolvedUTxO` directly to the in-process
+`emit` call — bypassing the `--utxo` JSON path entirely.
+
+**Fix path (follow-up to #103)**:
+
+1. Implement the structural `loadUtxoJsonOrExit` decoder
+   (Conway-era `TxOut` from a JSON-encoded UTxO map).
+2. Extend `tx-lattice` to build the per-seed-tx UTxO JSON from
+   the closure parents and pass it via `--utxo`. The closure
+   already has every parent's CBOR on disk; the build step is
+   a small loop.
+
+Filing as a new ticket.
 
 ## 5. Stale swap-v2 blueprint
 

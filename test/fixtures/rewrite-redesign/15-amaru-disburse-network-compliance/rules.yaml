@@ -16,4 +16,4 @@ entities:
     from-address: addr1qx9aqvsf6gne2640jec828s25gzhk5wp2day8u24kf8mrs2v0zyuvk80fay35dx008p45ts0u6cdrv9g2maetq8jm8psznjcrz
 blueprints:
   - script: amaru-treasury.network_compliance
-    datum: ../blueprints/sundae-treasury.cip57.json
+    datum: ../blueprints/amaru-treasury.cip57.json
