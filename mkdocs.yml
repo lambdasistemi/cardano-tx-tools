@@ -7,6 +7,7 @@ docs_dir: docs
 
 theme:
   name: material
+  language: en
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -53,7 +54,7 @@ markdown_extensions:
       custom_checkbox: true
 
 extra_javascript:
-  - https://cdn.jsdelivr.net/gh/paolino/dev-assets@main/mkdocs/docs/js/read-aloud.js
+  - assets/js/read-aloud.js
 
 nav:
   - Home: index.md
