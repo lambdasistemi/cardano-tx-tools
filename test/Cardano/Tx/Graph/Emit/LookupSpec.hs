@@ -153,6 +153,8 @@ aliceEnt =
                 }
             ]
         , entityBech32 = Nothing
+        , entityRole = Nothing
+        , entityPaidVia = Nothing
         , entitySourceFile = "<in-memory>"
         }
 
@@ -174,6 +176,8 @@ bobEnt =
                 }
             ]
         , entityBech32 = Nothing
+        , entityRole = Nothing
+        , entityPaidVia = Nothing
         , entitySourceFile = "<in-memory>"
         }
 
@@ -204,6 +208,8 @@ mkScriptEntity slug hex =
                 }
             ]
         , entityBech32 = Nothing
+        , entityRole = Nothing
+        , entityPaidVia = Nothing
         , entitySourceFile = "<in-memory>"
         }
 

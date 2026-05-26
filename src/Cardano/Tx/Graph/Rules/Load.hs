@@ -36,6 +36,7 @@ module Cardano.Tx.Graph.Rules.Load (
     EntityDecl (..),
     EntityIdentifier (..),
     LeafType (..),
+    Attestation (..),
 
     -- * Errors
     RulesLoadError (..),
@@ -55,6 +56,7 @@ import Cardano.Tx.Graph.Rules.Load.Resolve.Imports (
     resolveImports,
  )
 import Cardano.Tx.Graph.Rules.Load.Types (
+    Attestation (..),
     EntityDecl (..),
     EntityIdentifier (..),
     LeafType (..),
@@ -102,6 +104,12 @@ data RulesLoadResult = RulesLoadResult
     -- naming downstream, per spec FR-001 / FR-008). The blueprint
     -- emitter (#50 T101+) consults this list when an output's
     -- payment-credential script hash matches a registered blueprint.
+    , rulesAttestations :: ![Attestation]
+    -- ^ Off-chain attestations declared under the @attestations:@
+    -- top-level block (issue #105). Each entry pins an
+    -- IPFS-anchored artefact to an operator-named entity by slug.
+    -- The overlay emitter renders one @cardano:Attestation@ block
+    -- per entry.
     }
     deriving stock (Eq, Show)
 
@@ -149,18 +157,20 @@ loadWithResolver path = do
     eResolved <- resolveImports path
     pure $ case eResolved of
         Left err -> Left err
-        Right (entities, blueprints) -> do
+        Right (entities, blueprints, attestations) -> do
             (dedupedBlueprints, blueprintWarnings) <-
                 dedupBlueprints blueprints
             let fixtureSlug = Text.pack (takeBaseName (takeDirectory path))
                 (dedupedEntities, entityWarnings) = dedupAcrossFiles entities
-                bytes = emitOverlay fixtureSlug dedupedEntities
+                bytes =
+                    emitOverlay fixtureSlug dedupedEntities attestations
             Right
                 RulesLoadResult
                     { rulesOverlayTurtle = bytes
                     , rulesWarnings = entityWarnings <> blueprintWarnings
                     , rulesEntities = dedupedEntities
                     , rulesBlueprints = dedupedBlueprints
+                    , rulesAttestations = attestations
                     }
 
 ----------------------------------------------------------------------

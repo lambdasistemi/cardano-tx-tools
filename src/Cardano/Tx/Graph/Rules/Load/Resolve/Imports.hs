@@ -92,6 +92,7 @@ import Cardano.Tx.Graph.Rules.Load.Parse.Yaml (
     parseRulesYamlImportsWithFile,
  )
 import Cardano.Tx.Graph.Rules.Load.Types (
+    Attestation,
     EntityDecl (..),
     RulesLoadError (..),
     RulesLoadWarning (..),
@@ -161,7 +162,11 @@ collision detection happen downstream in 'dedupBlueprints'.
 -}
 resolveImports ::
     FilePath ->
-    IO (Either RulesLoadError ([EntityDecl], [ResolvedBlueprint]))
+    IO
+        ( Either
+            RulesLoadError
+            ([EntityDecl], [ResolvedBlueprint], [Attestation])
+        )
 resolveImports topPath = do
     -- The caller's path may be relative — canonicalize once so the
     -- visit-map keys are consistent across the DFS.
@@ -188,11 +193,11 @@ dfs ::
     StateT
         VisitMap
         (ExceptT RulesLoadError IO)
-        ([EntityDecl], [ResolvedBlueprint])
+        ([EntityDecl], [ResolvedBlueprint], [Attestation])
 dfs activePath canonicalPath = do
     visited <- get
     case Map.lookup canonicalPath visited of
-        Just Black -> pure ([], [])
+        Just Black -> pure ([], [], [])
         Just Grey ->
             lift
                 ( throwE
@@ -200,18 +205,20 @@ dfs activePath canonicalPath = do
                 )
         Nothing -> do
             modify' (Map.insert canonicalPath Grey)
-            (imports, ownEntities, ownStubs) <- parseFile canonicalPath
+            (imports, ownEntities, ownStubs, ownAttests) <- parseFile canonicalPath
             ownBlueprints <- traverse loadBlueprintStub ownStubs
             let activePath' = activePath <> [canonicalPath]
             children <-
                 traverse (resolveChild activePath' canonicalPath) imports
             modify' (Map.insert canonicalPath Black)
             -- Reverse-post-order: children before parent.
-            let childEntities = concatMap fst children
-                childBlueprints = concatMap snd children
+            let childEntities = concatMap (\(a, _, _) -> a) children
+                childBlueprints = concatMap (\(_, b, _) -> b) children
+                childAttests = concatMap (\(_, _, c) -> c) children
             pure
                 ( childEntities <> ownEntities
                 , childBlueprints <> ownBlueprints
+                , childAttests <> ownAttests
                 )
 
 {- | Build the cycle-path payload for a 'RulesImportCycle'.
@@ -246,14 +253,16 @@ parseFile ::
     StateT
         VisitMap
         (ExceptT RulesLoadError IO)
-        ([Text], [EntityDecl], [BlueprintStub])
+        ([Text], [EntityDecl], [BlueprintStub], [Attestation])
 parseFile path = do
     blob <- liftIO (BS.readFile path)
     case takeExtension path of
         ".ttl" ->
+            -- Turtle rules files don't carry @blueprints:@ or
+            -- @attestations:@; both lists are empty for them.
             liftEither $
                 fmap
-                    (\(imp, ents) -> (imp, ents, []))
+                    (\(imp, ents) -> (imp, ents, [], []))
                     (parseRulesTurtleImportsWithFile path blob)
         ".yaml" -> liftEither (parseRulesYamlImportsWithFile path blob)
         ".yml" -> liftEither (parseRulesYamlImportsWithFile path blob)
@@ -324,7 +333,7 @@ resolveChild ::
     StateT
         VisitMap
         (ExceptT RulesLoadError IO)
-        ([EntityDecl], [ResolvedBlueprint])
+        ([EntityDecl], [ResolvedBlueprint], [Attestation])
 resolveChild activePath importer importRaw
     | isHttpsLike importRaw =
         throw (HttpsImport importer importRaw)
