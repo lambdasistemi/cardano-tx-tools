@@ -2,17 +2,34 @@ PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/ca
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 
-# Provenance for each terminal network_compliance UTxO that still holds
-# USDM. The producer kind is inferred only from graph structure.
+# Provenance for each terminal network_compliance UTxO that still holds USDM.
+#
+# Query 14 proves the terminal UTxO set. Query 17 proves the aggregate
+# accounting equation. This query explains the USDM-bearing terminal outputs:
+# which transaction produced each remaining UTxO, how much USDM the producer
+# returned to network_compliance, and whether that producer looks like a swap,
+# a beneficiary-payment change transaction, or plain treasury change.
+#
+# The producer kind is inferred only from graph structure:
+#
+# - swap-receipt: the producer consumes at least one Sundae V3 order output;
+# - beneficiary-payment-change: the producer emits USDM to the CAG payee;
+# - treasury-change: neither of the above is visible in the loaded graph.
 SELECT ?terminalTxId ?terminalIx ?terminalUsdm ?producerKind
        ?producerNetworkUsdm ?swapOrderInputs ?swapOrderLovelace ?swapOrderRefs ?beneficiaryPaymentUsdm
 WHERE {
   {
+    # Base terminal-state subquery. A terminal output is a network_compliance
+    # output carrying USDM whose exact (tx id, index) is not consumed anywhere
+    # in the loaded graph.
     SELECT ?producer ?terminalTxId ?terminalIx ?terminalUsdm
     WHERE {
+      # Full USDM asset id, not ticker.
       VALUES ?usdmAssetId {
         "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
       }
+
+      # Resolve the treasury address through the semantic label.
       {
         SELECT DISTINCT ?networkComplianceBech32
         WHERE {
@@ -29,6 +46,9 @@ WHERE {
       ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
              cardano:quantity ?terminalUsdm .
       FILTER(?terminalUsdm > 0)
+
+      # UTxO finality test: if any loaded transaction references this output
+      # as an input, it is not part of the terminal state.
       FILTER NOT EXISTS {
         ?spendingTx cardano:hasInput ?input .
         ?input cardano:fromTxOutRef ?ref .
@@ -38,11 +58,17 @@ WHERE {
     }
   }
   {
+    # Producer summary. A producer can create more than one
+    # network_compliance USDM output, so keep the producer-level total beside
+    # each terminal output row.
     SELECT ?producer (SUM(?qty) AS ?producerNetworkUsdm)
     WHERE {
+      # Same USDM asset id used by the terminal-state subquery.
       VALUES ?usdmAssetId {
         "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
       }
+
+      # Same semantic treasury address.
       {
         SELECT DISTINCT ?networkComplianceBech32
         WHERE {
@@ -60,10 +86,13 @@ WHERE {
     GROUP BY ?producer
   }
   OPTIONAL {
+    # Optional swap classifier. If the producer consumed Sundae V3 order
+    # outputs, report the count, total order lovelace, and exact order refs.
     SELECT ?producer (COUNT(?orderRef) AS ?swapOrderInputs)
            (SUM(?oneOrderLovelace) AS ?swapOrderLovelace)
            (GROUP_CONCAT(?orderRef; separator=", ") AS ?swapOrderRefs)
     WHERE {
+      # Resolve script hash by label rather than duplicating the hash.
       {
         SELECT DISTINCT ?orderScriptHash
         WHERE {
@@ -81,16 +110,24 @@ WHERE {
                 cardano:atAddress/cardano:hasPaymentCredential/cardano:hasIdentifier/cardano:bytesHex
                   ?orderScriptHash ;
                 cardano:lovelace ?oneOrderLovelace .
+
+      # Display/audit handle for the consumed order output.
       BIND(CONCAT(?orderTxId, "#", STR(?orderIx)) AS ?orderRef)
     }
     GROUP BY ?producer
   }
   OPTIONAL {
+    # Optional beneficiary-payment classifier. If the same producer also emits
+    # USDM to the CAG payee bridge, the remaining network_compliance output is
+    # treasury change from a beneficiary payment transaction.
     SELECT ?producer (SUM(?qty) AS ?beneficiaryPaymentUsdm)
     WHERE {
+      # Same pinned asset id.
       VALUES ?usdmAssetId {
         "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d"
       }
+
+      # Resolve the CAG payee bridge address by label.
       {
         SELECT DISTINCT ?payeeBech32
         WHERE {
@@ -107,8 +144,14 @@ WHERE {
     }
     GROUP BY ?producer
   }
+
+  # OPTIONAL variables are unbound when the producer does not match that
+  # classifier. COALESCE turns them into zero for deterministic IF tests.
   BIND(COALESCE(?swapOrderInputs, 0) AS ?swapInputs)
   BIND(COALESCE(?beneficiaryPaymentUsdm, 0) AS ?beneficiaryPaid)
+
+  # Classification precedence matters: a swap producer that also happens to
+  # have other outputs should still be described by the order-consumption fact.
   BIND(
     IF(
       ?swapInputs > 0,
