@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# tx-fetch — fetch a *closure* of Conway transaction CBORs into a
+# directory keyed by txid.
+#
+# Architecture (post-#114 role audit):
+#
+#   tx-fetch is the holy way: operator hands the fetcher a list of seed
+#   txids, the fetcher resolves each via /txs/<hash>/cbor and walks
+#   parent references up to --depth, writing every CBOR to
+#   <out-dir>/cbor/<txid>.cbor.  The operator's seed list is preserved
+#   verbatim at <out-dir>/seeds.txt so downstream SPARQL can distinguish
+#   seeds from BFS-walked parents.
+#
+#   That's the entire job.  No rules.yaml, no overlay, no Turtle emit.
+#   To produce TTL graphs from the closure, pipe the directory into
+#   tx-graph in a separate step:
+#
+#       tx-fetch  --out-dir lattice  <txid>...
+#       tx-graph  --rules R --in-dir lattice/cbor --out-dir lattice
+#
+# Usage:
+#   tx-fetch --out-dir DIR \
+#            [--network mainnet|preprod|preview] [--depth N] \
+#            <txId1> <txId2> ... <txIdN>
+#
+# Env:
+#   BLOCKFROST_PROJECT_ID  required
+#   TX_GRAPH_EXE           override path to tx-graph binary used for
+#                          parent-txid extraction during BFS (default:
+#                          tx-graph on PATH, else result/bin/tx-graph)
+
+set -euo pipefail
+
+NETWORK="mainnet"
+OUT_DIR=""
+DEPTH=1
+TXIDS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out-dir) OUT_DIR="$2"; shift 2 ;;
+    --network) NETWORK="$2"; shift 2 ;;
+    --depth)   DEPTH="$2"; shift 2 ;;
+    --help|-h)
+      sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
+      exit 0 ;;
+    -*) echo "tx-fetch: unknown flag $1" >&2; exit 2 ;;
+    *)  TXIDS+=("$1"); shift ;;
+  esac
+done
+
+[[ -n "$OUT_DIR" ]] || { echo "tx-fetch: --out-dir required" >&2; exit 2; }
+[[ ${#TXIDS[@]} -gt 0 ]] || { echo "tx-fetch: pass at least one txId" >&2; exit 2; }
+[[ -n "${BLOCKFROST_PROJECT_ID:-}" ]] || {
+  echo "tx-fetch: BLOCKFROST_PROJECT_ID env required" >&2; exit 2; }
+
+if [[ -n "${TX_GRAPH_EXE:-}" ]]; then
+  TXG="$TX_GRAPH_EXE"
+elif command -v tx-graph >/dev/null 2>&1; then
+  TXG="$(command -v tx-graph)"
+elif [[ -x "result/bin/tx-graph" ]]; then
+  TXG="result/bin/tx-graph"
+else
+  echo "tx-fetch: tx-graph not found — set TX_GRAPH_EXE, put tx-graph on PATH, or run 'nix build .#tx-graph' first" >&2
+  exit 2
+fi
+
+case "$NETWORK" in
+  mainnet) BASE_URL="https://cardano-mainnet.blockfrost.io/api/v0" ;;
+  preprod) BASE_URL="https://cardano-preprod.blockfrost.io/api/v0" ;;
+  preview) BASE_URL="https://cardano-preview.blockfrost.io/api/v0" ;;
+  *) echo "tx-fetch: unknown network $NETWORK" >&2; exit 2 ;;
+esac
+
+mkdir -p "$OUT_DIR"
+CBOR_DIR="$OUT_DIR/cbor"
+mkdir -p "$CBOR_DIR"
+
+bf_cbor() {
+  curl -fsS -H "project_id: $BLOCKFROST_PROJECT_ID" \
+    "$BASE_URL/txs/$1/cbor"
+}
+
+# Fetch one tx's CBOR if not already present.
+fetch_cbor() {
+  local txid="$1"
+  local out="$CBOR_DIR/$txid.cbor"
+  if [[ ! -f "$out" ]]; then
+    echo "tx-fetch: fetch $txid" >&2
+    bf_cbor "$txid" | jq -r '.cbor' | xxd -r -p > "$out"
+  fi
+}
+
+# Extract parent txids from a fetched CBOR by running tx-graph in
+# positional mode (no --rules: parent-txid bnode labels live in the
+# pure body emit, no overlay or typed decode required).
+scratch_parents() {
+  local cbor="$1"
+  "$TXG" "$cbor" 2>/dev/null \
+    | grep -oE '_:hash_txid_[a-f0-9]+' \
+    | sed 's/^_:hash_txid_//' \
+    | sort -u
+}
+
+# BFS closure walk.  Seeds enter at depth 0; their direct parents at
+# depth 1; deeper layers at the same pace.
+declare -A seen
+queue=()
+queue_depth=()
+for t in "${TXIDS[@]}"; do
+  queue+=("$t")
+  queue_depth+=("0")
+done
+
+while [[ ${#queue[@]} -gt 0 ]]; do
+  txid="${queue[0]}"
+  depth="${queue_depth[0]}"
+  queue=("${queue[@]:1}")
+  queue_depth=("${queue_depth[@]:1}")
+
+  if [[ -n "${seen[$txid]:-}" ]]; then
+    continue
+  fi
+  seen[$txid]=1
+
+  fetch_cbor "$txid"
+
+  if (( depth < DEPTH )); then
+    next_depth=$((depth + 1))
+    while IFS= read -r parent; do
+      if [[ -n "$parent" && -z "${seen[$parent]:-}" ]]; then
+        queue+=("$parent")
+        queue_depth+=("$next_depth")
+      fi
+    done < <(scratch_parents "$CBOR_DIR/$txid.cbor")
+  fi
+done
+
+# Preserve the operator's seed list so downstream SPARQL can tell
+# seeds from BFS-walked parents.
+{
+  for t in "${TXIDS[@]}"; do
+    echo "$t"
+  done
+} > "$OUT_DIR/seeds.txt"
+
+fetched=$(find "$CBOR_DIR" -maxdepth 1 -name '*.cbor' | wc -l)
+echo "tx-fetch: done. $fetched cbor(s) in closure (depth=$DEPTH) → $CBOR_DIR/" >&2
