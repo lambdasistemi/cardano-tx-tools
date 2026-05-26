@@ -21,13 +21,22 @@ executables plus the Haskell library that backs them.
   `cardano-node`. Returns the ledger's verdict as a human or JSON
   envelope; exit code is the contract (0 clean, 1 structural, ≥2
   config/resolver error).
-- [**tx-graph**](tx-graph.md) — emit one Conway transaction as a
-  canonical Turtle (or JSON-LD) graph: operator-entity overlay
-  (from a rules file), body decomposition (inputs / outputs /
-  certificates / mints / withdrawals / proposals / fees), Plutus
-  blueprint-decoded datums and redeemers (including CIP-57
-  `SchemaMap` per-entry triples), and address decompositions.
-  Same loader as `tx-inspect --rules`.
+- [**tx-graph**](tx-graph.md) — emit one Conway transaction (or a
+  whole in-memory lattice of them) as a canonical Turtle (or
+  JSON-LD) graph: operator-entity overlay (from a rules file),
+  body decomposition (inputs / outputs / certificates / mints /
+  withdrawals / proposals / fees), Plutus blueprint-decoded datums
+  and redeemers (including CIP-57 `SchemaMap` per-entry triples),
+  and address decompositions. Pure transformation —
+  `(rules + [cbor]) → ttl(s)`, no network or node required. Same
+  loader as `tx-inspect --rules`.
+- [**tx-fetch**](tx-fetch.md) — closure-walking Conway CBOR
+  fetcher. Resolves seed transaction ids over Blockfrost's
+  `/txs/<hash>/cbor` endpoint, walks each tx's spending /
+  reference / collateral input parents to `--depth`, hash-verifies
+  every CBOR against its requested `TxId`, and writes one
+  `<txid>.cbor` per tx into `<out-dir>/cbor/`. Pairs with
+  `tx-graph --in-dir` to produce a Turtle lattice.
 - [**tx-view**](tx-view.md) — project a `tx-graph`-emitted
   canonical graph through one of four packaged views:
   `cli-tree` (text tree of the body), `asset-flow` (TSV of value
@@ -40,13 +49,11 @@ executables plus the Haskell library that backs them.
   daemon that drives a configurable mix of Conway transactions
   against a node for soak / fuzz testing.
 
-Plus one shell-script tool, shipped under `scripts/`:
+Plus one internal Bash composition script kept under `scripts/`:
 
-- [**tx-lattice**](tx-lattice.md) — thin Bash wrapper around
-  `tx-graph` that resolves a batch of mainnet / testnet transactions
-  (plus their direct inputs) via Blockfrost into one canonical
-  Turtle file per tx, ready for cross-tx SPARQL queries. Stop-gap
-  prototype for a future Haskell executable.
+- **tx-lattice** — thin wrapper that calls `tx-fetch` then
+  `tx-graph --in-dir` for the common "fetch + emit" workflow.
+  Internal / test convenience; not a released deliverable.
 
 The [rewriting-rules grammar](rewriting-rules.md) document pins
 the shared YAML language consumed by both `tx-inspect --rules`
