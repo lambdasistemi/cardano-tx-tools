@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`02-usdm-output-addresses.rq`](02-usdm-output-addresses.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 
 ## Result
 

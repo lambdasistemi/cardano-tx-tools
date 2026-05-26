@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`06-network-compliance-ada-producers.rq`](06-network-compliance-ada-producers.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 ADA quantities are decimal ADA. The query returns the largest 12 outputs

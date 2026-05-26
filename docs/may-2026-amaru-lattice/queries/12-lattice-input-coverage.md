@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`12-lattice-input-coverage.rq`](12-lattice-input-coverage.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 | edgeKind | coverage | edges |

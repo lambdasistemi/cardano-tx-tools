@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`03-network-compliance-ada-accounting.rq`](03-network-compliance-ada-accounting.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 ADA quantities are decimal ADA.

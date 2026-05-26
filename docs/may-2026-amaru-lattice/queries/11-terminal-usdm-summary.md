@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`11-terminal-usdm-summary.rq`](11-terminal-usdm-summary.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 ADA quantities are decimal ADA. USDM quantities are decimal USDM.

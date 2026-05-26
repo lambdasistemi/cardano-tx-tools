@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`07-network-compliance-usdm-output-classes.rq`](07-network-compliance-usdm-output-classes.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 USDM quantities are decimal USDM.

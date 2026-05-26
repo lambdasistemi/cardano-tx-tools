@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`00-lattice-inventory.rq`](00-lattice-inventory.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 This table is the CSV result produced by Apache Jena over the

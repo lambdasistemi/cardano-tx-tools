@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`04-required-signer-distribution.rq`](04-required-signer-distribution.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 | requiredSigners | txs |

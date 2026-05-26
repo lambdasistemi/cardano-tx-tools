@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`20-terminal-usdm-provenance.rq`](20-terminal-usdm-provenance.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 
 ## Result
 

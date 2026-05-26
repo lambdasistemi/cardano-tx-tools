@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`09-reference-input-reuse.rq`](09-reference-input-reuse.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 The query returns the 10 most reused reference inputs.

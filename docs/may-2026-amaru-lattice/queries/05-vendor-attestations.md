@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`05-vendor-attestations.rq`](05-vendor-attestations.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 USDM quantities are decimal USDM. `bridgeUsdm` is the total USDM proven

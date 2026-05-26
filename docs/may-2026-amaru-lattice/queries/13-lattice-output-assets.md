@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`13-lattice-output-assets.rq`](13-lattice-output-assets.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 ## Result
 
 ADA and USDM quantities are decimal units. The long hex row is another

@@ -2,8 +2,6 @@
 
 Runnable SPARQL: [`16-network-compliance-live-summary.rq`](16-network-compliance-live-summary.rq)
 
-Back to the [May 2026 lattice demo](../../may-2026-amaru-lattice.md).
-
 
 ## Result
 
