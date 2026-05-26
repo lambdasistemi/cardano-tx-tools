@@ -189,17 +189,34 @@ recognising the raw CBOR shape (`d87980` = constructor 0 =
 `Reorganize`, `d87a9f…ff` = constructor 1, etc.) rather than by
 joining on typed predicates.
 
-### 3. Stale shipped blueprints for swap-v2
+### 3. SundaeSwap V3 swap-order datum stays opaque
 
-The blueprint shipped at
-`test/fixtures/rewrite-redesign/blueprints/swap-v2-datum.cip57.json`
-declares a 1-field `SwapOrder` (recipient only). The live mainnet
-swap-v2 datum is a 6-field record. Registering the shipped
-blueprint against `amaru.swap.v2` therefore produces a
-`BlueprintFieldCountMismatch` warning on every order-opening
-output, and the datum stays raw. The fix is to ship a blueprint
-that matches the live contract version; until then, route around
-this via path #1 above (the scoop join).
+The script at hash `fa6a58bb…` (which earlier docs called
+`amaru.swap.v2`) is **SundaeSwap V3**'s `order.spend` validator,
+not an Amaru-authored contract. The authoritative Aiken plutus.json
+now ships under
+`test/fixtures/rewrite-redesign/blueprints/sundaeswap-v3/` pinned
+to upstream `github.com/SundaeSwap-finance/sundae-contracts`.
+
+What that gives us:
+
+- **Typed redeemer decode** — Sundae's `OrderRedeemer` is `Scoop |
+  Cancel`. Bound to an entity named `sundae.swap.v3.order`, every
+  spend of an order UTxO mints a `:OrderRedeemer_Scoop` or
+  `:OrderRedeemer_Cancel` predicate. SPARQL can now count scoops
+  vs cancels, list all cancelled orders, etc.
+
+What it still doesn't give us:
+
+- **Typed datum decode** — Sundae's CIP-57 schema declares the
+  swap-order datum as the top-level `Data` type (opaque by their
+  design). The 6-field on-chain datum structure stays as raw
+  CBOR; the human recipient is still only recoverable via the
+  scoop-join recipe in §1 above.
+
+The previously-shipped `blueprints/swap-v2-datum.cip57.json` is a
+**synthetic 1-field teaching fixture** for fixture 12-blueprint-typed,
+not an attempt at the real Sundae schema; both files now coexist.
 
 ### 4. Treasury output datum is intentionally untyped
 

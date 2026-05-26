@@ -530,17 +530,37 @@ script-witness-class issue inside `Cardano.Tx.Graph.Emit.Decode`.
 
 ## 5. Stale swap-v2 blueprint
 
-**Impact**: the shipped `swap-v2-datum.cip57.json` declares a
-1-field `SwapOrder` (recipient credential only) but the live
-mainnet swap-order datum is a 6-field record. Registering the
-shipped blueprint against `amaru.swap.v2` produces
-`BlueprintFieldCountMismatch` warnings on every swap-order output;
-the datum stays raw. This is exactly why Q10 has to follow the
-scoop to find the recipient instead of reading it from the order's
-datum directly.
+**Resolved** (#103 — and reclassified). The script at hash
+`fa6a58bb…` is **SundaeSwap V3**'s `order.spend` validator, not
+an Amaru contract (authoritatively named
+`sundaeOrderScriptHashMainnet` in
+`/code/amaru-treasury-tx/lib/Amaru/Treasury/Constants.hs`). The
+upstream Aiken plutus.json now ships under
+`test/fixtures/rewrite-redesign/blueprints/sundaeswap-v3/` pinned
+at commit `be33466b…` of
+`github.com/SundaeSwap-finance/sundae-contracts` (Apache-2.0).
 
-**Fix**: ship a blueprint that matches the live contract version.
-A 30-minute job once the right plutus.json is identified upstream.
+What lands:
+
+- **Typed redeemer decode** — Sundae V3's `OrderRedeemer` is
+  `Scoop | Cancel`. Once registered against an entity named
+  `sundae.swap.v3.order`, every redeemer that spends a Sundae
+  order UTxO emits a `:OrderRedeemer_Scoop` or
+  `:OrderRedeemer_Cancel` predicate. New SPARQL queries:
+  "count scoops vs cancels in the month", "list every cancelled
+  order".
+
+What still doesn't land:
+
+- **Typed datum decode** — Sundae's CIP-57 blueprint types the
+  swap-order datum as `Data` (intentional, by their design).
+  The 6-field on-chain shape stays opaque. Q10 keeps the
+  scoop-join workaround for resolving the human recipient.
+
+Earlier presentation entries that named the script
+`amaru.swap.v2` (e.g. Q8/Q10 mermaid + comments) are referring
+to this same Sundae V3 order script — the correct entity name
+in `rules.yaml` is `sundae.swap.v3.order`.
 
 ## 6. `tx-lattice` is a shell prototype
 
