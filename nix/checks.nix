@@ -48,6 +48,7 @@ let
         test -e ${components.sublibs."n2c-resolver"}
         test -e ${components.sublibs."tx-generator-lib"}
         test -e ${components.exes.tx-diff}
+        test -e ${components.exes.tx-fetch}
         test -e ${components.exes.tx-graph}
         test -e ${components.exes."cardano-tx-generator"}
         test -e ${components.tests."unit-tests"}
