@@ -69,7 +69,7 @@ nav:
   - tx-fetch: tx-fetch.md
   - tx-view: tx-view.md
   - "May 2026 lattice demo":
-      - Overview: may-2026-amaru-lattice.md
+      - may-2026-amaru-lattice/index.md
       - "Lattice boundary and shape":
           - may-2026-amaru-lattice/lattice-boundary-and-shape/index.md
           - "Query 00 - Lattice inventory": may-2026-amaru-lattice/queries/00-lattice-inventory.md

@@ -95,7 +95,7 @@ The selection rule used here was:
    meaning transactions that either produce an output at the address or
    spend a previous output from the address.
 6. Record the resulting 85 txids in
-   [`network-txs.txt`](may-2026-amaru-lattice/network-txs.txt).
+   [`network-txs.txt`](network-txs.txt).
 7. Fetch exactly those 85 transactions with `tx-fetch --depth 0`, emit
    the graph with `tx-graph`, and verify terminal state with Queries
    14-16.
@@ -148,12 +148,12 @@ The proof inputs and query sources are standalone files. Every query
 linked below runs against the same 85-transaction lattice. The tree is
 grouped by the question a reader is trying to answer first.
 
-Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
+Rules source: [`rules.yaml`](rules.yaml)
 
-Network-scope txids: [`network-txs.txt`](may-2026-amaru-lattice/network-txs.txt)
+Network-scope txids: [`network-txs.txt`](network-txs.txt)
 
 Live UTxO snapshot for Queries 15-16:
-[`live-utxos.ttl`](may-2026-amaru-lattice/live-utxos.ttl)
+[`live-utxos.ttl`](live-utxos.ttl)
 
 The query pages are listed in the site navigation under this report,
 grouped by boundary shape, terminal state, USDM movement, swaps, and

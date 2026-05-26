@@ -43,7 +43,7 @@ What none of the above provide that `cardano-tx-tools` does:
 | Reference | Relevance |
 |-----------|-----------|
 | [**Recursion in SPARQL**](https://www.semantic-web-journal.net/system/files/swj2276.pdf) — Reutter, Soto, Vrgoč, *Semantic Web Journal*. | The canonical formal treatment of SPARQL 1.1 property paths and recursion semantics. The parent-transaction JOIN pattern in the May 2026 report (`?ref cardano:hasTxId/cardano:bytesHex ?parentHex . ?parent cardano:hasTxId/cardano:bytesHex ?parentHex`) is a direct application of property-path joins to a closed UTxO graph. |
-| [**Apache Jena**](https://jena.apache.org/) — the engine the [May 2026 lattice presentation](may-2026-amaru-lattice.md) drives. | Standards-compliant SPARQL 1.1 + Turtle / JSON-LD parsing in Java. Same `.rq` contracts work against Stardog, Blazegraph, AllegroGraph, etc. — `tx-view` ships paired Haskell projections so a runtime isn't a hard dependency. |
+| [**Apache Jena**](https://jena.apache.org/) — the engine the [May 2026 lattice presentation](may-2026-amaru-lattice/index.md) drives. | Standards-compliant SPARQL 1.1 + Turtle / JSON-LD parsing in Java. Same `.rq` contracts work against Stardog, Blazegraph, AllegroGraph, etc. — `tx-view` ships paired Haskell projections so a runtime isn't a hard dependency. |
 
 The novelty in our stack is *not* recursive SPARQL. It's the
 **CBOR-fetch boundary**: `tx-fetch` pulls the operator-selected
@@ -91,5 +91,5 @@ Honest one-liners:
 - [tx-view](tx-view.md) — the packaged-view library.
 - [rewriting-rules grammar](rewriting-rules.md) — the
   operator-entity overlay format.
-- [May 2026 lattice demo](may-2026-amaru-lattice.md) — 22 SPARQL
+- [May 2026 lattice demo](may-2026-amaru-lattice/index.md) — 22 SPARQL
   query pages against an 85-tx mainnet boundary.
