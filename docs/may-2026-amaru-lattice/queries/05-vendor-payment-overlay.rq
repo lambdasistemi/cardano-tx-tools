@@ -1,12 +1,11 @@
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX amaru:   <https://amaru.tech/rdf/>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT ?vendor ?vendorLabel ?attestation ?attestationLabel ?ipfs ?usdmTotalAtBridge
 WHERE {
   {
-    SELECT (SUM(?qty) AS ?usdmTotalAtBridge)
+    SELECT ?bridgeEntity (SUM(?qty) AS ?usdmTotalAtBridge)
     WHERE {
       ?bridgeEntity rdfs:label "amaru.cag-payee" ;
                     cardano:bech32 ?bridgeBech32 .
@@ -20,10 +19,11 @@ WHERE {
       ?asset cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId ;
              cardano:quantity ?qty .
     }
+    GROUP BY ?bridgeEntity
   }
-  ?vendor amaru:paidVia amaru:cag-payee .
-  ?attestation amaru:attests ?vendor ;
-               amaru:ipfs ?ipfs .
+  ?vendor cardano:paidVia ?bridgeEntity .
+  ?attestation cardano:attests ?vendor ;
+               cardano:ipfs ?ipfs .
   OPTIONAL { ?vendor rdfs:label ?vendorLabel . }
   OPTIONAL { ?attestation rdfs:label ?attestationLabel . }
 }

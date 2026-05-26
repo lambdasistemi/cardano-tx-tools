@@ -11,8 +11,8 @@ end-to-end from `tx-graph` + `tx-lattice` + Apache Jena.
   the JOIN target lives in the same graph. Depth = 1 → 71 parents.
 - Total lattice size = **30 seeds + 71 parents = 101 txs**, each in
   its own canonical Turtle file under `closure/<txid>.ttl`.
-- Operator overlay — `rules.yaml` (entities + CIP-57 blueprints) plus
-  `overlay.ttl` (off-chain vendors + IPFS-anchored attestations).
+- Operator rules — `rules.yaml` carries on-chain entities, off-chain
+  vendors, IPFS-anchored attestations, and CIP-57 blueprints.
 - Engine — Apache Jena 5.6.0 `sparql` CLI.
 
 ```mermaid
@@ -21,7 +21,7 @@ flowchart LR
     bf["GET /txs/<hash>/cbor<br/>(only endpoint used)"]
   end
   bf -->|CBOR| txgraph
-  rules[("rules.yaml<br/>entities + blueprints")] --> txgraph
+  rules[("rules.yaml<br/>entities + vendors<br/>attestations + blueprints")] --> txgraph
   txgraph["tx-graph<br/>(canonical Turtle emit)"] -->|one .ttl per tx| lattice
   subgraph lattice["closure/ (101 txs)"]
     direction LR
@@ -29,35 +29,36 @@ flowchart LR
     parents["71 parents<br/>(consumed UTxOs)"]
     parents -. cardano:fromTxOutRef .-> seeds
   end
-  overlay[("overlay.ttl<br/>off-chain entities<br/>+ IPFS attestations")] --> jena
   lattice --> jena
   jena["Apache Jena<br/>SPARQL 1.1 engine"] -->|10 queries| results["real on-chain answers"]
 ```
 
 ## Runnable Query Files
 
-The demo query sources are standalone SPARQL files. These links are the
-single-file query demos used by the rendered page:
+The demo rule source and query sources are standalone files. These
+links are the single-file query demos used by the rendered page:
 
-| Demo | Runnable query |
-|------|----------------|
-| Query 0 — ADA conservation | [`queries/00-ada-conservation.rq`](may-2026-amaru-lattice/queries/00-ada-conservation.rq) |
-| Query 1 — Monthly totals | [`queries/01-monthly-totals.rq`](may-2026-amaru-lattice/queries/01-monthly-totals.rq) |
-| Query 2 — USDM output addresses | [`queries/02-usdm-output-addresses.rq`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq) |
-| Query 3 — ADA role flow | [`queries/03-ada-role-flow.rq`](may-2026-amaru-lattice/queries/03-ada-role-flow.rq) |
-| Query 4 — Required signer distribution | [`queries/04-required-signer-distribution.rq`](may-2026-amaru-lattice/queries/04-required-signer-distribution.rq) |
-| Query 5 — Vendor-payment overlay | [`queries/05-vendor-payment-overlay.rq`](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.rq) |
-| Query 6 — Disbursement candidates | [`queries/06-disbursement-candidates.rq`](may-2026-amaru-lattice/queries/06-disbursement-candidates.rq) |
-| Query 7 — USDM role flow | [`queries/07-usdm-role-flow.rq`](may-2026-amaru-lattice/queries/07-usdm-role-flow.rq) |
-| Query 8 — Swap.v2 consumers | [`queries/08-swap-v2-consumers.rq`](may-2026-amaru-lattice/queries/08-swap-v2-consumers.rq) |
-| Query 9 — Reference-input reuse | [`queries/09-reference-input-reuse.rq`](may-2026-amaru-lattice/queries/09-reference-input-reuse.rq) |
-| Query 10 — Scoop output candidates | [`queries/10-scoop-output-candidates.rq`](may-2026-amaru-lattice/queries/10-scoop-output-candidates.rq) |
-| Query 11 — Network compliance USDM residual | [`queries/11-network-compliance-usdm-residual.rq`](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.rq) |
-| Query 12 — Seed input resolution cardinality | [`queries/12-seed-input-resolution-cardinality.rq`](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.rq) |
-| Query 13 — Seed value conservation by asset | [`queries/13-seed-value-conservation-by-asset.rq`](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.rq) |
-| Query 14 — Network compliance terminal state | [`queries/14-network-compliance-terminal-state.rq`](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq) |
-| Query 15 — Network compliance live diff | [`queries/15-network-compliance-live-diff.rq`](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq) |
-| Query 16 — Network compliance live summary | [`queries/16-network-compliance-live-summary.rq`](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.rq) |
+Rules source: [`rules.yaml`](may-2026-amaru-lattice/rules.yaml)
+
+| Demo | Explanation | Runnable query |
+|------|-------------|----------------|
+| Query 0 — ADA conservation | [`what / why / how`](may-2026-amaru-lattice/queries/00-ada-conservation.md) | [`queries/00-ada-conservation.rq`](may-2026-amaru-lattice/queries/00-ada-conservation.rq) |
+| Query 1 — Monthly totals | [`what / why / how`](may-2026-amaru-lattice/queries/01-monthly-totals.md) | [`queries/01-monthly-totals.rq`](may-2026-amaru-lattice/queries/01-monthly-totals.rq) |
+| Query 2 — USDM output addresses | [`what / why / how`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.md) | [`queries/02-usdm-output-addresses.rq`](may-2026-amaru-lattice/queries/02-usdm-output-addresses.rq) |
+| Query 3 — ADA role flow | [`what / why / how`](may-2026-amaru-lattice/queries/03-ada-role-flow.md) | [`queries/03-ada-role-flow.rq`](may-2026-amaru-lattice/queries/03-ada-role-flow.rq) |
+| Query 4 — Required signer distribution | [`what / why / how`](may-2026-amaru-lattice/queries/04-required-signer-distribution.md) | [`queries/04-required-signer-distribution.rq`](may-2026-amaru-lattice/queries/04-required-signer-distribution.rq) |
+| Query 5 — Vendor-payment overlay | [`what / why / how`](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.md) | [`queries/05-vendor-payment-overlay.rq`](may-2026-amaru-lattice/queries/05-vendor-payment-overlay.rq) |
+| Query 6 — Disbursement candidates | [`what / why / how`](may-2026-amaru-lattice/queries/06-disbursement-candidates.md) | [`queries/06-disbursement-candidates.rq`](may-2026-amaru-lattice/queries/06-disbursement-candidates.rq) |
+| Query 7 — USDM role flow | [`what / why / how`](may-2026-amaru-lattice/queries/07-usdm-role-flow.md) | [`queries/07-usdm-role-flow.rq`](may-2026-amaru-lattice/queries/07-usdm-role-flow.rq) |
+| Query 8 — Swap.v2 consumers | [`what / why / how`](may-2026-amaru-lattice/queries/08-swap-v2-consumers.md) | [`queries/08-swap-v2-consumers.rq`](may-2026-amaru-lattice/queries/08-swap-v2-consumers.rq) |
+| Query 9 — Reference-input reuse | [`what / why / how`](may-2026-amaru-lattice/queries/09-reference-input-reuse.md) | [`queries/09-reference-input-reuse.rq`](may-2026-amaru-lattice/queries/09-reference-input-reuse.rq) |
+| Query 10 — Scoop output candidates | [`what / why / how`](may-2026-amaru-lattice/queries/10-scoop-output-candidates.md) | [`queries/10-scoop-output-candidates.rq`](may-2026-amaru-lattice/queries/10-scoop-output-candidates.rq) |
+| Query 11 — Network compliance USDM residual | [`what / why / how`](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.md) | [`queries/11-network-compliance-usdm-residual.rq`](may-2026-amaru-lattice/queries/11-network-compliance-usdm-residual.rq) |
+| Query 12 — Seed input resolution cardinality | [`what / why / how`](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.md) | [`queries/12-seed-input-resolution-cardinality.rq`](may-2026-amaru-lattice/queries/12-seed-input-resolution-cardinality.rq) |
+| Query 13 — Seed value conservation by asset | [`what / why / how`](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.md) | [`queries/13-seed-value-conservation-by-asset.rq`](may-2026-amaru-lattice/queries/13-seed-value-conservation-by-asset.rq) |
+| Query 14 — Network compliance terminal state | [`what / why / how`](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.md) | [`queries/14-network-compliance-terminal-state.rq`](may-2026-amaru-lattice/queries/14-network-compliance-terminal-state.rq) |
+| Query 15 — Network compliance live diff | [`what / why / how`](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.md) | [`queries/15-network-compliance-live-diff.rq`](may-2026-amaru-lattice/queries/15-network-compliance-live-diff.rq) |
+| Query 16 — Network compliance live summary | [`what / why / how`](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.md) | [`queries/16-network-compliance-live-summary.rq`](may-2026-amaru-lattice/queries/16-network-compliance-live-summary.rq) |
 
 ---
 
@@ -247,48 +248,49 @@ Runnable source: [`queries/05-vendor-payment-overlay.rq`](may-2026-amaru-lattice
 
 ```sparql
 PREFIX cardano: <https://lambdasistemi.github.io/cardano-knowledge-maps/vocab/cardano#>
-PREFIX amaru:   <https://amaru.tech/rdf/>
 PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT ?vendor ?attestation ?ipfs ?usdmTotalAtBridge
 WHERE {
-  { SELECT (SUM(?qty) AS ?usdmTotalAtBridge) WHERE {
+  { SELECT ?bridgeEntity (SUM(?qty) AS ?usdmTotalAtBridge) WHERE {
+      ?bridgeEntity rdfs:label "amaru.cag-payee" ;
+                    cardano:bech32 ?bridgeBech32 .
+      ?usdmEntity rdfs:label "usdm" ;
+                  cardano:hasIdentifier/cardano:bytesHex ?usdmAssetId .
       ?seed cardano:hasLatticeRole "seed" ; cardano:hasOutput ?out .
-      ?out cardano:atAddress/cardano:bech32
-             "addr1q8qrds2nnx7clx3kcpp2l0eu45twmdcahsfu9m0xcwy59j6xz3vs0hnfaz9nhje8z34kfnds4jyk7hs6dnrag6e2lfgqtyf4rl" ;
+      ?out cardano:atAddress/cardano:bech32 ?bridgeBech32 ;
            cardano:hasAssetValue/rdf:rest*/rdf:first ?asset .
       ?asset cardano:hasIdentifier ?id ; cardano:quantity ?qty .
-      ?id cardano:bytesHex
-            "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d" .
-  } }
-  ?vendor amaru:paidVia amaru:cag-payee .
-  ?attestation amaru:attests ?vendor ; amaru:ipfs ?ipfs .
+      ?id cardano:bytesHex ?usdmAssetId .
+  } GROUP BY ?bridgeEntity }
+  ?vendor cardano:paidVia ?bridgeEntity .
+  ?attestation cardano:attests ?vendor ; cardano:ipfs ?ipfs .
 }
 ```
 
-| vendor (overlay)          | IPFS attestation                                                                                  |
+| vendor (rules overlay)    | IPFS attestation                                                                                  |
 |---------------------------|---------------------------------------------------------------------------------------------------|
-| `amaru:antithesis`        | `ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam` — Invoice INV-635           |
-| `amaru:castellum`         | `ipfs://bafybeib3jef34ndw6oe24mkmifdvxe5jrv7ulh63rdllovyth27mqfj2da` — Contract                  |
-| `amaru:castellum`         | `ipfs://bafybeigy37ui2ikn7bim2vw6cojcbxkcndpjwh7cj5fv3vzs4cszezipxu` — Invoice #3508             |
-| `amaru:castellum`         | `ipfs://bafybeihdmnitrbu2oir3r2fefnpqy3bk7zdz42olzmltmxyt5xag4i2t5a` — May2026 cycle review      |
+| `amaru.antithesis`        | `ipfs://bafkreicnoadlgnc6cqxggxboho7yt532lkonxcusj3ndsxdnv5szyswyam` — Invoice INV-635           |
+| `amaru.castellum`         | `ipfs://bafybeib3jef34ndw6oe24mkmifdvxe5jrv7ulh63rdllovyth27mqfj2da` — Contract                  |
+| `amaru.castellum`         | `ipfs://bafybeigy37ui2ikn7bim2vw6cojcbxkcndpjwh7cj5fv3vzs4cszezipxu` — Invoice #3508             |
+| `amaru.castellum`         | `ipfs://bafybeihdmnitrbu2oir3r2fefnpqy3bk7zdz42olzmltmxyt5xag4i2t5a` — May2026 cycle review      |
 
 USDM total at the bridge in May = **418,750.00 USDM**. The query joins
 on-chain USDM movement (lattice) to off-chain accountability
 (overlay) — vendors, contracts, invoices, cycle reviews — by
-walking `amaru:paidVia` and `amaru:attests` across two graph
-sources in one SPARQL invocation.
+walking `cardano:paidVia` and `cardano:attests` in the graph emitted
+from the single `rules.yaml`.
 
 ```mermaid
 flowchart LR
   netcomp["network_compliance"] -->|"418,750 USDM<br/>(on-chain)"| cag["amaru.cag-payee"]
-  cag -.->|amaru:paidVia| ant["amaru:antithesis"]
-  cag -.->|amaru:paidVia| cast["amaru:castellum"]
-  i1[("ipfs://bafkreicnoadl...<br/>Invoice INV-635")] -.->|amaru:attests| ant
-  i2[("ipfs://bafybeib3jef3...<br/>Contract")] -.->|amaru:attests| cast
-  i3[("ipfs://bafybeigy37ui...<br/>Invoice #3508")] -.->|amaru:attests| cast
-  i4[("ipfs://bafybeihdmnit...<br/>Cycle review")] -.->|amaru:attests| cast
+  cag -.->|cardano:paidVia| ant["amaru.antithesis"]
+  cag -.->|cardano:paidVia| cast["amaru.castellum"]
+  i1[("ipfs://bafkreicnoadl...<br/>Invoice INV-635")] -.->|cardano:attests| ant
+  i2[("ipfs://bafybeib3jef3...<br/>Contract")] -.->|cardano:attests| cast
+  i3[("ipfs://bafybeigy37ui...<br/>Invoice #3508")] -.->|cardano:attests| cast
+  i4[("ipfs://bafybeihdmnit...<br/>Cycle review")] -.->|cardano:attests| cast
 ```
 
 ---
@@ -638,11 +640,8 @@ in `rules.yaml` is `sundae.swap.v3.order`.
 
 ## 6. `tx-lattice` is a shell prototype
 
-**Impact**: closure walk, Blockfrost CBOR fetch, and txid/index
-post-processing are all bash + jq. Brittle, hard to test, single-
-threaded. The pre-filter for off-chain entities (when rules.yaml
-mixes on-chain + off-chain) is a separate concern that doesn't
-exist yet.
+**Impact**: closure walk and Blockfrost CBOR fetch are still bash +
+jq. The script is brittle, hard to test, and single-threaded.
 
 **Fix**: re-implement as a Haskell executable (proposed
 `tx-lattice` companion to `tx-graph`). Same on-disk contract
@@ -669,16 +668,17 @@ attestations side by side. Concretely:
   entity (on-chain or off-chain); they emit `cardano:role` and
   `cardano:paidVia` triples respectively.
 
-The May 2026 presentation can now drop the `overlay.ttl` companion
-file and ship a single rules.yaml; Q5 (vendor-payment chain) runs
-unchanged against the merged document.
+The May 2026 presentation now ships a single
+[`rules.yaml`](may-2026-amaru-lattice/rules.yaml). Q5
+(vendor-payment chain) runs against the graph-emitted
+`cardano:paidVia`, `cardano:attests`, and `cardano:ipfs` triples;
+there is no `overlay.ttl` side input.
 
 ## 8. Scope mapping is hard-coded inside each SPARQL query
 
 **Resolved** (#100, in `Cardano.Tx.Graph.Rules.Load.Emit.Overlay`):
 every entity declared via `from-address:` now emits a top-level
 `:slug cardano:bech32 "<addr>"` triple. The per-scope queries
-(Q3, Q5, Q7) can be rewritten to JOIN on
+(Q3, Q5, Q7) now JOIN on
 `?entity rdfs:label ?scope . ?entity cardano:bech32 ?bech` instead
-of carrying hard-coded bech32 literals in `VALUES` blocks — a
-follow-up to this issue will land that refactor.
+of carrying hard-coded bech32 literals in `VALUES` blocks.
