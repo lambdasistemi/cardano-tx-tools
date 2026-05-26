@@ -25,17 +25,17 @@ Blockfrost-compatible provider.
 flowchart LR
   address[network_compliance address]
   history[Address transaction history]
-  txids["network-txs.txt<br/>85 txids"]
+  txids[85 txid boundary]
   cbor[CBOR files]
-  graph[tx-graph Turtle]
+  ttl[tx-graph Turtle]
   live[cardano-cli live UTxO snapshot]
   sparql[SPARQL report]
 
   address --> history
   history --> txids
   txids --> cbor
-  cbor --> graph
-  graph --> sparql
+  cbor --> ttl
+  ttl --> sparql
   live --> sparql
 ```
 

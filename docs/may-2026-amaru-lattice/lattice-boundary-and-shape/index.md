@@ -40,12 +40,12 @@ The selected txid set must be complete for the scoped state interval:
 flowchart LR
   initial[Initial condition]
   txids[85 txid boundary]
-  graph[Emitted transaction graph]
+  lattice[Emitted transaction graph]
   shape[Boundary and shape checks]
   downstream[State and flow queries]
 
   initial --> downstream
-  txids --> graph
-  graph --> shape
+  txids --> lattice
+  lattice --> shape
   shape --> downstream
 ```

@@ -36,13 +36,13 @@ wrong:
 
 ```mermaid
 flowchart LR
-  graph[85-tx graph]
+  lattice[85-tx graph]
   terminal[Graph terminal UTxOs]
   live[Live UTxO snapshot]
   diff[Row and summary diff]
   provenance[Terminal USDM provenance]
 
-  graph --> terminal
+  lattice --> terminal
   terminal --> diff
   live --> diff
   terminal --> provenance
