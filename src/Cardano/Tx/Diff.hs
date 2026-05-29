@@ -658,16 +658,16 @@ collectDiffTree collapseRules trie node@(DiffNode path change) =
                 trie
         DiffObject _ changed onlyA onlyB ->
             let withChanged =
-                    foldl'
+                    List.foldl'
                         (collectDiffTree collapseRules)
                         trie
                         (Map.elems changed)
                 withOnlyA =
-                    foldl'
+                    List.foldl'
                         (insertObjectOnly "-" path)
                         withChanged
                         (Map.toAscList onlyA)
-             in foldl'
+             in List.foldl'
                     (insertObjectOnly "+" path)
                     withOnlyA
                     (Map.toAscList onlyB)
@@ -688,7 +688,7 @@ collectDiffArray collapseConfig trie node path common changed onlyA onlyB =
     let matchingRules =
             collapseRulesAt collapseConfig path
         (withViews, hasView) =
-            foldl'
+            List.foldl'
                 (insertCollapseView path changed)
                 (trie, False)
                 matchingRules
@@ -727,16 +727,16 @@ collectRawDiffArray collapseRules trie (DiffNode path change) =
     case change of
         DiffArray _ changed onlyA onlyB ->
             let withChanged =
-                    foldl'
+                    List.foldl'
                         (collectDiffTree collapseRules)
                         trie
                         (map snd changed)
                 withOnlyA =
-                    foldl'
+                    List.foldl'
                         (insertArrayOnly "-" path)
                         withChanged
                         onlyA
-             in foldl'
+             in List.foldl'
                     (insertArrayOnly "+" path)
                     withOnlyA
                     onlyB
@@ -763,10 +763,10 @@ collapseCoveredLeafPaths ::
     [(Int, DiffNode)] ->
     Map Int (Set.Set DiffPath)
 collapseCoveredLeafPaths rules changed =
-    foldl' coverRule Map.empty rules
+    List.foldl' coverRule Map.empty rules
   where
     coverRule covered rule =
-        foldl' (coverItem rule) covered changed
+        List.foldl' (coverItem rule) covered changed
     coverItem rule covered (index, item)
         | ruleMatchesItem rule item =
             Map.insertWith
@@ -836,7 +836,7 @@ insertCollapseView listPath changed (trie, hasView) rule =
         [] ->
             (trie, hasView)
         _ ->
-            ( foldl'
+            ( List.foldl'
                 insertRequiredPath
                 trie
                 (collapseRuleRequired rule)
@@ -857,7 +857,7 @@ insertCollapseView listPath changed (trie, hasView) rule =
                     | (index, _, leaves) <- matchingItems
                     , Just leaf <- [lookup requiredPath leaves]
                     ]
-         in foldl'
+         in List.foldl'
                 (insertLeafGroup requiredPath)
                 currentTrie
                 grouped
@@ -899,7 +899,7 @@ changedLeaves (DiffNode path change) =
 
 groupLeafDiffs :: [(Int, LeafDiff)] -> [([Int], LeafDiff)]
 groupLeafDiffs =
-    foldl' addLeafDiffGroup []
+    List.foldl' addLeafDiffGroup []
   where
     addLeafDiffGroup [] (index, leaf) =
         [([index], leaf)]
@@ -925,7 +925,7 @@ contiguousRanges :: [Int] -> [(Int, Int)]
 contiguousRanges [] =
     []
 contiguousRanges (firstIndex : rest) =
-    reverse (foldl' step [(firstIndex, firstIndex)] rest)
+    reverse (List.foldl' step [(firstIndex, firstIndex)] rest)
   where
     step [] index =
         [(index, index)]
