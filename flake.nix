@@ -29,7 +29,7 @@
       url = "github:NixOS/bundlers";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    dev-assets.url = "github:paolino/dev-assets";
+    dev-assets.url = "github:paolino/dev-assets/0669413a6b2618f7490b930738273bc73d5b96dc";
     iohkNix = {
       url =
         "github:input-output-hk/iohk-nix/f444d972c301ddd9f23eac4325ffcc8b5766eee9";
@@ -376,11 +376,17 @@
               formulaTest = spec.formulaTest;
               smokeCommands = [ (mkExeSmokeCommand spec) ];
             } // args);
+          # Linux artifacts now come from the shared dev-assets lib (pinned via
+          # the flake input) instead of the per-repo nix/linux-release.nix.
+          # bundlers is the same NixOS/bundlers rev dev-assets pins, so the
+          # AppImage runtime tooling is identical fleet-wide. muslPackage is
+          # added in the musl-cross slice.
           mkExeLinuxRelease = spec: extraArgs:
-            import ./nix/linux-release.nix ({
-              inherit pkgs system packageVersion;
+            inputs.dev-assets.lib.mkLinuxArtifacts ({
+              inherit pkgs system;
               executableName = spec.name;
-              package = spec.package;
+              version = packageVersion;
+              glibcPackage = spec.package;
               bundlers = inputs.bundlers;
             } // extraArgs);
           txDiffSpec =
@@ -450,8 +456,13 @@
                   artifactVersion = devArtifactVersion;
                 };
               linux-artifact-smoke =
-                import ./nix/linux-artifact-smoke.nix {
+                inputs.dev-assets.lib.mkLinuxArtifactSmoke {
                   inherit pkgs system;
+                  # musl excluded until the musl-cross slice adds the tarball.
+                  artifacts =
+                    if system == "aarch64-linux"
+                    then [ "appimage" ]
+                    else [ "appimage" "deb" "rpm" ];
                 };
             });
           cardanoTxGeneratorImage =
