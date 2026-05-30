@@ -1,9 +1,9 @@
 # Tasks — aarch64-linux artifacts (#119)
 
 ## Slice 1 — aarch64-linux evaluation
-- [ ] T119-S1 GREEN: add `aarch64-linux` to `systems`; gate Linux-only
+- [X] T119-S1 GREEN: add `aarch64-linux` to `systems`; gate Linux-only
       haskell.nix overrides (liburing/blockio-uring) at the modules-list level.
-- [ ] T119-S1 proof: `nix eval .#packages.aarch64-linux.tx-diff.outPath` succeeds.
+- [X] T119-S1 proof: `nix eval .#packages.aarch64-linux.tx-diff.outPath` succeeds.
 
 ## Slice 2 — adopt shared lib (glibc, x86_64 regression-safe)
 - [ ] T119-S2 GREEN: pin dev-assets to #27 (3921441); use
