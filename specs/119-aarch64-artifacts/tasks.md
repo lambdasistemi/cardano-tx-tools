@@ -13,7 +13,7 @@
       unchanged for all exes.
 
 ## Slice 3 — musl cross (RISK)
-- [ ] T119-S3 GREEN: expose `*-multiplatform-musl` exes; feed `muslPackage`
+- [X] T119-S3 GREEN: expose `*-multiplatform-musl` exes; feed `muslPackage`
       into `mkLinuxArtifacts` for x86_64 + aarch64.
 - [ ] T119-S3 proof: musl tarball builds + runs statically for one exe, then all.
 
