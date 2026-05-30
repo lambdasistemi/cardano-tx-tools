@@ -77,6 +77,7 @@ import Cardano.Tx.Graph.Rules.Load.Types (
 
 import Data.ByteString (ByteString)
 import Data.Char (isAlphaNum, isDigit, isSpace)
+import Data.List qualified as List
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
@@ -819,7 +820,7 @@ subjectsInOrder = go []
 
 groupBySubject ::
     [LocTriple] -> Map Subject [(Predicate, Object)]
-groupBySubject = foldl' step Map.empty
+groupBySubject = List.foldl' step Map.empty
   where
     step acc (LocTriple _ s p o) =
         Map.insertWith (flip (<>)) s [(p, o)] acc
@@ -829,7 +830,7 @@ appearance. Used by 'buildEntity' so entity-scoped errors point at
 the entity's own line, not at the document.
 -}
 subjectFirstLines :: [LocTriple] -> Map Subject Int
-subjectFirstLines = foldl' step Map.empty
+subjectFirstLines = List.foldl' step Map.empty
   where
     step acc (LocTriple ln s _ _) =
         Map.insertWith (\_new old -> old) s ln acc

@@ -47,6 +47,7 @@ module Cardano.Tx.Balance (
     FeeLoopError (..),
 ) where
 
+import Data.List qualified as List
 import Data.Maybe (fromMaybe)
 import Data.Sequence.Strict (StrictSeq, (|>))
 import Data.Set qualified as Set
@@ -243,7 +244,7 @@ balanceTxWith
                 t (TxOut ConwayEra) ->
                 (Coin, MultiAsset)
             sumValues =
-                foldl'
+                List.foldl'
                     ( \(Coin a, ma) o ->
                         let (Coin c, m) = valueOf o
                          in (Coin (a + c), ma <> m)
@@ -251,7 +252,7 @@ balanceTxWith
                     (Coin 0, mempty)
             (inputCoin, inputMA) = sumValues (map snd inputUtxos)
             newInputs =
-                foldl'
+                List.foldl'
                     (\s (tin, _) -> Set.insert tin s)
                     (body ^. inputsTxBodyL)
                     inputUtxos
@@ -310,7 +311,7 @@ balanceTxWith
             -- double-counting).
             collateralLovelace =
                 let lookupSum =
-                        foldl'
+                        List.foldl'
                             ( \(seen, Coin acc) (tin, o) ->
                                 if Set.member tin bodyCollIns
                                     && not (Set.member tin seen)
