@@ -102,6 +102,25 @@
             packages.blockio-uring.components.library.pkgconfig =
               lib.mkForce [ [ pkgs.liburing ] ];
           };
+          # librocksdb.a (static, e.g. the musl cross) calls into
+          # lz4/zstd/bz2/snappy, but rocksdb-haskell-jprupp only declares
+          # `extra-libraries: rocksdb`, so a static link leaves those undefined.
+          # cardano-tx-generator is the only rocksdb consumer; add the
+          # compression libs (target-aware `pkgs`, so the musl cross gets musl
+          # static) to its link, grouped so the linker resolves the cycle.
+          fix-rocksdb-static = { pkgs, ... }: {
+            packages.cardano-tx-tools.components.exes.cardano-tx-generator = {
+              libs = [ pkgs.lz4 pkgs.zstd pkgs.bzip2 pkgs.snappy ];
+              ghcOptions = [
+                "-optl-Wl,--start-group"
+                "-optl-llz4"
+                "-optl-lzstd"
+                "-optl-lbz2"
+                "-optl-lsnappy"
+                "-optl-Wl,--end-group"
+              ];
+            };
+          };
           project = pkgs.haskell-nix.cabalProject' {
             name = "cardano-tx-tools";
             src = ./.;
@@ -130,6 +149,7 @@
             };
             modules = [
               fix-libs
+              fix-rocksdb-static
               { packages.cardano-tx-tools.flags.werror = true; }
             ];
             inputMap = {
