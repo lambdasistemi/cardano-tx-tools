@@ -363,17 +363,17 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1780146011,
-        "narHash": "sha256-QhDTEYw3t1fTGoCT5JrEyK86DYPtt1EdLj/zCIOz3HM=",
+        "lastModified": 1780161778,
+        "narHash": "sha256-KzLRldxdDX3q6G/UL+HMcs+L0qoiWiS3HNkIfKuyWgE=",
         "owner": "paolino",
         "repo": "dev-assets",
-        "rev": "0669413a6b2618f7490b930738273bc73d5b96dc",
+        "rev": "19c0a3db9901f312e08f6b5a468e9abe51677944",
         "type": "github"
       },
       "original": {
         "owner": "paolino",
         "repo": "dev-assets",
-        "rev": "0669413a6b2618f7490b930738273bc73d5b96dc",
+        "rev": "19c0a3db9901f312e08f6b5a468e9abe51677944",
         "type": "github"
       }
     },
