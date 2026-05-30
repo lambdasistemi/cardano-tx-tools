@@ -59,7 +59,7 @@
         self.shortRev or (self.dirtyShortRev or "dirty");
     in
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "aarch64-darwin" ];
+      systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
       flake = {
         inherit imageTag;
       };
@@ -94,7 +94,11 @@
               lib.mkForce false;
             packages.plutus-tx.components.library.doHaddock =
               lib.mkForce false;
-          } // lib.optionalAttrs (system == "x86_64-linux") {
+          } // lib.optionalAttrs (lib.elem system [ "x86_64-linux" "aarch64-linux" ]) {
+            # liburing is Linux-only (both x86_64 and aarch64); gated at the
+            # modules-list construction level via the outer `system` string so
+            # it never references blockio-uring on Darwin where it is not in
+            # the build plan.
             packages.blockio-uring.components.library.pkgconfig =
               lib.mkForce [ [ pkgs.liburing ] ];
           };

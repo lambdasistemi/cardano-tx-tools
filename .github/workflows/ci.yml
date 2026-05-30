@@ -104,3 +104,31 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Lint
         run: nix run --quiet .#lint
+
+  # #119: native aarch64-linux cannot evaluate on the x86_64 `nixos` runners,
+  # so prove the haskell.nix plan computes on a real arm runner via the
+  # hardened setup-nix (dev-assets#26). Fail FAST if the aarch64 GHC would be
+  # built from source (uncached) rather than fetched — a cold GHC compile is
+  # ~40 min+, so the gate dry-runs and refuses before any real build.
+  aarch64-eval:
+    name: aarch64-linux evaluates (GHC cached)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: paolino/dev-assets/setup-nix@83607c29955f5707431080f4673f11f60056181d
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Assert the aarch64 GHC is cached (no source build)
+        run: |
+          set -euo pipefail
+          plan="$(nix build --dry-run .#packages.aarch64-linux.tx-diff 2>&1 || true)"
+          printf '%s\n' "$plan"
+          built_ghc="$(printf '%s\n' "$plan" \
+            | awk '/will be fetched/{f=0} /will be built:/{f=1;next} f' \
+            | grep -E '/nix/store/[a-z0-9]+-ghc-[0-9]' || true)"
+          if [ -n "$built_ghc" ]; then
+            echo "::error::aarch64 GHC would be built from source (uncached):"
+            printf '  %s\n' "$built_ghc"
+            exit 1
+          fi
+          echo "aarch64 GHC is cached (no source build planned)"
