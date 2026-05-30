@@ -137,6 +137,16 @@
             };
           };
           components = project.hsPkgs.cardano-tx-tools.components;
+          # Static musl cross for the per-arch musl tarball. Cross-compiled
+          # from the native build platform (x86_64-linux -> x86_64 musl;
+          # aarch64-linux -> aarch64 musl), so the cross plan evaluates without
+          # an aarch64 builder. Raw exes (no SSL wrapper) — static binaries.
+          muslComponents =
+            if system == "x86_64-linux"
+            then project.projectCross.musl64.hsPkgs.cardano-tx-tools.components
+            else if system == "aarch64-linux"
+            then project.projectCross.aarch64-multiplatform-musl.hsPkgs.cardano-tx-tools.components
+            else null;
           # tx-diff's web2 resolver uses http-client-tls and needs a CA
           # bundle at runtime. Wrap the raw executable so SSL_CERT_FILE
           # defaults to the bundled cacert; users can still override.
@@ -387,6 +397,7 @@
               executableName = spec.name;
               version = packageVersion;
               glibcPackage = spec.package;
+              muslPackage = muslComponents.exes.${spec.name};
               bundlers = inputs.bundlers;
             } // extraArgs);
           txDiffSpec =
@@ -458,11 +469,10 @@
               linux-artifact-smoke =
                 inputs.dev-assets.lib.mkLinuxArtifactSmoke {
                   inherit pkgs system;
-                  # musl excluded until the musl-cross slice adds the tarball.
                   artifacts =
                     if system == "aarch64-linux"
-                    then [ "appimage" ]
-                    else [ "appimage" "deb" "rpm" ];
+                    then [ "appimage" "musl" ]
+                    else [ "appimage" "deb" "rpm" "musl" ];
                 };
             });
           cardanoTxGeneratorImage =
