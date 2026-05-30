@@ -6,10 +6,10 @@
 - [X] T119-S1 proof: `nix eval .#packages.aarch64-linux.tx-diff.outPath` succeeds.
 
 ## Slice 2 — adopt shared lib (glibc, x86_64 regression-safe)
-- [ ] T119-S2 GREEN: pin dev-assets to #27 (3921441); use
+- [X] T119-S2 GREEN: pin dev-assets to #27 (3921441); use
       `dev-assets.lib.mkLinuxArtifacts` + `mkLinuxArtifactSmoke`; delete
       `nix/linux-release.nix` + `nix/linux-artifact-smoke.nix`.
-- [ ] T119-S2 proof: x86_64 `<exe>-linux-release-artifacts` build + smoke
+- [X] T119-S2 proof: x86_64 `<exe>-linux-release-artifacts` build + smoke
       unchanged for all exes.
 
 ## Slice 3 — musl cross (RISK)

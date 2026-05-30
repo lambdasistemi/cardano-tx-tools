@@ -41,3 +41,11 @@ there doesn't block the rest.
 
 - Local: `./gate.sh` (build x86_64 artifacts + smoke; eval aarch64).
 - CI: existing + the aarch64 release leg.
+
+## Open item (revisit at slice 4)
+
+The aarch64 artifact set currently excludes DEB/RPM — a design choice mirroring
+moog, NOT a confirmed upstream limitation (`NixOS/bundlers` declares
+aarch64-linux support for toDEB/toRPM). Verify they build on aarch64 at slice 4
+and include them if so. Parameterized via `glibcArtifacts` + the smoke
+`artifacts` list, so flipping it on is a one-liner.
