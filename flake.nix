@@ -29,7 +29,7 @@
       url = "github:NixOS/bundlers";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    dev-assets.url = "github:paolino/dev-assets/19c0a3db9901f312e08f6b5a468e9abe51677944";
+    dev-assets.url = "github:paolino/dev-assets/32bbb0351ffc324ade804161aef60f3de30e3a31";
     iohkNix = {
       url =
         "github:input-output-hk/iohk-nix/f444d972c301ddd9f23eac4325ffcc8b5766eee9";
@@ -487,12 +487,9 @@
                   artifactVersion = devArtifactVersion;
                 };
               linux-artifact-smoke =
+                # Full symmetric matrix on both arches (the lib default).
                 inputs.dev-assets.lib.mkLinuxArtifactSmoke {
                   inherit pkgs system;
-                  artifacts =
-                    if system == "aarch64-linux"
-                    then [ "appimage" "musl" ]
-                    else [ "appimage" "deb" "rpm" "musl" ];
                 };
             });
           cardanoTxGeneratorImage =
