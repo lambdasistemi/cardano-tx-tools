@@ -102,26 +102,34 @@
             packages.blockio-uring.components.library.pkgconfig =
               lib.mkForce [ [ pkgs.liburing ] ];
           };
-          # librocksdb.a (static, e.g. the musl cross) calls into
-          # lz4/zstd/bz2/snappy, but rocksdb-haskell-jprupp only declares
-          # `extra-libraries: rocksdb`, so a static link leaves those undefined.
-          # cardano-tx-generator is the only rocksdb consumer; add the
-          # compression libs (target-aware `pkgs`, so the musl cross gets musl
-          # static) to its link, grouped so the linker resolves the cycle.
+          # librocksdb.a (static musl) calls into lz4/zstd/bz2/snappy, but
+          # rocksdb-haskell-jprupp only declares `extra-libraries: rocksdb`, so
+          # the static musl link of cardano-tx-generator (the only rocksdb
+          # consumer) leaves those undefined. Add the static archives
+          # (pkgsStatic so the .a actually exists — the plain musl lz4/snappy
+          # ship no static lib) and group them so the linker resolves the cycle.
+          # This module is unconditional but only goes into muslProject below, so
+          # glibc links rocksdb dynamically and darwin's ld64 never sees
+          # --start-group. (Gating the module on pkgs.* recurses; routing it via
+          # a dedicated project is the reliable way to scope it to the cross.)
           fix-rocksdb-static = { pkgs, ... }: {
             packages.cardano-tx-tools.components.exes.cardano-tx-generator = {
-              libs = [ pkgs.lz4 pkgs.zstd pkgs.bzip2 pkgs.snappy ];
+              # librocksdb.a (musl) links compression (lz4/zstd/bz2/snappy) plus
+              # liburing (async IO) and numactl on Linux.
+              libs = with pkgs.pkgsStatic; [ lz4 zstd bzip2 snappy liburing numactl ];
               ghcOptions = [
                 "-optl-Wl,--start-group"
                 "-optl-llz4"
                 "-optl-lzstd"
                 "-optl-lbz2"
                 "-optl-lsnappy"
+                "-optl-luring"
+                "-optl-lnuma"
                 "-optl-Wl,--end-group"
               ];
             };
           };
-          project = pkgs.haskell-nix.cabalProject' {
+          mkProject = extraModules: pkgs.haskell-nix.cabalProject' {
             name = "cardano-tx-tools";
             src = ./.;
             compiler-nix-name = "ghc9123";
@@ -147,15 +155,17 @@
                 export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
               '';
             };
-            modules = [
-              fix-libs
-              fix-rocksdb-static
-              { packages.cardano-tx-tools.flags.werror = true; }
-            ];
+            modules = [ fix-libs ] ++ extraModules
+              ++ [ { packages.cardano-tx-tools.flags.werror = true; } ];
             inputMap = {
               "https://chap.intersectmbo.org/" = CHaP;
             };
           };
+          # Native project (x86_64/aarch64 glibc + darwin) — no rocksdb fix.
+          project = mkProject [ ];
+          # Musl-cross project carries the rocksdb static-link fix; consumed
+          # only via projectCross below, so glibc/darwin stay untouched.
+          muslProject = mkProject [ fix-rocksdb-static ];
           components = project.hsPkgs.cardano-tx-tools.components;
           # Static musl cross for the per-arch musl tarball. Cross-compiled
           # from the native build platform (x86_64-linux -> x86_64 musl;
@@ -163,9 +173,9 @@
           # an aarch64 builder. Raw exes (no SSL wrapper) — static binaries.
           muslComponents =
             if system == "x86_64-linux"
-            then project.projectCross.musl64.hsPkgs.cardano-tx-tools.components
+            then muslProject.projectCross.musl64.hsPkgs.cardano-tx-tools.components
             else if system == "aarch64-linux"
-            then project.projectCross.aarch64-multiplatform-musl.hsPkgs.cardano-tx-tools.components
+            then muslProject.projectCross.aarch64-multiplatform-musl.hsPkgs.cardano-tx-tools.components
             else null;
           # tx-diff's web2 resolver uses http-client-tls and needs a CA
           # bundle at runtime. Wrap the raw executable so SSL_CERT_FILE
