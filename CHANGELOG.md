@@ -2,20 +2,39 @@
 
 ## Unreleased
 
+## [0.2.3.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.2.0...v0.2.3.0) (2026-05-31)
+
 ### Features
 
-* **tx-fetch:** new executable. Closure-walking Conway CBOR fetcher. Resolves transaction ids over Blockfrost's `/txs/<hash>/cbor` endpoint, walks each tx's spending / reference / collateral input parents to `--depth`, hash-verifies every fetched CBOR against its requested `TxId`, and writes one `<out-dir>/cbor/<txid>.cbor` per tx. Ships through the same release pipeline as the other tools (Linux AppImage / DEB / RPM, Darwin Homebrew). Closes part of [#115](https://github.com/lambdasistemi/cardano-tx-tools/issues/115).
-* **114:** `tx-graph` CLI collapsed to a pure `(rules + [cbor]) → ttl` transformation. New `--in-dir DIR` reads a lattice of CBOR files and emits one `<txid>.ttl` per input, resolving each tx's inputs against the in-memory closure. Old `--utxo` / `--closure-dir` / `--n2c-socket-path` flags removed; `--tx PATH` becomes a positional argument. Closes [#114](https://github.com/lambdasistemi/cardano-tx-tools/issues/114).
-* **051:** Packaged `tx-view` SPARQL view contracts for `cli-tree`, `asset-flow`, `entity-occurrences`, and `json-ld`, with the CLI surface locked to `--graph`, `--view`, and `--out`. Closes [#51](https://github.com/lambdasistemi/cardano-tx-tools/issues/51).
-* **graph:** CIP-57 blueprint `"dataType": "map"` support in `Cardano.Tx.Blueprint`. New `SchemaMap BlueprintSchema BlueprintSchema` variant on `BlueprintSchemaKind`; parser reads `keys` + `values` sub-schemas; decoder materialises `PLC.Map` payloads as `OpenArray [OpenObject {"key" -> k, "value" -> v}, …]`; `resolveBlueprintSchema` recurses into key + value sub-schemas with the existing cycle detection. `parseBlueprintDefinitions` now surfaces parse failures via `BlueprintParseError` instead of silently dropping the failed entry (the silent drop hid the missing-map-support gap through every #50 slice — fixtures 12..14 happened not to use map-typed definitions). Live-fire on a real Conway treasury disburse (SundaeSwap treasury-contracts at commit `ad4316d0`) now emits `:TreasurySpendRedeemer_amount` typed predicates against the 5 Spend redeemers; pre-fix output was 5 `cardano:decodeError "BlueprintDefinitionMissing \"Pairs<…>\""` literals. Per-entry triple emission on the `OpenArray [OpenObject {key, value}]` shape (the typed-emit walker's OpenArray-of-OpenObject case) and the DSL-reconstructed real-Conway fixtures are deferred to sibling slices tracked via [#90](https://github.com/lambdasistemi/cardano-tx-tools/issues/90). Closes [#80](https://github.com/lambdasistemi/cardano-tx-tools/issues/80) ([#87](https://github.com/lambdasistemi/cardano-tx-tools/pull/87)).
-* **090:** DSL-reconstructed real Conway amaru-treasury disburse fixtures `15-amaru-disburse-network-compliance` and `17-amaru-disburse-contingency` under `test/fixtures/rewrite-redesign/`. Pin current `SchemaMap` typed amount predicate behavior on the two real-Conway disburses while the typed-emit walker extension over the `OpenArray [OpenObject {key, value}]` shape (per-entry triple emission) remains deferred to a sibling slice. Closes [#90](https://github.com/lambdasistemi/cardano-tx-tools/issues/90).
-* **tx-inspect:** new `--links cardanoscan` flag (opt-in) annotates every Cardanoscan-classifiable leaf in the rendered tree with its [Cardanoscan](https://cardanoscan.io) URL. `--network mainnet|preprod|preview` picks the explorer host; default is `mainnet`. Default output is byte-stable when the flag is absent. (#88)
-* **lib:** new pure module `Cardano.Tx.Diff.Scan` exposes `cardanoscanUrl :: Network -> InspectLeaf -> Url`, total over all leaf constructors (tx hash, tx-in, payment / stake address, policy id, CIP-14 asset fingerprint), plus `parseNetworkMagic`, `classifyConwayLeaf`, and `scanLinker`. (#88)
-* **095:** Typed-emit walker extension for SchemaMap-decoded `OpenArray [OpenObject {"key", "value"}, …]` values. The walker now mints one positional entry bnode per element under `:_<i>` and emits `:key` + `:value` triples on each entry through the existing `OpenValue` object path; non-matching arrays and objects with the wrong field shape keep the existing opaque bnode. `OpenValue` is unchanged (no `OpenMap` constructor); fixtures `15-amaru-disburse-network-compliance` and `17-amaru-disburse-contingency` regenerate to expose the per-entry triples under their `:TreasurySpendRedeemer_amount` child bnodes. Closes [#95](https://github.com/lambdasistemi/cardano-tx-tools/issues/95).
+* **080:** SchemaMap support + parse-failure surfacing for CIP-57 blueprints ([1b95b55](https://github.com/lambdasistemi/cardano-tx-tools/commit/1b95b55d6902e7eb540da804afa13f3b3e3ddbd9))
+* **090:** amaru-disburse network-compliance fixture ([2da18f3](https://github.com/lambdasistemi/cardano-tx-tools/commit/2da18f37a0c0f73773b85fb71575f0e1894ce926))
+* **090:** amaru-disburse contingency fixture ([bacec55](https://github.com/lambdasistemi/cardano-tx-tools/commit/bacec5576344be7f2a91b6893c0bbd132278008e))
+* **scan:** add Cardano.Tx.Diff.Scan with cardanoscanUrl mapper ([f537538](https://github.com/lambdasistemi/cardano-tx-tools/commit/f537538ebbabfe731650b0ac6b9602f95729a882))
+* **tx-inspect:** add --links=cardanoscan and --network flags with render-time leaf linker ([908a86b](https://github.com/lambdasistemi/cardano-tx-tools/commit/908a86be2fda1a59b8f358793f2e8c11097ea90a))
+* **095:** typed-emit walker per-entry triples for OpenArray-of-OpenObject ([b2b4777](https://github.com/lambdasistemi/cardano-tx-tools/commit/b2b4777df061b01eb0a6896e59ab657f3629e98c))
+* **emit:** lattice-friendly body emit (closes #100) (#107) ([2c60dc9](https://github.com/lambdasistemi/cardano-tx-tools/commit/2c60dc9658e46c5f71f4643261940ad0e5ebd863))
+* **blueprint:** accept shared blueprint across N scripts (#101) (#108) ([bcfd220](https://github.com/lambdasistemi/cardano-tx-tools/commit/bcfd220447c3ff5c2d56bfb1ca0561f0e356d8bd))
+* **rules:** accept overlay-only entities + attestations (#105) (#111) ([64637d4](https://github.com/lambdasistemi/cardano-tx-tools/commit/64637d4c617852be919b6e21a5dc55351268ae6d))
+* **blueprints:** ship SundaeSwap V3 plutus.json + typed redeemer decode (#103) ([2b185f9](https://github.com/lambdasistemi/cardano-tx-tools/commit/2b185f9c3a16f1ac4f45457aa0bdf3e86c035c04))
+* **tx-graph:** collapse CLI to pure (rules + [cbor]) → ttl transformation (#114) ([0d9897b](https://github.com/lambdasistemi/cardano-tx-tools/commit/0d9897b41821b93847cb8fabf9ef0b27108de6ad))
+* **scripts:** split tx-fetch out of tx-lattice (closes #115 first half) ([7cffc88](https://github.com/lambdasistemi/cardano-tx-tools/commit/7cffc889e27a153666a426d8667c2a81a647ebc2))
+* **tx-fetch:** promote bash prototype to a Haskell executable (#115) ([a7ec434](https://github.com/lambdasistemi/cardano-tx-tools/commit/a7ec434d87d97da0987f4e12f676d7daadf4a44d))
+* **release:** wire tx-fetch as a first-class released deliverable ([f479c7f](https://github.com/lambdasistemi/cardano-tx-tools/commit/f479c7fa8eb9963e87e27dc23c27e198725c25ad))
+* **deps:** gate node-tools components behind cabal flag for wasm builds (#122) ([89a5e42](https://github.com/lambdasistemi/cardano-tx-tools/commit/89a5e424d2c9ab21bd4a7383c1a2c21ee8896e37))
+* **tx-build:** carve pure tx-build sub-library for cross-target builds (#123) ([631f134](https://github.com/lambdasistemi/cardano-tx-tools/commit/631f1341fde6e4a11e94b058cf5f2925ffeb9eac))
+* **flake:** declare aarch64-linux; arm CI gate asserts GHC cached ([c437dba](https://github.com/lambdasistemi/cardano-tx-tools/commit/c437dba33161102109b0e99cf31d0cc6efa4443d))
+* **flake:** adopt dev-assets shared lib for Linux artifacts ([1af05c7](https://github.com/lambdasistemi/cardano-tx-tools/commit/1af05c775b5ab8b713736b22b049a179c70b7e3a))
+* **flake:** add static musl cross for the per-arch musl tarball ([8ee0c1f](https://github.com/lambdasistemi/cardano-tx-tools/commit/8ee0c1fe95580538b1ea03bf4f395bb4c7c76c80))
+* **release:** aarch64 release leg + full symmetric matrix ([9b23684](https://github.com/lambdasistemi/cardano-tx-tools/commit/9b2368432ead96e7df1dc04fdbaa11c1cec20a7e))
 
-### Deferred / known limitations
+### Bug Fixes
 
-* **098:** Follow-on [#98](https://github.com/lambdasistemi/cardano-tx-tools/issues/98) tracks deferred legacy 044 `expected.txt` byte-equivalence for the `cli-tree` view; #51 ships graph-derived view-side goldens for the packaged `tx-view` views.
+* **emit:** use full hex for raw-bytes bnode labels to avoid collision ([2696ffa](https://github.com/lambdasistemi/cardano-tx-tools/commit/2696ffa43ac458cd57efe8921271d2b42d20cf1b))
+* **docs:** re-add tx-lattice.md (internal page) + nav tx-fetch entry ([69ef635](https://github.com/lambdasistemi/cardano-tx-tools/commit/69ef635b1bd4815c7d5f718de738dd9ec4a9d61e))
+* **tx-fetch:** remove seed side channel ([794e7dc](https://github.com/lambdasistemi/cardano-tx-tools/commit/794e7dc64880ad413d17afa82d1c03e9f61c2abd))
+* **deps:** import Data.List.foldl' for GHC 9.8.4 build ([db2da7c](https://github.com/lambdasistemi/cardano-tx-tools/commit/db2da7c469df782041aba2531c4abcf4c4483418))
+* **flake:** link rocksdb compression libs for cardano-tx-generator ([bcf2890](https://github.com/lambdasistemi/cardano-tx-tools/commit/bcf28903786fa6ed4caebc4f7299d3ea5f95687b))
+* **flake:** scope rocksdb musl fix to the cross; add liburing/numactl ([2480321](https://github.com/lambdasistemi/cardano-tx-tools/commit/2480321b28e85b0cb8592447756498cde16e53d7))
 
 ## [0.2.2.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.1.0...v0.2.2.0) (2026-05-22)
 
