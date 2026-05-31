@@ -23,5 +23,5 @@
 - [X] T119-S4 proof: CI builds aarch64 AppImage + musl + smoke for every exe.
 
 ## Slice 5 — GHC-cache evidence
-- [ ] T119-S5: warm aarch64 GHC (cachix-warmup arm leg); `assert-no-source-ghc`
+- [X] T119-S5: warm aarch64 GHC (cachix-warmup arm leg); `assert-no-source-ghc`
       passes on a real aarch64 build (narinfo 200) — no GHC recompile.
