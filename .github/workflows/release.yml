@@ -108,11 +108,11 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - if: matrix.arch.runner != 'nixos'
-        uses: paolino/dev-assets/setup-nix@32bbb0351ffc324ade804161aef60f3de30e3a31
+        uses: paolino/dev-assets/setup-nix@v0.1.0
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - uses: paolino/dev-assets/linux-release@32bbb0351ffc324ade804161aef60f3de30e3a31
+      - uses: paolino/dev-assets/linux-release@v0.1.0
         with:
           mode: >-
             ${{

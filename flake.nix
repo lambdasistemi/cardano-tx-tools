@@ -29,7 +29,7 @@
       url = "github:NixOS/bundlers";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    dev-assets.url = "github:paolino/dev-assets/32bbb0351ffc324ade804161aef60f3de30e3a31";
+    dev-assets.url = "github:paolino/dev-assets/v0.1.0";
     iohkNix = {
       url =
         "github:input-output-hk/iohk-nix/f444d972c301ddd9f23eac4325ffcc8b5766eee9";
