@@ -46,11 +46,16 @@ concurrency:
 
 jobs:
   linux-bundles:
-    name: Build Linux ${{ matrix.executable.name }} bundles
-    runs-on: nixos
+    name: Build Linux ${{ matrix.executable.name }} (${{ matrix.arch.id }})
+    runs-on: ${{ matrix.arch.runner }}
     strategy:
       fail-fast: false
       matrix:
+        arch:
+          - id: x86_64
+            runner: nixos
+          - id: aarch64
+            runner: ubuntu-24.04-arm
         executable:
           - name: tx-diff
             release-output: tx-diff-linux-release-artifacts
@@ -93,12 +98,21 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag || github.ref }}
 
-      - uses: cachix/cachix-action@v17
+      # The self-hosted `nixos` runner has nix preinstalled (cachix-action
+      # wires read+push); the GitHub-hosted arm runner needs nix installed via
+      # the hardened setup-nix.
+      - if: matrix.arch.runner == 'nixos'
+        uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - uses: paolino/dev-assets/linux-release@41a598ad94d6b4b6aad0162f673786e4fc57db9b
+      - if: matrix.arch.runner != 'nixos'
+        uses: paolino/dev-assets/setup-nix@32bbb0351ffc324ade804161aef60f3de30e3a31
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - uses: paolino/dev-assets/linux-release@32bbb0351ffc324ade804161aef60f3de30e3a31
         with:
           mode: >-
             ${{

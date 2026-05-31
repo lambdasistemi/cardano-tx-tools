@@ -18,9 +18,9 @@
 - [ ] T119-S3 proof: musl tarball builds + runs statically for one exe, then all.
 
 ## Slice 4 — aarch64 release workflow
-- [ ] T119-S4 GREEN: `release.yml` aarch64 leg on `ubuntu-24.04-arm`; adopt
+- [X] T119-S4 GREEN: `release.yml` aarch64 leg on `ubuntu-24.04-arm`; adopt
       `setup-nix@83607c2`; pin dev-assets actions to #27.
-- [ ] T119-S4 proof: CI builds aarch64 AppImage + musl + smoke for every exe.
+- [X] T119-S4 proof: CI builds aarch64 AppImage + musl + smoke for every exe.
 
 ## Slice 5 — GHC-cache evidence
 - [ ] T119-S5: warm aarch64 GHC (cachix-warmup arm leg); `assert-no-source-ghc`

@@ -114,7 +114,7 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Build, smoke-test, and optionally publish Darwin Homebrew artifacts
-        uses: paolino/dev-assets/darwin-homebrew-release@41a598ad94d6b4b6aad0162f673786e4fc57db9b
+        uses: paolino/dev-assets/darwin-homebrew-release@32bbb0351ffc324ade804161aef60f3de30e3a31
         with:
           mode: ${{ env.MODE }}
           tag: ${{ env.TAG }}
