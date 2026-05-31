@@ -61,14 +61,66 @@ common warnings
     TypeOperators
     ViewPatterns
 
-library
+-- Pure transaction-building core. No IO, networking, signing, or
+-- node-client surface — only ledger-native types and the build/balance
+-- DSL. This is the sub-library that cross-compiles to wasm32-wasi /
+-- GHC-JS; pure consumers (e.g. cardano-mpfs-cage-tx) depend on it
+-- directly via `cardano-tx-tools:tx-build`.
+library tx-build
   import:           warnings
-  hs-source-dirs:   src
+  visibility:       public
+  hs-source-dirs:   src-tx-build
   default-language: GHC2021
   exposed-modules:
     Cardano.Tx.Balance
-    Cardano.Tx.Blueprint
     Cardano.Tx.Build
+    Cardano.Tx.Credentials
+    Cardano.Tx.Deposits
+    Cardano.Tx.Inputs
+    Cardano.Tx.Ledger
+    Cardano.Tx.Scripts
+    Cardano.Tx.Witnesses
+
+  build-depends:
+    , base                       <5
+    , bytestring                 >=0.12 && <0.13
+    , cardano-binary             >=1.8  && <3
+    , cardano-data               >=1.3  && <3
+    , cardano-ledger-allegra     >=1.9  && <3
+    , cardano-ledger-alonzo      >=1.15 && <3
+    , cardano-ledger-api         >=1.13 && <3
+    , cardano-ledger-conway      >=1.21 && <3
+    , cardano-ledger-core        >=1.19 && <3
+    , cardano-ledger-mary        >=1.10 && <3
+    , cardano-slotting           >=0.2  && <0.4
+    , cardano-strict-containers  >=0.1  && <0.3
+    , containers                 >=0.7  && <0.8
+    , microlens                  >=0.4  && <0.5
+    , operational                >=0.2  && <0.3
+    , plutus-core                >=1.60 && <3
+    , plutus-tx                  >=1.60 && <3
+
+library
+  import:             warnings
+
+  -- The full library bundles signing / validation / diff / yaml-rule /
+  -- release-check surface (http-client-tls, haskeline, libyaml, age, unix,
+  -- github-release-check) that is not wasm32-wasi / GHC-JS portable. The
+  -- pure transaction-building core lives in the `tx-build` sub-library
+  -- below; this library re-exports it and adds the node/IO tooling. For
+  -- pure cross-target builds set -build-node-tools (only `tx-build` builds).
+  if !flag(build-node-tools)
+    buildable: False
+
+  hs-source-dirs:     src
+  default-language:   GHC2021
+  reexported-modules:
+    , Cardano.Tx.Balance
+    , Cardano.Tx.Build
+    , Cardano.Tx.Ledger
+
+  exposed-modules:
+    Cardano.Tx.Blueprint
     Cardano.Tx.Diff
     Cardano.Tx.Diff.Cli
     Cardano.Tx.Diff.Resolver
@@ -79,7 +131,6 @@ library
     Cardano.Tx.Graph.Emit.Blueprint
     Cardano.Tx.Graph.Emit.Project
     Cardano.Tx.Graph.Rules.Load
-    Cardano.Tx.Ledger
     Cardano.Tx.Rewrite
     Cardano.Tx.Sign.AttachWitness
     Cardano.Tx.Sign.Cli
@@ -97,8 +148,6 @@ library
     Cardano.Tx.View
 
   other-modules:
-    Cardano.Tx.Credentials
-    Cardano.Tx.Deposits
     Cardano.Tx.Graph.Emit.Lookup
     Cardano.Tx.Graph.Emit.Monad
     Cardano.Tx.Graph.Emit.Serialize.JsonLd
@@ -114,14 +163,11 @@ library
     Cardano.Tx.Graph.Rules.Load.Parse.Yaml
     Cardano.Tx.Graph.Rules.Load.Resolve.Imports
     Cardano.Tx.Graph.Rules.Load.Types
-    Cardano.Tx.Inputs
-    Cardano.Tx.Scripts
     Cardano.Tx.View.AssetFlow
     Cardano.Tx.View.CliTree
     Cardano.Tx.View.EntityOccurrences
     Cardano.Tx.View.JsonLd
     Cardano.Tx.View.Turtle
-    Cardano.Tx.Witnesses
 
   build-depends:
     , aeson                          >=2.2  && <2.3
@@ -145,6 +191,7 @@ library
     , cardano-ledger-shelley         >=1.18 && <3
     , cardano-slotting               >=0.2  && <0.4
     , cardano-strict-containers      >=0.1  && <0.3
+    , cardano-tx-tools:tx-build
     , containers                     >=0.7  && <0.8
     , crypton                        >=1.0  && <1.1
     , data-default                   >=0.8  && <0.9
