@@ -26,6 +26,17 @@ flag werror
   default:     False
   manual:      True
 
+flag build-node-tools
+  description:
+    Build the node-using components (n2c-resolver, tx-generator-lib, and
+    the N2C executables) that depend on cardano-node-clients and
+    chain-follower. Disable for pure cross-target builds (wasm32-wasi /
+    GHC-JS), where only the main library is wanted. Mirrors plutus-core's
+    do-not-build-plutus-exec pattern.
+
+  default:     True
+  manual:      True
+
 common warnings
   ghc-options:
     -Wall -Wunused-imports -Wmissing-export-lists -Wname-shadowing
@@ -164,6 +175,10 @@ library
 
 library n2c-resolver
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   visibility:       public
   hs-source-dirs:   lib-n2c-resolver
   default-language: GHC2021
@@ -175,6 +190,10 @@ library n2c-resolver
 
 library tx-generator-lib
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   visibility:       public
   hs-source-dirs:   lib-tx-generator
   default-language: GHC2021
@@ -233,6 +252,10 @@ library tx-generator-lib
 
 executable cardano-tx-generator
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/cardano-tx-generator
   main-is:          Main.hs
   default-language: GHC2021
@@ -247,6 +270,10 @@ executable cardano-tx-generator
 
 executable tx-diff
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/tx-diff
   main-is:          Main.hs
   default-language: GHC2021
@@ -275,6 +302,10 @@ executable tx-diff
 
 executable tx-graph
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/tx-graph
   main-is:          Main.hs
   default-language: GHC2021
@@ -298,6 +329,10 @@ executable tx-graph
 
 executable tx-fetch
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/tx-fetch
   main-is:          Main.hs
   default-language: GHC2021
@@ -322,6 +357,10 @@ executable tx-fetch
 
 executable tx-inspect
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/tx-inspect
   main-is:          Main.hs
   default-language: GHC2021
@@ -351,6 +390,10 @@ executable tx-inspect
 
 executable tx-sign
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/tx-sign
   main-is:          Main.hs
   default-language: GHC2021
@@ -364,6 +407,10 @@ executable tx-sign
 
 executable tx-validate
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/tx-validate
   main-is:          Main.hs
   default-language: GHC2021
@@ -389,6 +436,10 @@ executable tx-validate
 
 executable tx-view
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   hs-source-dirs:   app/tx-view
   main-is:          Main.hs
   default-language: GHC2021
@@ -403,6 +454,10 @@ executable tx-view
 
 test-suite unit-tests
   import:             warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test test/fixtures/rewrite-redesign
   main-is:            unit-main.hs
@@ -536,6 +591,10 @@ test-suite unit-tests
 
 test-suite e2e-tests
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   type:             exitcode-stdio-1.0
   hs-source-dirs:   test
   main-is:          e2e-main.hs
@@ -581,6 +640,10 @@ test-suite e2e-tests
 
 test-suite tx-generator-tests
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   type:             exitcode-stdio-1.0
   hs-source-dirs:   test
   main-is:          tx-generator-main.hs
@@ -628,6 +691,10 @@ test-suite tx-generator-tests
 
 test-suite tx-validate-tests
   import:           warnings
+
+  if !flag(build-node-tools)
+    buildable: False
+
   type:             exitcode-stdio-1.0
   hs-source-dirs:   test
   main-is:          tx-validate-main.hs
