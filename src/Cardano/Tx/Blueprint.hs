@@ -24,6 +24,7 @@ module Cardano.Tx.Blueprint (
     BlueprintValidator (..),
     blueprintDataDecoder,
     decodeBlueprintData,
+    decodeBlueprintDataWith,
     diffBlueprintArgumentData,
     diffBlueprintData,
     matchBlueprintArgument,
@@ -135,6 +136,12 @@ data BlueprintDataError
         , actualFieldCount :: Int
         }
     | BlueprintUnresolvedReference Text
+    | -- | A @$ref@ resolved back to itself without consuming any
+      -- 'Data' in between — a genuinely non-productive definition
+      -- cycle, distinct from the (now-supported) recursion that
+      -- unfolds only as deep as the finite on-chain 'Data'. Carries
+      -- the offending definition name.
+      BlueprintReferenceCycle Text
     deriving stock (Eq, Show)
 
 data BlueprintSchema = BlueprintSchema
@@ -196,15 +203,22 @@ decodeMatchingBlueprintArgument blueprints selector datum =
         matchingArguments blueprints selector
     attempts =
         [ ( matchLabel blueprint validator
-          , case resolveBlueprintSchema blueprint (argumentSchema argument) of
+          , -- Resolve @$ref@s on demand against the blueprint's
+            -- definitions while walking the (finite) 'Data', instead
+            -- of eagerly unfolding the whole schema up front. A
+            -- recursive definition (e.g. the SundaeSwap
+            -- @MultisigScript@ cycle) then only unfolds as deep as the
+            -- data actually goes, so finite payloads decode and a
+            -- spurious 'BlueprintDefinitionCycle' is never raised
+            -- before any data is consulted.
+            case decodeBlueprintDataWith
+                (blueprintDefinitions blueprint)
+                (argumentSchema argument)
+                datum of
                 Left err ->
-                    Left (Text.pack (show (BlueprintMatchFallback err)))
-                Right schema ->
-                    case decodeBlueprintData schema datum of
-                        Left err ->
-                            Left (Text.pack (show (BlueprintDataFallback err)))
-                        Right value ->
-                            Right value
+                    Left (Text.pack (show (BlueprintDataFallback err)))
+                Right value ->
+                    Right value
           )
         | (blueprint, validator, argument) <- matches
         ]
@@ -233,8 +247,30 @@ txDiffBlueprintArgumentKind TxDiffRedeemer =
 
 decodeBlueprintData ::
     BlueprintSchema -> Data ConwayEra -> Either BlueprintDataError OpenValue
-decodeBlueprintData schema (Data value) =
-    decodeBlueprintValue schema value
+decodeBlueprintData =
+    decodeBlueprintDataWith Map.empty
+
+{- | Like 'decodeBlueprintData', but carries the blueprint's
+@definitions@ so a 'SchemaReference' encountered mid-walk is resolved
+per-occurrence against the (finite) 'Data' rather than requiring a
+fully pre-resolved schema. This is what lets a RECURSIVE definition
+(the SundaeSwap @MultisigScript@ cycle) decode: the @$ref@ only
+unfolds as deep as the data actually goes. A reference that resolves
+back to itself with no 'Data' consumed in between still fails, with
+'BlueprintReferenceCycle'.
+
+'decodeBlueprintData' is the @definitions@-free wrapper kept for
+callers that already pre-resolve their schema (e.g. the graph-emit
+walker via 'resolveBlueprintSchema'); on a ref-free schema both
+behave identically.
+-}
+decodeBlueprintDataWith ::
+    Map Text BlueprintSchema ->
+    BlueprintSchema ->
+    Data ConwayEra ->
+    Either BlueprintDataError OpenValue
+decodeBlueprintDataWith definitions schema (Data value) =
+    decodeBlueprintValue definitions Set.empty schema value
 
 diffBlueprintData ::
     BlueprintSchema ->
@@ -287,9 +323,27 @@ rawBlueprintDataValue datum =
         [ "cbor" .= hexText (serialize' (eraProtVerLow @ConwayEra) datum)
         ]
 
+{- | Walk a 'PLC.Data' value against a schema, resolving any
+'SchemaReference' on demand against @definitions@ as it is reached.
+
+@seen@ tracks the references followed since the last 'Data' node was
+consumed; it is the cycle guard. Following a reference adds it to
+@seen@ and recurses on the SAME 'Data' value, so a definition that
+resolves back to itself with no data progress (e.g. @A -> $ref A@)
+is caught and reported as 'BlueprintReferenceCycle'. Whenever a
+structural node ('PLC.Constr' / 'PLC.List' / 'PLC.Map') is matched and
+we descend into its (strictly smaller) children, @seen@ is reset to
+empty — a recursive definition therefore unfolds only as deep as the
+finite data actually goes. @anyOf@ does not consume data, so it
+threads @seen@ through unchanged.
+-}
 decodeBlueprintValue ::
-    BlueprintSchema -> PLC.Data -> Either BlueprintDataError OpenValue
-decodeBlueprintValue schema value =
+    Map Text BlueprintSchema ->
+    Set.Set Text ->
+    BlueprintSchema ->
+    PLC.Data ->
+    Either BlueprintDataError OpenValue
+decodeBlueprintValue definitions seen schema value =
     case schemaKind schema of
         SchemaInteger ->
             case value of
@@ -326,7 +380,7 @@ decodeBlueprintValue schema value =
                 _ ->
                     Left (BlueprintDataTypeMismatch "constructor")
         SchemaAnyOf alternatives ->
-            decodeAnyOf alternatives value
+            decodeAnyOf definitions seen alternatives value
         SchemaList fields ->
             case value of
                 PLC.List values
@@ -339,14 +393,14 @@ decodeBlueprintValue schema value =
                     | otherwise ->
                         OpenArray
                             <$> traverse
-                                (uncurry decodeBlueprintValue)
+                                (uncurry decodeChild)
                                 (zip fields values)
                 _ ->
                     Left (BlueprintDataTypeMismatch "list")
         SchemaListOf item ->
             case value of
                 PLC.List values ->
-                    OpenArray <$> traverse (decodeBlueprintValue item) values
+                    OpenArray <$> traverse (decodeChild item) values
                 _ ->
                     Left (BlueprintDataTypeMismatch "list")
         SchemaMap keySchema valueSchema ->
@@ -358,15 +412,38 @@ decodeBlueprintValue schema value =
                     Left (BlueprintDataTypeMismatch "map")
         SchemaData ->
             Right (plutusDataOpenValue value)
-        SchemaReference reference ->
-            Left (BlueprintUnresolvedReference reference)
+        SchemaReference reference
+            | reference `Set.member` seen ->
+                Left (BlueprintReferenceCycle reference)
+            | otherwise ->
+                case Map.lookup reference definitions of
+                    Nothing ->
+                        Left (BlueprintUnresolvedReference reference)
+                    Just definition ->
+                        -- Keep the outer field title (e.g. @"owner"@)
+                        -- when following the @$ref@, mirroring
+                        -- 'resolveBlueprintSchema'.
+                        let inheritedTitle =
+                                case schemaTitle schema of
+                                    Just _ -> schemaTitle schema
+                                    Nothing -> schemaTitle definition
+                            titled =
+                                definition{schemaTitle = inheritedTitle}
+                         in decodeBlueprintValue
+                                definitions
+                                (Set.insert reference seen)
+                                titled
+                                value
   where
+    -- A child of a matched 'Data' node: the cycle guard resets
+    -- because the data has progressed to a strictly smaller value.
+    decodeChild = decodeBlueprintValue definitions Set.empty
     decodeField (index, (fieldSchema, fieldValue)) = do
-        decodedValue <- decodeBlueprintValue fieldSchema fieldValue
+        decodedValue <- decodeChild fieldSchema fieldValue
         pure (fieldName index fieldSchema, decodedValue)
     decodeMapEntry kSchema vSchema (k, v) = do
-        decodedKey <- decodeBlueprintValue kSchema k
-        decodedValue <- decodeBlueprintValue vSchema v
+        decodedKey <- decodeChild kSchema k
+        decodedValue <- decodeChild vSchema v
         pure $
             OpenObject $
                 Map.fromList
@@ -375,15 +452,19 @@ decodeBlueprintValue schema value =
                     ]
 
 decodeAnyOf ::
-    [BlueprintSchema] -> PLC.Data -> Either BlueprintDataError OpenValue
-decodeAnyOf alternatives value =
+    Map Text BlueprintSchema ->
+    Set.Set Text ->
+    [BlueprintSchema] ->
+    PLC.Data ->
+    Either BlueprintDataError OpenValue
+decodeAnyOf definitions seen alternatives value =
     case successes of
         [decoded] ->
             Right decoded
         [] ->
             case alternatives of
                 firstAlternative : _ ->
-                    decodeBlueprintValue firstAlternative value
+                    decodeBlueprintValue definitions seen firstAlternative value
                 [] ->
                     Left (BlueprintDataTypeMismatch "anyOf")
         _ ->
@@ -392,7 +473,8 @@ decodeAnyOf alternatives value =
     successes =
         [ decoded
         | alternative <- alternatives
-        , Right decoded <- [decodeBlueprintValue alternative value]
+        , Right decoded <-
+            [decodeBlueprintValue definitions seen alternative value]
         ]
 
 plutusDataOpenValue :: PLC.Data -> OpenValue

@@ -17,6 +17,7 @@ import Cardano.Tx.Blueprint (
     BlueprintArgument (..),
     BlueprintArgumentKind (..),
     BlueprintArgumentSelector (..),
+    BlueprintDataError (..),
     BlueprintDiff (..),
     BlueprintFallbackReason (..),
     BlueprintMatchError (..),
@@ -26,6 +27,7 @@ import Cardano.Tx.Blueprint (
     BlueprintValidator (..),
     blueprintDataDecoder,
     decodeBlueprintData,
+    decodeBlueprintDataWith,
     diffBlueprintArgumentData,
     diffBlueprintData,
     matchBlueprintArgument,
@@ -206,6 +208,79 @@ spec =
                         "expected parse failure on unknown dataType, but the \
                         \definition was silently dropped"
 
+        it "decodes a recursive definition against finite data" $
+            -- SundaeSwap `order.spend` OrderDatum: the `owner`
+            -- field is a RECURSIVE `MultisigScript` (an `AtLeast`
+            -- constructor whose `scripts` field is a
+            -- `List<MultisigScript>`). Eagerly unfolding the schema
+            -- returns `BlueprintDefinitionCycle` before any data is
+            -- read, blocking even the non-recursive sibling field.
+            -- Real on-chain `Data` is finite, so resolving the `$ref`
+            -- per-occurrence during decode terminates: the recursive
+            -- field decodes to its bounded value and the sibling
+            -- `minReceive` is recovered.
+            case parseBlueprintJSON recursiveBlueprintJson of
+                Left err ->
+                    expectationFailure err
+                Right blueprint ->
+                    blueprintDataDecoder
+                        [blueprint]
+                        TxDiffDataSelector
+                            { txDiffDataValidatorTitle = Just "order"
+                            , txDiffDataKind = TxDiffDatum
+                            }
+                        recursiveDatum
+                        `shouldBe` Right
+                            ( OpenObject
+                                ( Map.fromList
+                                    [
+                                        ( "owner"
+                                        , OpenObject
+                                            ( Map.fromList
+                                                [ ("required", OpenInteger 2)
+                                                ,
+                                                    ( "scripts"
+                                                    , OpenArray
+                                                        [ OpenObject
+                                                            ( Map.fromList
+                                                                [ ("keyHash", OpenBytes "aa")
+                                                                ]
+                                                            )
+                                                        , OpenObject
+                                                            ( Map.fromList
+                                                                [ ("keyHash", OpenBytes "bb")
+                                                                ]
+                                                            )
+                                                        ]
+                                                    )
+                                                ]
+                                            )
+                                        )
+                                    , ("minReceive", OpenInteger 1000)
+                                    ]
+                                )
+                            )
+
+        it "still errors on a non-productive self-cycle" $
+            -- The recursion-tolerant decoder must NOT loop forever on a
+            -- definition that refers to itself without ever consuming a
+            -- `Data` node. `Loop -> $ref Loop` makes no data progress,
+            -- so the cycle guard fires with `BlueprintReferenceCycle`.
+            decodeBlueprintDataWith
+                ( Map.singleton
+                    "Loop"
+                    BlueprintSchema
+                        { schemaTitle = Nothing
+                        , schemaKind = SchemaReference "Loop"
+                        }
+                )
+                BlueprintSchema
+                    { schemaTitle = Nothing
+                    , schemaKind = SchemaReference "Loop"
+                    }
+                (orderDatum 42)
+                `shouldBe` Left (BlueprintReferenceCycle "Loop")
+
         it "selects the only matching blueprint argument that decodes the datum" $ do
             let wrongDatum =
                     BlueprintArgument
@@ -361,6 +436,28 @@ orderDatum amount =
             ]
         )
 
+{- | Finite SundaeSwap-shaped OrderDatum payload exercising the
+recursive @owner : MultisigScript@ field: @owner@ is an @AtLeast 2
+[Signature 0xaa, Signature 0xbb]@ and the non-recursive sibling
+@minReceive@ is @1000@.
+-}
+recursiveDatum :: Data ConwayEra
+recursiveDatum =
+    Data
+        ( PLC.Constr
+            0
+            [ PLC.Constr
+                1
+                [ PLC.I 2
+                , PLC.List
+                    [ PLC.Constr 0 [PLC.B (BS.pack [0xaa])]
+                    , PLC.Constr 0 [PLC.B (BS.pack [0xbb])]
+                    ]
+                ]
+            , PLC.I 1000
+            ]
+        )
+
 orderDatumSelector :: BlueprintArgumentSelector
 orderDatumSelector =
     BlueprintArgumentSelector
@@ -463,6 +560,63 @@ unknownDataTypeBlueprintJson =
     \  \"validators\": [],\
     \  \"definitions\": {\
     \    \"Mystery\": {\"dataType\": \"this-is-not-a-real-data-type\"}\
+    \  }\
+    \}"
+
+{- | SundaeSwap-style blueprint with a RECURSIVE @MultisigScript@
+definition: the @AtLeast@ alternative carries a
+@scripts : List<MultisigScript>@ field that refers back to the
+definition itself. The @order@ validator's datum embeds it as the
+@owner@ field next to a non-recursive @minReceive@ sibling. Eager
+schema resolution returns @BlueprintDefinitionCycle@ on this shape;
+per-occurrence resolution against finite 'Data' terminates.
+-}
+recursiveBlueprintJson :: LBS8.ByteString
+recursiveBlueprintJson =
+    "{\
+    \  \"preamble\": {\"title\": \"Recursive\", \"plutusVersion\": \"v3\"},\
+    \  \"validators\": [\
+    \    {\
+    \      \"title\": \"order\",\
+    \      \"datum\": {\
+    \        \"title\": \"Order datum\",\
+    \        \"schema\": {\"$ref\": \"#/definitions/OrderDatum\"}\
+    \      }\
+    \    }\
+    \  ],\
+    \  \"definitions\": {\
+    \    \"OrderDatum\": {\
+    \      \"dataType\": \"constructor\",\
+    \      \"index\": 0,\
+    \      \"fields\": [\
+    \        {\"title\": \"owner\", \"schema\": {\"$ref\": \"#/definitions/MultisigScript\"}},\
+    \        {\"title\": \"minReceive\", \"dataType\": \"integer\"}\
+    \      ]\
+    \    },\
+    \    \"MultisigScript\": {\
+    \      \"title\": \"MultisigScript\",\
+    \      \"anyOf\": [\
+    \        {\
+    \          \"title\": \"Signature\",\
+    \          \"dataType\": \"constructor\",\
+    \          \"index\": 0,\
+    \          \"fields\": [{\"title\": \"keyHash\", \"dataType\": \"bytes\"}]\
+    \        },\
+    \        {\
+    \          \"title\": \"AtLeast\",\
+    \          \"dataType\": \"constructor\",\
+    \          \"index\": 1,\
+    \          \"fields\": [\
+    \            {\"title\": \"required\", \"dataType\": \"integer\"},\
+    \            {\
+    \              \"title\": \"scripts\",\
+    \              \"dataType\": \"list\",\
+    \              \"items\": {\"$ref\": \"#/definitions/MultisigScript\"}\
+    \            }\
+    \          ]\
+    \        }\
+    \      ]\
+    \    }\
     \  }\
     \}"
 
