@@ -15,8 +15,8 @@
 ## Slice 3 — README policy + gate extension
 
 - [X] T007-S3 Add the cq-rdf CLI-boundary integration-policy sentence to README.md; gate green; one commit `docs(readme): ...`
-- [ ] T008-S3 Extend gate.sh with the rdf drift-parity check (orchestrator)
+- [X] T008-S3 Extend gate.sh with the rdf drift-parity check (orchestrator)
 
 ## Verification (no code change)
 
-- [ ] T009 MinUtxoSpec parity (rdf#81): byte-identical at baseline, locked by gate extension; recorded in PR body
+- [X] T009 MinUtxoSpec parity (rdf#81): byte-identical at baseline, locked by gate extension; recorded in PR body
