@@ -144,7 +144,10 @@ lives in an opt-in `n2c-resolver` sub-library; this lets pure
 consumers (tests, in-process callers) build against the API
 without pulling in the `cardano-node-clients` mux + ouroboros
 stack. Dependency direction is one-way: `cardano-tx-tools →
-cardano-node-clients`.
+cardano-node-clients`. The same one-way discipline applies to
+`cardano-ledger-rdf`: cardano-tx-tools consumes cq-rdf output at
+the CLI boundary (pipes) and never links the cardano-ledger-rdf
+library.
 
 ## Develop
 
