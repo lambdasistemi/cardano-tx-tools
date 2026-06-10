@@ -103,6 +103,7 @@ module Cardano.Tx.Build (
     BuildError (..),
 
     -- * Conway ledger types
+    -- $conwayLedgerTypes
     ConwayEra,
     AccountAddress (..),
     AccountId (..),
@@ -285,6 +286,44 @@ import PlutusTx.Builtins.Internal (
     BuiltinData (..),
  )
 import PlutusTx.IsData.Class (ToData (..))
+
+{- $conwayLedgerTypes
+
+Re-exports of @cardano-ledger@ types used by the builder DSL
+combinators in this module ('certify', 'propose',
+'proposeTreasuryWithdrawal', 'vote'). Surfaced here so callers do
+not need to add explicit @cardano-ledger-*@ imports for governance,
+delegation, and reward-account flows.
+
+The full Haddock for each type lives in its home package
+(@cardano-ledger-core@, @cardano-ledger-conway@, @cardano-data@); the
+per-symbol summary below is a quick-reference cheatsheet for working
+with the DSL.
+
+* 'ConwayEra' — phantom era tag for Conway-era ledger structures.
+* 'AccountAddress' \/ 'AccountId' — reward-account identifiers
+  (stake credential + network).
+* 'pattern RewardAccount' — pattern-position synonym for
+  'AccountAddress'.
+* 'Anchor' — Conway governance anchor (URI + 32-byte data hash).
+* 'Coin' — lovelace newtype.
+* 'ConwayDelegCert' \/ 'ConwayGovCert' \/ 'ConwayTxCert' — Conway
+  certificate variants (stake / governance / top-level).
+* 'Credential' — payment- or stake-credential variant (key hash
+  or script hash).
+* 'Delegatee' — stake-delegation target.
+* 'DRep' — DRep target of a vote-delegation certificate or voting
+  procedure.
+* 'GovAction' \/ 'GovActionId' \/ 'GovActionIx' — Conway governance
+  action and its in-tx identifier.
+* 'KeyRole' — phantom role tag for credential hashes.
+* 'ProposalProcedure' — Conway proposal record (deposit, return
+  account, body, anchor).
+* 'ScriptHash' — 28-byte blake2b-224 script digest.
+* 'StrictMaybe' — strict 'Maybe' used pervasively in the ledger.
+* 'Vote' \/ 'Voter' \/ 'VotingProcedure' \/ 'VotingProcedures' — the
+  Conway voting surface.
+-}
 
 -- ----------------------------------------------------
 -- Core types
@@ -1263,6 +1302,12 @@ noCtxInterpret =
             error
                 "draft: encountered ctx without draftWith interpreter"
 
+{- | Like 'draft' but with an explicit pure-context 'Interpret' for the
+program's @Ctx@ instructions. Two-pass interpretation matches
+'draft': the first pass walks the program with an empty 'Tx' to
+collect steps and the second pass re-walks it with the assembled
+body so 'Peek' nodes observe the final shape.
+-}
 draftWith ::
     PParams ConwayEra ->
     Interpret q ->
@@ -1363,6 +1408,12 @@ defaultBuildOptions =
         , boCollateralUtxos = CollateralUtxos []
         }
 
+{- | Assemble, evaluate scripts, and balance a 'TxBuild' program against
+a Conway protocol-parameter snapshot and a caller-supplied script
+evaluator. Equivalent to @'buildWith' 'defaultBuildOptions'@; reach
+for 'buildWith' when you need to override the exec-units margin or
+the collateral-input resolution map.
+-}
 build ::
     -- | Protocol parameters, wrapped via 'mkPParamsBound'.
     --     The same underlying 'PParams' value flows
