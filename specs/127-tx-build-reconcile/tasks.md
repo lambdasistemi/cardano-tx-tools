@@ -14,7 +14,7 @@
 
 ## Slice 3 — README policy + gate extension
 
-- [ ] T007-S3 Add the cq-rdf CLI-boundary integration-policy sentence to README.md; gate green; one commit `docs(readme): ...`
+- [X] T007-S3 Add the cq-rdf CLI-boundary integration-policy sentence to README.md; gate green; one commit `docs(readme): ...`
 - [ ] T008-S3 Extend gate.sh with the rdf drift-parity check (orchestrator)
 
 ## Verification (no code change)
