@@ -2,10 +2,10 @@
 
 ## Slice 1 — docs port
 
-- [ ] T001-S1 Port `$conwayLedgerTypes` named chunk + export-list anchor into src-tx-build/Cardano/Tx/Build.hs
-- [ ] T002-S1 Port `draftWith` and `build` Haddock blocks into src-tx-build/Cardano/Tx/Build.hs
-- [ ] T003-S1 Reconcile src-tx-build/Cardano/Tx/Ledger.hs module Haddock to sub-library-neutral wording
-- [ ] T004-S1 Gate green; one commit `docs(tx-build): ...`
+- [X] T001-S1 Port `$conwayLedgerTypes` named chunk + export-list anchor into src-tx-build/Cardano/Tx/Build.hs
+- [X] T002-S1 Port `draftWith` and `build` Haddock blocks into src-tx-build/Cardano/Tx/Build.hs
+- [X] T003-S1 Reconcile src-tx-build/Cardano/Tx/Ledger.hs module Haddock to sub-library-neutral wording
+- [X] T004-S1 Gate green; one commit `docs(tx-build): ...`
 
 ## Slice 2 — foldl' reconciliation
 
