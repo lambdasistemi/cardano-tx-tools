@@ -147,7 +147,6 @@ import Data.Functor.Identity (
     runIdentity,
  )
 import Data.List (elemIndex)
-import Data.List qualified as List
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.OSet.Strict qualified as OSet
@@ -1141,7 +1140,7 @@ assembleTxWith extraIns refUtxos pp st =
         outs =
             StrictSeq.fromList $
                 map (uncurry (applySendMode pp)) (tsOuts st)
-        mintMA = List.foldl' addMint mempty (tsMints st)
+        mintMA = foldl' addMint mempty (tsMints st)
         withdrawalEntries =
             collectWithdrawalEntries
                 (tsWithdrawals st)
@@ -2147,7 +2146,7 @@ collectMintRedeemers mints =
                 | x == pid = n
                 | otherwise = go (n + 1) xs
         seenData =
-            List.foldl' addP Map.empty mints
+            foldl' addP Map.empty mints
         addP acc (pid, _, _, PlutusScriptWitness r)
             | Map.member pid acc = acc
             | otherwise =
@@ -2194,7 +2193,7 @@ collectCertRedeemers ::
       )
     ]
 collectCertRedeemers certs =
-    Map.toList . List.foldl' addScriptCert Map.empty
+    Map.toList . foldl' addScriptCert Map.empty
   where
     finalCerts = toList certs
 
@@ -2219,7 +2218,7 @@ collectProposalRedeemers ::
       )
     ]
 collectProposalRedeemers proposals =
-    Map.toList . List.foldl' addGuardrailProposal Map.empty
+    Map.toList . foldl' addGuardrailProposal Map.empty
   where
     finalProposals = toList (OSet.toStrictSeq proposals)
 

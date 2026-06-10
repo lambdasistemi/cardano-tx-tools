@@ -9,8 +9,8 @@
 
 ## Slice 2 — foldl' reconciliation
 
-- [ ] T005-S2 Replace `List.foldl'` with Prelude `foldl'` in Build.hs (4 sites) and Balance.hs (3 sites); drop unused `Data.List qualified as List` imports
-- [ ] T006-S2 Verify Build.hs and Balance.hs byte-identical to /code/cardano-ledger-rdf reference; gate green; one commit `refactor(tx-build): ...`
+- [X] T005-S2 Replace `List.foldl'` with Prelude `foldl'` in Build.hs (4 sites) and Balance.hs (3 sites); drop unused `Data.List qualified as List` imports
+- [X] T006-S2 Verify Build.hs and Balance.hs byte-identical to /code/cardano-ledger-rdf reference; gate green; one commit `refactor(tx-build): ...`
 
 ## Slice 3 — README policy + gate extension
 
