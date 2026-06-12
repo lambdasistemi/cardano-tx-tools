@@ -12,12 +12,13 @@ and independent; either, both, or neither may appear in the
 rules file.
 
 ```text
-Usage: tx-inspect [TX_FILE] [--in PATH] [--rules FILE]
-                  [--n2c-socket-path PATH] [--web2-url URL]
-                  [--web2-api-key-file PATH]
+Usage: tx-inspect [--render tree|paths] [--tree-art ascii|unicode]
+                  [--rules FILE]
+                  [--n2c-socket-path SOCKET --network-magic N]
+                  [--web2-url URL [--web2-api-key-file PATH]]
                   [--links cardanoscan
                        [--network mainnet|preprod|preview]]
-                  [--version]
+                  TX
 ```
 
 ```asciinema-player
@@ -31,11 +32,11 @@ Usage: tx-inspect [TX_FILE] [--in PATH] [--rules FILE]
 
 ## Input
 
-`tx-inspect` accepts a Conway transaction in the same forms
-`tx-validate` accepts: a CBOR file path as the positional
-argument, hex CBOR on stdin, or an explicit `--in PATH`. The
-content type is auto-detected (hex CBOR, raw CBOR, or
-`cardano-cli` JSON envelope).
+`tx-inspect` takes one required positional argument: `TX`, the
+path to a file holding the Conway transaction. The content type
+is auto-detected (hex CBOR, raw CBOR, or a `cardano-cli` JSON
+text envelope) — the same decoder `tx-diff` and `tx-validate`
+use.
 
 ## Rules
 

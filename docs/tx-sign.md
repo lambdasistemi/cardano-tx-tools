@@ -64,5 +64,5 @@ The signing primitives live under `Cardano.Tx.Sign.*`:
 | `Cardano.Tx.Sign.AttachWitness`       | Merge a `Set (WitVKey Witness)` into an unsigned tx   |
 | `Cardano.Tx.Sign.Cli.*`               | `optparse-applicative` parsers + runners              |
 
-Accepted signing-key material: `cardano-cli` `.skey` JSON,
-`cardano-addresses` `addr_xsk` bech32, or raw 32-byte hex.
+Accepted signing-key material: a `cardano-cli` `.skey` JSON
+envelope or a `cardano-addresses` `addr_xsk` bech32 string.
