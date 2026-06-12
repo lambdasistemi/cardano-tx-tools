@@ -59,14 +59,18 @@ extra_javascript:
   - assets/js/read-aloud.js
 
 nav:
-  - tx-diff: tx-diff.md
-  - tx-inspect: tx-inspect.md
-  - rewriting-rules grammar: rewriting-rules.md
-  - tx-sign: tx-sign.md
-  - tx-validate: tx-validate.md
-  - tx-graph: tx-graph.md
-  - tx-fetch: tx-fetch.md
-  - tx-view: tx-view.md
+  - Home: index.md
+  - Architecture: architecture.md
+  - "Tools":
+      - tx-inspect: tx-inspect.md
+      - tx-diff: tx-diff.md
+      - "rewriting-rules grammar": rewriting-rules.md
+      - tx-graph: tx-graph.md
+      - tx-view: tx-view.md
+      - tx-fetch: tx-fetch.md
+      - tx-sign: tx-sign.md
+      - tx-validate: tx-validate.md
+      - cardano-tx-generator: cardano-tx-generator.md
   - "May 2026 lattice demo":
       - may-2026-amaru-lattice/index.md
       - "Run the report": may-2026-amaru-lattice/run-the-report.md
@@ -103,5 +107,4 @@ nav:
           - "Query 06 - Network compliance ADA producers": may-2026-amaru-lattice/ada-signers-and-references/06-network-compliance-ada-producers.md
           - "Query 04 - Required signer distribution": may-2026-amaru-lattice/ada-signers-and-references/04-required-signer-distribution.md
           - "Query 09 - Reference input reuse": may-2026-amaru-lattice/ada-signers-and-references/09-reference-input-reuse.md
-  - cardano-tx-generator: cardano-tx-generator.md
   - "Prior art": prior-art.md
