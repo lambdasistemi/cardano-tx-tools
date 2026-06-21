@@ -150,10 +150,19 @@ jobs:
             "${{ steps.dev-artifacts.outputs.tarball }}" \
             --clobber
 
+      - name: Mint a scoped tap token
+        id: tap-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: lambdasistemi
+          repositories: homebrew-tap
+
       - name: Update Homebrew dev formula
         if: ${{ github.event_name == 'workflow_dispatch' && env.UPDATE_TAP == 'yes' }}
         env:
-          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAP_TOKEN: ${{ steps.tap-token.outputs.token }}
         run: |
           set -euo pipefail
           git clone \
