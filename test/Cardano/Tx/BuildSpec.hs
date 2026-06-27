@@ -22,12 +22,14 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Short qualified as SBS
+import Data.Foldable (toList)
+import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Lens.Micro ((&), (.~), (^.))
-import Test.Hspec (Spec, describe, it, shouldBe)
+import Test.Hspec (Spec, describe, it, shouldBe, shouldContain)
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
 import Cardano.Ledger.Address (Addr (..))
@@ -38,8 +40,9 @@ import Cardano.Ledger.Alonzo.Scripts (
 import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
 import Cardano.Ledger.Alonzo.TxWits (TxDats (..))
 import Cardano.Ledger.Api (PParams)
-import Cardano.Ledger.Api.Tx (mkBasicTx)
+import Cardano.Ledger.Api.Tx (bodyTxL, mkBasicTx)
 import Cardano.Ledger.Api.Tx.Body (
+    certsTxBodyL,
     mkBasicTxBody,
     referenceInputsTxBodyL,
  )
@@ -51,7 +54,7 @@ import Cardano.Ledger.Api.Tx.Out (
 import Cardano.Ledger.Api.Tx.Wits (rdmrsTxWitsL)
 import Cardano.Ledger.BaseTypes (
     Network (Testnet),
-    StrictMaybe (SJust),
+    StrictMaybe (SJust, SNothing),
     TxIx (..),
  )
 import Cardano.Ledger.Binary (
@@ -63,13 +66,17 @@ import Cardano.Ledger.Binary (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.TxCert (
+    ConwayDelegCert (..),
+    ConwayTxCert (..),
+ )
 import Cardano.Ledger.Core (Script, witsTxL)
 import Cardano.Ledger.Credential (
-    Credential (KeyHashObj),
+    Credential (KeyHashObj, ScriptHashObj),
     StakeReference (StakeRefNull),
  )
-import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
-import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment))
+import Cardano.Ledger.Hashes (ScriptHash (..), unsafeMakeSafeHash)
+import Cardano.Ledger.Keys (KeyHash (..), KeyRole (Payment, Staking))
 import Cardano.Ledger.Mary.Value (
     MaryValue (..),
     MultiAsset (..),
@@ -82,6 +89,15 @@ import Cardano.Ledger.Plutus.Language (
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
 import Cardano.Tx.Balance (computeScriptIntegrity, languagesUsedInTx)
+import Cardano.Tx.Build (
+    InterpretIO (..),
+    TxBuild,
+    build,
+    mkPParamsBound,
+    registerStakeKey,
+    registerStakeScript,
+    spend,
+ )
 import Cardano.Tx.Ledger (ConwayTx)
 
 -- | Test suite root.
@@ -89,6 +105,7 @@ spec :: Spec
 spec = describe "Cardano.Tx.Build (issue #8 reproduction)" $ do
     swapCancelIntegrityHashSpec
     languagesUsedInTxSpec
+    registerStakeSpec
 
 {- | The mainnet @swap-cancel@ regression: the fixture
 body carries the @script_integrity_hash@ TxBuild
@@ -276,3 +293,74 @@ loadBody path = do
         Right tx -> pure tx
         Left err ->
             fail ("loadBody " <> path <> ": " <> show err)
+
+-- | Uninhabited query context for programs that make no 'ctx' calls.
+data NoCtx a
+
+{- | Verify that 'registerStakeKey' and 'registerStakeScript' place
+the expected 'ConwayRegCert' in the transaction body.
+-}
+registerStakeSpec :: Spec
+registerStakeSpec =
+    describe "registerStake helpers" $ do
+        it "registerStakeKey adds a ConwayRegCert for a key credential" $ do
+            pp <- loadPParams "test/fixtures/pparams.json"
+            let seed =
+                    ( stubTxIn 10
+                    , mkBasicTxOut stubAddr (MaryValue (Coin 100_000_000) (MultiAsset mempty))
+                    )
+                prog :: TxBuild NoCtx String ()
+                prog = do
+                    _ <- spend (fst seed)
+                    _ <- registerStakeKey stubStakingKeyHash
+                    pure ()
+            result <-
+                build
+                    (mkPParamsBound pp)
+                    (InterpretIO (error "no ctx"))
+                    (\_ -> pure Map.empty)
+                    [seed]
+                    []
+                    stubAddr
+                    prog
+            case result of
+                Left err -> fail (show err)
+                Right tx ->
+                    toList (tx ^. bodyTxL . certsTxBodyL)
+                        `shouldContain` [ConwayTxCertDeleg (ConwayRegCert (KeyHashObj stubStakingKeyHash) SNothing)]
+
+        it "registerStakeScript adds a ConwayRegCert for a script credential" $ do
+            pp <- loadPParams "test/fixtures/pparams.json"
+            let seed =
+                    ( stubTxIn 11
+                    , mkBasicTxOut stubAddr (MaryValue (Coin 100_000_000) (MultiAsset mempty))
+                    )
+                prog :: TxBuild NoCtx String ()
+                prog = do
+                    _ <- spend (fst seed)
+                    _ <- registerStakeScript stubScriptHash
+                    pure ()
+            result <-
+                build
+                    (mkPParamsBound pp)
+                    (InterpretIO (error "no ctx"))
+                    (\_ -> pure Map.empty)
+                    [seed]
+                    []
+                    stubAddr
+                    prog
+            case result of
+                Left err -> fail (show err)
+                Right tx ->
+                    toList (tx ^. bodyTxL . certsTxBodyL)
+                        `shouldContain` [ConwayTxCertDeleg (ConwayRegCert (ScriptHashObj stubScriptHash) SNothing)]
+
+stubStakingKeyHash :: KeyHash Staking
+stubStakingKeyHash =
+    KeyHash
+        (fromJust (hashFromStringAsHex (replicate 56 'a')))
+
+stubScriptHash :: ScriptHash
+stubScriptHash =
+    ScriptHash
+        (fromJust (hashFromStringAsHex (replicate 56 'b')))
