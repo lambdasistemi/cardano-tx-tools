@@ -711,9 +711,10 @@ registerStakeKey h =
         (ConwayTxCertDeleg $ ConwayRegCert (KeyHashObj h) SNothing)
         PubKeyCert
 
--- | Register a script-backed staking credential with no deposit and no
--- delegation. The script must be added to the transaction witnesses separately
--- (e.g. via 'attachScript').
+{- | Register a script-backed staking credential with no deposit and no
+delegation. The script must be added to the transaction witnesses separately
+(e.g. via 'attachScript').
+-}
 registerStakeScript ::
     ScriptHash ->
     TxBuild q e Word32
