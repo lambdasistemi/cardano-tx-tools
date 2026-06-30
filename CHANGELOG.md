@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [0.2.4.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.3.0...v0.2.4.0) (2026-06-30)
+
+### Features
+
+* **tx-build:** registerStakeKey and registerStakeScript (#132) ([7bfe95b](https://github.com/lambdasistemi/cardano-tx-tools/commit/7bfe95bf5ef3bfa846e62bcae94cf377b66ad0d0))
+
+### Bug Fixes
+
+* **blueprint:** decode recursive definitions via on-demand ref resolution ([c08f1f4](https://github.com/lambdasistemi/cardano-tx-tools/commit/c08f1f453ac54d8faa8ca2439765084073051cbe))
+
 ## [0.2.3.0](https://github.com/lambdasistemi/cardano-tx-tools/compare/v0.2.2.0...v0.2.3.0) (2026-05-31)
 
 ### Features
