@@ -66,6 +66,8 @@ module Cardano.Tx.Build (
     -- * Certificates
     certify,
     registerAndVoteAbstain,
+    registerStakeKey,
+    registerStakeScript,
 
     -- * Proposals
     propose,
@@ -699,6 +701,27 @@ registerAndVoteAbstain credential deposit =
                 credential
                 (DelegVote DRepAlwaysAbstain)
                 deposit
+
+-- | Register a pubkey staking credential with no deposit and no delegation.
+registerStakeKey ::
+    KeyHash Staking ->
+    TxBuild q e Word32
+registerStakeKey h =
+    certify
+        (ConwayTxCertDeleg $ ConwayRegCert (KeyHashObj h) SNothing)
+        PubKeyCert
+
+{- | Register a script-backed staking credential with no deposit and no
+delegation. The script must be added to the transaction witnesses separately
+(e.g. via 'attachScript').
+-}
+registerStakeScript ::
+    ScriptHash ->
+    TxBuild q e Word32
+registerStakeScript h =
+    certify
+        (ConwayTxCertDeleg $ ConwayRegCert (ScriptHashObj h) SNothing)
+        PubKeyCert
 
 {- | Emit a Conway proposal procedure. Returns the proposal index in
 the final transaction body field.
