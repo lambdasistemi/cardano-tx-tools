@@ -36,6 +36,8 @@ kernel ships upstream.
 module Cardano.Tx.Validate (
     validatePhase1,
     validatePhase1WithRewardAccounts,
+    validatePhase1WithGlobals,
+    validatePhase1WithGlobalsAndRewardAccounts,
     isWitnessCompletenessFailure,
 ) where
 
@@ -118,12 +120,9 @@ validatePhase1 ::
     SlotNo ->
     ConwayTx ->
     Either (ApplyTxError ConwayEra) ()
-validatePhase1 network ppBound utxo =
-    validatePhase1WithRewardAccounts
-        network
-        ppBound
-        utxo
-        Map.empty
+validatePhase1 network =
+    validatePhase1WithGlobals
+        (synthesiseGlobals network)
 
 {- | Run Conway Phase-1 validation with caller-supplied registered
 reward accounts.
@@ -143,14 +142,71 @@ validatePhase1WithRewardAccounts ::
     SlotNo ->
     ConwayTx ->
     Either (ApplyTxError ConwayEra) ()
-validatePhase1WithRewardAccounts network ppBound utxo rewardAccounts slot tx =
-    let pp = unPParamsBound ppBound
-        nes = seedNewEpochState pp utxo rewardAccounts
-        env = mkMempoolEnv nes slot
-        state = mkMempoolState nes
-     in case applyTx (synthesiseGlobals network) env state tx of
-            Right _ -> Right ()
-            Left err -> Left err
+validatePhase1WithRewardAccounts network =
+    validatePhase1WithGlobalsAndRewardAccounts
+        (synthesiseGlobals network)
+
+{- | Run Conway Phase-1 validation under a caller-supplied
+'Globals'.
+
+Identical to 'validatePhase1' except that the ledger runs under
+the coordinate the caller hands in, instead of one synthesised
+from a 'Network'. Callers that already hold the runtime
+'Globals' — for example one acquired from a node alongside the
+provider that produced the candidate's inputs — use this so the
+pre-flight and the builder share one time/era/network
+provenance rather than two.
+
+The supplied value is passed through untouched: no field is
+synthesised, reconstructed, projected, or replaced on this path.
+-}
+validatePhase1WithGlobals ::
+    Globals ->
+    PParamsBound ->
+    [(TxIn, TxOut ConwayEra)] ->
+    SlotNo ->
+    ConwayTx ->
+    Either (ApplyTxError ConwayEra) ()
+validatePhase1WithGlobals globals ppBound utxo =
+    validatePhase1WithGlobalsAndRewardAccounts
+        globals
+        ppBound
+        utxo
+        Map.empty
+
+{- | Run Conway Phase-1 validation under a caller-supplied
+'Globals' with caller-supplied registered reward accounts.
+
+This is the one reward-aware kernel; every other entry point in
+this module delegates to it. Reward-account seeding is exactly
+as documented on 'validatePhase1WithRewardAccounts', and the
+'ApplyTxError' is returned verbatim — no filtering, no
+re-classification.
+
+The @globals@ argument is handed to @applyTx@ unchanged.
+-}
+validatePhase1WithGlobalsAndRewardAccounts ::
+    Globals ->
+    PParamsBound ->
+    [(TxIn, TxOut ConwayEra)] ->
+    Map.Map AccountAddress Coin ->
+    SlotNo ->
+    ConwayTx ->
+    Either (ApplyTxError ConwayEra) ()
+validatePhase1WithGlobalsAndRewardAccounts
+    globals
+    ppBound
+    utxo
+    rewardAccounts
+    slot
+    tx =
+        let pp = unPParamsBound ppBound
+            nes = seedNewEpochState pp utxo rewardAccounts
+            env = mkMempoolEnv nes slot
+            state = mkMempoolState nes
+         in case applyTx globals env state tx of
+                Right _ -> Right ()
+                Left err -> Left err
 
 {- | Seed a fresh 'NewEpochState' for the supplied era with the
 caller-supplied protocol parameters and UTxO. Everything else
