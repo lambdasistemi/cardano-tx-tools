@@ -36,10 +36,8 @@ import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Word (Word8)
-import Lens.Micro ((%~), (&))
 
 import Cardano.Ledger.Api.Era (eraProtVerLow)
-import Cardano.Ledger.Api.Tx (addrTxWitsL)
 import Cardano.Ledger.Binary (
     Annotator,
     DecCBOR (..),
@@ -51,9 +49,9 @@ import Cardano.Ledger.Binary (
     serialize,
  )
 import Cardano.Ledger.Conway (ConwayEra)
-import Cardano.Ledger.Core (witsTxL)
 import Cardano.Ledger.Keys (KeyRole (..), WitVKey)
 import Cardano.Tx.Ledger (ConwayTx)
+import Cardano.Tx.Sign.Core qualified as Core
 
 {- | Failure cases for witness attachment. Each variant
 carries enough context to render a typed, human-readable
@@ -164,10 +162,17 @@ the same witness twice is a no-op.
 The body, aux-data, redeemers, scripts, and the @is_valid@ flag are not
 touched, so the transaction's body hash and aux-data hash are
 unchanged.
+
+Folds 'Cardano.Tx.Sign.Core.attachPaymentWitness' ('Set.insert') over the
+incoming set rather than a bare 'Set.union'. The two are equivalent:
+'Set.union' is left-biased (an incoming witness replaces an equal old one,
+per 'WitVKey''s key-hash-based 'Ord'), and folding 'Set.insert' over the
+incoming set has the same left bias for the same reason — including when
+the same key hash arrives with a different signature (new wins in both).
 -}
 attachWitnesses :: Set (WitVKey Witness) -> ConwayTx -> ConwayTx
 attachWitnesses wits tx =
-    tx & witsTxL . addrTxWitsL %~ Set.union wits
+    Set.foldr Core.attachPaymentWitness tx wits
 
 {- | Re-encode a (now signed) Conway transaction as lowercase base16
 CBOR hex.
