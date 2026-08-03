@@ -192,6 +192,7 @@ library
     , cardano-slotting               >=0.2  && <0.4
     , cardano-strict-containers      >=0.1  && <0.3
     , cardano-tx-tools:tx-build
+    , cardano-tx-tools:tx-sign-core
     , containers                     >=0.7  && <0.8
     , crypton                        >=1.0  && <1.1
     , data-default                   >=0.8  && <0.9
@@ -219,6 +220,29 @@ library
     , tree-view                      >=0.5  && <0.6
     , unix                           >=2.8  && <2.9
     , yaml                           >=0.11 && <0.12
+
+-- Pure payment-key signing core: decode a PaymentSigningKeyShelley_ed25519
+-- envelope, sign a Conway body hash, construct a WitVKey, and attach it. No
+-- Vault, age, CLI, release-check, or node-client surface -- see
+-- Cardano.Tx.Sign.Core's own module haddock for the exact boundary.
+library tx-sign-core
+  import:           warnings
+  visibility:       public
+  hs-source-dirs:   src-tx-sign-core
+  default-language: GHC2021
+  exposed-modules:  Cardano.Tx.Sign.Core
+  build-depends:
+    , aeson                      >=2.2  && <2.3
+    , base                       <5
+    , base16-bytestring          >=1.0  && <1.1
+    , bytestring                 >=0.12 && <0.13
+    , cardano-crypto-class       >=2.3  && <4
+    , cardano-ledger-api         >=1.13 && <3
+    , cardano-ledger-core        >=1.19 && <3
+    , cardano-tx-tools:tx-build
+    , containers                 >=0.7  && <0.8
+    , microlens                  >=0.4  && <0.5
+    , text                       >=2.1  && <2.2
 
 library n2c-resolver
   import:           warnings
@@ -567,6 +591,7 @@ test-suite unit-tests
     Cardano.Tx.Rewrite.ApplySpec
     Cardano.Tx.Rewrite.LoadSpec
     Cardano.Tx.Rewrite.RewriteRedesignGoldenSpec
+    Cardano.Tx.Sign.WitnessCompatSpec
     Cardano.Tx.Validate.LoadUtxo
     Cardano.Tx.Validate.LoadUtxoSpec
     Cardano.Tx.ValidateSpec
@@ -776,4 +801,28 @@ test-suite tx-validate-tests
     , hspec                          >=2.11 && <2.12
     , microlens                      >=0.4  && <0.5
     , plutus-core                    >=1.60 && <3
+    , text                           >=2.1  && <2.2
+
+test-suite tx-sign-core-tests
+  import:           warnings
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test-tx-sign-core
+  main-is:          Main.hs
+  default-language: GHC2021
+  other-modules:    Cardano.Tx.Sign.CoreSpec
+  build-depends:
+    , aeson                          >=2.2  && <2.3
+    , base                           <5
+    , base16-bytestring              >=1.0  && <1.1
+    , bytestring                     >=0.12 && <0.13
+    , cardano-crypto-class           >=2.3  && <4
+    , cardano-ledger-api             >=1.13 && <3
+    , cardano-ledger-binary          >=1.8  && <3
+    , cardano-ledger-conway          >=1.21 && <3
+    , cardano-ledger-core            >=1.19 && <3
+    , cardano-tx-tools:tx-build
+    , cardano-tx-tools:tx-sign-core
+    , containers                     >=0.7  && <0.8
+    , hspec                          >=2.11 && <2.12
+    , microlens                      >=0.4  && <0.5
     , text                           >=2.1  && <2.2
