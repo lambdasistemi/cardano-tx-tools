@@ -45,11 +45,16 @@ let
       name = "build";
       text = ''
         test -e ${components.library}
+        test -e ${components.sublibs."tx-build"}
         test -e ${components.sublibs."n2c-resolver"}
         test -e ${components.sublibs."tx-generator-lib"}
         test -e ${components.exes.tx-diff}
         test -e ${components.exes.tx-fetch}
         test -e ${components.exes.tx-graph}
+        test -e ${components.exes.tx-inspect}
+        test -e ${components.exes.tx-sign}
+        test -e ${components.exes.tx-validate}
+        test -e ${components.exes.tx-view}
         test -e ${components.exes."cardano-tx-generator"}
         test -e ${components.tests."unit-tests"}
         test -e ${components.tests."tx-generator-tests"}
@@ -103,6 +108,41 @@ let
       text = ''
         export E2E_GENESIS_DIR=${cardanoNodeClientsSrc}/e2e-test/genesis
         e2e-tests
+      '';
+    };
+
+    # CLI smoke scripts against the Nix-built executables. The exe
+    # variables are always set, so the scripts never reach their
+    # cabal fallback. Scripts run through `bash` because the build
+    # sandbox has no /usr/bin/env for their shebang. The update check
+    # is opted out: it is silent on failure and would only add a
+    # network call to the app. The text cds to the flake source so
+    # `nix run .#smoke` behaves like the check from any directory.
+    smoke = {
+      name = "smoke";
+      runtimeInputs = [
+        pkgs.bash
+        pkgs.coreutils
+        pkgs.diffutils
+        pkgs.gnugrep
+      ];
+      text = ''
+        export LANG=C.UTF-8 LC_ALL=C.UTF-8
+        ${lib.optionalString pkgs.stdenv.hostPlatform.isLinux
+          "export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive"}
+        export TX_SIGN_EXE=${components.exes.tx-sign}/bin/tx-sign
+        export TX_INSPECT_EXE=${components.exes.tx-inspect}/bin/tx-inspect
+        export TX_DIFF_EXE=${components.exes.tx-diff}/bin/tx-diff
+        export TX_SIGN_NO_UPDATE_CHECK=1
+        export TX_INSPECT_NO_UPDATE_CHECK=1
+        export TX_DIFF_NO_UPDATE_CHECK=1
+        for exe in "$TX_SIGN_EXE" "$TX_INSPECT_EXE" "$TX_DIFF_EXE"; do
+          test -x "$exe" || { echo "smoke: not executable: $exe" >&2; exit 1; }
+        done
+        cd ${src}
+        bash scripts/smoke/tx-sign
+        bash scripts/smoke/tx-inspect
+        bash scripts/smoke/tx-diff
       '';
     };
 
