@@ -2,6 +2,13 @@ body
 +- collateralInputs
 |  `- 0
 |     `- {"index":2,"txId":"59e10ca5e03b8d243c699fc45e1e18a2a825e2a09c5efa6954aec820a4d64dfe"}
++- collateralReturn
+|  +- address
+|  |  `- {"bytes":"018bd03209d227956aaf9670751e0aa2057b51c1537a43f155b24fb1c14c7889c658ef4f491a34cf79c35a2e0fe6b0d1b0a856fb9580f2d9c3"}
+|  +- assets
+|  |  `- "no native assets"
+|  `- coin
+|     `- 92.171311 ADA (92171311 lovelace)
 +- fee
 |  `- 0.257593 ADA (257593 lovelace)
 +- inputs

@@ -160,4 +160,36 @@ grep -F 'https://cardanoscan.io/transaction/' "$tmp/inspect.amaru.links.out" >/d
 grep -F 'https://cardanoscan.io/address/' "$tmp/inspect.amaru.links.out" >/dev/null \
   || fail "--links=cardanoscan render missing cardanoscan.io /address/ URL"
 
+# Assertion 10: --witnesses (issue 141). --help lists the flag; the
+# default render of a fixture with Plutus redeemers carries a
+# collateralReturn node and no witnesses root; the --witnesses render
+# starts with the default render byte-for-byte and appends a witnesses
+# root whose redeemers node lists at least one <tag>.<index> entry.
+witness_fixture="test/fixtures/mainnet-txbuild/cebc413826ebd61a4ee908617d668197dd1206ca39bb31429d538dc59fbb534f.cbor.hex"
+[[ -e "$witness_fixture" ]] || fail "missing witness fixture: $witness_fixture"
+
+"$exe" --help >"$tmp/help.out"
+grep -F -- '--witnesses' "$tmp/help.out" >/dev/null \
+  || fail "--help does not list --witnesses"
+
+"$exe" "$witness_fixture" >"$tmp/inspect.default.out"
+"$exe" --witnesses "$witness_fixture" >"$tmp/inspect.witnesses.out"
+
+grep -x -- '+- collateralReturn' "$tmp/inspect.default.out" >/dev/null \
+  || fail "default render missing body.collateralReturn"
+if grep -x 'witnesses' "$tmp/inspect.default.out" >/dev/null; then
+  fail "default render carries a witnesses root"
+fi
+default_bytes="$(wc -c <"$tmp/inspect.default.out")"
+head -c "$default_bytes" "$tmp/inspect.witnesses.out" | cmp -s - "$tmp/inspect.default.out" \
+  || fail "--witnesses render does not start with the default render"
+sed -n '/^witnesses$/,$p' "$tmp/inspect.witnesses.out" >"$tmp/inspect.witnesses.only"
+[[ -s "$tmp/inspect.witnesses.only" ]] \
+  || fail "--witnesses render has no witnesses root"
+grep -E -- '^[+`]- redeemers$' "$tmp/inspect.witnesses.only" >/dev/null \
+  || fail "--witnesses render has no witnesses.redeemers node"
+grep -E -- '^\|  [+`]- (spending|minting|certifying|rewarding|voting|proposing)\.[0-9]+$' \
+  "$tmp/inspect.witnesses.only" >/dev/null \
+  || fail "--witnesses render lists no redeemer"
+
 printf 'tx-inspect smoke: OK\n'

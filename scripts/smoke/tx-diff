@@ -95,4 +95,23 @@ if grep -q -F "$amaru_swap_v2_prefix" "$tmp/diff-rules.out"; then
   fail "tx-diff Amaru output leaked the swap.v2 raw hash prefix $amaru_swap_v2_prefix"
 fi
 
+# Assertion 5: --witnesses (issue 141). The usage printed for --help
+# lists the flag; the default diff of two distinct swaps carries no
+# witnesses node, the --witnesses diff does.
+help_out="$("$exe" --help 2>&1 || true)"
+grep -F -- '--witnesses' <<<"$help_out" >/dev/null \
+  || fail "--help does not list --witnesses"
+
+if grep -F 'witnesses' "$tmp/diff-norules.out" >/dev/null; then
+  fail "default tx-diff output carries witnesses"
+fi
+set +e
+"$exe" --witnesses "$amaru_swap1" "$amaru_swap2" >"$tmp/diff-witnesses.out"
+rc_witnesses=$?
+set -e
+[[ "$rc_witnesses" -ne 0 ]] \
+  || fail "expected tx-diff --witnesses to exit non-zero (txs differ) but it returned 0"
+grep -F 'witnesses' "$tmp/diff-witnesses.out" >/dev/null \
+  || fail "tx-diff --witnesses output carries no witnesses node"
+
 printf 'tx-diff smoke: OK\n'

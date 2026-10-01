@@ -65,23 +65,55 @@ with-resolution and without-resolution shapes.
 -}
 module Cardano.Tx.InspectSpec (spec) where
 
+import Control.Monad (foldM, forM_)
 import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Short qualified as SBS
+import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
+import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as TextIO
-import Lens.Micro ((^.))
+import Lens.Micro ((&), (.~), (^.))
+import PlutusCore.Data qualified as PLC
 import System.Directory (doesFileExist)
 import Test.Hspec
 
-import Cardano.Ledger.Api.Tx (bodyTxL)
+import Cardano.Crypto.Hash (hashToBytes)
+import Cardano.Ledger.Address (Addr, serialiseAddr)
+import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
+import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
+import Cardano.Ledger.Api.Scripts.Data (Data (..))
+import Cardano.Ledger.Api.Tx (bodyTxL, witsTxL)
 import Cardano.Ledger.Api.Tx.Body (
     collateralInputsTxBodyL,
+    collateralReturnTxBodyL,
     inputsTxBodyL,
     referenceInputsTxBodyL,
+    totalCollateralTxBodyL,
  )
+import Cardano.Ledger.Api.Tx.Out (TxOut, addrTxOutL, valueTxOutL)
+import Cardano.Ledger.Api.Tx.Wits (rdmrsTxWitsL)
+import Cardano.Ledger.BaseTypes (StrictMaybe (..))
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
+import Cardano.Ledger.Hashes (ScriptHash (..))
+import Cardano.Ledger.Mary.Value (
+    AssetName (..),
+    MaryValue (..),
+    MultiAsset (..),
+    PolicyID (..),
+ )
+import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 
 import Cardano.Tx.BuildSpec (loadBody)
 import Cardano.Tx.Diff (
+    AddressMatch (..),
+    AddressTarget (..),
     HumanRenderOptions (..),
+    RenameRule (..),
+    RenameRules (..),
     TxDiffOptions (..),
     decodeConwayTxInput,
     defaultHumanRenderOptions,
@@ -96,6 +128,7 @@ import Cardano.Tx.Diff (
  )
 import Cardano.Tx.Diff.Resolver (Resolver (..))
 import Cardano.Tx.Diff.Scan (Url (..))
+import Cardano.Tx.Ledger (ConwayTx)
 import Cardano.Tx.Rewrite (applyCollapseFromRewriteRules, applyRewriteRules)
 import Data.Text qualified as Text
 
@@ -110,6 +143,8 @@ spec = do
     selfDiffSharedSubstrateSpec
     amaruBothStagesSpec
     amaruDiffSharedSubstrateSpec
+    collateralReturnSpec
+    redeemerWitnessSpec
 
 baselineSpec :: Spec
 baselineSpec =
@@ -481,3 +516,240 @@ readOrCaptureGolden path actual = do
         else do
             TextIO.writeFile path actual
             pure actual
+
+{- | Issue 141: the body projection carries @collateralReturn@ and the
+witness projection is reachable from @tx-inspect@. Every expected value
+below is read from the decoded fixture, never typed in.
+-}
+collateralReturnSpec :: Spec
+collateralReturnSpec =
+    describe "Cardano.Tx.Diff.renderConwayTxHuman body.collateralReturn (issue 141)" $ do
+        it
+            "renders a present collateral return with the decoded address,\
+            \ coin and every native asset"
+            $ do
+                tx <- loadBody collateralReturnAssetsFixture
+                output <- expectCollateralReturn tx
+                let rendered =
+                        renderConwayTxHuman
+                            inspectRenderOptions
+                            defaultTxDiffOptions
+                            tx
+                    MaryValue (Coin lovelace) (MultiAsset policies) =
+                        output ^. valueTxOutL
+                    expectedAssets =
+                        [ (policyHex policy, assetHex assetName, quantity)
+                        | (policy, assets) <- Map.toAscList policies
+                        , (assetName, quantity) <- Map.toAscList assets
+                        ]
+                expectedAssets `shouldSatisfy` (not . null)
+                node <- expectNode "body" ["collateralReturn"] rendered
+                address <- expectChild "address" node
+                address
+                    `shouldSatisfy` leafContains
+                        (addressHex (output ^. addrTxOutL))
+                coin <- expectChild "coin" node
+                coin
+                    `shouldSatisfy` leafContains
+                        ("(" <> Text.pack (show lovelace) <> " lovelace)")
+                assetsNode <- expectChild "assets" node
+                childNames assetsNode
+                    `shouldBe` map policyHex (Map.keys policies)
+                forM_ expectedAssets $ \(policy, assetName, quantity) ->
+                    (childBlock policy assetsNode >>= childBlock assetName)
+                        `shouldBe` Just ["`- " <> Text.pack (show quantity)]
+
+        it
+            "renders an absent collateral return as the explicit absent leaf\
+            \ an absent totalCollateral uses"
+            $ do
+                tx0 <- loadBody noCollateralReturnFixture
+                tx0 ^. bodyTxL . collateralReturnTxBodyL `shouldBe` SNothing
+                let tx = tx0 & bodyTxL . totalCollateralTxBodyL .~ SNothing
+                    rendered =
+                        renderConwayTxHuman
+                            inspectRenderOptions
+                            defaultTxDiffOptions
+                            tx
+                absentTotalCollateral <-
+                    expectNode "body" ["totalCollateral"] rendered
+                expectNode "body" ["collateralReturn"] rendered
+                    >>= (`shouldBe` absentTotalCollateral)
+
+        it
+            "renames the collateral return address with a matching address\
+            \ rule"
+            $ do
+                tx <- loadBody collateralReturnAssetsFixture
+                output <- expectCollateralReturn tx
+                let addr = output ^. addrTxOutL
+                    ruleName = "collateral-return-owner"
+                    rules =
+                        RenameRules
+                            [ RenameAddress
+                                { renameAddressKey = "collateral-return-owner"
+                                , renameAddressMatch = MatchFull
+                                , renameAddressTarget = TargetFullAddress addr
+                                , renameName = ruleName
+                                }
+                            ]
+                    rendered =
+                        renderConwayTxHuman
+                            inspectRenderOptions{humanRenameRules = Just rules}
+                            defaultTxDiffOptions
+                            tx
+                address <-
+                    expectNode "body" ["collateralReturn", "address"] rendered
+                address `shouldSatisfy` leafContains ruleName
+                address `shouldSatisfy` not . leafContains (addressHex addr)
+
+redeemerWitnessSpec :: Spec
+redeemerWitnessSpec =
+    describe "Cardano.Tx.Diff.renderConwayTxHuman witnesses.redeemers (issue 141)" $ do
+        it
+            "renders every decoded redeemer with purpose tag, index, data and\
+            \ ExUnits when witnesses are included"
+            $ do
+                tx <- loadBody collateralReturnAssetsFixture
+                let Redeemers redeemers = tx ^. witsTxL . rdmrsTxWitsL
+                    rendered =
+                        renderConwayTxHuman
+                            inspectRenderOptions
+                            defaultTxDiffOptions{txDiffIncludeWitnesses = True}
+                            tx
+                Map.size redeemers `shouldSatisfy` (> 1)
+                node <- expectNode "witnesses" ["redeemers"] rendered
+                length (childNames node) `shouldBe` Map.size redeemers
+                List.sort (childNames node)
+                    `shouldBe` List.sort (map purposeKey (Map.keys redeemers))
+                forM_ (Map.toList redeemers) $
+                    \(purpose, (Data redeemerData, ExUnits memory steps)) -> do
+                        entry <- expectChild (purposeKey purpose) node
+                        childNames entry `shouldBe` ["data", "exUnits"]
+                        exUnits <- expectChild "exUnits" entry
+                        exUnits
+                            `shouldSatisfy` leafContains
+                                ("\"memory\":" <> Text.pack (show memory))
+                        exUnits
+                            `shouldSatisfy` leafContains
+                                ("\"steps\":" <> Text.pack (show steps))
+                        dataNode <- expectChild "data" entry
+                        dataNode `shouldSatisfy` (not . null)
+                        case redeemerData of
+                            PLC.Constr index _ ->
+                                childBlock "constructor" dataNode
+                                    `shouldBe` Just ["`- " <> Text.pack (show index)]
+                            PLC.I integer ->
+                                dataNode
+                                    `shouldBe` ["`- " <> Text.pack (show integer)]
+                            _ ->
+                                pure ()
+
+        it "renders no witnesses root by default" $ do
+            tx <- loadBody collateralReturnAssetsFixture
+            let rendered =
+                    renderConwayTxHuman
+                        inspectRenderOptions
+                        defaultTxDiffOptions
+                        tx
+            rootChildren "witnesses" rendered `shouldBe` Nothing
+
+collateralReturnAssetsFixture :: FilePath
+collateralReturnAssetsFixture =
+    "test/fixtures/mainnet-txbuild/\
+    \cebc413826ebd61a4ee908617d668197dd1206ca39bb31429d538dc59fbb534f.cbor.hex"
+
+noCollateralReturnFixture :: FilePath
+noCollateralReturnFixture =
+    "test/fixtures/mainnet-txbuild/\
+    \23f8ade58f538e09d9741cd6d7d88fd394ef29fd17880f0539b685018d3d5f29.cbor.hex"
+
+-- | The render options @tx-inspect@ starts from.
+inspectRenderOptions :: HumanRenderOptions
+inspectRenderOptions =
+    defaultHumanRenderOptions{humanHideEmpty = True}
+
+expectCollateralReturn :: ConwayTx -> IO (TxOut ConwayEra)
+expectCollateralReturn tx =
+    case tx ^. bodyTxL . collateralReturnTxBodyL of
+        SJust output -> pure output
+        SNothing -> expectationFailure' "fixture has no collateralReturn"
+
+{- | Lines under a top-level root of an ASCII tree render (@body@,
+@witnesses@), each still carrying its connector prefix.
+-}
+rootChildren :: Text -> Text -> Maybe [Text]
+rootChildren root rendered =
+    case break (== root) (Text.lines rendered) of
+        (_, _ : rest) -> Just (takeWhile isChildLine rest)
+        _ -> Nothing
+  where
+    isChildLine line =
+        any (`Text.isPrefixOf` line) ["+- ", "`- ", "|  ", "   "]
+
+{- | The block under the child labelled @name@, re-rooted so that its
+own children start at column zero.
+-}
+childBlock :: Text -> [Text] -> Maybe [Text]
+childBlock name block =
+    case break isHeader block of
+        (_, _ : rest) ->
+            Just (map (Text.drop 3) (takeWhile isContinuation rest))
+        _ -> Nothing
+  where
+    isHeader line = line == "+- " <> name || line == "`- " <> name
+    isContinuation line =
+        "|  " `Text.isPrefixOf` line || "   " `Text.isPrefixOf` line
+
+childNames :: [Text] -> [Text]
+childNames block =
+    [ Text.drop 3 line
+    | line <- block
+    , "+- " `Text.isPrefixOf` line || "`- " `Text.isPrefixOf` line
+    ]
+
+expectNode :: Text -> [Text] -> Text -> IO [Text]
+expectNode root path rendered =
+    case rootChildren root rendered >>= \block -> foldM (flip childBlock) block path of
+        Just block -> pure block
+        Nothing ->
+            expectationFailure' $
+                "render has no node "
+                    <> Text.unpack (Text.intercalate "." (root : path))
+
+expectChild :: Text -> [Text] -> IO [Text]
+expectChild name block =
+    maybe
+        (expectationFailure' ("render has no child " <> Text.unpack name))
+        pure
+        (childBlock name block)
+
+-- | A single-leaf block whose leaf contains the fragment.
+leafContains :: Text -> [Text] -> Bool
+leafContains fragment = \case
+    [leaf] -> fragment `Text.isInfixOf` leaf
+    _ -> False
+
+addressHex :: Addr -> Text
+addressHex = hexText . serialiseAddr
+
+policyHex :: PolicyID -> Text
+policyHex (PolicyID (ScriptHash hash)) = hexText (hashToBytes hash)
+
+assetHex :: AssetName -> Text
+assetHex (AssetName bytes) = hexText (SBS.fromShort bytes)
+
+hexText :: BS.ByteString -> Text
+hexText = Text.decodeUtf8 . Base16.encode
+
+-- | Redeemer purpose as the spec names it: @<tag>.<index>@.
+purposeKey :: ConwayPlutusPurpose AsIx ConwayEra -> Text
+purposeKey = \case
+    ConwaySpending (AsIx index) -> tagged "spending" index
+    ConwayMinting (AsIx index) -> tagged "minting" index
+    ConwayCertifying (AsIx index) -> tagged "certifying" index
+    ConwayRewarding (AsIx index) -> tagged "rewarding" index
+    ConwayVoting (AsIx index) -> tagged "voting" index
+    ConwayProposing (AsIx index) -> tagged "proposing" index
+  where
+    tagged tag index = tag <> "." <> Text.pack (show index)
