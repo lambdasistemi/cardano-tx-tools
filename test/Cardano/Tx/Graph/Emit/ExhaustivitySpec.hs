@@ -81,6 +81,7 @@ import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..), TxDats (..))
 import Cardano.Ledger.Api.Tx (bodyTxL, mkBasicTx, witsTxL)
 import Cardano.Ledger.Api.Tx.Body (
+    collateralReturnTxBodyL,
     feeTxBodyL,
     inputsTxBodyL,
     mintTxBodyL,
@@ -174,6 +175,7 @@ allConwayDiffConstructors =
     , "ConwayScriptsValue"
     , "ConwaySlotBoundValue"
     , "ConwayStrictMaybeCoinValue"
+    , "ConwayStrictMaybeTxOutValue"
     , "ConwayTxInIdValue"
     , "ConwayTxInValue"
     , "ConwayTxOutAssetsValue"
@@ -238,6 +240,9 @@ witnessTx = \case
     -- totalCollateral to SJust.
     "ConwayStrictMaybeCoinValue" ->
         baseTx & bodyTxL . totalCollateralTxBodyL .~ SJust (Coin 1)
+    -- ConwayStrictMaybeTxOutValue is exercised by setting
+    -- collateralReturn to SJust.
+    "ConwayStrictMaybeTxOutValue" -> txWithCollateralReturn
     -- ConwayKeyHashesValue / ConwayKeyHashValue are exercised by
     -- a non-empty required-signers set.
     "ConwayKeyHashesValue" -> txWithRequiredSigner
@@ -352,6 +357,12 @@ txWithOutput :: ConwayTx
 txWithOutput =
     baseTx
         & bodyTxL . outputsTxBodyL .~ StrictSeq.fromList [stubTxOut 1_000_000]
+
+-- | A tx with a collateral return output.
+txWithCollateralReturn :: ConwayTx
+txWithCollateralReturn =
+    baseTx
+        & bodyTxL . collateralReturnTxBodyL .~ SJust (stubTxOut 1_000_000)
 
 ----------------------------------------------------------------------
 -- Synthetic witness-set leaves (T128b / S31)

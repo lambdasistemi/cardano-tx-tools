@@ -65,6 +65,8 @@ data TxDiffCliOptions = TxDiffCliOptions
     { txDiffCliBlueprintPaths :: [FilePath]
     , txDiffCliCollapseRulesPath :: Maybe FilePath
     , txDiffCliHumanRenderOptions :: HumanRenderOptions
+    , txDiffCliIncludeWitnesses :: Bool
+    -- ^ Render the witness set (@--witnesses@). Default 'False'.
     , txDiffCliN2cResolver :: Maybe TxDiffCliN2cConfig
     , txDiffCliWeb2Resolver :: Maybe TxDiffCliWeb2Config
     , txDiffCliLeftPath :: FilePath
@@ -166,6 +168,8 @@ parseTxDiffCliArgs args =
         go acc{accWeb2ApiKeyFile = Just path} rest
     go _ ["--web2-api-key-file"] =
         Left (TxDiffCliUsageError "missing value for --web2-api-key-file")
+    go acc ("--witnesses" : rest) =
+        go acc{accIncludeWitnesses = True} rest
     go acc rest =
         Right (acc, rest)
 
@@ -177,6 +181,7 @@ parseTxDiffCliArgs args =
                 { txDiffCliBlueprintPaths = reverse (accBlueprintPaths acc)
                 , txDiffCliCollapseRulesPath = accCollapseRulesPath acc
                 , txDiffCliHumanRenderOptions = accRenderOptions acc
+                , txDiffCliIncludeWitnesses = accIncludeWitnesses acc
                 , txDiffCliN2cResolver = n2c
                 , txDiffCliWeb2Resolver = web2
                 , txDiffCliLeftPath = leftPath
@@ -218,6 +223,7 @@ data Accumulator = Accumulator
     , accNetworkMagic :: Maybe Word32
     , accWeb2Url :: Maybe Text
     , accWeb2ApiKeyFile :: Maybe FilePath
+    , accIncludeWitnesses :: Bool
     }
 
 emptyAccumulator :: Accumulator
@@ -230,6 +236,7 @@ emptyAccumulator =
         , accNetworkMagic = Nothing
         , accWeb2Url = Nothing
         , accWeb2ApiKeyFile = Nothing
+        , accIncludeWitnesses = False
         }
 
 parseRenderShape :: String -> Either TxDiffCliError RenderShape
@@ -257,4 +264,5 @@ txDiffCliUsage prog =
         <> " [--blueprint FILE ...]"
         <> " [--resolve-n2c SOCKET --network-magic N]"
         <> " [--resolve-web2 URL [--web2-api-key-file PATH]]"
+        <> " [--witnesses]"
         <> " TX_A TX_B"

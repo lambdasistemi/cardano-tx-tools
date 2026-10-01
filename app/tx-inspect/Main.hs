@@ -133,6 +133,8 @@ inspect).
 data InspectCliOptions = InspectCliOptions
     { inspectCliRulesPath :: Maybe FilePath
     , inspectCliRenderOptions :: HumanRenderOptions
+    , inspectCliIncludeWitnesses :: Bool
+    -- ^ Render the witness set (@--witnesses@). Default 'False'.
     , inspectCliN2cResolver :: Maybe InspectCliN2cConfig
     , inspectCliWeb2Resolver :: Maybe InspectCliWeb2Config
     , inspectCliTxPath :: FilePath
@@ -247,6 +249,8 @@ parseInspectCliArgs args = do
         go acc{accScanNetwork = Just network} rest
     go _ ["--network"] =
         Left "missing value for --network"
+    go acc ("--witnesses" : rest) =
+        go acc{accIncludeWitnesses = True} rest
     go acc rest =
         Right (acc, rest)
 
@@ -257,6 +261,7 @@ parseInspectCliArgs args = do
             InspectCliOptions
                 { inspectCliRulesPath = accRulesPath acc
                 , inspectCliRenderOptions = withLinker acc (accRenderOptions acc)
+                , inspectCliIncludeWitnesses = accIncludeWitnesses acc
                 , inspectCliN2cResolver = n2c
                 , inspectCliWeb2Resolver = web2
                 , inspectCliTxPath = txPath
@@ -318,6 +323,7 @@ data Accumulator = Accumulator
     , accWeb2ApiKeyFile :: Maybe FilePath
     , accLinker :: Maybe LinkerKind
     , accScanNetwork :: Maybe Network
+    , accIncludeWitnesses :: Bool
     }
 
 emptyAccumulator :: Accumulator
@@ -337,6 +343,7 @@ emptyAccumulator =
         , accWeb2ApiKeyFile = Nothing
         , accLinker = Nothing
         , accScanNetwork = Nothing
+        , accIncludeWitnesses = False
         }
 
 {- | Linker selection from @--links=<kind>@. The only supported value
@@ -377,8 +384,14 @@ inspectCliUsage =
         <> " [--n2c-socket-path SOCKET --network-magic N]"
         <> " [--web2-url URL [--web2-api-key-file PATH]]"
         <> " [--links cardanoscan [--network mainnet|preprod|preview]]"
+        <> " [--witnesses]"
         <> " TX"
         <> "\n\n"
+        <> "  --witnesses            also render the witness set (bootstraps,"
+        <> " datums,\n"
+        <> "                         redeemers, scripts, vkeys). Default off;"
+        <> " the body\n"
+        <> "                         render is unchanged.\n"
         <> "  --links cardanoscan    annotate every Cardanoscan-classifiable"
         <> " leaf with its URL.\n"
         <> "                         Default off; existing render is byte-stable.\n"
@@ -414,7 +427,8 @@ runInspect cliOptions = do
             else pure Nothing
     let diffOptions =
             defaultTxDiffOptions
-                { txDiffResolvedInputs = resolutionResult
+                { txDiffIncludeWitnesses = inspectCliIncludeWitnesses cliOptions
+                , txDiffResolvedInputs = resolutionResult
                 }
     TextIO.putStr (renderConwayTxHuman baseHumanOptions diffOptions tx)
     exitSuccess

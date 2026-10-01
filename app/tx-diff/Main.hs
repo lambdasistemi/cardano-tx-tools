@@ -149,7 +149,8 @@ runDiff cliOptions = do
             else pure Nothing
     let options =
             defaultTxDiffOptions
-                { txDiffDecodeData =
+                { txDiffIncludeWitnesses = txDiffCliIncludeWitnesses cliOptions
+                , txDiffDecodeData =
                     case blueprints of
                         [] ->
                             Nothing

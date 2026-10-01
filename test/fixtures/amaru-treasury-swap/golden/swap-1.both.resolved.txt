@@ -10,6 +10,13 @@ body
 |     |     `- 96.825802 ADA (96825802 lovelace)
 |     `- txIn
 |        `- {"index":3,"txId":"b63aa2dd78c2a63b71aeba687cf45d445a98653a81f48774aa30236e47f30b86"}
++- collateralReturn
+|  +- address
+|  |  `- "user.recipient"
+|  +- assets
+|  |  `- "no native assets"
+|  `- coin
+|     `- 96.146504 ADA (96146504 lovelace)
 +- fee
 |  `- 0.452865 ADA (452865 lovelace)
 +- inputs

@@ -13,7 +13,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
-import Data.Foldable (toList)
+import Data.Foldable (asum, toList)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Sequence.Strict qualified as StrictSeq
@@ -53,6 +53,7 @@ import Cardano.Ledger.Api.Tx (
  )
 import Cardano.Ledger.Api.Tx.Body (
     collateralInputsTxBodyL,
+    collateralReturnTxBodyL,
     feeTxBodyL,
     inputsTxBodyL,
     mintTxBodyL,
@@ -139,6 +140,7 @@ import Cardano.Tx.Diff (
     defaultTxDiffOptions,
     diffConwayTx,
     diffConwayTxWith,
+    diffNodeHasChanges,
     renderConwayTxInputDiff,
     renderDiffNodeHuman,
  )
@@ -971,6 +973,98 @@ spec =
                         )
                     )
 
+        it "reports a Conway collateral return coin change at body.collateralReturn.coin" $ do
+            tx <- loadFixture sampleHash
+            output <- expectCollateralReturn tx
+            let output' =
+                    output & coinTxOutL .~ (output ^. coinTxOutL <> Coin 1)
+                tx' =
+                    tx
+                        & bodyTxL
+                            . collateralReturnTxBodyL
+                            .~ SJust output'
+            changedPaths (diffConwayTx tx tx')
+                `shouldBe` [DiffPath ["body", "collateralReturn", "coin"]]
+
+        it "reports a Conway collateral return asset change under body.collateralReturn.assets" $ do
+            tx <- loadFixture collateralReturnAssetsHash
+            output <- expectCollateralReturn tx
+            let MaryValue coin (MultiAsset policies) = output ^. valueTxOutL
+            (policy, assets) <- case Map.toList policies of
+                entry : _ -> pure entry
+                [] -> expectationFailure' "fixture collateralReturn has no native assets"
+            (assetName, quantity) <- case Map.toList assets of
+                entry : _ -> pure entry
+                [] -> expectationFailure' "fixture collateralReturn policy has no assets"
+            let value' =
+                    MaryValue coin $
+                        MultiAsset $
+                            Map.insert
+                                policy
+                                (Map.insert assetName (quantity + 1) assets)
+                                policies
+                tx' =
+                    tx
+                        & bodyTxL
+                            . collateralReturnTxBodyL
+                            .~ SJust (output & valueTxOutL .~ value')
+                PolicyID policyHash = policy
+            changedPaths (diffConwayTx tx tx')
+                `shouldBe` [ DiffPath
+                                [ "body"
+                                , "collateralReturn"
+                                , "assets"
+                                , scriptHashKey policyHash
+                                , assetNameKey assetName
+                                ]
+                           ]
+
+        it "reports a removed Conway collateral return at body.collateralReturn" $ do
+            tx <- loadFixture sampleHash
+            _ <- expectCollateralReturn tx
+            let tx' =
+                    tx
+                        & bodyTxL
+                            . collateralReturnTxBodyL
+                            .~ SNothing
+                diff = diffConwayTx tx tx'
+            changedPaths diff
+                `shouldBe` [DiffPath ["body", "collateralReturn"]]
+            changeAt ["body", "collateralReturn"] diff
+                `shouldSatisfy` \case
+                    Just (DiffChanged _ Aeson.Null) -> True
+                    _ -> False
+
+        it "reports a single redeemer change under witnesses.redeemers only when witnesses are included" $ do
+            tx <- loadFixture collateralReturnAssetsHash
+            let Redeemers redeemers = tx ^. witsTxL . rdmrsTxWitsL
+            Map.size redeemers `shouldSatisfy` (> 1)
+            let (purpose, (redeemerData, ExUnits memory steps)) =
+                    Map.findMax redeemers
+                tx' =
+                    tx
+                        & witsTxL
+                            . rdmrsTxWitsL
+                            .~ Redeemers
+                                ( Map.insert
+                                    purpose
+                                    (redeemerData, ExUnits (memory + 1) steps)
+                                    redeemers
+                                )
+                withWitnesses =
+                    defaultTxDiffOptions
+                        { txDiffIncludeWitnesses = True
+                        }
+            changedPaths (diffConwayTxWith withWitnesses tx tx')
+                `shouldBe` [ DiffPath
+                                [ "witnesses"
+                                , "redeemers"
+                                , redeemerPurposeKey purpose
+                                , "exUnits"
+                                ]
+                           ]
+            diffNodeHasChanges (diffConwayTx tx tx') `shouldBe` False
+
         it "reports a Conway required signer change at body.requiredSigners.0" $ do
             tx <- loadFixture sampleHash
             let oldSigner = mkWitnessKeyHash 1
@@ -1706,6 +1800,64 @@ strictMaybeCoinJson SNothing =
 strictMaybeCoinJson (SJust coin) =
     coinJson coin
 
+{- | A real mainnet fixture whose collateral return output carries
+native assets and whose witness set carries more than one redeemer.
+-}
+collateralReturnAssetsHash :: String
+collateralReturnAssetsHash =
+    "cebc413826ebd61a4ee908617d668197dd1206ca39bb31429d538dc59fbb534f"
+
+expectCollateralReturn :: ConwayTx -> IO (TxOut ConwayEra)
+expectCollateralReturn tx =
+    case tx ^. bodyTxL . collateralReturnTxBodyL of
+        SJust output -> pure output
+        SNothing -> expectationFailure' "fixture has no collateralReturn"
+
+expectationFailure' :: String -> IO a
+expectationFailure' message = do
+    expectationFailure message
+    fail message
+
+-- | Every path at which a diff records a change, in key order.
+changedPaths :: DiffNode -> [DiffPath]
+changedPaths (DiffNode path change) =
+    case change of
+        DiffSame _ ->
+            []
+        DiffChanged _ _ ->
+            [path]
+        DiffObject _ changed onlyA onlyB ->
+            concatMap changedPaths (Map.elems changed)
+                <> map (extendPath path) (Map.keys onlyA <> Map.keys onlyB)
+        DiffArray _ changed onlyA onlyB ->
+            concatMap (changedPaths . snd) changed
+                <> map
+                    (extendPath path . Text.pack . show . fst)
+                    (onlyA <> onlyB)
+
+extendPath :: DiffPath -> Text -> DiffPath
+extendPath (DiffPath segments) segment =
+    DiffPath (segments <> [segment])
+
+-- | The change recorded at an exact path, if the diff reaches it.
+changeAt :: [Text] -> DiffNode -> Maybe DiffChange
+changeAt target (DiffNode (DiffPath path) change)
+    | path == target = Just change
+    | otherwise =
+        case change of
+            DiffObject _ changed _ _ ->
+                asum (map (changeAt target) (Map.elems changed))
+            DiffArray _ changed _ _ ->
+                asum (map (changeAt target . snd) changed)
+            _ ->
+                Nothing
+
+strictMaybeOutputJson :: StrictMaybe (TxOut ConwayEra) -> Aeson.Value
+strictMaybeOutputJson SNothing =
+    Aeson.Null
+strictMaybeOutputJson (SJust output) =
+    outputJson output
+
 bodyCommonExcept ::
     [Text] ->
     ConwayTx ->
@@ -1760,6 +1912,10 @@ bodyFieldValues tx =
         ( "collateralInputs"
         , inputsJson $
             Set.toAscList (tx ^. bodyTxL . collateralInputsTxBodyL)
+        )
+    ,
+        ( "collateralReturn"
+        , strictMaybeOutputJson (tx ^. bodyTxL . collateralReturnTxBodyL)
         )
     ,
         ( "fee"

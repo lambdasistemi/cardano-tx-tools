@@ -14,7 +14,10 @@ import Cardano.Tx.Diff.Cli (
     TxDiffCliOptions (..),
     TxDiffCliWeb2Config (..),
     parseTxDiffCliArgs,
+    txDiffCliUsage,
  )
+
+import Data.List (isInfixOf)
 
 defaultOptions :: TxDiffCliOptions
 defaultOptions =
@@ -22,6 +25,7 @@ defaultOptions =
         { txDiffCliBlueprintPaths = []
         , txDiffCliCollapseRulesPath = Nothing
         , txDiffCliHumanRenderOptions = defaultHumanRenderOptions
+        , txDiffCliIncludeWitnesses = False
         , txDiffCliN2cResolver = Nothing
         , txDiffCliWeb2Resolver = Nothing
         , txDiffCliLeftPath = "tx-a.cbor"
@@ -34,6 +38,13 @@ spec =
         it "defaults to tree rendering with ASCII art" $
             parseTxDiffCliArgs ["tx-a.cbor", "tx-b.cbor"]
                 `shouldBe` Right defaultOptions
+
+        it "accepts --witnesses to include the witness set" $
+            parseTxDiffCliArgs ["--witnesses", "tx-a.cbor", "tx-b.cbor"]
+                `shouldBe` Right defaultOptions{txDiffCliIncludeWitnesses = True}
+
+        it "lists --witnesses in the usage text" $
+            txDiffCliUsage "tx-diff" `shouldSatisfy` isInfixOf "[--witnesses]"
 
         it "accepts explicit path rendering" $
             parseTxDiffCliArgs ["--render", "paths", "tx-a.cbor", "tx-b.cbor"]

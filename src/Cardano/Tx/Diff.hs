@@ -112,6 +112,7 @@ import Cardano.Ledger.Api.Tx (
  )
 import Cardano.Ledger.Api.Tx.Body (
     collateralInputsTxBodyL,
+    collateralReturnTxBodyL,
     feeTxBodyL,
     inputsTxBodyL,
     mintTxBodyL,
@@ -756,6 +757,7 @@ data ConwayDiffValue
     | ConwaySlotBoundValue (StrictMaybe SlotNo)
     | ConwayOutputsValue [TxOut ConwayEra]
     | ConwayTxOutValue (TxOut ConwayEra)
+    | ConwayStrictMaybeTxOutValue (StrictMaybe (TxOut ConwayEra))
     | ConwayTxOutAssetsValue MultiAsset
     | ConwayAddressValue Addr
     | ConwayDatumValue (Datum ConwayEra)
@@ -2330,6 +2332,10 @@ conwayDiffEqual (ConwayOutputsValue left) (ConwayOutputsValue right) =
 conwayDiffEqual (ConwayTxOutValue left) (ConwayTxOutValue right) =
     left == right
 conwayDiffEqual
+    (ConwayStrictMaybeTxOutValue left)
+    (ConwayStrictMaybeTxOutValue right) =
+        left == right
+conwayDiffEqual
     (ConwayTxOutAssetsValue left)
     (ConwayTxOutAssetsValue right) =
         left == right
@@ -2411,6 +2417,8 @@ conwayDiffSummary (ConwayOutputsValue outputs) =
     Just (Aeson.toJSON (map txOutValue outputs))
 conwayDiffSummary (ConwayTxOutValue output) =
     Just (txOutValue output)
+conwayDiffSummary (ConwayStrictMaybeTxOutValue output) =
+    Just (strictMaybeTxOutValue output)
 conwayDiffSummary (ConwayTxOutAssetsValue assets) =
     Just (mintValue assets)
 conwayDiffSummary (ConwayAddressValue address) =
@@ -2474,6 +2482,11 @@ conwayDiffProjection _ (ConwayBodyValue tx) =
                 ( "collateralInputs"
                 , ConwayInputsValue $
                     Set.toAscList (tx ^. bodyTxL . collateralInputsTxBodyL)
+                )
+            ,
+                ( "collateralReturn"
+                , ConwayStrictMaybeTxOutValue $
+                    tx ^. bodyTxL . collateralReturnTxBodyL
                 )
             ,
                 ( "fee"
@@ -2587,6 +2600,10 @@ conwayDiffProjection _ (ConwayTxOutValue output) =
                 , ConwayReferenceScriptValue (output ^. referenceScriptTxOutL)
                 )
             ]
+conwayDiffProjection _ (ConwayStrictMaybeTxOutValue SNothing) =
+    DiffAtomic (strictMaybeTxOutValue SNothing)
+conwayDiffProjection options (ConwayStrictMaybeTxOutValue (SJust output)) =
+    conwayDiffProjection options (ConwayTxOutValue output)
 conwayDiffProjection _ (ConwayTxOutAssetsValue assets)
     | multiAssetEmpty assets =
         DiffAtomic noNativeAssetsValue
@@ -2726,6 +2743,12 @@ strictMaybeCoinValue SNothing =
     Aeson.Null
 strictMaybeCoinValue (SJust coin) =
     coinValue coin
+
+strictMaybeTxOutValue :: StrictMaybe (TxOut ConwayEra) -> Aeson.Value
+strictMaybeTxOutValue SNothing =
+    Aeson.Null
+strictMaybeTxOutValue (SJust output) =
+    txOutValue output
 
 inputsValue :: [TxIn] -> Aeson.Value
 inputsValue inputs =
