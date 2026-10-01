@@ -46,9 +46,7 @@ smoke-diff:
 ci:
     just build
     just unit
-    just smoke-sign
-    just smoke-inspect
-    just smoke-diff
+    nix run --quiet .#smoke
     cabal-fmt -c cardano-tx-tools.cabal
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec fourmolu -m check {} +
     find . -type f -name '*.hs' -not -path '*/dist-newstyle/*' -exec hlint {} +
