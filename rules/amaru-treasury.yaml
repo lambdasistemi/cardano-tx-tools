@@ -31,6 +31,9 @@ rename:
   - kind: script
     key: 32201dc1e82708364c6c42a53f89f675314bb9ad5da2734aa10baa0d
     name: amaru-treasury.network_compliance
+  - kind: script
+    key: 46746c64151c3733e6de91585785841a2d53422d2ee94ec51a3bbcb4
+    name: amaru-treasury.ops_and_use_cases
   # Swap-order address — payment credential is the swap.v2 script,
   # stake credential is the treasury script. `match: payment` matches
   # every stake variant; `match: full` would also work here because the
@@ -45,6 +48,12 @@ rename:
     key: addr1xyezq8wpaqnssdjvd3p220uf7e6nzjae44w6yu625y965rfjyqwur6p8pqmycmzz55lcnan4x99mnt2a5fe54ggt4gxs8thzgk
     match: payment
     name: amaru-treasury.network_compliance.account
+  # Treasury self-address — payment + stake credential both the
+  # ops_and_use_cases treasury script.
+  - kind: address
+    key: addr1x9r8gmryz5wrwvlxm6g4s4u9ssdz656z95hwjnk9rgamedzxw3kxg9guxue7dh53tptctpq694f5ytfwa98v2x3mhj6qe3kxep
+    match: payment
+    name: amaru-treasury.ops_and_use_cases.account
   # The recipient (user) payment address. Both fixtures send change
   # outputs back to this address (the operator running the swap).
   - kind: address
