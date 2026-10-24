@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 {- |
 Module      : Cardano.Tx.Sign.Witness
@@ -27,13 +26,10 @@ module Cardano.Tx.Sign.Witness (
     witnessTransactionFacts,
 ) where
 
-import Control.Monad (unless, when)
+import Control.Monad (unless)
 import Data.Aeson (
     Value (..),
-    withObject,
-    (.:),
  )
-import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as B16
@@ -52,7 +48,6 @@ import Cardano.Crypto.DSIGN.Class (
     SignedDSIGN (..),
     deriveVerKeyDSIGN,
     rawDeserialiseSigDSIGN,
-    rawDeserialiseSignKeyDSIGN,
     rawDeserialiseVerKeyDSIGN,
  )
 import Cardano.Crypto.Hash.Class (Hash, hashToBytes)
@@ -96,13 +91,13 @@ import Cardano.Tx.Sign.AttachWitness (
     decodeUnsignedTxHex,
     renderAttachError,
  )
+import Cardano.Tx.Sign.Core qualified as Core
 import Cardano.Tx.Sign.Envelope (
     EnvelopeError,
     decodeEnvelope,
     renderEnvelopeError,
  )
 import Cardano.Tx.Sign.Hex (
-    decodeHexBytesAny,
     parseWitnessKeyHashHex,
  )
 import Cardano.Tx.Sign.Vault (
@@ -135,11 +130,6 @@ data TxWitnessError
     | TxWitnessMalformedSigningKey !Text
     | TxWitnessSigningKeyHashMismatch !(KeyHash Guard) !(KeyHash Guard)
     deriving stock (Eq, Show)
-
-data SigningKeyEnvelope = SigningKeyEnvelope
-    { skeType :: !Text
-    , skeCborHex :: !Text
-    }
 
 -- | Decode raw CBOR hex or a @cardano-cli@ Conway tx envelope.
 decodeWitnessTransaction ::
@@ -288,49 +278,24 @@ signingSourceWitnessParts source bodyHash =
             signature <- addrXskSignature xsk bodyHash
             Right (vkey, signature)
 
+{- | Decode a @cardano-cli@ payment-key envelope. Thin adapter over
+'Cardano.Tx.Sign.Core.decodePaymentSigningKey', reconstructing this
+module's own pre-existing operator-visible strings verbatim — REVIEW-001's
+B6 mapping table's five rows plus the non-object-JSON case added by
+NOTE-009 (see "Cardano.Tx.Sign.WitnessCompatSpec").
+-}
 decodeCardanoCliSigningKey ::
     Value -> Either TxWitnessError (SignKeyDSIGN DSIGN)
-decodeCardanoCliSigningKey value = do
-    SigningKeyEnvelope{..} <-
-        case parseEither parseSigningKeyEnvelope value of
-            Left err -> Left (TxWitnessMalformedSigningKey (T.pack err))
-            Right envelope -> Right envelope
-    when (skeType /= "PaymentSigningKeyShelley_ed25519") $
-        Left
-            ( TxWitnessUnsupportedSigningSource
-                ("cardano-cli key envelope type " <> skeType)
-            )
-    keyBytes <-
-        case decodeHexBytesAny skeCborHex of
-            Left err -> Left (TxWitnessMalformedSigningKey (T.pack err))
-            Right bytes -> Right bytes
-    rawKey <- decodeShelleySigningKeyBytes keyBytes
-    case rawDeserialiseSignKeyDSIGN @DSIGN rawKey of
-        Nothing ->
+decodeCardanoCliSigningKey value =
+    case Core.decodePaymentSigningKey value of
+        Left (Core.PureSignUnsupportedEnvelopeType envelopeType) ->
             Left
-                ( TxWitnessMalformedSigningKey
-                    "could not decode Ed25519 signing key bytes"
+                ( TxWitnessUnsupportedSigningSource
+                    ("cardano-cli key envelope type " <> envelopeType)
                 )
-        Just key -> Right key
-
-decodeShelleySigningKeyBytes ::
-    ByteString -> Either TxWitnessError ByteString
-decodeShelleySigningKeyBytes bytes
-    | BS.length bytes == 34 && BS.take 2 bytes == "\x58\x20" =
-        Right (BS.drop 2 bytes)
-    | otherwise =
-        Left
-            ( TxWitnessMalformedSigningKey
-                "expected a 32-byte CBOR bytestring signing key"
-            )
-
-parseSigningKeyEnvelope ::
-    Value -> Parser SigningKeyEnvelope
-parseSigningKeyEnvelope =
-    withObject "SigningKeyEnvelope" $ \o ->
-        SigningKeyEnvelope
-            <$> o .: "type"
-            <*> o .: "cborHex"
+        Left (Core.PureSignMalformedSigningKey message) ->
+            Left (TxWitnessMalformedSigningKey message)
+        Right signKey -> Right signKey
 
 decodeAddrXsk :: Text -> Either TxWitnessError Wallet.XPrv
 decodeAddrXsk bech32Text = do
