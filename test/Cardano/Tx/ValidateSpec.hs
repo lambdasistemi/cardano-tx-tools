@@ -22,12 +22,19 @@ module Cardano.Tx.ValidateSpec (
     spec,
 ) where
 
+import Data.Aeson qualified as Aeson
 import Data.Foldable (toList)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe)
+import Data.Ratio ((%))
 import Data.Text qualified as Text
+import Data.Text.Encoding qualified as TextEncoding
 import Lens.Micro ((&), (.~), (^.))
-import Test.Hspec (Spec, describe, it, shouldSatisfy)
+import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
+
+import Cardano.Slotting.EpochInfo qualified as EpochInfo
+import Cardano.Slotting.Time (SystemStart (..))
+import Cardano.Slotting.Time qualified as SlottingTime
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
 import Cardano.Ledger.Address (AccountAddress, Withdrawals (..))
@@ -44,10 +51,16 @@ import Cardano.Ledger.Api.Tx.Body (
  )
 import Cardano.Ledger.Api.Tx.Out (TxOut)
 import Cardano.Ledger.BaseTypes (
+    ActiveSlotCoeff,
+    EpochSize (..),
+    Globals (..),
     Network (Mainnet, Testnet),
     SlotNo (..),
     StrictMaybe (..),
     TxIx (..),
+    boundRational,
+    knownNonZeroBounded,
+    mkActiveSlotCoeff,
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ApplyTxError (..), ConwayEra)
@@ -65,6 +78,8 @@ import Cardano.Tx.Ledger (ConwayTx)
 import Cardano.Tx.Validate (
     isWitnessCompletenessFailure,
     validatePhase1,
+    validatePhase1WithGlobals,
+    validatePhase1WithGlobalsAndRewardAccounts,
     validatePhase1WithRewardAccounts,
  )
 import Cardano.Tx.Validate.LoadUtxo (loadUtxo)
@@ -76,7 +91,289 @@ import Fixtures.RewriteRedesign.Helpers (
 import Fixtures.RewriteRedesign.S05_WithdrawalScriptStake qualified as WithdrawalScriptStake
 
 spec :: Spec
-spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
+spec = do
+    callerGlobalsSpec
+    synthesisedNetworkSpec
+
+{- | Caller-supplied 'Globals' entry points.
+
+These pin what this pure Phase-1 boundary can actually observe:
+
+* the caller's 'networkId' governs the verdict for the exact
+  candidate, through both entry points;
+* the complete 'ApplyTxError' the legacy wrapper returns is
+  returned unchanged, with no filtering or reclassification;
+* reward-account seeding is unchanged; and
+* the no-reward entry point is the empty-reward specialisation.
+
+Deliberately NOT asserted here: that the caller's 'epochInfo' and
+'systemStart' reach the ledger. No rule reachable from
+@applyTx@ with the committed fixtures observes them — deadline
+translation happens at the script-context boundary, which this
+suite does not reach — so an assertion of that here would claim
+more than it executes. Per A-068 the delegation of the exact
+'Globals' object is proven by GREEN source review, and the full
+coordinate binding is proven downstream at the applied-validator
+boundary where synthetic and real intervals already differ.
+-}
+callerGlobalsSpec :: Spec
+callerGlobalsSpec =
+    describe "Cardano.Tx.Validate.validatePhase1WithGlobals" $ do
+        -- The candidate withdraws from a Testnet reward account. Under a
+        -- caller coordinate whose networkId is Testnet the ledger accepts
+        -- the account's network; under an otherwise identical coordinate
+        -- whose networkId is Mainnet it reports a network mismatch for the
+        -- same candidate, same UTxO and same slot. Only the caller's
+        -- 'Globals' differs, so the verdict is governed by the supplied
+        -- value and not by a synthesised network coordinate.
+        it
+            ( "caller Globals networkId governs the exact candidate, "
+                <> "not a synthesised coordinate"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                let seeded =
+                        Map.singleton withdrawalRewardAccount (Coin 0)
+                    matching =
+                        validateWithdrawalWithGlobals
+                            (devnetShapedGlobals Testnet)
+                            seeded
+                            pp
+                    mismatched =
+                        validateWithdrawalWithGlobals
+                            (devnetShapedGlobals Mainnet)
+                            seeded
+                            pp
+                resultFailures matching
+                    `shouldSatisfy` not . any isWrongNetworkFailure
+                resultFailures mismatched
+                    `shouldSatisfy` any isWrongNetworkFailure
+
+        -- The same differential holds through the no-reward entry point,
+        -- so neither convenience wrapper reintroduces a synthesised
+        -- coordinate of its own.
+        it
+            ( "caller Globals networkId governs the no-reward entry "
+                <> "point too"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                let matching =
+                        validatePhase1WithGlobals
+                            (devnetShapedGlobals Testnet)
+                            (mkPParamsBound pp)
+                            withdrawalUtxo
+                            (SlotNo 0)
+                            withdrawZeroTx
+                    mismatched =
+                        validatePhase1WithGlobals
+                            (devnetShapedGlobals Mainnet)
+                            (mkPParamsBound pp)
+                            withdrawalUtxo
+                            (SlotNo 0)
+                            withdrawZeroTx
+                resultFailures matching
+                    `shouldSatisfy` not . any isWrongNetworkFailure
+                resultFailures mismatched
+                    `shouldSatisfy` any isWrongNetworkFailure
+
+        -- The no-reward entry point is exactly the empty-reward
+        -- specialisation of the reward-aware one: same caller Globals,
+        -- same candidate, same result.
+        it
+            ( "the no-reward entry point is the empty-reward "
+                <> "specialisation of the reward-aware one"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                buggy <- loadBody bodyPath
+                utxo <- loadUtxo producerTxDir issue8TxIns
+                let tx = postFix buggy
+                    slot = inRangeSlot tx
+                    globals = devnetShapedGlobals Mainnet
+                    plain =
+                        validatePhase1WithGlobals
+                            globals
+                            (mkPParamsBound pp)
+                            utxo
+                            slot
+                            tx
+                    withEmptyRewards =
+                        validatePhase1WithGlobalsAndRewardAccounts
+                            globals
+                            (mkPParamsBound pp)
+                            utxo
+                            Map.empty
+                            slot
+                            tx
+                renderResult plain
+                    `shouldBe` renderResult withEmptyRewards
+
+        -- Reward seeding is unchanged by the caller-Globals entry point:
+        -- an absent account still surfaces the ledger's own
+        -- WithdrawalsNotInRewardsCERTS, and a seeded zero-balance account
+        -- still suppresses it, under the caller's coordinate.
+        it
+            ( "caller-supplied registered reward accounts remain seeded "
+                <> "under the caller Globals"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                let globals = devnetShapedGlobals Testnet
+                    unregistered =
+                        validateWithdrawalWithGlobals globals Map.empty pp
+                    registered =
+                        validateWithdrawalWithGlobals
+                            globals
+                            (Map.singleton withdrawalRewardAccount (Coin 0))
+                            pp
+                resultFailures unregistered
+                    `shouldSatisfy` any isWithdrawalsNotInRewardsFailure
+                resultFailures registered
+                    `shouldSatisfy` not . any isWithdrawalsNotInRewardsFailure
+
+        -- Complete error parity with the legacy wrapper. The same doubly
+        -- mutated candidate, UTxO and slot are validated through
+        -- 'validatePhase1 Mainnet' and through the caller entry point
+        -- given a coordinate matching that wrapper's synthesised one.
+        -- The COMPLETE rendered outcomes must be equal, so no failure can
+        -- be filtered, dropped, reordered or reclassified by the new API:
+        -- an implementation that preserved only the fee and
+        -- integrity-hash failures would fail this assertion.
+        it
+            ( "returns the complete ApplyTxError the legacy wrapper "
+                <> "returns, unfiltered and unreclassified"
+            )
+            $ do
+                pp <- loadPParams ppPath
+                buggy <- loadBody bodyPath
+                utxo <- loadUtxo producerTxDir issue8TxIns
+                let tx = zeroFee buggy
+                    slot = inRangeSlot tx
+                    legacy =
+                        validatePhase1
+                            Mainnet
+                            (mkPParamsBound pp)
+                            utxo
+                            slot
+                            tx
+                    caller =
+                        validatePhase1WithGlobals
+                            (mainnetShapedGlobals Mainnet)
+                            (mkPParamsBound pp)
+                            utxo
+                            slot
+                            tx
+                renderResult caller `shouldBe` renderResult legacy
+                -- Guard the assertion above against being vacuously
+                -- satisfied by two empty failure lists.
+                resultFailures legacy `shouldSatisfy` (not . null)
+
+{- | A deliberately devnet-shaped caller coordinate: 100 ms slots,
+100-slot epochs, and a non-POSIX-zero system start. This is the
+shape the node/devnet builder actually uses, and the shape the
+previously synthesised mainnet coordinate could not express.
+-}
+devnetShapedGlobals :: Network -> Globals
+devnetShapedGlobals network =
+    (mainnetShapedGlobals network)
+        { epochInfo =
+            EpochInfo.fixedEpochInfo
+                (EpochSize 100)
+                (SlottingTime.mkSlotLength 0.1)
+        , systemStart = systemStartFromText "2030-01-01T00:00:00Z"
+        }
+
+{- | A mainnet-shaped caller coordinate, used as the contrast case
+and as the base record the devnet coordinate overrides.
+-}
+mainnetShapedGlobals :: Network -> Globals
+mainnetShapedGlobals network =
+    Globals
+        { epochInfo =
+            EpochInfo.fixedEpochInfo
+                (EpochSize 432000)
+                (SlottingTime.mkSlotLength 1)
+        , slotsPerKESPeriod = 129600
+        , stabilityWindow = 129600
+        , randomnessStabilisationWindow = 172800
+        , securityParameter = knownNonZeroBounded @2160
+        , maxKESEvo = 62
+        , quorum = 5
+        , maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
+        , activeSlotCoeff = testActiveSlotCoeff
+        , networkId = network
+        , systemStart = systemStartFromText "1970-01-01T00:00:00Z"
+        }
+
+testActiveSlotCoeff :: ActiveSlotCoeff
+testActiveSlotCoeff =
+    mkActiveSlotCoeff
+        (fromMaybe maxBound (boundRational (1 % 20)))
+
+{- | Decode an ISO-8601 instant with Aeson, so the fixture obtains a
+typed 'SystemStart' without this test component taking a direct
+@time@ dependency (the fence adds no Cabal change).
+-}
+systemStartFromText :: Text.Text -> SystemStart
+systemStartFromText text =
+    case Aeson.eitherDecodeStrict encoded of
+        Right value -> SystemStart value
+        Left err ->
+            error ("systemStartFromText: " <> err)
+  where
+    encoded =
+        TextEncoding.encodeUtf8 ("\"" <> text <> "\"")
+
+{- | Run the withdrawal fixture through the caller-Globals
+reward-aware entry point.
+-}
+validateWithdrawalWithGlobals ::
+    Globals ->
+    Map.Map AccountAddress Coin ->
+    PParams ConwayEra ->
+    Either (ApplyTxError ConwayEra) ()
+validateWithdrawalWithGlobals globals rewardAccounts pp =
+    validatePhase1WithGlobalsAndRewardAccounts
+        globals
+        (mkPParamsBound pp)
+        withdrawalUtxo
+        rewardAccounts
+        (SlotNo 0)
+        withdrawZeroTx
+
+-- | The carried failure list, or none when the ledger accepted.
+resultFailures ::
+    Either (ApplyTxError ConwayEra) () ->
+    [ConwayLedgerPredFailure ConwayEra]
+resultFailures (Left err) = failures err
+resultFailures (Right ()) = []
+
+{- | Compare two results by their rendered outcome, so the
+equality assertion does not depend on an 'Eq' instance for
+'ApplyTxError'.
+-}
+renderResult ::
+    Either (ApplyTxError ConwayEra) () ->
+    String
+renderResult (Right ()) = "Right ()"
+renderResult (Left err) = show (failures err)
+
+{- | Recognise the network-mismatch failures the Conway UTXO rule
+surfaces when an address or withdrawal account belongs to a
+different network than the one the run's 'Globals' names.
+-}
+isWrongNetworkFailure ::
+    ConwayLedgerPredFailure ConwayEra -> Bool
+isWrongNetworkFailure failure =
+    "WrongNetwork" `Text.isInfixOf` Text.pack (show failure)
+
+{- | The pre-existing wrappers, unchanged. They keep synthesising a
+coordinate from a 'Network' and must stay source- and
+behaviour-compatible.
+-}
+synthesisedNetworkSpec :: Spec
+synthesisedNetworkSpec = describe "Cardano.Tx.Validate.validatePhase1" $ do
     it
         ( "post-fix issue-#8 swap-cancel body returns only "
             <> "witness-completeness noise"
