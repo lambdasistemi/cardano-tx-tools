@@ -29,7 +29,7 @@ import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Lens.Micro ((&), (.~), (^.))
-import Test.Hspec (Spec, describe, it, shouldBe, shouldContain)
+import Test.Hspec (Spec, describe, it, shouldBe, shouldContain, shouldSatisfy)
 
 import Cardano.Crypto.Hash (hashFromStringAsHex)
 import Cardano.Ledger.Address (Addr (..))
@@ -40,14 +40,17 @@ import Cardano.Ledger.Alonzo.Scripts (
 import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
 import Cardano.Ledger.Alonzo.TxWits (TxDats (..))
 import Cardano.Ledger.Api (PParams)
-import Cardano.Ledger.Api.Tx (bodyTxL, mkBasicTx)
+import Cardano.Ledger.Api.Tx (bodyTxL, estimateMinFeeTx, mkBasicTx)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
+    feeTxBodyL,
     mkBasicTxBody,
+    outputsTxBodyL,
     referenceInputsTxBodyL,
  )
 import Cardano.Ledger.Api.Tx.Out (
     TxOut,
+    coinTxOutL,
     mkBasicTxOut,
     referenceScriptTxOutL,
  )
@@ -63,9 +66,11 @@ import Cardano.Ledger.Binary (
     decCBOR,
     decodeFullAnnotatorFromHexText,
     natVersion,
+    serialize',
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.TxBody (treasuryDonationTxBodyL)
 import Cardano.Ledger.Conway.TxCert (
     ConwayDelegCert (..),
     ConwayTxCert (..),
@@ -88,11 +93,13 @@ import Cardano.Ledger.Plutus.Language (
  )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
-import Cardano.Tx.Balance (computeScriptIntegrity, languagesUsedInTx)
+import Cardano.Tx.Balance (BalanceResult (..), balanceTx, computeScriptIntegrity, languagesUsedInTx)
 import Cardano.Tx.Build (
     InterpretIO (..),
     TxBuild,
     build,
+    donateToTreasury,
+    draft,
     mkPParamsBound,
     registerStakeKey,
     registerStakeScript,
@@ -106,6 +113,8 @@ spec = describe "Cardano.Tx.Build (issue #8 reproduction)" $ do
     swapCancelIntegrityHashSpec
     languagesUsedInTxSpec
     registerStakeSpec
+    donationBalanceSpec
+    donationInstructionSpec
 
 {- | The mainnet @swap-cancel@ regression: the fixture
 body carries the @script_integrity_hash@ TxBuild
@@ -364,3 +373,109 @@ stubScriptHash :: ScriptHash
 stubScriptHash =
     ScriptHash
         (fromJust (hashFromStringAsHex (replicate 56 'b')))
+
+-- | Treasury donations reduce change and remain part of the final fee calculation.
+donationBalanceSpec :: Spec
+donationBalanceSpec = describe "treasury donation balancing" $ do
+    it "preserves ordinary build bytes captured before donation support" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        tx <- ordinaryBuild pp
+        expected <- BS8.readFile "test/fixtures/mainnet-txbuild/no-donation-build.hex"
+        Base16.encode (serialize' (natVersion @11) tx) `shouldBe` BS8.filter (/= '\n') expected
+    mapM_
+        ( \donation -> it ("conserves value with donation " <> show donation) $ do
+            pp <- loadPParams "test/fixtures/pparams.json"
+            let amount = 100_000_000
+                seed = (stubTxIn 15, mkBasicTxOut stubAddr (MaryValue (Coin amount) mempty))
+                template = mkBasicTx (mkBasicTxBody & treasuryDonationTxBodyL .~ Coin donation)
+            result <- either (fail . show) pure (balanceTx pp [seed] [] stubAddr template)
+            let tx = balancedTx result
+                Coin fee = tx ^. bodyTxL . feeTxBodyL
+                paid = sum [c | out <- toList (tx ^. bodyTxL . outputsTxBodyL), let Coin c = out ^. coinTxOutL]
+            paid + fee + donation `shouldBe` amount
+            tx ^. bodyTxL . treasuryDonationTxBodyL `shouldBe` Coin donation
+            Coin fee `shouldSatisfy` (>= estimateMinFeeTx pp tx 1 0 0)
+        )
+        [0, 1_000_000, 15_000_000]
+    it "refuses a donation larger than the available funds beside a funded control" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        let seed = (stubTxIn 15, mkBasicTxOut stubAddr (MaryValue (Coin 100_000_000) mempty))
+            balancing donation =
+                balanceTx
+                    pp
+                    [seed]
+                    []
+                    stubAddr
+                    (mkBasicTx (mkBasicTxBody & treasuryDonationTxBodyL .~ Coin donation))
+        case balancing 1_000_000 of
+            Left err -> fail (show err)
+            Right _ -> pure ()
+        case balancing 100_000_001 of
+            Left _ -> pure ()
+            Right _ -> fail "the donation exceeded its funding"
+
+ordinaryBuild :: PParams ConwayEra -> IO ConwayTx
+ordinaryBuild pp = do
+    let seed = (stubTxIn 15, mkBasicTxOut stubAddr (MaryValue (Coin 100_000_000) mempty))
+        program :: TxBuild NoCtx String ()
+        program = do
+            _ <- spend (fst seed)
+            pure ()
+    result <-
+        build
+            (mkPParamsBound pp)
+            (InterpretIO (error "no context"))
+            (\_ -> pure Map.empty)
+            [seed]
+            []
+            stubAddr
+            program
+    either (fail . show) pure result
+
+-- | Donation is present at the evaluator boundary and remains funded after balancing.
+donationInstructionSpec :: Spec
+donationInstructionSpec = describe "treasury donation instruction" $ do
+    mapM_
+        ( \donation -> it ("evaluates and funds donation " <> show donation) $ do
+            pp <- loadPParams "test/fixtures/pparams.json"
+            tx <- buildDonation pp (Coin donation)
+            let Coin fee = tx ^. bodyTxL . feeTxBodyL
+                paid = sum [c | out <- toList (tx ^. bodyTxL . outputsTxBodyL), let Coin c = out ^. coinTxOutL]
+            tx ^. bodyTxL . treasuryDonationTxBodyL `shouldBe` Coin donation
+            paid + fee + donation `shouldBe` 100_000_000
+            Coin fee `shouldSatisfy` (>= estimateMinFeeTx pp tx 1 0 0)
+        )
+        [0, 1_000_000, 15_000_000]
+    it "uses the last donation instruction" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        let program :: TxBuild NoCtx String ()
+            program = do
+                donateToTreasury (Coin 1_000_000)
+                donateToTreasury (Coin 3_000_000)
+        draft pp program ^. bodyTxL . treasuryDonationTxBodyL `shouldBe` Coin 3_000_000
+    it "preserves the bytes of a build with no instruction when zero is set" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        without <- ordinaryBuild pp
+        withZero <- buildDonation pp (Coin 0)
+        serialize' (natVersion @11) withZero `shouldBe` serialize' (natVersion @11) without
+
+buildDonation :: PParams ConwayEra -> Coin -> IO ConwayTx
+buildDonation pp donation = do
+    let seed = (stubTxIn 15, mkBasicTxOut stubAddr (MaryValue (Coin 100_000_000) mempty))
+        program :: TxBuild NoCtx String ()
+        program = do
+            _ <- spend (fst seed)
+            donateToTreasury donation
+        evaluator tx = do
+            tx ^. bodyTxL . treasuryDonationTxBodyL `shouldBe` donation
+            pure Map.empty
+    result <-
+        build
+            (mkPParamsBound pp)
+            (InterpretIO (error "no context"))
+            evaluator
+            [seed]
+            []
+            stubAddr
+            program
+    either (fail . show) pure result

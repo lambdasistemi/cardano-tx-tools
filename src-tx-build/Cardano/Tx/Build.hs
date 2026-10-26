@@ -79,6 +79,7 @@ module Cardano.Tx.Build (
     -- * Constraints
     validFrom,
     validTo,
+    donateToTreasury,
     setCollateralReturn,
     requireSignature,
     attachScript,
@@ -234,6 +235,7 @@ import Cardano.Ledger.Conway.Governance (
 import Cardano.Ledger.Conway.Scripts (
     ConwayPlutusPurpose (..),
  )
+import Cardano.Ledger.Conway.TxBody (treasuryDonationTxBodyL)
 import Cardano.Ledger.Conway.TxCert (
     ConwayDelegCert (..),
     ConwayGovCert (..),
@@ -362,9 +364,9 @@ data LedgerCheck
     | ValueNotConserved MaryValue MaryValue
     | CollateralInsufficient Coin Coin
     | -- | Ledger Phase-1 validation rejected the body
-      -- TxBuild was about to return. The full
-      -- 'ApplyTxError' is exposed so callers can
-      -- pattern-match for their own UX.
+      --       TxBuild was about to return. The full
+      --       'ApplyTxError' is exposed so callers can
+      --       pattern-match for their own UX.
       Phase1Rejected (ApplyTxError ConwayEra)
     deriving (Show, Eq)
 
@@ -454,7 +456,7 @@ data SendMode
     = -- | Use the output's lovelace as-is.
       SendRaw
     | -- | Raise the lovelace to @getMinCoinTxOut pp@
-      --     when below the threshold.
+      --       when below the threshold.
       SendCompensated
     deriving (Eq, Show)
 
@@ -533,6 +535,8 @@ data TxInstr q e a where
     -- | Override the address that receives the
     --     collateral-return output. Last-write-wins.
     SetCollReturn :: Addr -> TxInstr q e ()
+    -- | Set the treasury donation. Last instruction wins.
+    SetTreasuryDonation :: Coin -> TxInstr q e ()
     -- | Peek at the final Tx (fixpoint).
     Peek ::
         (ConwayTx -> Convergence a) ->
@@ -789,6 +793,10 @@ validFrom = singleton . SetValidFrom
 validTo :: SlotNo -> TxBuild q e ()
 validTo = singleton . SetValidTo
 
+-- | Set the transaction's treasury donation; zero by default, last call wins.
+donateToTreasury :: Coin -> TxBuild q e ()
+donateToTreasury = singleton . SetTreasuryDonation
+
 {- | Override the address that receives the
 collateral-return output emitted by 'build' for
 script-bearing Conway txs.
@@ -926,6 +934,7 @@ data TxState e = TxState
     , tsValidFrom :: StrictMaybe SlotNo
     , tsValidTo :: StrictMaybe SlotNo
     , tsCollReturnAddr :: StrictMaybe Addr
+    , tsTreasuryDonation :: Coin
     , tsChecks :: [ConwayTx -> Check e]
     }
 
@@ -947,6 +956,7 @@ emptyState =
         , tsValidFrom = SNothing
         , tsValidTo = SNothing
         , tsCollReturnAddr = SNothing
+        , tsTreasuryDonation = Coin 0
         , tsChecks = []
         }
 
@@ -1115,6 +1125,8 @@ interpretWithM runCtx currentTx = go emptyState True
                     }
                 conv
                 (k ())
+        SetTreasuryDonation amount :>>= k ->
+            go st{tsTreasuryDonation = amount} conv (k ())
         Peek f :>>= k ->
             case f currentTx of
                 Ok a -> go st conv (k a)
@@ -1241,6 +1253,7 @@ assembleTxWith extraIns refUtxos pp st =
                 & referenceInputsTxBodyL .~ refIns
                 & collateralInputsTxBodyL .~ collIns
                 & mintTxBodyL .~ mintMA
+                & treasuryDonationTxBodyL .~ tsTreasuryDonation st
                 & withdrawalsTxBodyL .~ withdrawals
                 & certsTxBodyL .~ certs
                 & proposalProceduresTxBodyL .~ proposals
@@ -1389,37 +1402,37 @@ default behaviour is preserved by 'defaultBuildOptions'.
 data BuildOptions = BuildOptions
     { boExUnitsMargin :: ExUnits -> ExUnits
     -- ^ Transform each redeemer's evaluated 'ExUnits'
-    -- before the integrity hash is recomputed and the
-    -- tx is balanced. Defaults to 'id'.
+    --     before the integrity hash is recomputed and the
+    --     tx is balanced. Defaults to 'id'.
     --
-    -- Use a small overshoot (e.g. @1.20×@, mirroring
-    -- @cardano-cli@) when the client-side ledger
-    -- evaluator (the one running here, via
-    -- @evalTxExUnits@) is older than the cluster
-    -- node's: the same script can cost a few hundred
-    -- mem / a few hundred-thousand steps more on the
-    -- newer side, and that delta lands as
-    -- 'PlutusFailure' at submit time even though the
-    -- shape of the tx is correct.
+    --     Use a small overshoot (e.g. @1.20×@, mirroring
+    --     @cardano-cli@) when the client-side ledger
+    --     evaluator (the one running here, via
+    --     @evalTxExUnits@) is older than the cluster
+    --     node's: the same script can cost a few hundred
+    --     mem / a few hundred-thousand steps more on the
+    --     newer side, and that delta lands as
+    --     'PlutusFailure' at submit time even though the
+    --     shape of the tx is correct.
     , boCollateralUtxos :: CollateralUtxos
     -- ^ Resolution map for the body's collateral
-    -- inputs (issue #124). Used to compute the
-    -- @total_collateral@ / @collateral_return@
-    -- arithmetic during balancing. These UTxOs are
-    -- NOT added to the body's @inputs@ — they only
-    -- contribute lovelace to the collateral fields.
+    --     inputs (issue #124). Used to compute the
+    --     @total_collateral@ / @collateral_return@
+    --     arithmetic during balancing. These UTxOs are
+    --     NOT added to the body's @inputs@ — they only
+    --     contribute lovelace to the collateral fields.
     --
-    -- Pass @CollateralUtxos []@ (the default) when
-    -- the program uses the same UTxO for both a
-    -- regular @spend@ and a @collateral@ instruction,
-    -- since 'inputUtxos' already covers both lookups
-    -- in that case. Pass the collateral-only UTxOs
-    -- here when the collateral inputs are different
-    -- from the regular spend inputs.
+    --     Pass @CollateralUtxos []@ (the default) when
+    --     the program uses the same UTxO for both a
+    --     regular @spend@ and a @collateral@ instruction,
+    --     since 'inputUtxos' already covers both lookups
+    --     in that case. Pass the collateral-only UTxOs
+    --     here when the collateral inputs are different
+    --     from the regular spend inputs.
     --
-    -- This field is input data rather than a tunable
-    -- knob; it lives here for backwards compatibility
-    -- with the @build@ / @buildWith@ signatures.
+    --     This field is input data rather than a tunable
+    --     knob; it lives here for backwards compatibility
+    --     with the @build@ / @buildWith@ signatures.
     }
 
 -- | All defaults preserve pre-'buildWith' behaviour.

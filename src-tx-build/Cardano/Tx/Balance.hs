@@ -91,6 +91,7 @@ import Cardano.Ledger.BaseTypes (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Conway.TxBody (treasuryDonationTxBodyL)
 import Cardano.Ledger.Core (PParams)
 import Cardano.Ledger.Mary.Value (
     MaryValue (..),
@@ -264,6 +265,7 @@ balanceTxWith
             (Coin origAda, origMA) = sumValues origOutputs
             depositDelta =
                 bodyDepositDelta pp body
+            Coin donation = body ^. treasuryDonationTxBodyL
             bodyMint :: MultiAsset
             bodyMint = body ^. mintTxBodyL
             -- Residual multi-assets that no existing
@@ -413,7 +415,7 @@ balanceTxWith
                     change =
                         max
                             0
-                            (avail - req - origAda - depositDelta)
+                            (avail - req - origAda - depositDelta - donation)
                     changeOut =
                         mkBasicTxOut
                             changeAddr
@@ -465,6 +467,7 @@ balanceTxWith
                                 - required
                                 - origAda
                                 - depositDelta
+                                - donation
                      in if changeAmount < 0
                             then
                                 Left
