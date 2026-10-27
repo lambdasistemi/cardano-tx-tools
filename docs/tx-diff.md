@@ -59,6 +59,21 @@ confined to one redeemer is then reported under
 tx-diff --witnesses a.cbor.hex b.cbor.hex
 ```
 
+## Metadata
+
+Transaction metadata is compared under a root of its own,
+`auxiliaryData`, next to `body`. Each metadata label is a key under
+`auxiliaryData.metadata`; maps with text keys (the CIP-20 and
+CIP-1694 shape) descend by key, so a changed rationale comment is
+reported at a path such as
+`auxiliaryData.metadata.1694.body.comment`, with both texts shown.
+Any other metadata map is listed as `key` / `value` pairs. A
+transaction without metadata shows `auxiliaryData` as `null`.
+
+The body also includes `auxiliaryDataHash`, the hash that binds the
+metadata to the signed body, so a metadata change always shows up
+in the body as well.
+
 ## Collateral return
 
 The body includes `collateralReturn`. A difference in the

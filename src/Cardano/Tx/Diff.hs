@@ -84,6 +84,7 @@ import Data.Text qualified as Text
 import Data.Text.Encoding qualified as TextEncoding
 import Data.Tree qualified as Tree
 import Data.Tree.View qualified as TreeView
+import Data.Word (Word64)
 import Data.Yaml qualified as Yaml
 import Lens.Micro ((^.))
 import Text.Read (readMaybe)
@@ -106,11 +107,13 @@ import Cardano.Ledger.Api.Scripts.Data (
  )
 import Cardano.Ledger.Api.Tx (
     addrTxWitsL,
+    auxDataTxL,
     bodyTxL,
     bootAddrTxWitsL,
     witsTxL,
  )
 import Cardano.Ledger.Api.Tx.Body (
+    auxDataHashTxBodyL,
     collateralInputsTxBodyL,
     collateralReturnTxBodyL,
     feeTxBodyL,
@@ -150,9 +153,20 @@ import Cardano.Ledger.Binary (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
-import Cardano.Ledger.Core (Script, eraProtVerLow, hashScript)
+import Cardano.Ledger.Core (
+    Script,
+    TxAuxData,
+    eraProtVerLow,
+    hashScript,
+    metadataTxAuxDataL,
+ )
 import Cardano.Ledger.Credential (Credential)
-import Cardano.Ledger.Hashes (DataHash, ScriptHash (..), extractHash)
+import Cardano.Ledger.Hashes (
+    DataHash,
+    ScriptHash (..),
+    TxAuxDataHash (..),
+    extractHash,
+ )
 import Cardano.Ledger.Keys (
     KeyHash (..),
     KeyRole (..),
@@ -166,6 +180,8 @@ import Cardano.Ledger.Mary.Value (
     MultiAsset (..),
     PolicyID (..),
  )
+import Cardano.Ledger.Metadata (Metadatum)
+import Cardano.Ledger.Metadata qualified as Metadata
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Slotting.Slot (SlotNo (..))
@@ -742,6 +758,8 @@ instance FromJSON DiffPath where
 data ConwayDiffValue
     = ConwayTxValue ConwayTx
     | ConwayBodyValue ConwayTx
+    | ConwayAuxDataValue (StrictMaybe (TxAuxData ConwayEra))
+    | ConwayAuxDataHashValue (StrictMaybe TxAuxDataHash)
     | ConwayCoinValue Coin
     | ConwayStrictMaybeCoinValue (StrictMaybe Coin)
     | ConwayInputsValue [TxIn]
@@ -2297,6 +2315,10 @@ conwayDiffEqual (ConwayTxValue left) (ConwayTxValue right) =
     left == right
 conwayDiffEqual (ConwayBodyValue left) (ConwayBodyValue right) =
     left ^. bodyTxL == right ^. bodyTxL
+conwayDiffEqual (ConwayAuxDataValue left) (ConwayAuxDataValue right) =
+    left == right
+conwayDiffEqual (ConwayAuxDataHashValue left) (ConwayAuxDataHashValue right) =
+    left == right
 conwayDiffEqual (ConwayCoinValue left) (ConwayCoinValue right) =
     left == right
 conwayDiffEqual
@@ -2387,6 +2409,10 @@ conwayDiffEqual _ _ =
     False
 
 conwayDiffSummary :: ConwayDiffValue -> Maybe Aeson.Value
+conwayDiffSummary (ConwayAuxDataValue _) =
+    Nothing
+conwayDiffSummary (ConwayAuxDataHashValue auxDataHash) =
+    Just (auxDataHashValue auxDataHash)
 conwayDiffSummary (ConwayCoinValue coin) =
     Just (coinValue coin)
 conwayDiffSummary (ConwayStrictMaybeCoinValue coin) =
@@ -2462,23 +2488,36 @@ conwayDiffProjection ::
     TxDiffOptions -> ConwayDiffValue -> DiffProjection ConwayDiffValue
 conwayDiffProjection options (ConwayTxValue tx) =
     DiffObjectChildren $
-        if txDiffIncludeWitnesses options
-            then
-                Map.fromList
-                    [
-                        ( "body"
-                        , ConwayBodyValue tx
-                        )
-                    ,
-                        ( "witnesses"
-                        , ConwayWitnessesValue tx
-                        )
-                    ]
-            else Map.singleton "body" (ConwayBodyValue tx)
+        Map.fromList $
+            [
+                ( "auxiliaryData"
+                , ConwayAuxDataValue (tx ^. auxDataTxL)
+                )
+            ,
+                ( "body"
+                , ConwayBodyValue tx
+                )
+            ]
+                <> [ ("witnesses", ConwayWitnessesValue tx)
+                   | txDiffIncludeWitnesses options
+                   ]
+conwayDiffProjection _ (ConwayAuxDataValue SNothing) =
+    DiffAtomic Aeson.Null
+conwayDiffProjection _ (ConwayAuxDataValue (SJust auxData)) =
+    DiffObjectChildren $
+        Map.singleton
+            "metadata"
+            (ConwayOpenValue (metadataOpenValue (auxData ^. metadataTxAuxDataL)))
+conwayDiffProjection _ (ConwayAuxDataHashValue auxDataHash) =
+    DiffAtomic (auxDataHashValue auxDataHash)
 conwayDiffProjection _ (ConwayBodyValue tx) =
     DiffObjectChildren $
         Map.fromList
             [
+                ( "auxiliaryDataHash"
+                , ConwayAuxDataHashValue (tx ^. bodyTxL . auxDataHashTxBodyL)
+                )
+            ,
                 ( "collateralInputs"
                 , ConwayInputsValue $
                     Set.toAscList (tx ^. bodyTxL . collateralInputsTxBodyL)
@@ -2733,6 +2772,54 @@ plutusDataOpenValue (PLC.Constr index fields) =
             [ ("constructor", OpenInteger index)
             , ("fields", OpenArray (map plutusDataOpenValue fields))
             ]
+
+{- | Transaction metadata keyed by label. A metadata map whose keys are
+all distinct text keys (the CIP-20 and CIP-1694 shape) becomes an
+object, so a change reads as a path such as @1694.body.comment@; any
+other map falls back to the key/value pair list used for Plutus maps.
+-}
+metadataOpenValue :: Map Word64 Metadatum -> OpenValue
+metadataOpenValue labels =
+    OpenObject $
+        Map.fromList
+            [ (Text.pack (show label), metadatumOpenValue metadatum)
+            | (label, metadatum) <- Map.toList labels
+            ]
+
+metadatumOpenValue :: Metadatum -> OpenValue
+metadatumOpenValue (Metadata.I integer) =
+    OpenInteger integer
+metadatumOpenValue (Metadata.B bytes) =
+    OpenBytes (hexText bytes)
+metadatumOpenValue (Metadata.S text) =
+    OpenText text
+metadatumOpenValue (Metadata.List values) =
+    OpenArray (map metadatumOpenValue values)
+metadatumOpenValue (Metadata.Map entries) =
+    case traverse textKey entries of
+        Just keyed
+            | length (List.nub (map fst keyed)) == length keyed ->
+                OpenObject (Map.fromList keyed)
+        _ ->
+            OpenArray
+                [ OpenObject $
+                    Map.fromList
+                        [ ("key", metadatumOpenValue key)
+                        , ("value", metadatumOpenValue itemValue)
+                        ]
+                | (key, itemValue) <- entries
+                ]
+  where
+    textKey (Metadata.S key, itemValue) =
+        Just (key, metadatumOpenValue itemValue)
+    textKey _ =
+        Nothing
+
+auxDataHashValue :: StrictMaybe TxAuxDataHash -> Aeson.Value
+auxDataHashValue SNothing =
+    Aeson.Null
+auxDataHashValue (SJust (TxAuxDataHash auxDataHash)) =
+    Aeson.String (hexText (hashToBytes (extractHash auxDataHash)))
 
 coinValue :: Coin -> Aeson.Value
 coinValue (Coin lovelace) =

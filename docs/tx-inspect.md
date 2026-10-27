@@ -142,6 +142,30 @@ not byte-identical CLI output, because `tx-diff` emits diff
 format and `tx-inspect` emits a single-side render. See
 [rewriting-rules grammar — Cross-tool semantics](rewriting-rules.md#cross-tool-semantics).
 
+## Metadata
+
+Transaction metadata renders under its own root, `auxiliaryData`,
+before `body`, one key per metadata label. Text-keyed maps (the
+CIP-20 and CIP-1694 shape) descend by key, so a treasury rationale
+reads as:
+
+```text
+auxiliaryData
+`- metadata
+   `- 1694
+      +- body
+      |  +- description
+      |  |  `- 0
+      |  |     `- "USDM for April invoices"
+      |  +- event
+      |  |  `- "disburse"
+…
+```
+
+The body carries `auxiliaryDataHash`, the hash binding that metadata
+to the signed body. A transaction without metadata renders both as
+`null`.
+
 ## Collateral return
 
 The body node carries `collateralReturn` next to `collateralInputs`

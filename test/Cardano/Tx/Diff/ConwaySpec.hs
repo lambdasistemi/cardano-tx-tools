@@ -47,11 +47,13 @@ import Cardano.Ledger.Api.Scripts.Data (
  )
 import Cardano.Ledger.Api.Tx (
     addrTxWitsL,
+    auxDataTxL,
     bodyTxL,
     bootAddrTxWitsL,
     witsTxL,
  )
 import Cardano.Ledger.Api.Tx.Body (
+    auxDataHashTxBodyL,
     collateralInputsTxBodyL,
     collateralReturnTxBodyL,
     feeTxBodyL,
@@ -90,11 +92,18 @@ import Cardano.Ledger.Binary (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
-import Cardano.Ledger.Core (Script, eraProtVerLow, hashScript)
+import Cardano.Ledger.Core (
+    Script,
+    eraProtVerLow,
+    hashScript,
+    metadataTxAuxDataL,
+    mkBasicTxAuxData,
+ )
 import Cardano.Ledger.Credential (Credential (KeyHashObj))
 import Cardano.Ledger.Hashes (
     DataHash,
     ScriptHash (..),
+    TxAuxDataHash (..),
     extractHash,
     unsafeMakeSafeHash,
  )
@@ -114,6 +123,7 @@ import Cardano.Ledger.Mary.Value (
     MultiAsset (..),
     PolicyID (..),
  )
+import Cardano.Ledger.Metadata (Metadatum (..))
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.Plutus.Language (
     Language (PlutusV3),
@@ -200,6 +210,57 @@ spec =
                                 )
                             )
                         ]
+                    )
+
+        it "reports a Conway metadata change under auxiliaryData.metadata" $ do
+            tx <- loadFixture sampleHash
+            let withComment comment =
+                    tx
+                        & auxDataTxL
+                            .~ SJust
+                                ( mkBasicTxAuxData
+                                    & metadataTxAuxDataL
+                                        .~ Map.singleton
+                                            1694
+                                            ( Map
+                                                [
+                                                    ( S "body"
+                                                    , Map [(S "comment", S comment)]
+                                                    )
+                                                ]
+                                            )
+                                )
+                txA = withComment "September 2026"
+                txB = withComment "October 2026"
+            changedPaths (diffConwayTx txA txB)
+                `shouldBe` [ DiffPath
+                                ["auxiliaryData", "metadata", "1694", "body", "comment"]
+                           ]
+            changeAt
+                ["auxiliaryData", "metadata", "1694", "body", "comment"]
+                (diffConwayTx txA txB)
+                `shouldBe` Just
+                    ( DiffChanged
+                        (Aeson.String "September 2026")
+                        (Aeson.String "October 2026")
+                    )
+
+        it "reports a Conway auxiliary data hash change at body.auxiliaryDataHash" $ do
+            tx <- loadFixture sampleHash
+            let auxHash n =
+                    TxAuxDataHash $
+                        unsafeMakeSafeHash $
+                            fromJust $
+                                hashFromStringAsHex (replicate 62 '0' ++ hexByte n)
+                txA = tx & bodyTxL . auxDataHashTxBodyL .~ SJust (auxHash 1)
+                txB = tx & bodyTxL . auxDataHashTxBodyL .~ SJust (auxHash 2)
+            changedPaths (diffConwayTx txA txB)
+                `shouldBe` [DiffPath ["body", "auxiliaryDataHash"]]
+            changeAt ["body", "auxiliaryDataHash"] (diffConwayTx txA txB)
+                `shouldBe` Just
+                    ( DiffChanged
+                        (Aeson.String (Text.pack (replicate 62 '0' ++ hexByte 1)))
+                        (Aeson.String (Text.pack (replicate 62 '0' ++ hexByte 2)))
                     )
 
         it "reports a Conway validity change at body.validityInterval.invalidHereafter" $ do
@@ -1249,7 +1310,7 @@ spec =
                 `shouldBe` DiffNode
                     rootPath
                     ( DiffObject
-                        (Map.singleton "body" Nothing)
+                        (Map.fromList [("auxiliaryData", Nothing), ("body", Nothing)])
                         ( Map.singleton
                             "witnesses"
                             ( DiffNode
@@ -1307,7 +1368,7 @@ spec =
                 `shouldBe` DiffNode
                     rootPath
                     ( DiffObject
-                        (Map.singleton "body" Nothing)
+                        (Map.fromList [("auxiliaryData", Nothing), ("body", Nothing)])
                         ( Map.singleton
                             "witnesses"
                             ( DiffNode
@@ -1367,7 +1428,7 @@ spec =
                 `shouldBe` DiffNode
                     rootPath
                     ( DiffObject
-                        (Map.singleton "body" Nothing)
+                        (Map.fromList [("auxiliaryData", Nothing), ("body", Nothing)])
                         ( Map.singleton
                             "witnesses"
                             ( DiffNode
@@ -1570,7 +1631,7 @@ spec =
                         `shouldBe` DiffNode
                             rootPath
                             ( DiffObject
-                                (Map.singleton "body" Nothing)
+                                (Map.fromList [("auxiliaryData", Nothing), ("body", Nothing)])
                                 ( Map.singleton
                                     "witnesses"
                                     ( DiffNode
@@ -1638,7 +1699,7 @@ spec =
                         `shouldBe` DiffNode
                             rootPath
                             ( DiffObject
-                                (Map.singleton "body" Nothing)
+                                (Map.fromList [("auxiliaryData", Nothing), ("body", Nothing)])
                                 ( Map.singleton
                                     "witnesses"
                                     ( DiffNode
@@ -1687,7 +1748,7 @@ bodyDiff common changed =
     DiffNode
         rootPath
         ( DiffObject
-            Map.empty
+            (Map.singleton "auxiliaryData" Nothing)
             ( Map.singleton
                 "body"
                 ( DiffNode
@@ -1909,6 +1970,10 @@ witnessFieldValues tx =
 bodyFieldValues :: ConwayTx -> [(Text, Aeson.Value)]
 bodyFieldValues tx =
     [
+        ( "auxiliaryDataHash"
+        , auxDataHashJson (tx ^. bodyTxL . auxDataHashTxBodyL)
+        )
+    ,
         ( "collateralInputs"
         , inputsJson $
             Set.toAscList (tx ^. bodyTxL . collateralInputsTxBodyL)
@@ -2330,3 +2395,9 @@ indexedOutputSummaries outputs =
     [ (index, Just (outputJson output))
     | (index, output) <- zip [1 ..] outputs
     ]
+
+auxDataHashJson :: StrictMaybe TxAuxDataHash -> Aeson.Value
+auxDataHashJson SNothing =
+    Aeson.Null
+auxDataHashJson (SJust (TxAuxDataHash auxDataHash)) =
+    Aeson.String (Text.decodeUtf8 (Base16.encode (hashToBytes (extractHash auxDataHash))))
