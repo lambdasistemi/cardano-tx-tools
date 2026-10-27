@@ -132,6 +132,8 @@ jobs:
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Assert the aarch64 GHC is cached (no source build)
+        # #164: advisory until #138 caches ghc-9.12.3 for aarch64-linux.
+        continue-on-error: true
         run: |
           set -euo pipefail
           plan="$(nix build --dry-run .#packages.aarch64-linux.tx-diff 2>&1 || true)"
