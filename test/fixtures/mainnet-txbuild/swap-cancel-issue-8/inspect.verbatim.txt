@@ -1,4 +1,8 @@
+auxiliaryData
+`- null
 body
++- auxiliaryDataHash
+|  `- null
 +- collateralInputs
 |  `- 0
 |     +- resolved

@@ -1,4 +1,34 @@
+auxiliaryData
+`- metadata
+   `- 1694
+      +- @context
+      |  +- 0
+      |  |  `- "https://github.com/SundaeSwap-finance/treasury-contracts/blob/"
+      |  +- 1
+      |  |  `- "ad4316d0d36cdef780f85fc2ec8b307e645ddc2a"
+      |  `- 2
+      |     `- "/offchain/src/metadata/spec.md"
+      +- body
+      |  +- description
+      |  |  `- 0
+      |  |     `- "USDM for April invoices"
+      |  +- destination
+      |  |  `- label
+      |  |     `- "Network Compliance's treasury"
+      |  +- event
+      |  |  `- "disburse"
+      |  +- justification
+      |  |  `- 0
+      |  |     `- "Antithesis 2026 invoice"
+      |  `- label
+      |     `- "Swap ADA<->USDM"
+      +- hashAlgorithm
+      |  `- "blake2b-256"
+      `- instance
+         `- "38c627d45835744a2d6c727124f2b5852e5564aeab3f608e0e84ea6d"
 body
++- auxiliaryDataHash
+|  `- "a13ae6381df9332e15ab181df3c50756a876186de33ffac9ab10639b5bcc38cd"
 +- collateralInputs
 |  `- 0
 |     `- {"index":3,"txId":"b63aa2dd78c2a63b71aeba687cf45d445a98653a81f48774aa30236e47f30b86"}
