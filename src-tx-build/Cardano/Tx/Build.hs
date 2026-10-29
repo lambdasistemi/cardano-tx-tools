@@ -1524,13 +1524,16 @@ buildWith opts ppBound interpret evaluateTx inputUtxos refUtxos changeAddr prog 
                     .~ Set.union existing extraIns
 
     -- \| Total bytes of any reference scripts
-    -- attached to UTxOs in @refUtxos@ that the
-    -- current tx body actually references. Conway
-    -- charges these via @minFeeRefScriptCostPerByte@.
+    -- attached to UTxOs the current tx body spends
+    -- or references. Conway charges both via
+    -- @minFeeRefScriptCostPerByte@.
     refScriptBytesOf tx =
         refScriptsSize
-            (tx ^. bodyTxL . referenceInputsTxBodyL)
-            refUtxos
+            ( Set.union
+                (tx ^. bodyTxL . inputsTxBodyL)
+                (tx ^. bodyTxL . referenceInputsTxBodyL)
+            )
+            (inputUtxos <> refUtxos)
 
     inflateRedeemerBudgets tx =
         let Redeemers rdmrs =

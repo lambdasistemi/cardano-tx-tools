@@ -67,11 +67,14 @@ import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Tx.Ledger (ConwayTx)
 
 {- | Sum the byte lengths of any reference scripts
-attached to UTxOs whose 'TxIn' is in the body's
-@referenceInputsTxBodyL@ set. Used to feed
-@estimateMinFeeTx@ so the Conway
+attached to UTxOs whose 'TxIn' is in the given set.
+Used to feed @estimateMinFeeTx@ so the Conway
 @minFeeRefScriptCostPerByte@ tier is correctly
-charged.
+charged. Callers pass the union of the body's
+@inputsTxBodyL@ and @referenceInputsTxBodyL@: the
+ledger charges the reference scripts carried by spent
+inputs as well as by reference inputs. Each 'TxIn' is
+counted once, even when it occurs twice in the list.
 
 Native (timelock) scripts are included in the sum;
 the Conway ledger only charges Plutus scripts, so
@@ -84,16 +87,14 @@ refScriptsSize ::
     Set TxIn ->
     [(TxIn, TxOut ConwayEra)] ->
     Int
-refScriptsSize bodyRefIns =
+refScriptsSize ins utxos =
     foldr
-        ( \(i, o) acc ->
-            if Set.member i bodyRefIns
-                then case o ^. referenceScriptTxOutL of
-                    SJust s -> acc + BS.length (originalBytes s)
-                    SNothing -> acc
-                else acc
+        ( \o acc -> case o ^. referenceScriptTxOutL of
+            SJust s -> acc + BS.length (originalBytes s)
+            SNothing -> acc
         )
         0
+        (Map.restrictKeys (Map.fromList utxos) ins)
 
 {- | Derive the set of Plutus languages referenced by
 the given witness-set scripts and reference inputs.
