@@ -236,8 +236,8 @@ balanceTxWith
         let body = tx ^. bodyTxL
             refScriptBytes =
                 refScriptsSize
-                    (body ^. referenceInputsTxBodyL)
-                    refUtxos
+                    (Set.union newInputs (body ^. referenceInputsTxBodyL))
+                    (inputUtxos <> refUtxos)
             valueOf o = let MaryValue c m = o ^. valueTxOutL in (c, m)
             sumValues ::
                 (Foldable t) =>
@@ -544,20 +544,25 @@ balanceFeeLoop ::
     -- | Number of key witnesses to assume for
     --     fee estimation.
     Int ->
-    -- | Resolved reference-input UTxOs (see
-    --     'balanceTx'). Pass @[]@ if the tx has no
-    --     reference scripts.
+    -- | Resolved UTxOs of the template's spent
+    --     inputs and reference inputs. Their
+    --     reference scripts are charged at
+    --     @minFeeRefScriptCostPerByte@. Pass @[]@ if
+    --     none of them carries a reference script.
     [(TxIn, TxOut ConwayEra)] ->
     -- | Template transaction.
     ConwayTx ->
     Either FeeLoopError ConwayTx
-balanceFeeLoop pp mkOutputs numWitnesses refUtxos tx =
+balanceFeeLoop pp mkOutputs numWitnesses utxos tx =
     go 0 (Coin 0)
   where
     refScriptBytes =
         refScriptsSize
-            (tx ^. bodyTxL . referenceInputsTxBodyL)
-            refUtxos
+            ( Set.union
+                (tx ^. bodyTxL . inputsTxBodyL)
+                (tx ^. bodyTxL . referenceInputsTxBodyL)
+            )
+            utxos
     go !n currentFee
         | n > (10 :: Int) = Left FeeDidNotConverge
         | otherwise =

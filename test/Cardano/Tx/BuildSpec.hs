@@ -25,6 +25,7 @@ import Data.ByteString.Short qualified as SBS
 import Data.Foldable (toList)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
+import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
@@ -44,6 +45,7 @@ import Cardano.Ledger.Api.Tx (bodyTxL, estimateMinFeeTx, mkBasicTx)
 import Cardano.Ledger.Api.Tx.Body (
     certsTxBodyL,
     feeTxBodyL,
+    inputsTxBodyL,
     mkBasicTxBody,
     outputsTxBodyL,
     referenceInputsTxBodyL,
@@ -75,6 +77,7 @@ import Cardano.Ledger.Conway.TxCert (
     ConwayDelegCert (..),
     ConwayTxCert (..),
  )
+import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
 import Cardano.Ledger.Core (Script, witsTxL)
 import Cardano.Ledger.Credential (
     Credential (KeyHashObj, ScriptHashObj),
@@ -91,9 +94,10 @@ import Cardano.Ledger.Plutus.Language (
     Plutus (..),
     PlutusBinary (..),
  )
+import Cardano.Ledger.State (UTxO (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 
-import Cardano.Tx.Balance (BalanceResult (..), balanceTx, computeScriptIntegrity, languagesUsedInTx)
+import Cardano.Tx.Balance (BalanceResult (..), balanceFeeLoop, balanceTx, computeScriptIntegrity, languagesUsedInTx)
 import Cardano.Tx.Build (
     InterpretIO (..),
     TxBuild,
@@ -115,6 +119,7 @@ spec = describe "Cardano.Tx.Build (issue #8 reproduction)" $ do
     registerStakeSpec
     donationBalanceSpec
     donationInstructionSpec
+    spentReferenceScriptFeeSpec
 
 {- | The mainnet @swap-cancel@ regression: the fixture
 body carries the @script_integrity_hash@ TxBuild
@@ -479,3 +484,58 @@ buildDonation pp donation = do
             stubAddr
             program
     either (fail . show) pure result
+
+{- | Issue #167: the ledger charges
+@minFeeRefScriptCostPerByte@ for the reference
+scripts carried by spent inputs, not only by
+reference inputs. Each balancer must pay at least the
+fee the ledger computes from its own reference-script
+size over the resolved UTxO.
+-}
+spentReferenceScriptFeeSpec :: Spec
+spentReferenceScriptFeeSpec = describe "reference script carried by a spent input" $ do
+    let seed =
+            ( stubTxIn 21
+            , mkBasicTxOut stubAddr (MaryValue (Coin 100_000_000) mempty)
+                & referenceScriptTxOutL .~ SJust alwaysTrueScriptV3
+            )
+        ledgerMinFee pp tx =
+            estimateMinFeeTx
+                pp
+                tx
+                1
+                0
+                (txNonDistinctRefScriptsSize (UTxO (Map.fromList [seed])) tx)
+    it "the ledger charges the spent input's script" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        let tx = mkBasicTx (mkBasicTxBody & inputsTxBodyL .~ Set.singleton (fst seed))
+        ledgerMinFee pp tx `shouldSatisfy` (> estimateMinFeeTx pp tx 1 0 0)
+    it "build pays it" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        let program :: TxBuild NoCtx String ()
+            program = do
+                _ <- spend (fst seed)
+                pure ()
+        result <-
+            build
+                (mkPParamsBound pp)
+                (InterpretIO (error "no context"))
+                (\_ -> pure Map.empty)
+                [seed]
+                []
+                stubAddr
+                program
+        tx <- either (fail . show) pure result
+        tx ^. bodyTxL . feeTxBodyL `shouldSatisfy` (>= ledgerMinFee pp tx)
+    it "balanceTx pays it" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        result <- either (fail . show) pure (balanceTx pp [seed] [] stubAddr (mkBasicTx mkBasicTxBody))
+        let tx = balancedTx result
+        tx ^. bodyTxL . feeTxBodyL `shouldSatisfy` (>= ledgerMinFee pp tx)
+    it "balanceFeeLoop pays it" $ do
+        pp <- loadPParams "test/fixtures/pparams.json"
+        let template = mkBasicTx (mkBasicTxBody & inputsTxBodyL .~ Set.singleton (fst seed))
+            mkOutputs (Coin fee) =
+                Right (StrictSeq.singleton (mkBasicTxOut stubAddr (MaryValue (Coin (100_000_000 - fee)) mempty)))
+        tx <- either (fail . show) pure (balanceFeeLoop pp mkOutputs 1 [seed] template)
+        tx ^. bodyTxL . feeTxBodyL `shouldSatisfy` (>= ledgerMinFee pp tx)
