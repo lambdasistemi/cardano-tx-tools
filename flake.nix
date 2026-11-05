@@ -80,8 +80,6 @@
                   pkgs.secp256k1
                   pkgs.libblst
                 ]];
-              packages.cardano-lmdb.components.library.pkgconfig =
-                lib.mkForce [ [ pkgs.lmdb ] ];
               packages.cardano-ledger-binary.components.library.doHaddock =
                 lib.mkForce false;
               packages.plutus-core.components.library.doHaddock =
@@ -161,11 +159,10 @@
                   pkgs.cacert
                   pkgs.apache-jena
                   pkgs.lmdb
-                  pkgs.liburing
                   pkgs.rocksdb
                   mkdocs.packages.${system}.from-nixpkgs
                   mkdocs.packages.${system}.asciinema-plugin
-                ];
+                ] ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.liburing ];
                 shellHook = ''
                   export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
                 '';
