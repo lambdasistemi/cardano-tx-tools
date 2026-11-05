@@ -12,6 +12,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dev-shell:
+    name: Development shell builds
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build through the development shell
+        run: >-
+          nix develop --quiet .#ci -c bash -c
+          'cabal update && cabal build all -O0'
+
   build-gate:
     name: Build Gate
     runs-on: nixos
