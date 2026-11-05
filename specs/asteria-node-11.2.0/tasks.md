@@ -1,0 +1,5 @@
+- [x] Align dependency pins and indexes with node 11.2.0 resolved plan.
+- [x] Pin repaired clients and ledger-read revisions consistently.
+- [x] Adapt library, builder and CLI APIs without changing Conway behavior.
+- [x] Run build, tests, smoke, formatting and lint gates.
+- [ ] Prepare exact candidate PR and record hosted verification separately.

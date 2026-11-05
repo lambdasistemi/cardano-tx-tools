@@ -129,7 +129,7 @@ decodeVKeyWitnessHex ix hex = do
             decodeFullAnnotator
                 (eraProtVerLow @ConwayEra)
                 "WitVKey"
-                decCBOR
+                (pure <$> decCBOR)
                 bsl
     case tryBare of
         Right wit -> Right wit
@@ -154,7 +154,7 @@ keyWitnessDecoder = do
     decodeListLenOf 2
     tag <- decodeWord
     case tag of
-        0 -> decCBOR
+        0 -> pure <$> decCBOR
         _ -> fail ("unsupported KeyWitness tag: " <> show tag)
 
 {- | Merge a set of vkey witnesses into the transaction's witness set.

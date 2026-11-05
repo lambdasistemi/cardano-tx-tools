@@ -78,6 +78,7 @@ import Data.List qualified as List
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (isJust)
+import Data.MemPack.Buffer (byteArrayToShortByteString)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -2790,7 +2791,7 @@ metadatumOpenValue :: Metadatum -> OpenValue
 metadatumOpenValue (Metadata.I integer) =
     OpenInteger integer
 metadatumOpenValue (Metadata.B bytes) =
-    OpenBytes (hexText bytes)
+    OpenBytes (hexText (SBS.fromShort (byteArrayToShortByteString bytes)))
 metadatumOpenValue (Metadata.S text) =
     OpenText text
 metadatumOpenValue (Metadata.List values) =
@@ -3088,7 +3089,7 @@ redeemerPurposeKey (ConwayMinting (AsIx index)) =
     indexedRedeemerPurposeKey "minting" index
 redeemerPurposeKey (ConwayCertifying (AsIx index)) =
     indexedRedeemerPurposeKey "certifying" index
-redeemerPurposeKey (ConwayRewarding (AsIx index)) =
+redeemerPurposeKey (ConwayWithdrawing (AsIx index)) =
     indexedRedeemerPurposeKey "rewarding" index
 redeemerPurposeKey (ConwayVoting (AsIx index)) =
     indexedRedeemerPurposeKey "voting" index

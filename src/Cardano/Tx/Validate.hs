@@ -2,7 +2,7 @@
 
 {- |
 Module      : Cardano.Tx.Validate
-Description : Conway Phase-1 pre-flight against ledger applyTx.
+Description : Conway Phase-1 pre-flight against ledger applyTxWithFullValidation.
 Copyright   : (c) Paolo Veronelli, 2026
 License     : Apache-2.0
 
@@ -15,7 +15,7 @@ hash mismatch, fee bounds, min-utxo, collateral, validity
 interval, ref-script bytes, language-view consistency) before
 paying the signing or submission cost.
 
-On unsigned input, the ledger's @applyTx@ always raises
+On unsigned input, the ledger's @applyTxWithFullValidation@ always raises
 'MissingVKeyWitnessesUTXOW' (and similar native-script-signature
 failures) alongside any genuine structural problems. These are
 expected noise that callers strip via a downstream
@@ -25,7 +25,7 @@ on unsigned input. The contract is "no structural failure
 remained after filtering."
 
 The recipe (synthesise 'Globals', seed 'NewEpochState' via
-'def', call 'Mempool.applyTx') is duplicated verbatim from
+'def', then apply the transaction with full validation) is adapted from
 [@cardano-ledger-inspector@'s @Conway.Inspector.Validation@](https://github.com/lambdasistemi/cardano-ledger-inspector/blob/main/libs/cardano-ledger-inspector/src/Conway/Inspector/Validation.hs).
 See @specs/014-validate-phase1/spec.md@ "Implementation strategy"
 and upstream consolidation ticket
@@ -68,7 +68,7 @@ import Cardano.Ledger.Conway.Rules (
 import Cardano.Ledger.Conway.State (mkConwayAccountState)
 import Cardano.Ledger.Shelley.API.Mempool (
     ApplyTxError,
-    applyTx,
+    applyTxWithFullValidation,
     mkMempoolEnv,
     mkMempoolState,
  )
@@ -97,7 +97,7 @@ Pure: no @IO@. Synthesises a ledger 'Globals' from the supplied
 'Network', seeds a fresh 'NewEpochState' with the unwrapped
 'PParams' and the supplied UTxO at the given 'SlotNo', wraps that
 in a 'MempoolEnv' + 'MempoolState', and calls
-@Cardano.Ledger.Shelley.API.Mempool.applyTx@. The returned
+@Cardano.Ledger.Shelley.API.Mempool.applyTxWithFullValidation@. The returned
 'ApplyTxError' is exposed verbatim — no re-classification, no
 filtering. Callers needing to drop witness-completeness noise
 filter the carried @NonEmpty ConwayLedgerPredFailure@ at their
@@ -129,11 +129,11 @@ validatePhase1 network ppBound utxo =
 reward accounts.
 
 Each map entry is seeded into the Conway certificate/account state
-before @applyTx@ runs. A present account with @Coin 0@ is still
+before @applyTxWithFullValidation@ runs. A present account with @Coin 0@ is still
 registered; the account deposit is seeded as zero and the reward
 balance is set explicitly to the supplied coin. Missing map entries
 remain absent so the ledger can still surface
-@WithdrawalsNotInRewardsCERTS@.
+@ConwayWithdrawalsMissingAccounts@.
 -}
 validatePhase1WithRewardAccounts ::
     Network ->
@@ -148,7 +148,7 @@ validatePhase1WithRewardAccounts network ppBound utxo rewardAccounts slot tx =
         nes = seedNewEpochState pp utxo rewardAccounts
         env = mkMempoolEnv nes slot
         state = mkMempoolState nes
-     in case applyTx (synthesiseGlobals network) env state tx of
+     in case applyTxWithFullValidation (synthesiseGlobals network) env state tx of
             Right _ -> Right ()
             Left err -> Left err
 
@@ -242,7 +242,7 @@ defaultActiveSlotCoeff =
         (fromMaybe maxBound (boundRational (1 % 20)))
 
 {- | Recognise the failure constructor that any unsigned candidate
-transaction trips via @applyTx@'s UTXOW rule. This is not a
+transaction trips via @applyTxWithFullValidation@'s UTXOW rule. This is not a
 structural bug; it reflects the fact that 'validatePhase1' is a
 pre-flight run BEFORE signing.
 

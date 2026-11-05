@@ -16,6 +16,7 @@ import Data.ByteString.Short qualified as SBS
 import Data.Foldable (asum, toList)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
+import Data.MemPack.Buffer (byteArrayFromShortByteString)
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Data.Text (Text)
@@ -2117,8 +2118,8 @@ bootstrapWitnessFromVKeyWitness (WitVKey key signature) =
     BootstrapWitness
         key
         signature
-        (ChainCode (BS8.replicate 32 '\0'))
-        BS8.empty
+        (ChainCode (byteArrayFromShortByteString (SBS.toShort (BS8.replicate 32 '\0'))))
+        (byteArrayFromShortByteString SBS.empty)
 
 withdrawalsJson :: Withdrawals -> Aeson.Value
 withdrawalsJson (Withdrawals withdrawals) =
@@ -2209,7 +2210,7 @@ redeemerPurposeKey (ConwayMinting (AsIx index)) =
     indexedRedeemerPurposeKey "minting" index
 redeemerPurposeKey (ConwayCertifying (AsIx index)) =
     indexedRedeemerPurposeKey "certifying" index
-redeemerPurposeKey (ConwayRewarding (AsIx index)) =
+redeemerPurposeKey (ConwayWithdrawing (AsIx index)) =
     indexedRedeemerPurposeKey "rewarding" index
 redeemerPurposeKey (ConwayVoting (AsIx index)) =
     indexedRedeemerPurposeKey "voting" index

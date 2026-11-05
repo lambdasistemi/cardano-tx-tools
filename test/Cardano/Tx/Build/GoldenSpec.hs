@@ -558,7 +558,7 @@ indexedWithdrawalRedeemers tx =
     rewardRedeemers =
         Map.fromList
             [ (ix, redeemer)
-            | (ConwayRewarding (AsIx ix), (redeemer, _)) <- Map.toList redeemers
+            | (ConwayWithdrawing (AsIx ix), (redeemer, _)) <- Map.toList redeemers
             ]
     Withdrawals withdrawals = tx ^. bodyTxL . withdrawalsTxBodyL
     withdrawalIndices = zip (Map.keys withdrawals) [0 :: Word32 ..]

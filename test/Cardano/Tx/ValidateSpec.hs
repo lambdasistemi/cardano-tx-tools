@@ -197,7 +197,7 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
 
     it
         ( "withdrawal tx with no seeded reward accounts surfaces "
-            <> "WithdrawalsNotInRewardsCERTS"
+            <> "ConwayWithdrawalsMissingAccounts"
         )
         $ do
             pp <- loadPParams ppPath
@@ -207,11 +207,11 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                 Right () -> error "expected Left on unregistered withdrawal"
                 Left err ->
                     failures err
-                        `shouldSatisfy` any isWithdrawalsNotInRewardsFailure
+                        `shouldSatisfy` any isMissingWithdrawalAccountFailure
 
     it
         ( "withdrawal tx with zero-balance registered reward account "
-            <> "does not surface WithdrawalsNotInRewardsCERTS"
+            <> "does not surface ConwayWithdrawalsMissingAccounts"
         )
         $ do
             pp <- loadPParams ppPath
@@ -223,7 +223,7 @@ spec = describe "Cardano.Tx.Validate.validatePhase1" $ do
                 Right () -> pure ()
                 Left err ->
                     failures err
-                        `shouldSatisfy` (not . any isWithdrawalsNotInRewardsFailure)
+                        `shouldSatisfy` (not . any isMissingWithdrawalAccountFailure)
 
 ppPath :: FilePath
 ppPath = "test/fixtures/pparams.json"
@@ -386,8 +386,9 @@ withdrawZeroTx =
             .~ Withdrawals
                 (Map.singleton withdrawalRewardAccount (Coin 0))
 
-isWithdrawalsNotInRewardsFailure ::
+isMissingWithdrawalAccountFailure ::
     ConwayLedgerPredFailure ConwayEra -> Bool
-isWithdrawalsNotInRewardsFailure failure =
-    "WithdrawalsNotInRewardsCERTS"
-        `Text.isInfixOf` Text.pack (show failure)
+isMissingWithdrawalAccountFailure = \case
+    ConwayWithdrawalsMissingAccounts (Withdrawals accounts) ->
+        Map.member withdrawalRewardAccount accounts
+    _ -> False

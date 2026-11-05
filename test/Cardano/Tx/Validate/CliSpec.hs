@@ -53,7 +53,7 @@ import Cardano.Ledger.Binary (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
-import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure)
+import Cardano.Ledger.Conway.Rules (ConwayLedgerPredFailure (..))
 import Cardano.Ledger.Core (bodyTxL)
 import Cardano.Ledger.Credential (Credential (KeyHashObj))
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
@@ -143,7 +143,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
     describe "end-to-end validation" $ do
         it
             ( "registered withdrawal reward account from the provider "
-                <> "suppresses WithdrawalsNotInRewardsCERTS"
+                <> "suppresses ConwayWithdrawalsMissingAccounts"
             )
             $ do
                 pp <- loadPParams ppPath
@@ -160,11 +160,11 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
                 readIORef calls
                     >>= (`shouldBe` [Set.singleton withdrawalRewardAccount])
                 verdictStructuralFailures verdict
-                    `shouldSatisfy` (not . any isWithdrawalsNotInRewardsFailure)
+                    `shouldSatisfy` (not . any isMissingWithdrawalAccountFailure)
 
         it
             ( "unregistered withdrawal reward account still surfaces "
-                <> "WithdrawalsNotInRewardsCERTS"
+                <> "ConwayWithdrawalsMissingAccounts"
             )
             $ do
                 pp <- loadPParams ppPath
@@ -181,7 +181,7 @@ spec = describe "Cardano.Tx.Validate.Cli" $ do
                 readIORef calls
                     >>= (`shouldBe` [Set.singleton withdrawalRewardAccount])
                 verdictStructuralFailures verdict
-                    `shouldSatisfy` any isWithdrawalsNotInRewardsFailure
+                    `shouldSatisfy` any isMissingWithdrawalAccountFailure
 
         it
             ( "no-withdrawal transaction keeps the human render and "
@@ -650,8 +650,9 @@ stubRewardAccount network n =
     d k = "0123456789abcdef" !! k
     hash = fromJust (hashFromStringAsHex hex)
 
-isWithdrawalsNotInRewardsFailure ::
+isMissingWithdrawalAccountFailure ::
     ConwayLedgerPredFailure ConwayEra -> Bool
-isWithdrawalsNotInRewardsFailure failure =
-    "WithdrawalsNotInRewardsCERTS"
-        `Text.isInfixOf` Text.pack (show failure)
+isMissingWithdrawalAccountFailure = \case
+    ConwayWithdrawalsMissingAccounts (Withdrawals accounts) ->
+        Map.member withdrawalRewardAccount accounts
+    _ -> False

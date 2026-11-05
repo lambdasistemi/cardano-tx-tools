@@ -152,6 +152,8 @@ runE2E = do
                         , dcDbPath = Nothing
                         , dcReconnectPolicy = defaultReconnectPolicy
                         , dcProbeConfig = defaultProbeConfig
+                        , dcStaleAfterSeconds = 600
+                        , dcRebuildAssetIndex = False
                         }
             withAsync (runDaemon nullN2CTracer cfg) $ \daemonThread -> do
                 waitForFile daemonSock 600

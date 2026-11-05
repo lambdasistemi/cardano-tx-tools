@@ -254,7 +254,7 @@ mkSession network pp slot resolvers =
 
 {- | Build a 'Session' with explicit reward-account state and
 provenance. A missing account remains absent so ledger validation
-can surface @WithdrawalsNotInRewardsCERTS@ unchanged.
+can surface @ConwayWithdrawalsMissingAccounts@ unchanged.
 -}
 mkSessionWithRewardAccounts ::
     Network ->
