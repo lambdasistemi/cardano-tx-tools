@@ -96,8 +96,10 @@ import Cardano.Tx.Build (
     vote,
  )
 import Control.Concurrent (threadDelay)
+import Control.Monad (foldM)
+import Data.Aeson (Key, Object, Value (..), eitherDecodeFileStrict', encodeFile)
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as BS8
 import Data.Foldable (traverse_)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
@@ -586,65 +588,57 @@ copyWritableFile source target = do
     permissions <- getPermissions target
     setPermissions target permissions{writable = True}
 
+-- Set this test's governance parameters structurally. The shared devnet
+-- fixture can change its formatting and defaults without changing this scenario.
 patchGenesis :: FilePath -> IO ()
 patchGenesis dir = do
-    patchFile
-        (dir </> "shelley-genesis.json")
-        [ ("\"epochLength\": 500", "\"epochLength\": 50")
-        ,
-            ( "\"maxLovelaceSupply\": 30000000000000000"
-            , "\"maxLovelaceSupply\": 60000000000000000"
-            )
-        ]
-    patchFile
-        (dir </> "conway-genesis.json")
-        [ ("\"treasuryWithdrawal\": 0.67", "\"treasuryWithdrawal\": 0.0")
-        , ("\"committeeMinSize\": 7", "\"committeeMinSize\": 0")
-        ,
-            ( "\"committee\": {\n    \"members\": {\n    },\n    \"threshold\": 0.67\n  }"
-            , "\"committee\": {\n    \"members\": {\n      \"keyHash-4e88cc2d27c364aaf90648a87dfb95f8ee103ba67fa1f12f5e86c42a\": 100000\n    },\n    \"threshold\": 0.0\n  }"
-            )
-        ,
-            ( "\"dRepDeposit\": 500000000"
-            , "\"dRepDeposit\": 500000"
-            )
-        ,
-            ( "\"govActionDeposit\": 50000000000"
-            , "\"govActionDeposit\": 1000000"
-            )
-        ]
+    patchFile (dir </> "shelley-genesis.json") $ \fields ->
+        setFields
+            fields
+            [ ("epochLength", Number 50)
+            , ("maxLovelaceSupply", Number 60_000_000_000_000_000)
+            ]
+    patchFile (dir </> "conway-genesis.json") $ \fields -> do
+        thresholds <- case KeyMap.lookup "dRepVotingThresholds" fields of
+            Just (Object values) -> setFields values [("treasuryWithdrawal", Number 0)]
+            _ -> Left "missing dRepVotingThresholds object"
+        setFields
+            fields
+            [ ("dRepVotingThresholds", Object thresholds)
+            , ("committeeMinSize", Number 0)
+            ,
+                ( "committee"
+                , Object $
+                    KeyMap.fromList
+                        [
+                            ( "members"
+                            , Object $
+                                KeyMap.singleton
+                                    "keyHash-4e88cc2d27c364aaf90648a87dfb95f8ee103ba67fa1f12f5e86c42a"
+                                    (Number 100_000)
+                            )
+                        , ("threshold", Number 0)
+                        ]
+                )
+            , ("dRepDeposit", Number 500_000)
+            , ("govActionDeposit", Number 1_000_000)
+            ]
 
-patchFile ::
-    FilePath ->
-    [(BS.ByteString, BS.ByteString)] ->
-    IO ()
-patchFile path replacements = do
-    content <- BS.readFile path
-    BS.writeFile path $
-        foldl'
-            ( \bytes (needle, replacement) ->
-                replaceRequired needle replacement bytes
-            )
-            content
-            replacements
+patchFile :: FilePath -> (Object -> Either String Object) -> IO ()
+patchFile path change = do
+    decoded <- eitherDecodeFileStrict' path
+    fields <- case decoded of
+        Right (Object values) -> pure values
+        Right _ -> fail ("governance genesis is not an object: " <> path)
+        Left err -> fail ("cannot decode governance genesis: " <> err)
+    updated <- either fail pure (change fields)
+    encodeFile path (Object updated)
 
-replaceRequired ::
-    BS.ByteString ->
-    BS.ByteString ->
-    BS.ByteString ->
-    BS.ByteString
-replaceRequired needle replacement content =
-    let (before, after) =
-            BS.breakSubstring needle content
-     in if BS.null after
-            then
-                error $
-                    "governance smoke genesis patch did not find "
-                        <> BS8.unpack needle
-            else
-                before
-                    <> replacement
-                    <> BS.drop (BS.length needle) after
+setFields :: Object -> [(Key, Value)] -> Either String Object
+setFields = foldM $ \fields (key, value) ->
+    if KeyMap.member key fields
+        then Right (KeyMap.insert key value fields)
+        else Left ("governance genesis is missing field " <> show key)
 
 mkHash32 ::
     (HashAlgorithm h) => Word8 -> Hash h a

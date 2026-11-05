@@ -21,12 +21,10 @@ module Cardano.Tx.Generator.PopulationSpec (spec) where
 
 import Cardano.Crypto.DSIGN (
     DSIGNAlgorithm (deriveVerKeyDSIGN),
-    rawSerialiseSigDSIGN,
-    rawSerialiseSignKeyDSIGN,
-    rawSerialiseVerKeyDSIGN,
     signDSIGN,
  )
 import Cardano.Ledger.BaseTypes (Network (Testnet))
+import Cardano.Ledger.Binary (FixedSizeCodec (rawEncodeFixedSized))
 import Cardano.Tx.Generator.Population (
     deriveAddr,
     deriveSeedAt,
@@ -62,8 +60,8 @@ spec = describe "TxGenerator.Population" $ do
         it "deriveSignKey at the same (seed, i) yields the same key" $ do
             let sk1 = deriveSignKey goldenMasterSeed 7
             let sk2 = deriveSignKey goldenMasterSeed 7
-            rawSerialiseSignKeyDSIGN sk1
-                `shouldBe` rawSerialiseSignKeyDSIGN sk2
+            rawEncodeFixedSized sk1
+                `shouldBe` rawEncodeFixedSized sk2
 
         it "deriveAddr at the same (net, seed, i) is byte-identical" $ do
             let a1 = deriveAddr Testnet goldenMasterSeed 42
@@ -73,7 +71,7 @@ spec = describe "TxGenerator.Population" $ do
     describe "distinct indices give distinct keys / addresses" $ do
         it "verification keys are pairwise distinct for i in [0, 64)" $ do
             let vks =
-                    [ rawSerialiseVerKeyDSIGN
+                    [ rawEncodeFixedSized
                         (deriveVerKeyDSIGN (deriveSignKey goldenMasterSeed i))
                     | i <- [0 .. 63]
                     ]
@@ -91,13 +89,13 @@ spec = describe "TxGenerator.Population" $ do
         it "produces a non-empty signature on a known message" $ do
             let sk = deriveSignKey goldenMasterSeed 0
                 sig = signDSIGN () (BS.pack [1, 2, 3, 4, 5]) sk
-            BS.length (rawSerialiseSigDSIGN sig)
+            BS.length (rawEncodeFixedSized sig)
                 `shouldSatisfy` (> 0)
 
     describe "shape and non-trivial output" $ do
         it "vk at index 0 is 32 bytes and not all-zero" $ do
             let vk =
-                    rawSerialiseVerKeyDSIGN
+                    rawEncodeFixedSized
                         ( deriveVerKeyDSIGN
                             (deriveSignKey goldenMasterSeed 0)
                         )

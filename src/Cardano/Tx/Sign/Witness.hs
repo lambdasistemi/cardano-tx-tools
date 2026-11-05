@@ -51,9 +51,6 @@ import Cardano.Crypto.DSIGN.Class (
     SignKeyDSIGN,
     SignedDSIGN (..),
     deriveVerKeyDSIGN,
-    rawDeserialiseSigDSIGN,
-    rawDeserialiseSignKeyDSIGN,
-    rawDeserialiseVerKeyDSIGN,
  )
 import Cardano.Crypto.Hash.Class (Hash, hashToBytes)
 import Cardano.Crypto.Wallet qualified as Wallet
@@ -67,6 +64,7 @@ import Cardano.Ledger.Api.Tx (
 import Cardano.Ledger.Api.Tx.Out (addrTxOutL)
 import Cardano.Ledger.BaseTypes (Network (..))
 import Cardano.Ledger.Binary (
+    FixedSizeCodec (rawDecodeFixedSized),
     serialize,
  )
 import Cardano.Ledger.Conway (ConwayEra)
@@ -305,7 +303,7 @@ decodeCardanoCliSigningKey value = do
             Left err -> Left (TxWitnessMalformedSigningKey (T.pack err))
             Right bytes -> Right bytes
     rawKey <- decodeShelleySigningKeyBytes keyBytes
-    case rawDeserialiseSignKeyDSIGN @DSIGN rawKey of
+    case rawDecodeFixedSized rawKey of
         Nothing ->
             Left
                 ( TxWitnessMalformedSigningKey
@@ -406,7 +404,7 @@ ed25519PublicKeyFromPrivateKey privateKey =
 
 addrXskVKey :: Wallet.XPrv -> Either TxWitnessError (VKey Witness)
 addrXskVKey xsk =
-    case rawDeserialiseVerKeyDSIGN @DSIGN $
+    case rawDecodeFixedSized $
         Wallet.xpubPublicKey $
             Wallet.toXPub xsk of
         Nothing ->
@@ -422,7 +420,7 @@ addrXskSignature ::
         TxWitnessError
         (SignedDSIGN DSIGN (Hash HASH EraIndependentTxBody))
 addrXskSignature xsk bodyHash =
-    case rawDeserialiseSigDSIGN @DSIGN signatureBytes of
+    case rawDecodeFixedSized signatureBytes of
         Nothing ->
             Left $
                 TxWitnessMalformedSigningKey

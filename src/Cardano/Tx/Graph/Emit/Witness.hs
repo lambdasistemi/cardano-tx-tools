@@ -63,7 +63,6 @@ import Data.Text qualified as Text
 import Lens.Micro ((^.))
 
 import Cardano.Crypto.DSIGN (SignedDSIGN (..))
-import Cardano.Crypto.DSIGN.Class (rawSerialiseSigDSIGN)
 import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.Address (Addr (..))
 import Cardano.Ledger.Alonzo.Scripts (
@@ -96,7 +95,7 @@ import Cardano.Ledger.Api.Tx.Wits (
     scriptTxWitsL,
     witVKeyHash,
  )
-import Cardano.Ledger.Binary (serialize')
+import Cardano.Ledger.Binary (FixedSizeCodec (rawEncodeFixedSized), serialize')
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
 import Cardano.Ledger.Core (Script, hashScript)
@@ -383,7 +382,7 @@ purposeDiscrimination = \case
     ConwaySpending (AsIx ix) -> ("Spend", toInteger ix)
     ConwayMinting (AsIx ix) -> ("Mint", toInteger ix)
     ConwayCertifying (AsIx ix) -> ("Cert", toInteger ix)
-    ConwayRewarding (AsIx ix) -> ("Withdraw", toInteger ix)
+    ConwayWithdrawing (AsIx ix) -> ("Withdraw", toInteger ix)
     ConwayVoting (AsIx ix) -> ("Vote", toInteger ix)
     ConwayProposing (AsIx ix) -> ("Propose", toInteger ix)
 
@@ -428,7 +427,7 @@ resolveRedeemerPurposeHash utxo inputs mintPolicies = \case
     -- T102 minimum: governance/cert/reward redeemer script-hash
     -- resolution deferred to a later slice (see Haddock above).
     ConwayCertifying _ -> Nothing
-    ConwayRewarding _ -> Nothing
+    ConwayWithdrawing _ -> Nothing
     ConwayVoting _ -> Nothing
     ConwayProposing _ -> Nothing
   where
@@ -469,7 +468,7 @@ emitKeyWitnessEntry lookupTbl k wit = do
         ( Triple
             kwSubj
             (PIri (vocabCurie TermHasSignature))
-            (OStringLit (hexText (rawSerialiseSigDSIGN sig)))
+            (OStringLit (hexText (rawEncodeFixedSized sig)))
         )
     tellTriple
         ( Triple

@@ -12,6 +12,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dev-shell:
+    name: Development shell builds
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build through the development shell
+        run: >-
+          nix develop --quiet .#ci -c bash -c
+          'cabal update && cabal build all -O0'
+
   build-gate:
     name: Build Gate
     runs-on: nixos
@@ -31,6 +46,7 @@ jobs:
           .#checks.x86_64-linux.e2e
           .#checks.x86_64-linux.lint
           .#checks.x86_64-linux.smoke
+          .#checks.x86_64-linux.age-compat
       - name: Release version contract
         run: scripts/release/check-version-consistency
 
@@ -134,11 +150,13 @@ jobs:
       - name: Assert the aarch64 GHC is cached (no source build)
         run: |
           set -euo pipefail
-          plan="$(nix build --dry-run .#packages.aarch64-linux.tx-diff 2>&1 || true)"
+          plan="$(nix build --dry-run .#packages.aarch64-linux.tx-diff 2>&1)"
           printf '%s\n' "$plan"
+          # ghc-<version>-deps only queries the cached ghc-pkg and writes metadata.
           built_ghc="$(printf '%s\n' "$plan" \
             | awk '/will be fetched/{f=0} /will be built:/{f=1;next} f' \
-            | grep -E '/nix/store/[a-z0-9]+-ghc-[0-9]' || true)"
+            | grep -E '/nix/store/[a-z0-9]+-ghc-[0-9]' \
+            | grep -v -- '-deps\.drv$' || true)"
           if [ -n "$built_ghc" ]; then
             echo "::error::aarch64 GHC would be built from source (uncached):"
             printf '  %s\n' "$built_ghc"

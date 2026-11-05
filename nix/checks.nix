@@ -1,4 +1,4 @@
-{ pkgs, src, components, lintPkgs ? pkgs
+{ pkgs, src, components, ageSource, ageTests, lintPkgs ? pkgs
 , cardanoNode ? null, cardanoNodeClientsSrc ? null }:
 let
   lib = pkgs.lib;
@@ -6,8 +6,7 @@ let
   mkCheck = name: script:
     pkgs.runCommand "${name}-check" {
       nativeBuildInputs =
-        lib.optionals pkgs.stdenv.hostPlatform.isLinux
-          [ pkgs.glibcLocales ];
+        lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.glibcLocales ];
       LANG = "C.UTF-8";
       LC_ALL = "C.UTF-8";
     } ''
@@ -18,13 +17,10 @@ let
     '';
 
   mkScript = { name, runtimeInputs ? [ ], text }:
-    pkgs.writeShellApplication {
-      inherit name runtimeInputs text;
-    };
+    pkgs.writeShellApplication { inherit name runtimeInputs text; };
 
   mkGate = spec:
-    let
-      script = mkScript spec;
+    let script = mkScript spec;
     in {
       check = mkCheck spec.name script;
       inherit script;
@@ -41,6 +37,14 @@ let
   ];
 
   gateSpecs = {
+    age-compat = {
+      name = "age-compat";
+      runtimeInputs = [ ageTests ];
+      text = ''
+        cd ${ageSource}
+        age-test
+      '';
+    };
     build = {
       name = "build";
       text = ''
@@ -81,8 +85,7 @@ let
 
     tx-generator-unit = {
       name = "tx-generator-unit";
-      runtimeInputs =
-        [ components.tests."tx-generator-tests" ];
+      runtimeInputs = [ components.tests."tx-generator-tests" ];
       text = ''
         tx-generator-tests
       '';
@@ -90,8 +93,7 @@ let
 
     tx-validate-unit = {
       name = "tx-validate-unit";
-      runtimeInputs =
-        [ components.tests."tx-validate-tests" ];
+      runtimeInputs = [ components.tests."tx-validate-tests" ];
       text = ''
         tx-validate-tests
       '';
@@ -120,16 +122,11 @@ let
     # `nix run .#smoke` behaves like the check from any directory.
     smoke = {
       name = "smoke";
-      runtimeInputs = [
-        pkgs.bash
-        pkgs.coreutils
-        pkgs.diffutils
-        pkgs.gnugrep
-      ];
+      runtimeInputs = [ pkgs.bash pkgs.coreutils pkgs.diffutils pkgs.gnugrep ];
       text = ''
         export LANG=C.UTF-8 LC_ALL=C.UTF-8
         ${lib.optionalString pkgs.stdenv.hostPlatform.isLinux
-          "export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive"}
+        "export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive"}
         export TX_SIGN_EXE=${components.exes.tx-sign}/bin/tx-sign
         export TX_INSPECT_EXE=${components.exes.tx-inspect}/bin/tx-inspect
         export TX_DIFF_EXE=${components.exes.tx-diff}/bin/tx-diff

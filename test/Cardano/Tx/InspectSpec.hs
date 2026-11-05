@@ -748,7 +748,7 @@ purposeKey = \case
     ConwaySpending (AsIx index) -> tagged "spending" index
     ConwayMinting (AsIx index) -> tagged "minting" index
     ConwayCertifying (AsIx index) -> tagged "certifying" index
-    ConwayRewarding (AsIx index) -> tagged "rewarding" index
+    ConwayWithdrawing (AsIx index) -> tagged "rewarding" index
     ConwayVoting (AsIx index) -> tagged "voting" index
     ConwayProposing (AsIx index) -> tagged "proposing" index
   where

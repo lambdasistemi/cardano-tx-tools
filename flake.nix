@@ -2,10 +2,8 @@
   description =
     "Cardano transaction tooling (builder, structural diff, blueprint)";
   nixConfig = {
-    extra-substituters = [
-      "https://cache.iog.io"
-      "https://paolino.cachix.org"
-    ];
+    extra-substituters =
+      [ "https://cache.iog.io" "https://paolino.cachix.org" ];
     extra-trusted-public-keys = [
       "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
       "paolino.cachix.org-1:ecmgO3CXdgSWA2cHlm4srknd/cLFMLmK3i3NrzeDFaE="
@@ -18,7 +16,8 @@
       inputs.hackage.follows = "hackageNix";
     };
     hackageNix = {
-      url = "github:input-output-hk/hackage.nix/b6b4aa4bd699f743238da45c7f43da5a26a822f7";
+      url =
+        "github:input-output-hk/hackage.nix/8a8899d3e55b6ea4b08be45a91228d1cc4c20d5c";
       flake = false;
     };
     nixpkgs.follows = "haskellNix/nixpkgs-unstable";
@@ -37,32 +36,25 @@
     };
     CHaP = {
       url =
-        "github:intersectmbo/cardano-haskell-packages/887d73ce434831e3a67df48e070f4f979b3ac5a6";
+        "github:intersectmbo/cardano-haskell-packages/f150513ff4741d1b816b26694425f19cddb67109";
       flake = false;
     };
     mkdocs.url = "github:paolino/dev-assets?dir=mkdocs";
-    cardano-node = {
-      url = "github:IntersectMBO/cardano-node/10.7.0";
-    };
+    cardano-node = { url = "github:IntersectMBO/cardano-node/11.2.0"; };
     cardano-node-clients = {
       url =
-        "github:lambdasistemi/cardano-node-clients/ca86f11d27b34e37d3814e4d3c3d66e256400403";
+        "github:lambdasistemi/cardano-node-clients/e17ffdc74c756680006d43963e337d9a766aa144";
       flake = false;
     };
   };
 
   outputs = inputs@{ self, nixpkgs, lintNixpkgs, flake-parts, haskellNix
-    , hackageNix, iohkNix, CHaP, mkdocs, cardano-node, cardano-node-clients
-    , ... }:
-    let
-      imageTag =
-        self.shortRev or (self.dirtyShortRev or "dirty");
-    in
-    flake-parts.lib.mkFlake { inherit inputs; } {
+    , hackageNix, iohkNix, CHaP, mkdocs, cardano-node, cardano-node-clients, ...
+    }:
+    let imageTag = self.shortRev or (self.dirtyShortRev or "dirty");
+    in flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
-      flake = {
-        inherit imageTag;
-      };
+      flake = { inherit imageTag; };
       perSystem = { system, ... }:
         let
           pkgs = import nixpkgs {
@@ -76,32 +68,35 @@
           };
           lib = pkgs.lib;
           lintPkgs = import lintNixpkgs { inherit system; };
-          indexState = "2026-02-17T10:15:41Z";
+          indexState = "2026-09-29T11:48:37Z";
           indexTool = { index-state = indexState; };
-          fix-libs = { lib, pkgs, ... }: {
-            packages.cardano-crypto-praos.components.library.pkgconfig =
-              lib.mkForce [ [ pkgs.libsodium-vrf ] ];
-            packages.cardano-crypto-class.components.library.pkgconfig =
-              lib.mkForce
-                [ [ pkgs.libsodium-vrf pkgs.secp256k1 pkgs.libblst ] ];
-            packages.cardano-lmdb.components.library.pkgconfig =
-              lib.mkForce [ [ pkgs.lmdb ] ];
-            packages.cardano-ledger-binary.components.library.doHaddock =
-              lib.mkForce false;
-            packages.plutus-core.components.library.doHaddock =
-              lib.mkForce false;
-            packages.plutus-ledger-api.components.library.doHaddock =
-              lib.mkForce false;
-            packages.plutus-tx.components.library.doHaddock =
-              lib.mkForce false;
-          } // lib.optionalAttrs (lib.elem system [ "x86_64-linux" "aarch64-linux" ]) {
-            # liburing is Linux-only (both x86_64 and aarch64); gated at the
-            # modules-list construction level via the outer `system` string so
-            # it never references blockio-uring on Darwin where it is not in
-            # the build plan.
-            packages.blockio-uring.components.library.pkgconfig =
-              lib.mkForce [ [ pkgs.liburing ] ];
-          };
+          fix-libs = { lib, pkgs, ... }:
+            {
+              packages.cardano-crypto-praos.components.library.pkgconfig =
+                lib.mkForce [ [ pkgs.libsodium-vrf ] ];
+              packages.cardano-crypto-class.components.library.pkgconfig =
+                lib.mkForce [[
+                  pkgs.libsodium-vrf
+                  pkgs.secp256k1
+                  pkgs.libblst
+                ]];
+              packages.cardano-ledger-binary.components.library.doHaddock =
+                lib.mkForce false;
+              packages.plutus-core.components.library.doHaddock =
+                lib.mkForce false;
+              packages.plutus-ledger-api.components.library.doHaddock =
+                lib.mkForce false;
+              packages.plutus-tx.components.library.doHaddock =
+                lib.mkForce false;
+            } // lib.optionalAttrs
+            (lib.elem system [ "x86_64-linux" "aarch64-linux" ]) {
+              # liburing is Linux-only (both x86_64 and aarch64); gated at the
+              # modules-list construction level via the outer `system` string so
+              # it never references blockio-uring on Darwin where it is not in
+              # the build plan.
+              packages.blockio-uring.components.library.pkgconfig =
+                lib.mkForce [ [ pkgs.liburing ] ];
+            };
           # librocksdb.a (static musl) calls into lz4/zstd/bz2/snappy, but
           # rocksdb-haskell-jprupp only declares `extra-libraries: rocksdb`, so
           # the static musl link of cardano-tx-generator (the only rocksdb
@@ -116,7 +111,14 @@
             packages.cardano-tx-tools.components.exes.cardano-tx-generator = {
               # librocksdb.a (musl) links compression (lz4/zstd/bz2/snappy) plus
               # liburing (async IO) and numactl on Linux.
-              libs = with pkgs.pkgsStatic; [ lz4 zstd bzip2 snappy liburing numactl ];
+              libs = with pkgs.pkgsStatic; [
+                lz4
+                zstd
+                bzip2
+                snappy
+                liburing
+                numactl
+              ];
               ghcOptions = [
                 "-optl-Wl,--start-group"
                 "-optl-llz4"
@@ -129,38 +131,51 @@
               ];
             };
           };
-          mkProject = extraModules: pkgs.haskell-nix.cabalProject' {
-            name = "cardano-tx-tools";
-            src = ./.;
-            compiler-nix-name = "ghc9123";
-            shell = {
-              withHoogle = true;
-              tools = {
-                cabal = indexTool;
-              };
-              buildInputs = [
-                lintPkgs.haskellPackages.cabal-fmt
-                lintPkgs.haskellPackages.fourmolu
-                lintPkgs.haskellPackages.hlint
-                pkgs.just
-                pkgs.curl
-                pkgs.cacert
-                pkgs.apache-jena
-                pkgs.lmdb
-                pkgs.liburing
-                mkdocs.packages.${system}.from-nixpkgs
-                mkdocs.packages.${system}.asciinema-plugin
-              ];
-              shellHook = ''
-                export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-              '';
+          # crypton 1.1 moved its byte-array API from memory to ram.
+          ageWithRam = pkgs.applyPatches {
+            name = "age-0.0.1.0-crypton-1.1";
+            src = pkgs.fetchurl {
+              url =
+                "https://hackage.haskell.org/package/age-0.0.1.0/age-0.0.1.0.tar.gz";
+              hash = "sha256-osYn8cFvNurvCBscBgJa8bW5MeBAnKOn/Gl+Lw4+nX4=";
             };
-            modules = [ fix-libs ] ++ extraModules
-              ++ [ { packages.cardano-tx-tools.flags.werror = true; } ];
-            inputMap = {
-              "https://chap.intersectmbo.org/" = CHaP;
-            };
+            patches = [ ./nix/patches/age-crypton-1.1.patch ];
           };
+          mkProject = extraModules:
+            pkgs.haskell-nix.cabalProject' {
+              name = "cardano-tx-tools";
+              src = ./.;
+              compiler-nix-name = "ghc9123";
+              shell = {
+                packages = ps: [ ps.cardano-tx-tools ];
+                withHoogle = true;
+                tools = { cabal = indexTool; };
+                buildInputs = [
+                  lintPkgs.haskellPackages.cabal-fmt
+                  lintPkgs.haskellPackages.fourmolu
+                  lintPkgs.haskellPackages.hlint
+                  pkgs.just
+                  pkgs.curl
+                  pkgs.cacert
+                  pkgs.apache-jena
+                  pkgs.lmdb
+                  pkgs.rocksdb
+                  mkdocs.packages.${system}.from-nixpkgs
+                  mkdocs.packages.${system}.asciinema-plugin
+                ] ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.liburing ];
+                shellHook = ''
+                  export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+                '';
+              };
+              cabalProjectLocal = "packages: ${ageWithRam}";
+              modules = [ fix-libs ] ++ extraModules
+                ++ [{ packages.cardano-tx-tools.flags.werror = true; }];
+              inputMap = {
+                "https://chap.intersectmbo.org/" = CHaP;
+                "https://github.com/lambdasistemi/cardano-node-clients/e17ffdc74c756680006d43963e337d9a766aa144" =
+                  cardano-node-clients;
+              };
+            };
           # Native project (x86_64/aarch64 glibc + darwin) — no rocksdb fix.
           project = mkProject [ ];
           # Musl-cross project carries the rocksdb static-link fix; consumed
@@ -171,12 +186,12 @@
           # from the native build platform (x86_64-linux -> x86_64 musl;
           # aarch64-linux -> aarch64 musl), so the cross plan evaluates without
           # an aarch64 builder. Raw exes (no SSL wrapper) — static binaries.
-          muslComponents =
-            if system == "x86_64-linux"
-            then muslProject.projectCross.musl64.hsPkgs.cardano-tx-tools.components
-            else if system == "aarch64-linux"
-            then muslProject.projectCross.aarch64-multiplatform-musl.hsPkgs.cardano-tx-tools.components
-            else null;
+          muslComponents = if system == "x86_64-linux" then
+            muslProject.projectCross.musl64.hsPkgs.cardano-tx-tools.components
+          else if system == "aarch64-linux" then
+            muslProject.projectCross.aarch64-multiplatform-musl.hsPkgs.cardano-tx-tools.components
+          else
+            null;
           # tx-diff's web2 resolver uses http-client-tls and needs a CA
           # bundle at runtime. Wrap the raw executable so SSL_CERT_FILE
           # defaults to the bundled cacert; users can still override.
@@ -236,20 +251,14 @@
                   ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
             '';
           };
-          packageVersion =
-            let
-              versionLines =
-                builtins.filter (lib.hasPrefix "version:")
-                  (lib.splitString "\n"
-                    (builtins.readFile ./cardano-tx-tools.cabal));
-            in
-            builtins.elemAt
-              (builtins.match
-                "version:[[:space:]]*([^[:space:]]+)"
-                (builtins.head versionLines))
-              0;
-          sourceRevision =
-            self.shortRev or (self.dirtyShortRev or "dirty");
+          packageVersion = let
+            versionLines = builtins.filter (lib.hasPrefix "version:")
+              (lib.splitString "\n"
+                (builtins.readFile ./cardano-tx-tools.cabal));
+          in builtins.elemAt
+          (builtins.match "version:[[:space:]]*([^[:space:]]+)"
+            (builtins.head versionLines)) 0;
+          sourceRevision = self.shortRev or (self.dirtyShortRev or "dirty");
           devArtifactVersion = "${packageVersion}-${sourceRevision}";
           mkDarwinHomebrewBundle =
             inputs.dev-assets.lib.mkDarwinHomebrewBundle { inherit pkgs; };
@@ -274,8 +283,7 @@
               name = "tx-validate";
               package = txValidate;
               darwinPackage = components.exes.tx-validate;
-              desc =
-                "Conway Phase-1 pre-flight against a local cardano-node";
+              desc = "Conway Phase-1 pre-flight against a local cardano-node";
               formulaClass = "TxValidate";
               formulaTest = ''
                 output = shell_output("#{bin}/tx-validate 2>&1", 1)
@@ -324,10 +332,8 @@
                 output = shell_output("#{bin}/tx-graph 2>&1", 1)
                 assert_match "operator-entity overlay + body emitter", output
               '';
-              usageGreps = [
-                "Usage:"
-                "operator-entity overlay + body emitter"
-              ];
+              usageGreps =
+                [ "Usage:" "operator-entity overlay + body emitter" ];
             }
             {
               name = "tx-fetch";
@@ -340,10 +346,7 @@
                 output = shell_output("#{bin}/tx-fetch 2>&1", 1)
                 assert_match "Usage:", output
               '';
-              usageGreps = [
-                "Usage:"
-                "closure-walking Conway CBOR fetcher"
-              ];
+              usageGreps = [ "Usage:" "closure-walking Conway CBOR fetcher" ];
             }
             {
               # tx-view is the offline packaged-view runner. Like
@@ -359,16 +362,12 @@
                 output = shell_output("#{bin}/tx-view 2>&1", 1)
                 assert_match "packaged-view dispatcher", output
               '';
-              usageGreps = [
-                "Usage:"
-                "packaged-view dispatcher"
-              ];
+              usageGreps = [ "Usage:" "packaged-view dispatcher" ];
             }
             {
               name = "cardano-tx-generator";
               package = components.exes.cardano-tx-generator;
-              desc =
-                "Synthetic Cardano transaction load generator";
+              desc = "Synthetic Cardano transaction load generator";
               formulaClass = "CardanoTxGenerator";
               formulaTest = ''
                 output = shell_output("#{bin}/cardano-tx-generator 2>&1", 1)
@@ -388,10 +387,10 @@
               status="$?"
               set -e
               test "$status" -ne 0
-            ''
-            + lib.concatMapStringsSep "\n"
-              (g: "  grep -F -- ${lib.escapeShellArg g} /tmp/${spec.name}.out >/dev/null")
-              spec.usageGreps;
+            '' + lib.concatMapStringsSep "\n" (g:
+              "  grep -F -- ${
+                  lib.escapeShellArg g
+                } /tmp/${spec.name}.out >/dev/null") spec.usageGreps;
           # Resolve the Darwin-side package: prefer `darwinPackage` if the
           # spec declares one, else fall back to `package`. The wrapped
           # Linux variants (txDiff, txValidate, txInspect) bundle a
@@ -430,30 +429,25 @@
               muslPackage = muslComponents.exes.${spec.name};
               bundlers = inputs.bundlers;
             } // extraArgs);
-          txDiffSpec =
-            lib.findFirst (s: s.name == "tx-diff")
-              (throw "exeSpecs is missing tx-diff")
-              exeSpecs;
-          darwinReleasePackages = lib.optionalAttrs
-            pkgs.stdenv.isDarwin
-            (lib.listToAttrs
-              (lib.concatMap (spec: [
-                {
-                  name = "${spec.name}-darwin-release-artifacts";
-                  value = mkExeDarwinHomebrewBundle spec { };
-                }
-                {
-                  name = "${spec.name}-darwin-dev-homebrew-artifacts";
-                  value = mkExeDarwinHomebrewBundle spec {
-                    artifactVersion = devArtifactVersion;
-                    releaseTag = "dev-homebrew-${spec.name}";
-                    formulaName = "${spec.name}-dev";
-                    formulaClass = "${spec.formulaClass}Dev";
-                    formulaVersion = devArtifactVersion;
-                  };
-                }
-              ]) exeSpecs)
-            // {
+          txDiffSpec = lib.findFirst (s: s.name == "tx-diff")
+            (throw "exeSpecs is missing tx-diff") exeSpecs;
+          darwinReleasePackages = lib.optionalAttrs pkgs.stdenv.isDarwin
+            (lib.listToAttrs (lib.concatMap (spec: [
+              {
+                name = "${spec.name}-darwin-release-artifacts";
+                value = mkExeDarwinHomebrewBundle spec { };
+              }
+              {
+                name = "${spec.name}-darwin-dev-homebrew-artifacts";
+                value = mkExeDarwinHomebrewBundle spec {
+                  artifactVersion = devArtifactVersion;
+                  releaseTag = "dev-homebrew-${spec.name}";
+                  formulaName = "${spec.name}-dev";
+                  formulaClass = "${spec.formulaClass}Dev";
+                  formulaVersion = devArtifactVersion;
+                };
+              }
+            ]) exeSpecs) // {
               # Backward-compat aliases. The unprefixed names were
               # the tx-diff outputs before the Phase-6 refactor; keep
               # them so any external CI referencing them continues to
@@ -471,31 +465,26 @@
                   formulaVersion = devArtifactVersion;
                 };
             });
-          linuxReleasePackages = lib.optionalAttrs
-            pkgs.stdenv.isLinux
-            (lib.listToAttrs
-              (lib.concatMap (spec: [
-                {
-                  name = "${spec.name}-linux-release-artifacts";
-                  value = mkExeLinuxRelease spec { };
-                }
-                {
-                  name = "${spec.name}-linux-dev-release-artifacts";
-                  value = mkExeLinuxRelease spec {
-                    artifactVersion = devArtifactVersion;
-                  };
-                }
-              ]) exeSpecs)
-            // {
+          linuxReleasePackages = lib.optionalAttrs pkgs.stdenv.isLinux
+            (lib.listToAttrs (lib.concatMap (spec: [
+              {
+                name = "${spec.name}-linux-release-artifacts";
+                value = mkExeLinuxRelease spec { };
+              }
+              {
+                name = "${spec.name}-linux-dev-release-artifacts";
+                value = mkExeLinuxRelease spec {
+                  artifactVersion = devArtifactVersion;
+                };
+              }
+            ]) exeSpecs) // {
               # Backward-compat aliases (tx-diff was unprefixed
               # pre-Phase-6); preserve so external callers don't
               # break on rename.
-              linux-release-artifacts =
-                mkExeLinuxRelease txDiffSpec { };
-              linux-dev-release-artifacts =
-                mkExeLinuxRelease txDiffSpec {
-                  artifactVersion = devArtifactVersion;
-                };
+              linux-release-artifacts = mkExeLinuxRelease txDiffSpec { };
+              linux-dev-release-artifacts = mkExeLinuxRelease txDiffSpec {
+                artifactVersion = devArtifactVersion;
+              };
               linux-artifact-smoke =
                 # Full symmetric matrix on both arches (the lib default).
                 inputs.dev-assets.lib.mkLinuxArtifactSmoke {
@@ -503,18 +492,16 @@
                 };
             });
           cardanoTxGeneratorImage =
-            import ./nix/docker-image.nix {
-              inherit pkgs components imageTag;
-            };
-          txValidateImage =
-            import ./nix/tx-validate-docker-image.nix {
-              inherit pkgs components imageTag;
-            };
+            import ./nix/docker-image.nix { inherit pkgs components imageTag; };
+          txValidateImage = import ./nix/tx-validate-docker-image.nix {
+            inherit pkgs components imageTag;
+          };
           checkSuite = import ./nix/checks.nix {
             inherit pkgs components lintPkgs;
+            ageSource = ageWithRam;
+            ageTests = project.hsPkgs.age.components.tests.age-test;
             src = ./.;
-            cardanoNode =
-              cardano-node.packages.${system}.cardano-node;
+            cardanoNode = cardano-node.packages.${system}.cardano-node;
             cardanoNodeClientsSrc = cardano-node-clients;
           };
           checkApps = import ./nix/apps.nix {
@@ -531,8 +518,7 @@
             tx-graph = components.exes.tx-graph;
             tx-fetch = txFetch;
             tx-view = components.exes.tx-view;
-            cardano-tx-generator =
-              components.exes.cardano-tx-generator;
+            cardano-tx-generator = components.exes.cardano-tx-generator;
           } // darwinReleasePackages // linuxReleasePackages
             // lib.optionalAttrs pkgs.stdenv.isLinux {
               cardano-tx-generator-image = cardanoTxGeneratorImage;
@@ -546,20 +532,19 @@
           # underneath; this wrapper just adds TX_VIEW_EXE to the
           # environment first.
           checks = checkSuite.checks // {
-            unit = pkgs.runCommand "unit-check"
-              {
-                nativeBuildInputs =
-                  pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux
-                    [ pkgs.glibcLocales ];
-                LANG = "C.UTF-8";
-                LC_ALL = "C.UTF-8";
-              } ''
-                set -euo pipefail
-                cd ${./.}
-                export TX_VIEW_EXE=${components.exes.tx-view}/bin/tx-view
-                ${pkgs.lib.getExe checkSuite.scripts.unit}
-                touch "$out"
-              '';
+            unit = pkgs.runCommand "unit-check" {
+              nativeBuildInputs =
+                pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux
+                [ pkgs.glibcLocales ];
+              LANG = "C.UTF-8";
+              LC_ALL = "C.UTF-8";
+            } ''
+              set -euo pipefail
+              cd ${./.}
+              export TX_VIEW_EXE=${components.exes.tx-view}/bin/tx-view
+              ${pkgs.lib.getExe checkSuite.scripts.unit}
+              touch "$out"
+            '';
           };
           apps = checkApps // {
             # Override apps.unit so `nix run .#unit` (what CI calls)
@@ -569,14 +554,16 @@
             # spec families that spawn tx-view as a subprocess.
             unit = {
               type = "app";
-              program = "${pkgs.writeShellApplication {
-                name = "unit-with-tx-view";
-                runtimeInputs = [ checkSuite.scripts.unit ];
-                text = ''
-                  export TX_VIEW_EXE=${components.exes.tx-view}/bin/tx-view
-                  exec ${pkgs.lib.getExe checkSuite.scripts.unit} "$@"
-                '';
-              }}/bin/unit-with-tx-view";
+              program = "${
+                  pkgs.writeShellApplication {
+                    name = "unit-with-tx-view";
+                    runtimeInputs = [ checkSuite.scripts.unit ];
+                    text = ''
+                      export TX_VIEW_EXE=${components.exes.tx-view}/bin/tx-view
+                      exec ${pkgs.lib.getExe checkSuite.scripts.unit} "$@"
+                    '';
+                  }
+                }/bin/unit-with-tx-view";
             };
             tx-diff = {
               type = "app";
@@ -608,9 +595,8 @@
             };
             cardano-tx-generator = {
               type = "app";
-              program = "${
-                  components.exes.cardano-tx-generator
-                }/bin/cardano-tx-generator";
+              program =
+                "${components.exes.cardano-tx-generator}/bin/cardano-tx-generator";
             };
           } // lib.optionalAttrs pkgs.stdenv.isLinux {
             linux-artifact-smoke = {
@@ -620,6 +606,7 @@
             };
           };
           devShells.default = project.shell;
+          devShells.ci = project.shellFor { withHoogle = lib.mkForce false; };
         };
     };
 }

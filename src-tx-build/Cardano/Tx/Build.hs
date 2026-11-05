@@ -2216,7 +2216,7 @@ collectWithdrawalRedeemers ::
       )
     ]
 collectWithdrawalRedeemers withdrawals entries =
-    [ ( ConwayRewarding
+    [ ( ConwayWithdrawing
             (AsIx (withdrawalIndex rewardAccount withdrawals))
       , (redeemer, ExUnits 0 0)
       )
